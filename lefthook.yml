@@ -1,0 +1,23 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: "*.{js,ts,tsx,json,css}"
+      run: npx biome format --write {staged_files}
+    lint:
+      glob: "*.{js,ts,tsx}"
+      run: npx biome check {staged_files}
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit -p tsconfig.node.json && npx tsc --noEmit -p tsconfig.web.json
+    arch-lint:
+      run: node scripts/lint-arch.js
+    gc-audit:
+      run: node scripts/gc.js --audit
+
+pre-push:
+  commands:
+    test:
+      run: npx vitest run
+    build:
+      run: npm run build

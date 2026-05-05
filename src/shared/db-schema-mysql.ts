@@ -1,0 +1,93 @@
+/** Shared MySQL DDL — canonical CREATE TABLE statements used by both main process and server. */
+export const MYSQL_DDL = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(256) NOT NULL, workspace_path VARCHAR(500) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS tags (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS folders (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL, parent_id INT DEFAULT NULL,
+    type VARCHAR(20) NOT NULL, sort_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS blogs (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL, format ENUM('md','html') DEFAULT 'md',
+    content LONGTEXT, status ENUM('active','trash') DEFAULT 'active',
+    series_id VARCHAR(36) DEFAULT NULL, series_name VARCHAR(100) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_status (user_id, status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS blog_tags (
+    id INT AUTO_INCREMENT PRIMARY KEY, blog_id INT NOT NULL, tag_id INT NOT NULL,
+    FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS blog_drafts (
+    id INT AUTO_INCREMENT PRIMARY KEY, blog_id INT NOT NULL,
+    content LONGTEXT NOT NULL, saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS knowledge_files (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    filename VARCHAR(500) NOT NULL, file_path VARCHAR(1000) NOT NULL,
+    file_type VARCHAR(20) NOT NULL, file_size INT DEFAULT 0,
+    status ENUM('active','trash') DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS knowledge_file_tags (
+    id INT AUTO_INCREMENT PRIMARY KEY, file_id INT NOT NULL, tag_id INT NOT NULL,
+    FOREIGN KEY (file_id) REFERENCES knowledge_files(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS recycle_bin (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    item_type VARCHAR(20) NOT NULL, item_id INT NOT NULL,
+    deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    token VARCHAR(128) NOT NULL UNIQUE, expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS refs (
+    id INT AUTO_INCREMENT PRIMARY KEY, source_type VARCHAR(20) NOT NULL,
+    source_id INT NOT NULL, target_type VARCHAR(20) NOT NULL, target_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_ref (source_type, source_id, target_type, target_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+];
+
+/** ALTER TABLE statements for columns added after initial schema */
+export const MYSQL_MIGRATIONS = [
+  'ALTER TABLE blogs ADD COLUMN folder_id INT DEFAULT NULL',
+  'ALTER TABLE blogs ADD COLUMN series_id VARCHAR(36) DEFAULT NULL',
+  'ALTER TABLE blogs ADD COLUMN series_name VARCHAR(100) DEFAULT NULL',
+  'ALTER TABLE knowledge_files ADD COLUMN folder_id INT DEFAULT NULL',
+  'ALTER TABLE knowledge_files ADD COLUMN content_text LONGTEXT',
+  'ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
+  'ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
+];

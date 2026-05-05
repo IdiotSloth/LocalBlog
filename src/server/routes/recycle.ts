@@ -1,0 +1,79 @@
+import { Router } from 'express';
+import { getPool } from '../db';
+import { requireAuth, type AuthRequest } from '../middleware/auth';
+
+export const recycleRouter = Router();
+recycleRouter.use(requireAuth);
+
+recycleRouter.get('/list', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      'SELECT * FROM recycle_bin WHERE user_id = ? ORDER BY deleted_at DESC', [userId]
+    ) as any[];
+    return res.json(rows);
+  } catch (err) { return res.json({ success: false, error: (err as Error).message }); }
+});
+
+recycleRouter.post('/restore', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const { itemId, itemType } = req.body;
+    const pool = getPool();
+    if (itemType === 'blog') {
+      await pool.execute("UPDATE blogs SET status = 'active' WHERE id = ?", [itemId]);
+    } else if (itemType === 'knowledge_file') {
+      await pool.execute("UPDATE knowledge_files SET status = 'active' WHERE id = ?", [itemId]);
+    }
+    await pool.execute('DELETE FROM recycle_bin WHERE user_id = ? AND item_id = ? AND item_type = ?', [userId, itemId, itemType]);
+    return res.json({ success: true });
+  } catch (err) { return res.json({ success: false, error: (err as Error).message }); }
+});
+
+recycleRouter.post('/empty', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const pool = getPool();
+    const [items] = await pool.execute('SELECT * FROM recycle_bin WHERE user_id = ?', [userId]) as any[];
+    for (const item of items) {
+      if (item.item_type === 'blog') {
+        await pool.execute('DELETE FROM blog_tags WHERE blog_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM blog_drafts WHERE blog_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM blogs WHERE id = ?', [item.item_id]);
+      } else if (item.item_type === 'knowledge_file') {
+        await pool.execute('DELETE FROM knowledge_file_tags WHERE file_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM knowledge_files WHERE id = ?', [item.item_id]);
+      }
+      await pool.execute('DELETE FROM recycle_bin WHERE id = ?', [item.id]);
+    }
+    return res.json({ success: true, data: { removed: items.length } });
+  } catch (err) { return res.json({ success: false, error: (err as Error).message }); }
+});
+
+recycleRouter.post('/auto-clean', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const { days } = req.body;
+    const pool = getPool();
+    const [items] = await pool.execute(
+      'SELECT * FROM recycle_bin WHERE user_id = ? AND deleted_at < DATE_SUB(NOW(), INTERVAL ? DAY)', [userId, days]
+    ) as any[];
+    for (const item of items) {
+      if (item.item_type === 'blog') {
+        await pool.execute('DELETE FROM blog_tags WHERE blog_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM blog_drafts WHERE blog_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM blogs WHERE id = ?', [item.item_id]);
+      } else if (item.item_type === 'knowledge_file') {
+        await pool.execute('DELETE FROM knowledge_file_tags WHERE file_id = ?', [item.item_id]);
+        await pool.execute('DELETE FROM knowledge_files WHERE id = ?', [item.item_id]);
+      }
+      await pool.execute('DELETE FROM recycle_bin WHERE id = ?', [item.id]);
+    }
+    return res.json({ success: true, data: { cleaned: items.length } });
+  } catch (err) { return res.json({ success: false, error: (err as Error).message }); }
+});

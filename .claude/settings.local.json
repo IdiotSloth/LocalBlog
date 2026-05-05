@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm run build)",
+      "Bash(node scripts/sync-docs.js)",
+      "Bash(mkdir *)",
+      "Bash(ls *)",
+      "Bash(npm run *)",
+      "Bash(npx asar *)",
+      "Bash(grep \"package.json$\")",
+      "Bash(grep -E \"^\\\\\\\\\\\\\\\\out\")",
+      "Bash(grep -v \"^\\\\\\\\\\\\\\\\node_modules\")",
+      "Bash(cat /tmp/asar-check/package.json)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('main:', p.main\\); console.log\\('name:', p.name\\);\")",
+      "Bash(grep -E \"^\\(\\\\\\\\\\\\\\\\out|\\\\\\\\\\\\\\\\package\\)\")",
+      "Bash(awk -F'\\\\\\\\\\\\\\\\' 'NF==3 && $2==\"out\" {print}')",
+      "Read(//tmp/asar-extract/out/renderer/**)",
+      "Read(//tmp/asar-extract/**)",
+      "Read(//e/3-data/test/Blogs_recovery_backup/**)",
+      "Bash(rm -f \"E:/3-data/test/Blogs/11.md\" \"E:/3-data/test/Blogs/12.md\" \"E:/3-data/test/Blogs/13.md\" \"E:/3-data/test/Blogs/14.md\")",
+      "Bash(node -e ' *)",
+      "Bash(taskkill //f //im LocalBlogKB.exe)",
+      "Bash(taskkill //f //im Idiot.exe)",
+      "Bash(node scripts/run.js npx electron-forge package)",
+      "Bash(cp -r \"e:/5-work/web/out/main\" \"e:/5-work/web/out/preload\" \"e:/5-work/web/out/renderer\" \"e:/5-work/web/out/package.json\" /tmp/app/out/)",
+      "Bash(rm \"e:/5-work/web/release/Idiot-win32-x64/resources/app.asar\")",
+      "Bash(rm -rf /tmp/app)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/sync-docs.js"
+          }
+        ]
+      }
+    ]
+  }
+}

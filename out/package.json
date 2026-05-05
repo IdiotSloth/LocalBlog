@@ -1,0 +1,8 @@
+{
+  "name": "local-blog-kb",
+  "version": "0.1.0",
+  "description": "本地博客与知识库存储系统 - 离线可用的个人桌面应用",
+  "main": "main/index.js",
+  "author": "Idiot",
+  "license": "MIT"
+}

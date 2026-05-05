@@ -1,0 +1,287 @@
+/** Database layer — MySQL (primary) with sql.js fallback */
+
+import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// ---- MySQL backend ----
+import {
+  initMySQL as _initMySQL,
+  run as _mysqlRun,
+  get as _mysqlGet,
+  all as _mysqlAll,
+  saveToDisk as _mysqlSave,
+  closeDatabase as _mysqlClose,
+} from './mysql';
+
+// ---- sql.js backend ----
+import { SCHEMA_SQL } from './schema';
+
+let sqlJsDb: SqlJsDatabase | null = null;
+let sqlJsPath = '';
+let useMySQL = false;
+
+function resolveSqlJsPath(): string {
+  const base = process.env.APPDATA || (process.platform === 'darwin'
+    ? path.join(process.env.HOME || '', 'Library', 'Application Support')
+    : path.join(process.env.HOME || '', '.local', 'share'));
+  return path.join(base, 'LocalBlogKB', 'database.db');
+}
+
+// ---- Public API ----
+
+export async function initDatabase(): Promise<void> {
+  // Try MySQL first
+  try {
+    await _initMySQL();
+    useMySQL = true;
+    console.log('[DB] MySQL initialized');
+
+    // Migrate sql.js data if exists
+    await migrateSqlJsToMySQL();
+    return;
+  } catch (err) {
+    console.log('[DB] MySQL unavailable, using sql.js:', (err as Error).message);
+  }
+
+  // Fallback to sql.js
+  const SQL = await initSqlJs();
+  sqlJsPath = resolveSqlJsPath();
+  const dir = path.dirname(sqlJsPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  if (fs.existsSync(sqlJsPath)) {
+    const buffer = fs.readFileSync(sqlJsPath);
+    sqlJsDb = new SQL.Database(buffer);
+  } else {
+    sqlJsDb = new SQL.Database();
+  }
+
+  sqlJsDb.run('PRAGMA journal_mode=WAL');
+  sqlJsDb.run('PRAGMA foreign_keys=ON');
+  sqlJsDb.run(SCHEMA_SQL);
+
+  // Migrate existing databases: add columns that may be missing from earlier versions
+  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN content TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN folder_id INTEGER DEFAULT NULL"); } catch {}
+  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_id TEXT DEFAULT NULL"); } catch {}
+  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_name TEXT DEFAULT NULL"); } catch {}
+  try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN folder_id INTEGER DEFAULT NULL"); } catch {}
+  try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''"); } catch {}
+
+  sqlJsSave();
+  useMySQL = false;
+  console.log('[DB] sql.js initialized at', sqlJsPath);
+}
+
+/** @deprecated Use {@link dbRun} — the unified async helper that works with both MySQL and sql.js */
+export function run(sql: string, params: unknown[] = []): void {
+  if (useMySQL) {
+    throw new Error('MySQL requires async; use dbRun instead');
+  }
+  if (!sqlJsDb) throw new Error('DB not initialized');
+  sqlJsDb.run(sql, params);
+  sqlJsSave();
+}
+
+/** @deprecated Use {@link dbRun} instead */
+export async function runAsync(sql: string, params: unknown[] = []): Promise<void> {
+  if (useMySQL) return _mysqlRun(sql, params);
+  run(sql, params);
+}
+
+/** @deprecated Use {@link dbGet} — the unified async helper that works with both MySQL and sql.js */
+export function get<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T | undefined {
+  if (useMySQL) throw new Error('MySQL requires async; use dbGet instead');
+  if (!sqlJsDb) throw new Error('DB not initialized');
+  const stmt = sqlJsDb.prepare(sql);
+  // @ts-ignore sql.js bind type incompatibility
+  stmt.bind(params);
+  if (stmt.step()) {
+    const row = stmt.getAsObject() as unknown as T;
+    stmt.free();
+    return row;
+  }
+  stmt.free();
+  return undefined;
+}
+
+/** @deprecated Use {@link dbGet} instead */
+export async function getAsync<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+  if (useMySQL) return _mysqlGet<T>(sql, params);
+  return get<T>(sql, params);
+}
+
+/** @deprecated Use {@link dbAll} — the unified async helper that works with both MySQL and sql.js */
+export function all<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
+  if (useMySQL) throw new Error('MySQL requires async; use dbAll instead');
+  if (!sqlJsDb) throw new Error('DB not initialized');
+  const stmt = sqlJsDb.prepare(sql);
+  stmt.bind(params as any[]);
+  const rows: T[] = [];
+  while (stmt.step()) rows.push(stmt.getAsObject() as unknown as T);
+  stmt.free();
+  return rows;
+}
+
+/** @deprecated Use {@link dbAll} instead */
+export async function allAsync<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  if (useMySQL) return _mysqlAll<T>(sql, params);
+  return all<T>(sql, params);
+}
+
+// Unified async database helpers — the only API services should use
+export async function dbGet<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+  if (useMySQL) return _mysqlGet<T>(sql, params);
+  return get<T>(sql, params);
+}
+export async function dbAll<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  if (useMySQL) return _mysqlAll<T>(sql, params);
+  return all<T>(sql, params);
+}
+export async function dbRun(sql: string, params: unknown[] = []): Promise<void> {
+  if (useMySQL) { await _mysqlRun(sql, params); return; }
+  run(sql, params); // run() already calls sqlJsSave()
+}
+
+export function saveToDisk(): void {
+  if (!useMySQL) sqlJsSaveNow();
+}
+
+export function closeDatabase(): void {
+  if (useMySQL) {
+    _mysqlClose();
+  } else if (sqlJsDb) {
+    sqlJsSaveNow();
+    sqlJsDb.close();
+    sqlJsDb = null;
+  }
+}
+
+export function isUsingMySQL(): boolean { return useMySQL; }
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let savePending = false;
+
+function sqlJsSave(): void {
+  if (!sqlJsDb || !sqlJsPath) return;
+  savePending = true;
+  if (saveTimer) return; // already scheduled
+  saveTimer = setTimeout(() => {
+    savePending = false;
+    saveTimer = null;
+    if (sqlJsDb && sqlJsPath) {
+      fs.writeFileSync(sqlJsPath, Buffer.from(sqlJsDb.export()));
+    }
+  }, 500);
+}
+
+function sqlJsSaveNow(): void {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (sqlJsDb && sqlJsPath && savePending) {
+    savePending = false;
+    fs.writeFileSync(sqlJsPath, Buffer.from(sqlJsDb.export()));
+  }
+}
+
+async function migrateSqlJsToMySQL(): Promise<void> {
+  const sqlPath = resolveSqlJsPath();
+  if (!fs.existsSync(sqlPath)) return;
+
+  try {
+    console.log('[DB] Checking for sql.js data to migrate...');
+    const SQL = await initSqlJs();
+    const buffer = fs.readFileSync(sqlPath);
+    const oldDb = new SQL.Database(buffer);
+
+    // Check if MySQL already has users (skip if so)
+    const userCount = await _mysqlGet<{c:number}>('SELECT COUNT(*) as c FROM users');
+    if (userCount && userCount.c > 0) {
+      console.log('[DB] MySQL already has data, skipping migration');
+      oldDb.close();
+      return;
+    }
+
+    // Migrate users
+    const users = sqlJsQuery(oldDb, 'SELECT * FROM users');
+    for (const u of users) {
+      await _mysqlRun('INSERT INTO users (id, username, password_hash, workspace_path, created_at) VALUES (?,?,?,?,?)',
+        [u.id, u.username, u.password_hash, u.workspace_path, u.created_at]);
+    }
+
+    // Migrate blogs
+    const blogs = sqlJsQuery(oldDb, 'SELECT * FROM blogs');
+    for (const b of blogs) {
+      await _mysqlRun('INSERT INTO blogs (id, user_id, title, format, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+        [b.id, b.user_id, b.title, b.format, b.status, b.created_at, b.updated_at]);
+    }
+
+    // Migrate tags
+    const tags = sqlJsQuery(oldDb, 'SELECT * FROM tags');
+    for (const t of tags) {
+      await _mysqlRun('INSERT INTO tags (id, user_id, name) VALUES (?,?,?)', [t.id, t.user_id, t.name]);
+    }
+
+    // Migrate blog_tags
+    const blogTags = sqlJsQuery(oldDb, 'SELECT * FROM blog_tags');
+    for (const bt of blogTags) {
+      await _mysqlRun('INSERT INTO blog_tags (id, blog_id, tag_id) VALUES (?,?,?)', [bt.id, bt.blog_id, bt.tag_id]);
+    }
+
+    // Migrate sessions
+    const sessions = sqlJsQuery(oldDb, 'SELECT * FROM sessions');
+    for (const s of sessions) {
+      await _mysqlRun('INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)',
+        [s.id, s.user_id, s.token, s.expires_at, s.created_at]);
+    }
+
+    // Migrate knowledge_files
+    const kfs = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_files');
+    for (const k of kfs) {
+      await _mysqlRun('INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.created_at, k.updated_at]);
+    }
+
+    // Migrate knowledge_file_tags
+    const kft = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_file_tags');
+    for (const k of kft) {
+      await _mysqlRun('INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)', [k.id, k.file_id, k.tag_id]);
+    }
+
+    // Migrate recycle_bin
+    const rb = sqlJsQuery(oldDb, 'SELECT * FROM recycle_bin');
+    for (const r of rb) {
+      await _mysqlRun('INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)',
+        [r.id, r.user_id, r.item_type, r.item_id, r.deleted_at]);
+    }
+
+    // Migrate blog_drafts
+    const drafts = sqlJsQuery(oldDb, 'SELECT * FROM blog_drafts');
+    for (const d of drafts) {
+      await _mysqlRun('INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)',
+        [d.id, d.blog_id, d.content, d.saved_at]);
+    }
+
+    oldDb.close();
+    console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);
+  } catch (err) {
+    console.log('[DB] Migration skipped:', (err as Error).message);
+  }
+}
+
+function sqlJsQuery(db: SqlJsDatabase, sql: string): Record<string, unknown>[] {
+  const stmt = db.prepare(sql);
+  const rows: Record<string, unknown>[] = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+
+export function lastInsertRowId(): number {
+  if (!sqlJsDb) return 0;
+  const result = sqlJsDb.exec('SELECT last_insert_rowid() as id');
+  if (result.length > 0 && result[0].values.length > 0) {
+    return result[0].values[0][0] as number;
+  }
+  return 0;
+}
