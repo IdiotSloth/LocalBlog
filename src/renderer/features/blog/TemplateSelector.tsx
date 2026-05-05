@@ -8,16 +8,10 @@ interface Props {
 export function TemplateSelector({ onSelect }: Props) {
   return (
     <div style={{ maxWidth: 640, margin: '40px auto' }}>
-      <h2
-        className="mb-2 text-center text-[22px] font-bold"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      <h2 className="mb-2 text-center text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>
         新建博客
       </h2>
-      <p
-        className="mb-8 text-center text-[14px]"
-        style={{ color: 'var(--text-secondary)' }}
-      >
+      <p className="mb-8 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>
         选择一个模板开始写作，或从空白博客自由发挥
       </p>
 

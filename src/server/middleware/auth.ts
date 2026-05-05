@@ -1,5 +1,5 @@
 /** Centralized JWT cookie auth middleware */
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config';
 
@@ -10,7 +10,10 @@ export interface AuthRequest extends Request {
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction): void {
   try {
     const token = req.cookies?.token;
-    if (!token) { res.status(401).json({ success: false, error: '未登录' }); return; }
+    if (!token) {
+      res.status(401).json({ success: false, error: '未登录' });
+      return;
+    }
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
     req.userId = decoded.userId;
     next();

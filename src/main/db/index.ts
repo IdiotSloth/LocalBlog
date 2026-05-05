@@ -1,17 +1,17 @@
 /** Database layer — MySQL (primary) with sql.js fallback */
 
-import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 
 // ---- MySQL backend ----
 import {
   initMySQL as _initMySQL,
-  run as _mysqlRun,
-  get as _mysqlGet,
   all as _mysqlAll,
-  saveToDisk as _mysqlSave,
   closeDatabase as _mysqlClose,
+  get as _mysqlGet,
+  run as _mysqlRun,
+  saveToDisk as _mysqlSave,
 } from './mysql';
 
 // ---- sql.js backend ----
@@ -22,9 +22,11 @@ let sqlJsPath = '';
 let useMySQL = false;
 
 function resolveSqlJsPath(): string {
-  const base = process.env.APPDATA || (process.platform === 'darwin'
-    ? path.join(process.env.HOME || '', 'Library', 'Application Support')
-    : path.join(process.env.HOME || '', '.local', 'share'));
+  const base =
+    process.env.APPDATA ||
+    (process.platform === 'darwin'
+      ? path.join(process.env.HOME || '', 'Library', 'Application Support')
+      : path.join(process.env.HOME || '', '.local', 'share'));
   return path.join(base, 'LocalBlogKB', 'database.db');
 }
 
@@ -61,13 +63,40 @@ export async function initDatabase(): Promise<void> {
   sqlJsDb.run('PRAGMA foreign_keys=ON');
   sqlJsDb.run(SCHEMA_SQL);
 
-  // Migrate existing databases: add columns that may be missing from earlier versions
-  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN content TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN folder_id INTEGER DEFAULT NULL"); } catch {}
-  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_id TEXT DEFAULT NULL"); } catch {}
-  try { sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_name TEXT DEFAULT NULL"); } catch {}
-  try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN folder_id INTEGER DEFAULT NULL"); } catch {}
-  try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''"); } catch {}
+  // SCHEMA FROZEN as of 2026-05-06 — no new columns in sql.js DDL.
+  // Idempotent migrations for databases created before these columns existed.
+  // Empty catch is intentional: ALTER TABLE ADD COLUMN throws if column already exists,
+  // which is the expected case for up-to-date databases.
+  try {
+    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN content TEXT NOT NULL DEFAULT ''");
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlJsDb.run('ALTER TABLE blogs ADD COLUMN folder_id INTEGER DEFAULT NULL');
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlJsDb.run('ALTER TABLE blogs ADD COLUMN series_id TEXT DEFAULT NULL');
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlJsDb.run('ALTER TABLE blogs ADD COLUMN series_name TEXT DEFAULT NULL');
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlJsDb.run('ALTER TABLE knowledge_files ADD COLUMN folder_id INTEGER DEFAULT NULL');
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''");
+  } catch {
+    /* column already exists */
+  }
 
   sqlJsSave();
   useMySQL = false;
@@ -107,7 +136,10 @@ export function get<T = Record<string, unknown>>(sql: string, params: unknown[] 
 }
 
 /** @deprecated Use {@link dbGet} instead */
-export async function getAsync<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+export async function getAsync<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T | undefined> {
   if (useMySQL) return _mysqlGet<T>(sql, params);
   return get<T>(sql, params);
 }
@@ -140,7 +172,10 @@ export async function dbAll<T = Record<string, unknown>>(sql: string, params: un
   return all<T>(sql, params);
 }
 export async function dbRun(sql: string, params: unknown[] = []): Promise<void> {
-  if (useMySQL) { await _mysqlRun(sql, params); return; }
+  if (useMySQL) {
+    await _mysqlRun(sql, params);
+    return;
+  }
   run(sql, params); // run() already calls sqlJsSave()
 }
 
@@ -158,7 +193,9 @@ export function closeDatabase(): void {
   }
 }
 
-export function isUsingMySQL(): boolean { return useMySQL; }
+export function isUsingMySQL(): boolean {
+  return useMySQL;
+}
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let savePending = false;
@@ -177,7 +214,10 @@ function sqlJsSave(): void {
 }
 
 function sqlJsSaveNow(): void {
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
   if (sqlJsDb && sqlJsPath && savePending) {
     savePending = false;
     fs.writeFileSync(sqlJsPath, Buffer.from(sqlJsDb.export()));
@@ -195,7 +235,7 @@ async function migrateSqlJsToMySQL(): Promise<void> {
     const oldDb = new SQL.Database(buffer);
 
     // Check if MySQL already has users (skip if so)
-    const userCount = await _mysqlGet<{c:number}>('SELECT COUNT(*) as c FROM users');
+    const userCount = await _mysqlGet<{ c: number }>('SELECT COUNT(*) as c FROM users');
     if (userCount && userCount.c > 0) {
       console.log('[DB] MySQL already has data, skipping migration');
       oldDb.close();
@@ -205,15 +245,19 @@ async function migrateSqlJsToMySQL(): Promise<void> {
     // Migrate users
     const users = sqlJsQuery(oldDb, 'SELECT * FROM users');
     for (const u of users) {
-      await _mysqlRun('INSERT INTO users (id, username, password_hash, workspace_path, created_at) VALUES (?,?,?,?,?)',
-        [u.id, u.username, u.password_hash, u.workspace_path, u.created_at]);
+      await _mysqlRun(
+        'INSERT INTO users (id, username, password_hash, workspace_path, created_at) VALUES (?,?,?,?,?)',
+        [u.id, u.username, u.password_hash, u.workspace_path, u.created_at],
+      );
     }
 
     // Migrate blogs
     const blogs = sqlJsQuery(oldDb, 'SELECT * FROM blogs');
     for (const b of blogs) {
-      await _mysqlRun('INSERT INTO blogs (id, user_id, title, format, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
-        [b.id, b.user_id, b.title, b.format, b.status, b.created_at, b.updated_at]);
+      await _mysqlRun(
+        'INSERT INTO blogs (id, user_id, title, format, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+        [b.id, b.user_id, b.title, b.format, b.status, b.created_at, b.updated_at],
+      );
     }
 
     // Migrate tags
@@ -231,35 +275,55 @@ async function migrateSqlJsToMySQL(): Promise<void> {
     // Migrate sessions
     const sessions = sqlJsQuery(oldDb, 'SELECT * FROM sessions');
     for (const s of sessions) {
-      await _mysqlRun('INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)',
-        [s.id, s.user_id, s.token, s.expires_at, s.created_at]);
+      await _mysqlRun('INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)', [
+        s.id,
+        s.user_id,
+        s.token,
+        s.expires_at,
+        s.created_at,
+      ]);
     }
 
     // Migrate knowledge_files
     const kfs = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_files');
     for (const k of kfs) {
-      await _mysqlRun('INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.created_at, k.updated_at]);
+      await _mysqlRun(
+        'INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.created_at, k.updated_at],
+      );
     }
 
     // Migrate knowledge_file_tags
     const kft = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_file_tags');
     for (const k of kft) {
-      await _mysqlRun('INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)', [k.id, k.file_id, k.tag_id]);
+      await _mysqlRun('INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)', [
+        k.id,
+        k.file_id,
+        k.tag_id,
+      ]);
     }
 
     // Migrate recycle_bin
     const rb = sqlJsQuery(oldDb, 'SELECT * FROM recycle_bin');
     for (const r of rb) {
-      await _mysqlRun('INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)',
-        [r.id, r.user_id, r.item_type, r.item_id, r.deleted_at]);
+      await _mysqlRun('INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)', [
+        r.id,
+        r.user_id,
+        r.item_type,
+        r.item_id,
+        r.deleted_at,
+      ]);
     }
 
     // Migrate blog_drafts
     const drafts = sqlJsQuery(oldDb, 'SELECT * FROM blog_drafts');
     for (const d of drafts) {
-      await _mysqlRun('INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)',
-        [d.id, d.blog_id, d.content, d.saved_at]);
+      await _mysqlRun('INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)', [
+        d.id,
+        d.blog_id,
+        d.content,
+        d.saved_at,
+      ]);
     }
 
     oldDb.close();

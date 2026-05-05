@@ -21,6 +21,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const node_child_process = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -165,7 +166,7 @@ function fixDates(params) {
 }
 function toMySQL(sql) {
   return sql.replace(/datetime\('now',\s*'(-?\d+)\s*days?'\)/g, (_m, days) => {
-    const n = parseInt(days, 10);
+    const n = Number.parseInt(days, 10);
     if (n < 0) return `DATE_SUB(NOW(), INTERVAL ${-n} DAY)`;
     return `DATE_ADD(NOW(), INTERVAL ${n} DAY)`;
   }).replace(/datetime\('now'\)/g, "NOW()").replace(/date\('now'\)/gi, "CURDATE()").replace(/time\('now'\)/gi, "CURTIME()").replace(/strftime\('([^']+)',\s*([^)]+)\)/gi, (_m, fmt, expr) => {
@@ -385,10 +386,6 @@ function get(sql, params = []) {
   stmt.free();
   return void 0;
 }
-async function getAsync(sql, params = []) {
-  if (useMySQL) return get$1(sql, params);
-  return get(sql, params);
-}
 function all(sql, params = []) {
   if (useMySQL) throw new Error("MySQL requires async; use dbAll instead");
   if (!sqlJsDb) throw new Error("DB not initialized");
@@ -422,9 +419,6 @@ function closeDatabase() {
     sqlJsDb.close();
     sqlJsDb = null;
   }
-}
-function isUsingMySQL() {
-  return useMySQL;
 }
 let saveTimer = null;
 let savePending = false;
@@ -488,10 +482,13 @@ async function migrateSqlJsToMySQL() {
     }
     const sessions = sqlJsQuery(oldDb, "SELECT * FROM sessions");
     for (const s of sessions) {
-      await run$1(
-        "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)",
-        [s.id, s.user_id, s.token, s.expires_at, s.created_at]
-      );
+      await run$1("INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)", [
+        s.id,
+        s.user_id,
+        s.token,
+        s.expires_at,
+        s.created_at
+      ]);
     }
     const kfs = sqlJsQuery(oldDb, "SELECT * FROM knowledge_files");
     for (const k of kfs) {
@@ -502,21 +499,30 @@ async function migrateSqlJsToMySQL() {
     }
     const kft = sqlJsQuery(oldDb, "SELECT * FROM knowledge_file_tags");
     for (const k of kft) {
-      await run$1("INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)", [k.id, k.file_id, k.tag_id]);
+      await run$1("INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)", [
+        k.id,
+        k.file_id,
+        k.tag_id
+      ]);
     }
     const rb = sqlJsQuery(oldDb, "SELECT * FROM recycle_bin");
     for (const r of rb) {
-      await run$1(
-        "INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)",
-        [r.id, r.user_id, r.item_type, r.item_id, r.deleted_at]
-      );
+      await run$1("INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)", [
+        r.id,
+        r.user_id,
+        r.item_type,
+        r.item_id,
+        r.deleted_at
+      ]);
     }
     const drafts = sqlJsQuery(oldDb, "SELECT * FROM blog_drafts");
     for (const d of drafts) {
-      await run$1(
-        "INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)",
-        [d.id, d.blog_id, d.content, d.saved_at]
-      );
+      await run$1("INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)", [
+        d.id,
+        d.blog_id,
+        d.content,
+        d.saved_at
+      ]);
     }
     oldDb.close();
     console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);
@@ -539,9 +545,7 @@ const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   dbGet,
   dbRun,
   get,
-  getAsync,
   initDatabase,
-  isUsingMySQL,
   run
 }, Symbol.toStringTag, { value: "Module" }));
 const IPC = {
@@ -1111,16 +1115,19 @@ class AuthService {
     const passwordHash = hashPassword(password);
     let userId;
     if (reclaimed) {
-      await dbRun(
-        "UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
-        [username, passwordHash, reclaimed.id]
-      );
+      await dbRun("UPDATE users SET username = ?, password_hash = ? WHERE id = ?", [
+        username,
+        passwordHash,
+        reclaimed.id
+      ]);
       userId = reclaimed.id;
     } else {
-      await dbRun(
-        "INSERT INTO users (username, password_hash, workspace_path, created_at) VALUES (?, ?, ?, ?)",
-        [username, passwordHash, workspacePath, (/* @__PURE__ */ new Date()).toISOString()]
-      );
+      await dbRun("INSERT INTO users (username, password_hash, workspace_path, created_at) VALUES (?, ?, ?, ?)", [
+        username,
+        passwordHash,
+        workspacePath,
+        (/* @__PURE__ */ new Date()).toISOString()
+      ]);
       const newUser = await dbGet("SELECT id FROM users WHERE username = ?", [username]);
       if (!newUser?.id) return { success: false, error: "创建用户失败: 数据库写入异常" };
       userId = newUser.id;
@@ -1133,7 +1140,12 @@ class AuthService {
     }
     const token = generateToken();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1e3).toISOString();
-    await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [userId, token, expiresAt, (/* @__PURE__ */ new Date()).toISOString()]);
+    await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
+      userId,
+      token,
+      expiresAt,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
     return { success: true, user: { id: userId, username, workspacePath, createdAt: (/* @__PURE__ */ new Date()).toISOString() }, token };
   }
   static async login(username, password, rememberMe) {
@@ -1152,8 +1164,17 @@ class AuthService {
     const expiryDays = rememberMe ? TOKEN_EXPIRY_DAYS : 1;
     const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1e3).toISOString();
     await dbRun("DELETE FROM sessions WHERE user_id = ?", [row.id]);
-    await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [row.id, token, expiresAt, (/* @__PURE__ */ new Date()).toISOString()]);
-    return { success: true, user: { id: row.id, username, workspacePath: row.workspace_path, createdAt: row.created_at }, token };
+    await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
+      row.id,
+      token,
+      expiresAt,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
+    return {
+      success: true,
+      user: { id: row.id, username, workspacePath: row.workspace_path, createdAt: row.created_at },
+      token
+    };
   }
   static async verifyToken(token) {
     const row = await dbGet(
@@ -1166,7 +1187,11 @@ class AuthService {
       await dbRun("DELETE FROM sessions WHERE token = ?", [token]);
       return { success: false, error: "登录已过期，请重新登录" };
     }
-    return { success: true, user: { id: row.user_id, username: row.username, workspacePath: row.workspace_path, createdAt: row.created_at }, token };
+    return {
+      success: true,
+      user: { id: row.user_id, username: row.username, workspacePath: row.workspace_path, createdAt: row.created_at },
+      token
+    };
   }
   static async logout(token) {
     await dbRun("DELETE FROM sessions WHERE token = ?", [token]);
@@ -1232,6 +1257,78 @@ function registerAuthHandlers() {
     }
   );
 }
+function sanitizePagination(offset, limit) {
+  const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(Number(limit) || 50)));
+  return { offset: safeOffset, limit: safeLimit };
+}
+const VALID_SORT = ["created_at", "updated_at", "title"];
+const VALID_ORDER = ["asc", "desc"];
+function mapBlogRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    title: row.title,
+    format: row.format,
+    status: row.status,
+    seriesId: row.series_id,
+    seriesName: row.series_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+async function getSharedBlogList(dbAll2, dbGet2, filters) {
+  const {
+    userId,
+    status = "active",
+    tagId,
+    folderId,
+    query,
+    sortBy = "updated_at",
+    sortOrder = "desc",
+    offset = 0,
+    limit = 50
+  } = filters;
+  const safeSort = VALID_SORT.includes(sortBy) ? sortBy : "updated_at";
+  const safeOrder = VALID_ORDER.includes(sortOrder) ? sortOrder : "desc";
+  const { offset: safeOffset, limit: safeLimit } = sanitizePagination(offset, limit);
+  const conditions = ["b.user_id = ?"];
+  const params = [userId];
+  conditions.push("b.status = ?");
+  params.push(status);
+  if (query) {
+    conditions.push("b.title LIKE ?");
+    params.push(`%${query}%`);
+  }
+  if (tagId) {
+    conditions.push("b.id IN (SELECT blog_id FROM blog_tags WHERE tag_id = ?)");
+    params.push(tagId);
+  }
+  if (folderId !== void 0) {
+    conditions.push("b.folder_id = ?");
+    params.push(folderId);
+  }
+  const where = conditions.join(" AND ");
+  const totalRow = await dbGet2(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
+  const rows = await dbAll2(
+    `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+    params
+  );
+  const blogs = await Promise.all(
+    rows.map(async (row) => {
+      const blog = mapBlogRow(row);
+      const tags = await dbAll2(
+        "SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?",
+        [blog.id]
+      );
+      return {
+        ...blog,
+        tags: tags.map((t) => ({ id: t.id, userId: t.user_id, name: t.name }))
+      };
+    })
+  );
+  return { blogs, total: totalRow?.count || 0 };
+}
 class TagService {
   static async listTags(userId) {
     return dbAll(
@@ -1268,8 +1365,14 @@ class BlogService {
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ""));
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    await dbRun("INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", [userId, title, format, content, now, now]);
-    const row = await dbGet("SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1", [userId, title, format]);
+    await dbRun(
+      "INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      [userId, title, format, content, now, now]
+    );
+    const row = await dbGet(
+      "SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1",
+      [userId, title, format]
+    );
     if (!row) throw new Error("创建博客失败");
     const filePath = await getBlogPath(userId, row.id, format);
     fs.writeFileSync(filePath, content, "utf-8");
@@ -1292,20 +1395,34 @@ class BlogService {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
     if (!blog) throw new Error("博客不存在");
     if (update.title !== void 0) {
-      if (!update.title || update.title.length > MAX_TITLE_LENGTH) throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?", [update.title, (/* @__PURE__ */ new Date()).toISOString(), blogId]);
+      if (!update.title || update.title.length > MAX_TITLE_LENGTH)
+        throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
+      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?", [
+        update.title,
+        (/* @__PURE__ */ new Date()).toISOString(),
+        blogId
+      ]);
     }
     if (update.content !== void 0) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format);
       fs.writeFileSync(filePath, update.content, "utf-8");
-      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [update.content, (/* @__PURE__ */ new Date()).toISOString(), blogId]);
+      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [
+        update.content,
+        (/* @__PURE__ */ new Date()).toISOString(),
+        blogId
+      ]);
     }
   }
   static async deleteBlog(blogId) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
     if (!blog) throw new Error("博客不存在");
     await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [(/* @__PURE__ */ new Date()).toISOString(), blogId]);
-    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [blog.user_id, "blog", blogId, (/* @__PURE__ */ new Date()).toISOString()]);
+    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
+      blog.user_id,
+      "blog",
+      blogId,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
   }
   static async restoreBlog(blogId) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ? AND status = ?", [blogId, "trash"]);
@@ -1332,10 +1449,15 @@ class BlogService {
     const where = conditions.join(" AND ");
     const safeSort = ["created_at", "updated_at", "title"].includes(filters.sortBy || "") ? filters.sortBy : "updated_at";
     const safeOrder = filters.sortOrder === "asc" ? "ASC" : "DESC";
-    const limit = filters.limit || 20;
+    const { offset, limit } = sanitizePagination(filters.offset, filters.limit);
     const totalRow = await dbGet(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
-    const rows = await dbAll(`SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${filters.offset || 0}`, params);
-    const blogs = await Promise.all(rows.map(async (row) => ({ ...BlogService.rowToBlog(row), tags: await BlogService.getBlogTags(row.id) })));
+    const rows = await dbAll(
+      `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+    const blogs = await Promise.all(
+      rows.map(async (row) => ({ ...BlogService.rowToBlog(row), tags: await BlogService.getBlogTags(row.id) }))
+    );
     return { blogs, total: totalRow?.count || 0 };
   }
   static async exportBlogs(blogIds, outputDir) {
@@ -1347,7 +1469,10 @@ class BlogService {
       const srcPath = await getBlogPath(blog.user_id, blogId, blog.format);
       const ext = blog.format === "html" ? ".html" : ".md";
       try {
-        fs.copyFileSync(srcPath, path.join(outputDir, `${blog.title.replace(/[<>:"/\\|?*]/g, "_").substring(0, 100)}${ext}`));
+        fs.copyFileSync(
+          srcPath,
+          path.join(outputDir, `${blog.title.replace(/[<>:"/\\|?*]/g, "_").substring(0, 100)}${ext}`)
+        );
         count++;
       } catch {
       }
@@ -1383,10 +1508,17 @@ class BlogService {
   static async saveDraft(blogId, content) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
     if (!blog) throw new Error("博客不存在");
-    await dbRun("INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)", [blogId, content, (/* @__PURE__ */ new Date()).toISOString()]);
+    await dbRun("INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)", [
+      blogId,
+      content,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
   }
   static async getHistory(blogId) {
-    return dbAll("SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20", [blogId]);
+    return dbAll(
+      "SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20",
+      [blogId]
+    );
   }
   static async rollback(blogId, draftId) {
     const draft = await dbGet("SELECT * FROM blog_drafts WHERE id = ? AND blog_id = ?", [draftId, blogId]);
@@ -1394,11 +1526,15 @@ class BlogService {
     await this.updateBlog(blogId, { content: draft.content });
   }
   static async getBlogTags(blogId) {
-    return dbAll("SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?", [blogId]);
+    return dbAll(
+      "SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?",
+      [blogId]
+    );
   }
   static async setBlogTags(blogId, tagIds) {
     await dbRun("DELETE FROM blog_tags WHERE blog_id = ?", [blogId]);
-    for (const tagId of tagIds) await dbRun("INSERT OR IGNORE INTO blog_tags (blog_id, tag_id) VALUES (?, ?)", [blogId, tagId]);
+    for (const tagId of tagIds)
+      await dbRun("INSERT OR IGNORE INTO blog_tags (blog_id, tag_id) VALUES (?, ?)", [blogId, tagId]);
   }
   // ---- Attachments ----
   static async listAttachments(blogId) {
@@ -1448,7 +1584,17 @@ class BlogService {
     }
   }
   static rowToBlog(row) {
-    return { id: row.id, userId: row.user_id, title: row.title, format: row.format, status: row.status, seriesId: row.series_id, seriesName: row.series_name, createdAt: row.created_at, updatedAt: row.updated_at };
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      format: row.format,
+      status: row.status,
+      seriesId: row.series_id,
+      seriesName: row.series_name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
   // ---- Quick Note ----
   static async quickCreate(userId, title, content) {
@@ -1476,93 +1622,29 @@ class BlogService {
     return rows.map(BlogService.rowToBlog);
   }
   static async setBlogSeries(blogId, seriesId, seriesName) {
-    await dbRun(
-      "UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ?",
-      [seriesId, seriesName, blogId]
-    );
+    await dbRun("UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ?", [seriesId, seriesName, blogId]);
   }
 }
 const blog_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   BlogService
 }, Symbol.toStringTag, { value: "Module" }));
-const VALID_SORT = ["created_at", "updated_at", "title"];
-const VALID_ORDER = ["asc", "desc"];
-function mapBlogRow(row) {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    title: row.title,
-    format: row.format,
-    status: row.status,
-    seriesId: row.series_id,
-    seriesName: row.series_name,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-async function getSharedBlogList(dbAll2, dbGet2, filters) {
-  const {
-    userId,
-    status = "active",
-    tagId,
-    folderId,
-    query,
-    sortBy = "updated_at",
-    sortOrder = "desc",
-    offset = 0,
-    limit = 50
-  } = filters;
-  const safeSort = VALID_SORT.includes(sortBy) ? sortBy : "updated_at";
-  const safeOrder = VALID_ORDER.includes(sortOrder) ? sortOrder : "desc";
-  const conditions = ["b.user_id = ?"];
-  const params = [userId];
-  conditions.push("b.status = ?");
-  params.push(status);
-  if (query) {
-    conditions.push("b.title LIKE ?");
-    params.push(`%${query}%`);
-  }
-  if (tagId) {
-    conditions.push("b.id IN (SELECT blog_id FROM blog_tags WHERE tag_id = ?)");
-    params.push(tagId);
-  }
-  if (folderId !== void 0) {
-    conditions.push("b.folder_id = ?");
-    params.push(folderId);
-  }
-  const where = conditions.join(" AND ");
-  const totalRow = await dbGet2(
-    `SELECT COUNT(*) as count FROM blogs b WHERE ${where}`,
-    params
-  );
-  const rows = await dbAll2(
-    `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`,
-    params
-  );
-  const blogs = await Promise.all(rows.map(async (row) => {
-    const blog = mapBlogRow(row);
-    const tags = await dbAll2(
-      "SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?",
-      [blog.id]
-    );
-    return { ...blog, tags: tags.map((t) => ({ id: t.id, userId: t.user_id, name: t.name })) };
-  }));
-  return { blogs, total: totalRow?.count || 0 };
-}
 function registerBlogHandlers() {
-  electron.ipcMain.handle(IPC.BLOG_LIST, async (_event, filters) => {
-    try {
-      const result = await getSharedBlogList(
-        (sql, params) => dbAll(sql, params),
-        (sql, params) => dbGet(sql, params),
-        filters
-      );
-      return { success: true, data: result };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.BLOG_LIST,
+    async (_event, filters) => {
+      try {
+        const result = await getSharedBlogList(
+          (sql, params) => dbAll(sql, params),
+          (sql, params) => dbGet(sql, params),
+          filters
+        );
+        return { success: true, data: result };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.BLOG_GET, async (_event, blogId) => {
     try {
       const blog = await BlogService.getBlog(blogId);
@@ -1572,14 +1654,17 @@ function registerBlogHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_CREATE, async (_event, data) => {
-    try {
-      const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
-      return { success: true, data: blog };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.BLOG_CREATE,
+    async (_event, data) => {
+      try {
+        const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        return { success: true, data: blog };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data) => {
     try {
       await BlogService.updateBlog(data.blogId, { title: data.title, content: data.content });
@@ -1612,14 +1697,17 @@ function registerBlogHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_IMPORT_MD, async (_event, data) => {
-    try {
-      const blogs = await BlogService.importMarkdownFiles(data.userId, data.filePaths || [], data.contents || []);
-      return { success: true, data: blogs };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.BLOG_IMPORT_MD,
+    async (_event, data) => {
+      try {
+        const blogs = await BlogService.importMarkdownFiles(data.userId, data.filePaths || [], data.contents || []);
+        return { success: true, data: blogs };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.BLOG_SAVE_DRAFT, async (_event, data) => {
     try {
       await BlogService.saveDraft(data.blogId, data.content);
@@ -1724,7 +1812,11 @@ function registerBlogHandlers() {
       const win = new electron.BrowserWindow({ show: false, width: 800, height: 1200 });
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("PDF 渲染超时")), 1e4));
       await Promise.race([win.loadFile(tmpPath), timeout]);
-      const pdfBuffer = await win.webContents.printToPDF({ printBackground: true, landscape: false, margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+      const pdfBuffer = await win.webContents.printToPDF({
+        printBackground: true,
+        landscape: false,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+      });
       fs.writeFileSync(filePath, pdfBuffer);
       win.close();
       return { success: true, data: { path: filePath } };
@@ -1761,14 +1853,17 @@ function registerBlogHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_SERIES_SET, async (_event, data) => {
-    try {
-      await BlogService.setBlogSeries(data.blogId, data.seriesId, data.seriesName);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.BLOG_SERIES_SET,
+    async (_event, data) => {
+      try {
+        await BlogService.setBlogSeries(data.blogId, data.seriesId, data.seriesName);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.BLOG_EXPORT_DOCX, async (_event, blogId) => {
     try {
       const blog = await BlogService.getBlog(blogId);
@@ -1787,22 +1882,40 @@ function registerBlogHandlers() {
       const lines = mdContent.split("\n");
       const children = [];
       children.push(new Paragraph({ text: blog.title, heading: HeadingLevel.HEADING_1, spacing: { after: 200 } }));
-      const metaParts = [
-        new TextRun({ text: `${blog.createdAt}`, size: 20, color: "888888" })
-      ];
+      const metaParts = [new TextRun({ text: `${blog.createdAt}`, size: 20, color: "888888" })];
       if (blog.tags?.length > 0) {
-        metaParts.push(new TextRun({ text: `  ·  ${blog.tags.map((t) => t.name).join(", ")}`, size: 20, color: "888888" }));
+        metaParts.push(
+          new TextRun({ text: `  ·  ${blog.tags.map((t) => t.name).join(", ")}`, size: 20, color: "888888" })
+        );
       }
       children.push(new Paragraph({ children: metaParts, spacing: { after: 400 } }));
       let i = 0;
       while (i < lines.length) {
         const line = lines[i];
         if (line.startsWith("# ") && !line.startsWith("## ")) {
-          children.push(new Paragraph({ text: line.replace(/^# /, ""), heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
+          children.push(
+            new Paragraph({
+              text: line.replace(/^# /, ""),
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 300, after: 120 }
+            })
+          );
         } else if (line.startsWith("## ") && !line.startsWith("### ")) {
-          children.push(new Paragraph({ text: line.replace(/^## /, ""), heading: HeadingLevel.HEADING_3, spacing: { before: 240, after: 100 } }));
+          children.push(
+            new Paragraph({
+              text: line.replace(/^## /, ""),
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 240, after: 100 }
+            })
+          );
         } else if (line.startsWith("### ")) {
-          children.push(new Paragraph({ text: line.replace(/^### /, ""), heading: HeadingLevel.HEADING_4, spacing: { before: 200, after: 80 } }));
+          children.push(
+            new Paragraph({
+              text: line.replace(/^### /, ""),
+              heading: HeadingLevel.HEADING_4,
+              spacing: { before: 200, after: 80 }
+            })
+          );
         } else if (line.startsWith("```")) {
           const codeLines = [];
           i++;
@@ -1810,7 +1923,13 @@ function registerBlogHandlers() {
             codeLines.push(lines[i]);
             i++;
           }
-          children.push(new Paragraph({ children: [new TextRun({ text: codeLines.join("\n"), font: "Courier New", size: 18 })], spacing: { before: 120, after: 120 }, shading: { fill: "F5F5F5" } }));
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: codeLines.join("\n"), font: "Courier New", size: 18 })],
+              spacing: { before: 120, after: 120 },
+              shading: { fill: "F5F5F5" }
+            })
+          );
         } else if (line.trim() === "") {
           children.push(new Paragraph({ spacing: { after: 80 } }));
         } else {
@@ -1820,11 +1939,13 @@ function registerBlogHandlers() {
         i++;
       }
       const now = (/* @__PURE__ */ new Date()).toISOString().substring(0, 10);
-      children.push(new Paragraph({
-        children: [new TextRun({ text: `由 Local Blog KB 导出 · ${now}`, size: 18, color: "AAAAAA" })],
-        spacing: { before: 600 },
-        alignment: AlignmentType.CENTER
-      }));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: `由 Local Blog KB 导出 · ${now}`, size: 18, color: "AAAAAA" })],
+          spacing: { before: 600 },
+          alignment: AlignmentType.CENTER
+        })
+      );
       const doc = new Document({ sections: [{ children }] });
       const buffer = await Packer.toBuffer(doc);
       fs.writeFileSync(filePath, buffer);
@@ -1851,12 +1972,21 @@ class FolderService {
   static async createFolder(userId, name, type, parentId) {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("文件夹名不能为空");
-    const existing = parentId != null ? await dbGet("SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id = ? AND type = ?", [userId, trimmed, parentId, type]) : await dbGet("SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id IS NULL AND type = ?", [userId, trimmed, type]);
-    if (existing) throw new Error("同名文件夹已存在");
-    await dbRun(
-      "INSERT INTO folders (user_id, name, parent_id, type, created_at) VALUES (?, ?, ?, ?, ?)",
-      [userId, trimmed, parentId ?? null, type, (/* @__PURE__ */ new Date()).toISOString()]
+    const existing = parentId != null ? await dbGet(
+      "SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id = ? AND type = ?",
+      [userId, trimmed, parentId, type]
+    ) : await dbGet(
+      "SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id IS NULL AND type = ?",
+      [userId, trimmed, type]
     );
+    if (existing) throw new Error("同名文件夹已存在");
+    await dbRun("INSERT INTO folders (user_id, name, parent_id, type, created_at) VALUES (?, ?, ?, ?, ?)", [
+      userId,
+      trimmed,
+      parentId ?? null,
+      type,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
     const row = await dbGet(
       "SELECT * FROM folders WHERE user_id = ? AND name = ? AND type = ? ORDER BY id DESC LIMIT 1",
       [userId, trimmed, type]
@@ -1874,10 +2004,11 @@ class FolderService {
   }
   static async moveToFolder(itemType, itemId, folderId) {
     const table = itemType === "blog" ? "blogs" : "knowledge_files";
-    await dbRun(
-      `UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`,
-      [folderId, (/* @__PURE__ */ new Date()).toISOString(), itemId]
-    );
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [
+      folderId,
+      (/* @__PURE__ */ new Date()).toISOString(),
+      itemId
+    ]);
   }
 }
 function buildTree(rows) {
@@ -1911,14 +2042,17 @@ function registerFolderHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.FOLDER_CREATE, async (_event, data) => {
-    try {
-      const folder = await FolderService.createFolder(data.userId, data.name, data.type, data.parentId);
-      return { success: true, data: folder };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.FOLDER_CREATE,
+    async (_event, data) => {
+      try {
+        const folder = await FolderService.createFolder(data.userId, data.name, data.type, data.parentId);
+        return { success: true, data: folder };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.FOLDER_RENAME, async (_event, data) => {
     try {
       await FolderService.renameFolder(data.folderId, data.name);
@@ -1935,14 +2069,17 @@ function registerFolderHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.FOLDER_MOVE_ITEM, async (_event, data) => {
-    try {
-      await FolderService.moveToFolder(data.itemType, data.itemId, data.folderId);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.FOLDER_MOVE_ITEM,
+    async (_event, data) => {
+      try {
+        await FolderService.moveToFolder(data.itemType, data.itemId, data.folderId);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
 }
 class KnowledgeService {
   static async importFiles(userId, filePaths, copyToWorkspace) {
@@ -1959,7 +2096,10 @@ class KnowledgeService {
       let destPath;
       if (copyToWorkspace) {
         let destName = originalName;
-        const existing = await dbGet("SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND status = ?", [userId, destName, "active"]);
+        const existing = await dbGet(
+          "SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND status = ?",
+          [userId, destName, "active"]
+        );
         if (existing) {
           const ts = Date.now();
           const parsed = path.parse(originalName);
@@ -1993,41 +2133,25 @@ class KnowledgeService {
       } catch {
       }
       const now = (/* @__PURE__ */ new Date()).toISOString();
-      await dbRun("INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)", [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now]);
-      const row = await dbGet("SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1", [userId, path.basename(destPath), fileType]);
+      await dbRun(
+        "INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+        [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now]
+      );
+      const row = await dbGet(
+        "SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1",
+        [userId, path.basename(destPath), fileType]
+      );
       if (row) imported.push(this.rowToFile(row));
     }
     return imported;
   }
   static async listFiles(f) {
-    const c = ["kf.user_id = ?"];
-    const p = [f.userId];
-    c.push("kf.status = 'active'");
-    if (f.fileType) {
-      c.push("kf.file_type = ?");
-      p.push(f.fileType);
-    }
-    if (f.query) {
-      c.push("kf.filename LIKE ?");
-      p.push(`%${f.query}%`);
-    }
-    if (f.tagId) {
-      c.push("kf.id IN (SELECT file_id FROM knowledge_file_tags WHERE tag_id = ?)");
-      p.push(f.tagId);
-    }
-    if (f.folderId !== void 0) {
-      c.push("kf.folder_id = ?");
-      p.push(f.folderId);
-    }
-    const where = c.join(" AND ");
-    const sb = f.sortBy === "filename" ? "filename" : f.sortBy === "file_size" ? "file_size" : "created_at";
-    const so = f.sortOrder === "asc" ? "ASC" : "DESC";
-    const lim = f.limit || 50;
-    const off = f.offset || 0;
-    const tr = await dbGet(`SELECT COUNT(*) as count FROM knowledge_files kf WHERE ${where}`, p);
-    const rows = await dbAll(`SELECT kf.* FROM knowledge_files kf WHERE ${where} ORDER BY kf.${sb} ${so} LIMIT ${lim} OFFSET ${off}`, p);
-    const files = await Promise.all(rows.map(async (row) => ({ ...this.rowToFile(row), tags: await this.getFileTags(row.id) })));
-    return { files, total: tr?.count || 0 };
+    const { getSharedKnowledgeList } = await Promise.resolve().then(() => require("./knowledge-list-DbhdjYXp.js"));
+    return getSharedKnowledgeList(
+      (sql, params) => dbAll(sql, params),
+      (sql, params) => dbGet(sql, params),
+      f
+    );
   }
   static async getFile(fileId) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
@@ -2037,14 +2161,25 @@ class KnowledgeService {
   static async deleteFile(fileId, dpf) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
     if (!row) throw new Error("文件不存在");
-    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [(/* @__PURE__ */ new Date()).toISOString(), fileId]);
-    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [row.user_id, "knowledge_file", fileId, (/* @__PURE__ */ new Date()).toISOString()]);
+    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [
+      (/* @__PURE__ */ new Date()).toISOString(),
+      fileId
+    ]);
+    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
+      row.user_id,
+      "knowledge_file",
+      fileId,
+      (/* @__PURE__ */ new Date()).toISOString()
+    ]);
     if (dpf && fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
   }
   static async restoreFile(fileId) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ? AND status = ?", [fileId, "trash"]);
     if (!row) throw new Error("文件不在回收站中");
-    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [(/* @__PURE__ */ new Date()).toISOString(), fileId]);
+    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [
+      (/* @__PURE__ */ new Date()).toISOString(),
+      fileId
+    ]);
     await dbRun("DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?", ["knowledge_file", fileId]);
   }
   static async renameFile(fileId, nf) {
@@ -2053,21 +2188,56 @@ class KnowledgeService {
     if (!nf.trim()) throw new Error("文件名不能为空");
     const np = path.join(path.dirname(row.file_path), nf);
     if (fs.existsSync(row.file_path)) fs.renameSync(row.file_path, np);
-    await dbRun("UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?", [nf, np, (/* @__PURE__ */ new Date()).toISOString(), fileId]);
+    await dbRun("UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?", [
+      nf,
+      np,
+      (/* @__PURE__ */ new Date()).toISOString(),
+      fileId
+    ]);
   }
   static async getFileTags(fileId) {
-    return dbAll("SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?", [fileId]);
+    return dbAll(
+      "SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?",
+      [fileId]
+    );
   }
   static async setFileTags(fileId, tagIds) {
     await dbRun("DELETE FROM knowledge_file_tags WHERE file_id = ?", [fileId]);
-    for (const tid of tagIds) await dbRun("INSERT OR IGNORE INTO knowledge_file_tags (file_id, tag_id) VALUES (?, ?)", [fileId, tid]);
+    for (const tid of tagIds)
+      await dbRun("INSERT OR IGNORE INTO knowledge_file_tags (file_id, tag_id) VALUES (?, ?)", [fileId, tid]);
   }
   static detectFileType(ext) {
-    const m = { ".docx": "docx", ".doc": "docx", ".xlsx": "xlsx", ".xls": "xlsx", ".pptx": "pptx", ".ppt": "pptx", ".pdf": "pdf", ".txt": "txt", ".md": "txt", ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "image" };
+    const m = {
+      ".docx": "docx",
+      ".doc": "docx",
+      ".xlsx": "xlsx",
+      ".xls": "xlsx",
+      ".pptx": "pptx",
+      ".ppt": "pptx",
+      ".pdf": "pdf",
+      ".txt": "txt",
+      ".md": "txt",
+      ".png": "image",
+      ".jpg": "image",
+      ".jpeg": "image",
+      ".gif": "image",
+      ".webp": "image",
+      ".svg": "image"
+    };
     return m[ext] || "other";
   }
   static rowToFile(row) {
-    return { id: row.id, userId: row.user_id, filename: row.filename, filePath: row.file_path, fileType: row.file_type, fileSize: row.file_size, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at };
+    return {
+      id: row.id,
+      userId: row.user_id,
+      filename: row.filename,
+      filePath: row.file_path,
+      fileType: row.file_type,
+      fileSize: row.file_size,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 }
 const knowledge_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -2077,7 +2247,10 @@ const knowledge_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.d
 class PreviewService {
   /** Generate an HTML preview for a knowledge base file */
   static async generatePreview(fileId) {
-    const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
+    const row = await dbGet(
+      "SELECT * FROM knowledge_files WHERE id = ?",
+      [fileId]
+    );
     if (!row) return { error: "文件不存在" };
     const filePath = row.file_path || row.filePath;
     if (!fs.existsSync(filePath)) return { error: "文件不存在于磁盘" };
@@ -2214,14 +2387,17 @@ class PreviewService {
   }
 }
 function registerKnowledgeHandlers() {
-  electron.ipcMain.handle(IPC.KB_LIST, async (_event, f) => {
-    try {
-      const r = await KnowledgeService.listFiles(f);
-      return { success: true, data: r };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.KB_LIST,
+    async (_event, f) => {
+      try {
+        const r = await KnowledgeService.listFiles(f);
+        return { success: true, data: r };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.KB_GET, async (_event, fileId) => {
     try {
       const f = await KnowledgeService.getFile(fileId);
@@ -2231,14 +2407,17 @@ function registerKnowledgeHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.KB_IMPORT, async (_event, data) => {
-    try {
-      const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
-      return { success: true, data: files };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.KB_IMPORT,
+    async (_event, data) => {
+      try {
+        const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
+        return { success: true, data: files };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.KB_DELETE, async (_event, data) => {
     try {
       await KnowledgeService.deleteFile(data.fileId, data.deletePhysicalFile);
@@ -2298,19 +2477,33 @@ function registerKnowledgeHandlers() {
   });
 }
 function rowToItem(r) {
-  return { id: r.id, userId: r.user_id, itemType: r.item_type, itemId: r.item_id, deletedAt: r.deleted_at };
+  return {
+    id: r.id,
+    userId: r.user_id,
+    itemType: r.item_type,
+    itemId: r.item_id,
+    deletedAt: r.deleted_at
+  };
 }
 class RecycleService {
   static async listItems(userId) {
-    const rows = await dbAll("SELECT id, user_id, item_type, item_id, deleted_at FROM recycle_bin WHERE user_id = ? ORDER BY deleted_at DESC", [userId]);
+    const rows = await dbAll(
+      "SELECT id, user_id, item_type, item_id, deleted_at FROM recycle_bin WHERE user_id = ? ORDER BY deleted_at DESC",
+      [userId]
+    );
     return rows.map(rowToItem);
   }
   static async restoreItem(userId, itemId, itemType) {
-    const item = await dbGet("SELECT * FROM recycle_bin WHERE user_id = ? AND item_id = ? AND item_type = ?", [userId, itemId, itemType]);
+    const item = await dbGet(
+      "SELECT * FROM recycle_bin WHERE user_id = ? AND item_id = ? AND item_type = ?",
+      [userId, itemId, itemType]
+    );
     if (!item) throw new Error("回收站中未找到该项目");
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    if (itemType === "blog") await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
-    else if (itemType === "knowledge_file") await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
+    if (itemType === "blog")
+      await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
+    else if (itemType === "knowledge_file")
+      await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
     await dbRun("DELETE FROM recycle_bin WHERE id = ?", [item.id]);
   }
   static async emptyTrash(userId) {
@@ -2330,10 +2523,9 @@ class RecycleService {
     const toDelete = [];
     const toDeleteDirs = [];
     if (item.item_type === "blog") {
-      const blog = await dbGet(
-        "SELECT user_id, format FROM blogs WHERE id = ?",
-        [item.item_id]
-      );
+      const blog = await dbGet("SELECT user_id, format FROM blogs WHERE id = ?", [
+        item.item_id
+      ]);
       if (blog) {
         try {
           toDelete.push(await getBlogPath(blog.user_id, item.item_id, blog.format));
@@ -2410,47 +2602,63 @@ function registerRecycleHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.RECYCLE_BATCH_RESTORE, async (_event, data) => {
-    try {
-      let restored = 0;
-      for (const item of data.items) {
-        try {
-          await RecycleService.restoreItem(data.userId, item.itemId, item.itemType);
-          restored++;
-        } catch {
+  electron.ipcMain.handle(
+    IPC.RECYCLE_BATCH_RESTORE,
+    async (_event, data) => {
+      try {
+        let restored = 0;
+        for (const item of data.items) {
+          try {
+            await RecycleService.restoreItem(data.userId, item.itemId, item.itemType);
+            restored++;
+          } catch {
+            console.error(`[recycle] Failed to restore item ${item.itemId} (${item.itemType})`);
+          }
         }
+        return { success: true, data: { restored } };
+      } catch (err) {
+        return { success: false, error: err.message };
       }
-      return { success: true, data: { restored } };
-    } catch (err) {
-      return { success: false, error: err.message };
     }
-  });
+  );
 }
 class ReferenceService {
   static async addRef(sourceType, sourceId, targetType, targetId) {
-    await dbRun(
-      "INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)",
-      [sourceType, sourceId, targetType, targetId]
-    );
+    await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)", [
+      sourceType,
+      sourceId,
+      targetType,
+      targetId
+    ]);
   }
   static async removeRef(refId) {
     await dbRun("DELETE FROM refs WHERE id = ?", [refId]);
   }
   /** Get all items referenced BY a source */
   static async getRefsFrom(sourceType, sourceId) {
-    const rows = await dbAll("SELECT * FROM refs WHERE source_type = ? AND source_id = ? ORDER BY created_at DESC", [sourceType, sourceId]);
-    return Promise.all(rows.map(async (r) => {
-      const title = await ReferenceService.resolveTitle(r.target_type, r.target_id);
-      return { ...r, title };
-    }));
+    const rows = await dbAll(
+      "SELECT * FROM refs WHERE source_type = ? AND source_id = ? ORDER BY created_at DESC",
+      [sourceType, sourceId]
+    );
+    return Promise.all(
+      rows.map(async (r) => {
+        const title = await ReferenceService.resolveTitle(r.target_type, r.target_id);
+        return { ...r, title };
+      })
+    );
   }
   /** Get all items that reference TO a target */
   static async getRefsTo(targetType, targetId) {
-    const rows = await dbAll("SELECT * FROM refs WHERE target_type = ? AND target_id = ? ORDER BY created_at DESC", [targetType, targetId]);
-    return Promise.all(rows.map(async (r) => {
-      const title = await ReferenceService.resolveTitle(r.source_type, r.source_id);
-      return { ...r, title };
-    }));
+    const rows = await dbAll(
+      "SELECT * FROM refs WHERE target_type = ? AND target_id = ? ORDER BY created_at DESC",
+      [targetType, targetId]
+    );
+    return Promise.all(
+      rows.map(async (r) => {
+        const title = await ReferenceService.resolveTitle(r.source_type, r.source_id);
+        return { ...r, title };
+      })
+    );
   }
   /** Search items for reference picker */
   static async searchItems(userId, scope, query) {
@@ -2486,14 +2694,17 @@ class ReferenceService {
   }
 }
 function registerReferenceHandlers() {
-  electron.ipcMain.handle(IPC.REF_ADD, async (_event, data) => {
-    try {
-      await ReferenceService.addRef(data.sourceType, data.sourceId, data.targetType, data.targetId);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
+  electron.ipcMain.handle(
+    IPC.REF_ADD,
+    async (_event, data) => {
+      try {
+        await ReferenceService.addRef(data.sourceType, data.sourceId, data.targetType, data.targetId);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle(IPC.REF_REMOVE, async (_event, refId) => {
     try {
       await ReferenceService.removeRef(refId);
@@ -2520,7 +2731,11 @@ function registerReferenceHandlers() {
   });
   electron.ipcMain.handle(IPC.REF_SEARCH, async (_event, data) => {
     try {
-      const items = await ReferenceService.searchItems(data.userId, data.scope, data.query);
+      const items = await ReferenceService.searchItems(
+        data.userId,
+        data.scope,
+        data.query
+      );
       return { success: true, data: items };
     } catch (err) {
       return { success: false, error: err.message };
@@ -2732,11 +2947,17 @@ function registerWorkspaceHandlers() {
     try {
       const wsPath = await getWorkspacePath(userId);
       const getCount = async (sql, params) => {
-        const row = isUsingMySQL() ? await getAsync(sql, params) : get(sql, params);
+        const row = await dbGet(sql, params);
         return row?.c || 0;
       };
-      const blogCount = await getCount("SELECT COUNT(*) as c FROM blogs WHERE user_id = ? AND status = ?", [userId, "active"]);
-      const knowledgeCount = await getCount("SELECT COUNT(*) as c FROM knowledge_files WHERE user_id = ? AND status = ?", [userId, "active"]);
+      const blogCount = await getCount("SELECT COUNT(*) as c FROM blogs WHERE user_id = ? AND status = ?", [
+        userId,
+        "active"
+      ]);
+      const knowledgeCount = await getCount(
+        "SELECT COUNT(*) as c FROM knowledge_files WHERE user_id = ? AND status = ?",
+        [userId, "active"]
+      );
       const tagCount = await getCount("SELECT COUNT(*) as c FROM tags WHERE user_id = ?", [userId]);
       let storageSize = 0;
       try {
@@ -2753,6 +2974,7 @@ function registerWorkspaceHandlers() {
       }
       return { path: wsPath, totalFiles: blogCount + knowledgeCount, blogCount, knowledgeCount, tagCount, storageSize };
     } catch {
+      console.error("[workspace] Failed to get workspace info");
       return { path: "", totalFiles: 0, blogCount: 0, knowledgeCount: 0, tagCount: 0, storageSize: 0 };
     }
   });
@@ -2771,7 +2993,10 @@ function registerWorkspaceHandlers() {
     return r.canceled ? null : r.filePaths[0];
   });
   electron.ipcMain.handle(IPC.FS_SELECT_FILES, async (_event, filters) => {
-    const r = await electron.dialog.showOpenDialog({ properties: ["openFile", "multiSelections"], filters: [{ name: "All", extensions: filters.extensions }] });
+    const r = await electron.dialog.showOpenDialog({
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "All", extensions: filters.extensions }]
+    });
     return r.canceled ? [] : r.filePaths;
   });
 }
@@ -2788,12 +3013,86 @@ function registerAllIpcHandlers() {
   registerAppHandlers();
   registerTagHandlers();
 }
-let petWin = null;
+let petActions = {};
+function setPetActions(actions) {
+  petActions = actions;
+}
+let tray = null;
 let mainWindow$2 = null;
+function makeIcon(size) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
+    <path d="M8 2.5C8 2.5 5.5 1.5 4 1.5C2.5 1.5 1.5 2 1.5 2v10c0 0 1-.5 2.5-.5C5.5 11.5 8 12.5 8 12.5V2.5z" fill="#58a6ff"/>
+    <path d="M8 2.5C8 2.5 10.5 1.5 12 1.5S14.5 2 14.5 2v10c0 0-1-.5-2.5-.5S8 12.5 8 12.5V2.5z" fill="#4090e0"/>
+    <line x1="8" y1="2.5" x2="8" y2="12.5" stroke="#1a3a5c" stroke-width="0.5"/>
+  </svg>`;
+  return electron.nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
+}
+function buildMenu() {
+  return electron.Menu.buildFromTemplate([
+    { label: "📝 快速便签", click: () => petActions["quick-note"]?.() },
+    { label: "📄 新建博客", click: () => petActions["new-blog"]?.() },
+    { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
+    { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
+    { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
+    { type: "separator" },
+    {
+      label: "📂 打开主窗口",
+      click: () => {
+        if (mainWindow$2) {
+          mainWindow$2.show();
+          mainWindow$2.focus();
+        }
+      }
+    },
+    { type: "separator" },
+    { label: "🐱 桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
+    { type: "separator" },
+    {
+      label: "❌ 退出",
+      click: () => {
+        electron.app.exit();
+      }
+    }
+  ]);
+}
+let petActive = false;
+function togglePet() {
+  if (petActive) {
+    petActive = false;
+    const pw = getPetWindow();
+    if (pw && !pw.isDestroyed()) pw.close();
+    if (tray) tray.setContextMenu(buildMenu());
+    return;
+  }
+  petActive = true;
+  if (mainWindow$2) createPet(mainWindow$2);
+  if (tray) tray.setContextMenu(buildMenu());
+}
+function setupTray(win) {
+  mainWindow$2 = win;
+  if (tray) tray.destroy();
+  tray = new electron.Tray(makeIcon(16));
+  tray.setToolTip("本地博客与知识库");
+  tray.setContextMenu(buildMenu());
+  tray.on("double-click", () => {
+    if (mainWindow$2) {
+      mainWindow$2.show();
+      mainWindow$2.focus();
+    }
+  });
+}
+let petWin = null;
+let mainWindow$1 = null;
 let dragInterval = null;
 let dragOffset = { x: 0, y: 0 };
-const POS_FILE = path.join(electron.app.getPath("userData"), "pet-position.json");
-const PET_DIR = path.join(electron.app.getPath("userData"), "pet");
+let _posFile;
+function posFile() {
+  return _posFile || (_posFile = path.join(electron.app.getPath("userData"), "pet-position.json"));
+}
+let _petDir;
+function petDir() {
+  return _petDir || (_petDir = path.join(electron.app.getPath("userData"), "pet"));
+}
 let cachedUserId = null;
 async function getUserId() {
   if (cachedUserId) return cachedUserId;
@@ -2803,7 +3102,7 @@ async function getUserId() {
   return cachedUserId;
 }
 function ensurePetImages() {
-  const imgDir = path.join(PET_DIR, "img");
+  const imgDir = path.join(petDir(), "img");
   fs.mkdirSync(imgDir, { recursive: true });
   const srcDir = path.join(__dirname, "..", "..", "img");
   const files = ["static.png", "drug.png"];
@@ -2823,7 +3122,10 @@ function ensureMiniPreload() {
   const p = path.join(electron.app.getPath("userData"), "mini-preload.js");
   if (!fs.existsSync(p)) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`);
+    fs.writeFileSync(
+      p,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`
+    );
   }
   return p;
 }
@@ -3008,7 +3310,28 @@ async function handleImportFile() {
   const result = await electron.dialog.showOpenDialog({
     title: "导入知识库文件",
     properties: ["openFile", "multiSelections"],
-    filters: [{ name: "All Supported", extensions: ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "pdf", "txt", "md", "png", "jpg", "jpeg", "gif", "webp", "svg"] }]
+    filters: [
+      {
+        name: "All Supported",
+        extensions: [
+          "docx",
+          "doc",
+          "xlsx",
+          "xls",
+          "pptx",
+          "ppt",
+          "pdf",
+          "txt",
+          "md",
+          "png",
+          "jpg",
+          "jpeg",
+          "gif",
+          "webp",
+          "svg"
+        ]
+      }
+    ]
   });
   if (result.canceled || !result.filePaths.length) return;
   try {
@@ -3021,10 +3344,10 @@ async function handleImportFile() {
   }
 }
 function showStandaloneEditor() {
-  if (mainWindow$2) {
-    if (!mainWindow$2.isVisible()) mainWindow$2.show();
-    mainWindow$2.focus();
-    mainWindow$2.webContents.send("pet-action", { action: "new-blog" });
+  if (mainWindow$1) {
+    if (!mainWindow$1.isVisible()) mainWindow$1.show();
+    mainWindow$1.focus();
+    mainWindow$1.webContents.send("pet-action", { action: "new-blog" });
   }
 }
 function petMenu() {
@@ -3035,18 +3358,21 @@ function petMenu() {
     { label: "📎 导入文件", click: () => handleImportFile() },
     { label: "🌐 收藏网页", click: () => showScrapeWindow() },
     { type: "separator" },
-    { label: "📂 打开主窗口", click: () => {
-      if (mainWindow$2) {
-        mainWindow$2.show();
-        mainWindow$2.focus();
+    {
+      label: "📂 打开主窗口",
+      click: () => {
+        if (mainWindow$1) {
+          mainWindow$1.show();
+          mainWindow$1.focus();
+        }
       }
-    } }
+    }
   ]);
 }
 function loadPosition() {
   try {
-    if (fs.existsSync(POS_FILE)) {
-      const pos = JSON.parse(fs.readFileSync(POS_FILE, "utf-8"));
+    if (fs.existsSync(posFile())) {
+      const pos = JSON.parse(fs.readFileSync(posFile(), "utf-8"));
       const displays = electron.screen.getAllDisplays();
       const inBounds = displays.some((d) => {
         const { x, y, width, height } = d.workArea;
@@ -3060,13 +3386,15 @@ function loadPosition() {
   return { x: primary.width - 160, y: primary.height - 160 };
 }
 function createPet(win) {
-  mainWindow$2 = win;
+  mainWindow$1 = win;
   if (petWin && !petWin.isDestroyed()) petWin.close();
   const pos = loadPosition();
   const images = ensurePetImages();
   const preloadPath = path.join(electron.app.getPath("userData"), "pet-preload.js");
   const petHtmlPath = path.join(electron.app.getPath("userData"), "pet.html");
-  fs.writeFileSync(petHtmlPath, `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  fs.writeFileSync(
+    petHtmlPath,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{margin:0;overflow:hidden;background:transparent}
 #pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
@@ -3085,7 +3413,8 @@ const pet=document.getElementById('pet');
 pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
 window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
 window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
-<\/script></html>`);
+<\/script></html>`
+  );
   if (!fs.existsSync(preloadPath)) {
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
     fs.writeFileSync(
@@ -3114,6 +3443,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
   });
   petWin.loadFile(petHtmlPath);
   petWin.once("ready-to-show", () => petWin?.show());
+  registerPetIpc();
   setPetActions({
     "quick-note": showQuickNote,
     "new-blog": showStandaloneEditor,
@@ -3123,6 +3453,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
   });
 }
 function initPetActions() {
+  registerPetIpc();
   setPetActions({
     "quick-note": showQuickNote,
     "new-blog": showStandaloneEditor,
@@ -3131,123 +3462,66 @@ function initPetActions() {
     "scrape-web": showScrapeWindow
   });
 }
-electron.ipcMain.handle("pet:scrape", async (_e, url) => {
-  try {
-    const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
-    return await WebScraperService2.scrapeWebpage(url);
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-electron.ipcMain.handle("pet:scrape-import", async (_e, data) => {
-  try {
-    const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
-    const uid = await getUserId();
-    const blog = await BlogService2.createBlog(uid, data.title, "md", data.content);
-    new electron.Notification({ title: "已导入", body: data.title }).show();
-    return { success: true, data: blog };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-electron.ipcMain.on("pet:startDrag", () => {
-  if (!petWin || petWin.isDestroyed()) return;
-  const cursor = electron.screen.getCursorScreenPoint();
-  const [wx, wy] = petWin.getPosition();
-  dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
-  dragInterval = setInterval(() => {
-    if (!petWin || petWin.isDestroyed()) {
-      if (dragInterval) clearInterval(dragInterval);
-      return;
-    }
-    const c = electron.screen.getCursorScreenPoint();
-    petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
-  }, 16);
-});
-electron.ipcMain.on("pet:stopDrag", () => {
-  if (dragInterval) {
-    clearInterval(dragInterval);
-    dragInterval = null;
-  }
-});
-electron.ipcMain.on("pet:savePosition", () => {
-  if (petWin && !petWin.isDestroyed()) {
-    const [x, y] = petWin.getPosition();
+let _ipcRegistered = false;
+function registerPetIpc() {
+  if (_ipcRegistered) return;
+  _ipcRegistered = true;
+  electron.ipcMain.handle("pet:scrape", async (_e, url) => {
     try {
-      fs.writeFileSync(POS_FILE, JSON.stringify({ x, y }));
-    } catch {
-    }
-  }
-});
-electron.ipcMain.on("pet:click", () => {
-  if (petWin && !petWin.isDestroyed()) {
-    petMenu().popup({ window: petWin, x: 64, y: 64 });
-  }
-});
-function getPetWindow() {
-  return petWin;
-}
-let petActions = {};
-function setPetActions(actions) {
-  petActions = actions;
-}
-let tray = null;
-let mainWindow$1 = null;
-function makeIcon(size) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
-    <path d="M8 2.5C8 2.5 5.5 1.5 4 1.5C2.5 1.5 1.5 2 1.5 2v10c0 0 1-.5 2.5-.5C5.5 11.5 8 12.5 8 12.5V2.5z" fill="#58a6ff"/>
-    <path d="M8 2.5C8 2.5 10.5 1.5 12 1.5S14.5 2 14.5 2v10c0 0-1-.5-2.5-.5S8 12.5 8 12.5V2.5z" fill="#4090e0"/>
-    <line x1="8" y1="2.5" x2="8" y2="12.5" stroke="#1a3a5c" stroke-width="0.5"/>
-  </svg>`;
-  return electron.nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
-}
-function buildMenu() {
-  return electron.Menu.buildFromTemplate([
-    { label: "📝 快速便签", click: () => petActions["quick-note"]?.() },
-    { label: "📄 新建博客", click: () => petActions["new-blog"]?.() },
-    { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
-    { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
-    { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
-    { type: "separator" },
-    { label: "📂 打开主窗口", click: () => {
-      if (mainWindow$1) {
-        mainWindow$1.show();
-        mainWindow$1.focus();
-      }
-    } },
-    { type: "separator" },
-    { label: "🐱 桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
-    { type: "separator" },
-    { label: "❌ 退出", click: () => {
-      electron.app.exit();
-    } }
-  ]);
-}
-let petActive = false;
-function togglePet() {
-  if (petActive) {
-    petActive = false;
-    const pw = getPetWindow();
-    if (pw && !pw.isDestroyed()) pw.close();
-    if (tray) tray.setContextMenu(buildMenu());
-    return;
-  }
-  petActive = true;
-  if (mainWindow$1) createPet(mainWindow$1);
-  if (tray) tray.setContextMenu(buildMenu());
-}
-function setupTray(win) {
-  mainWindow$1 = win;
-  if (tray) tray.destroy();
-  tray = new electron.Tray(makeIcon(16));
-  tray.setToolTip("本地博客与知识库");
-  tray.setContextMenu(buildMenu());
-  tray.on("double-click", () => {
-    if (mainWindow$1) {
-      mainWindow$1.show();
-      mainWindow$1.focus();
+      const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
+      return await WebScraperService2.scrapeWebpage(url);
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   });
+  electron.ipcMain.handle("pet:scrape-import", async (_e, data) => {
+    try {
+      const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
+      const uid = await getUserId();
+      const blog = await BlogService2.createBlog(uid, data.title, "md", data.content);
+      new electron.Notification({ title: "已导入", body: data.title }).show();
+      return { success: true, data: blog };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+  electron.ipcMain.on("pet:startDrag", () => {
+    if (!petWin || petWin.isDestroyed()) return;
+    const cursor = electron.screen.getCursorScreenPoint();
+    const [wx, wy] = petWin.getPosition();
+    dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
+    dragInterval = setInterval(() => {
+      if (!petWin || petWin.isDestroyed()) {
+        if (dragInterval) clearInterval(dragInterval);
+        return;
+      }
+      const c = electron.screen.getCursorScreenPoint();
+      petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
+    }, 16);
+  });
+  electron.ipcMain.on("pet:stopDrag", () => {
+    if (dragInterval) {
+      clearInterval(dragInterval);
+      dragInterval = null;
+    }
+  });
+  electron.ipcMain.on("pet:savePosition", () => {
+    if (petWin && !petWin.isDestroyed()) {
+      const [x, y] = petWin.getPosition();
+      try {
+        fs.writeFileSync(posFile(), JSON.stringify({ x, y }));
+      } catch {
+      }
+    }
+  });
+  electron.ipcMain.on("pet:click", () => {
+    if (petWin && !petWin.isDestroyed()) {
+      petMenu().popup({ window: petWin, x: 64, y: 64 });
+    }
+  });
+}
+function getPetWindow() {
+  return petWin;
 }
 electron.app.disableHardwareAcceleration();
 electron.app.commandLine.appendSwitch("disable-gpu");
@@ -3336,3 +3610,4 @@ electron.app.on("window-all-closed", () => {
   closeDatabase();
   if (process.platform !== "darwin") electron.app.quit();
 });
+exports.sanitizePagination = sanitizePagination;

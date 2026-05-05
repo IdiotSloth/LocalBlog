@@ -105,7 +105,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     const { token } = get();
     if (token) {
-      await window.api.logout(token).catch(() => {});
+      await window.api.logout(token).catch((e) => {
+        console.error('[Auth] Logout failed:', e);
+      });
     }
     clearPersistedSession();
     set({ isAuthenticated: false, user: null, token: null });

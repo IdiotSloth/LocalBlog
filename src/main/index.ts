@@ -4,9 +4,9 @@ import path from 'node:path';
 import { BrowserWindow, app, shell } from 'electron';
 import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
+import { initPetActions } from './pet';
 import { BackupService } from './services/backup.service';
 import { setupTray } from './tray';
-import { initPetActions } from './pet';
 
 // Disable GPU hardware acceleration to prevent white screen on some Windows environments
 app.disableHardwareAcceleration();
@@ -18,11 +18,16 @@ let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1400, height: 900, minWidth: 1024, minHeight: 680,
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 680,
     title: '本地博客与知识库',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: true, contextIsolation: true, nodeIntegration: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
     },
     webviewTag: true,
     show: false,
@@ -34,9 +39,18 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  mainWindow.on('ready-to-show', () => { mainWindow?.show(); if (!app.isPackaged) mainWindow?.webContents.openDevTools(); });
-  mainWindow.on('close', (e) => { e.preventDefault(); mainWindow?.hide(); });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  mainWindow.on('ready-to-show', () => {
+    mainWindow?.show();
+    if (!app.isPackaged) mainWindow?.webContents.openDevTools();
+  });
+  mainWindow.on('close', (e) => {
+    e.preventDefault();
+    mainWindow?.hide();
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 app.whenReady().then(async () => {
@@ -75,7 +89,9 @@ app.whenReady().then(async () => {
     });
   }
 
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
 app.on('window-all-closed', () => {

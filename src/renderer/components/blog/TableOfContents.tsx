@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { TocItem } from '../../lib/toc-parser';
 
 interface Props {
@@ -16,13 +16,14 @@ export function TableOfContents({ items }: Props) {
 
   useEffect(() => {
     if (items.length < 2) return;
-    const headingElements = items
-      .map((item) => document.getElementById(item.id))
-      .filter(Boolean) as HTMLElement[];
+    const headingElements = items.map((item) => document.getElementById(item.id)).filter(Boolean) as HTMLElement[];
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) { setActiveId(entry.target.id); break; }
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id);
+            break;
+          }
         }
       },
       { rootMargin: '-80px 0px -60% 0px', threshold: 0 },
@@ -74,7 +75,10 @@ export function TableOfContents({ items }: Props) {
             border: '1px solid var(--border-default)',
           }}
         >
-          <div className="mb-2 font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+          <div
+            className="mb-2 font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-secondary)', fontSize: 11 }}
+          >
             目录
           </div>
           {items.map((item) => (

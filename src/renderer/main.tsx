@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { api } from './lib/api-client';
 import App from './App';
+import { api } from './lib/api-client';
 import './assets/index.css';
 
 // Inject API for browser environment (Electron provides window.api via preload)

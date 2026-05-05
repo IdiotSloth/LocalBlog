@@ -23,7 +23,11 @@ export function QuickNote({ userId }: Props) {
         setToast({ blogId: r.data.id });
         setText('');
       }
-    } catch (e) { console.error(e); } finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -33,7 +37,9 @@ export function QuickNote({ userId }: Props) {
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSubmit();
+          }}
           placeholder="快速便签..."
           disabled={saving}
           className="w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"

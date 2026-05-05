@@ -1,6 +1,6 @@
 # 本地博客与知识库存储系统 — 待办事项
 
-> 最后更新: 2026-05-05 10:56:08 | 自动同步
+> 最后更新: 2026-05-05 17:45:54 | 自动同步
 
 ---
 
@@ -49,8 +49,9 @@
 | Phase 8 | 体验增强与互联互通 (系列链/便签/标签清理/关联展示/热力图/Word导出/设计审查) | 24h | 2026-05-03 | ✅ |
 | Phase 9 | 工程质量夯实 + 架构债清偿 (逻辑去重/类型安全/XSS/DDL/校验/UI打磨) | 36h | 2026-05-03 | ✅ |
 | Phase 10 | 桌面体验 + PDF修复 + 翻页 + UI圆润 (托盘/桌面宠物/PDF/分页/圆角) | 22h | 2026-05-05 | ✅ |
+| Phase 11 | 工程收敛 — 安全加固 + 架构收敛 + 质量基线 | 28h | 2026-05-06 (P0+P1+P2-T1108) | 🚧 |
 
-**总计**: ~247h (Phase 2-10 全部完成)
+**总计**: ~275h (Phase 2-10 完成, Phase 11 待启动)
 
 > 详细任务规格 (T101-T614, F601-F605) 见 [docs/phase-archive.md](docs/phase-archive.md)。
 
@@ -627,21 +628,65 @@ petWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 - Boss 看过后点头才算通过
 - 不影响功能性元素的对比度（链接、按钮文字）
 
-从 Phase 7/8 收尾阶段提取，持续跟踪：
+---
+## 6. Phase 11 — 工程收敛与质量基线 📋
 
-| # | 方向 | 优先级 | 关联 |
-|---|------|--------|------|
-| 1 | E2E 测试 — Playwright 全流程 | 🟡 P2 | T502 |
-| 2 | 国际化 i18n — 中英文翻译 | 🟡 P2 | T506 |
-| 3 | FTS5 全文搜索 — 迁移 better-sqlite3 | 🟢 P3 | T302 |
-| 4 | Biome lint 修复 — 180 errors + 89 warnings | 🟢 P3 | — |
-| 5 | TypeScript strict 模式 | 🟢 P3 | — |
+> 来源: suggest.md。暂停新功能，集中 2-3 周清偿核心技术债。
+> 原则：只做"已验证模式推广 + 真实安全修补 + 质量基线左移"，零新功能。
+
+### 任务总览
+
+| 任务 | 名称 | 类型 | 估算 | 优先级 |
+|------|------|------|------|--------|
+| T1101 | DOMPurify XSS 加强 — `dangerouslySetInnerHTML` 前加白名单 | 安全 | 1h | 🔴 P0 |
+| T1102 | catch {} 全量修复 — 30+ 处空 catch 替换为 console.error | 安全 | 2h | 🔴 P0 |
+| T1103 | DB 参数边界校验 — offset/limit 做 Math.max(0, floor(Number(val))) | 安全 | 1h | 🔴 P0 |
+| T1104 | DI 模式复制 — blog-list → knowledge/search/tags/recycle | 架构 | 8h | 🟡 P1 |
+| T1105 | sql.js Schema 冻结 — 新 DDL 仅写 mysql.ts + db.ts | 架构 | 2h | 🟡 P1 |
+| T1106 | IPC 类型收敛 — 核心 10 通道 (auth 4 + blog 5 + delete) Zod 签名 | 类型 | 4h | 🟡 P2 | ✅ |
+| T1107 | Biome 清零 — 修复 180 errors + 89 warnings，纳入 CI 阻断 | 质量 | 4h | 🟡 P2 |
+| T1108 | E2E 核心路径 — Playwright 5 条链路：注册→登录→写博客→导出→回收站 | 质量 | 6h | 🟡 P2 |
+
+**🔴 P0 (3 项)**: ~4h — 安全底线，必须优先
+**🟡 P1 (2 项)**: ~10h — 架构收敛，降低维护摩擦
+**🟡 P2 (3 项)**: ~14h — 质量基线，建立自动化安全网
+**总计: 8 项, ~28h**
+
+### 实现要点
+
+**T1101 DOMPurify**：1 个依赖 (~10KB gzipped)，`BlogPreviewPage` 和 `BlogEditorPage` 的渲染点各加一行 `DOMPurify.sanitize(html)`。
+
+**T1102 catch {} 修复**：`grep -r "catch {}" src/renderer` → 逐个替换为 `catch (e) { console.error(e) }`，关键操作加降级 toast。验收：grep 返回 0 结果。
+
+**T1103 DB 参数边界**：在 `dbAll` / `dbGet` / `dbRun` 包装层对 offset/limit 做数值强转和边界校验。
+
+**T1104 DI 模式**：复制 `src/shared/handlers/blog-list.ts` 的 DI 模式（注入 QueryRows/QueryOne 适配两种后端）到 knowledge/list、search、tags、recycle 四个领域。server/routes 和 main/ipc 均调用 shared handler。
+
+**T1105 sql.js 冻结**：sql.js 侧的 schema.ts 不再新增表/列，新 DDL 仅写 mysql.ts + db.ts。sql.js 模式下涉及新功能的入口显示"离线模式下此功能不可用"。
+
+**T1106 IPC 类型**：auth (login/register/logout/verify) + blog (list/get/create/update/delete) 共 10 个通道补充 Zod 运行时校验。preload 层消除 `as any`。
+
+**T1107 Biome**：Day 1 执行 `npx biome check --fix` 自动修复大部分；Day 2 手动收尾剩余 error。确认 0 error 后纳入 `npm run ci` 阻断项。
+
+**T1108 E2E**：Playwright 覆盖 5 条核心路径，建立回归安全网。不需要全覆盖，先有骨架。
 
 ---
 
-## 6. 跨阶段关注事项
+## 7. 后续改进方向
 
-### 5.1 安全性检查清单
+以下暂不立项，待 Phase 11 完成后评估：
+
+| # | 方向 | 优先级 | 关联 |
+|---|------|--------|------|
+| 1 | 国际化 i18n — 中英文翻译 | 🟡 P2 | T506 |
+| 2 | FTS5 全文搜索 — MySQL FULLTEXT (ngram 分词)，sql.js 降级 LIKE | 🟢 P3 | T302 |
+| 3 | TypeScript strict 模式 | 🟢 P3 | — |
+
+---
+
+## 8. 跨阶段关注事项
+
+### 8.1 安全性检查清单
 
 - [x] 密码使用 PBKDF2 加盐哈希 (Phase 1)
 - [x] Session Token 使用 crypto.randomBytes (Phase 1)
@@ -651,14 +696,14 @@ petWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 - [x] 敏感操作二次确认 (删除账户、清空回收站)
 - [x] XSS 防护: 渲染用户内容时使用 sandbox iframe
 
-### 4.2 代码质量
+### 8.2 代码质量
 
 - [ ] Biome lint 零错误 (当前: 180 errors + 89 warnings)
 - [ ] TypeScript strict 模式通过
 - [ ] 无 `any` 类型 (或记录例外)
 - [ ] 关键路径有 JSDoc 注释
 
-### 4.3 文档
+### 8.3 文档
 
 - [x] README.md 每个 Phase 后更新
 - [ ] API 文档 (IPC channels)

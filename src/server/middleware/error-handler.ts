@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
 /** Unified error handler — catches both sync throws and rejected promises */
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {

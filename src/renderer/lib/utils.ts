@@ -26,4 +26,3 @@ export function formatDate(iso: string): string {
     minute: '2-digit',
   });
 }
-

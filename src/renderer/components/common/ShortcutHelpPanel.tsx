@@ -28,12 +28,7 @@ export function ShortcutHelpPanel({ onClose }: Props) {
           <h2 className="text-[16px] font-semibold" style={{ color: 'var(--text-primary)' }}>
             快捷键一览
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[16px]"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <button type="button" onClick={onClose} className="text-[16px]" style={{ color: 'var(--text-secondary)' }}>
             ✕
           </button>
         </div>

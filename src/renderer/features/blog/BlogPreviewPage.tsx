@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/auth-store';
-import { formatDate } from '../../lib/utils';
-import { parseToc, estimateReadingTime, countChars } from '../../lib/toc-parser';
-import { TableOfContents } from '../../components/blog/TableOfContents';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
+import { TableOfContents } from '../../components/blog/TableOfContents';
+import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
+import { formatDate } from '../../lib/utils';
+import { useAuthStore } from '../../stores/auth-store';
 
 function RelatedResources({ blogId }: { blogId: number }) {
   const [refs, setRefs] = useState<any[]>([]);
@@ -17,11 +17,20 @@ function RelatedResources({ blogId }: { blogId: number }) {
   }, [blogId]);
   if (refs.length === 0) return null;
   return (
-    <div className="mt-8 rounded-[6px] border p-4" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
-      <h3 className="mb-3 text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>📁 关联的知识库文件 ({refs.length})</h3>
+    <div
+      className="mt-8 rounded-[6px] border p-4"
+      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
+    >
+      <h3 className="mb-3 text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>
+        📁 关联的知识库文件 ({refs.length})
+      </h3>
       <div className="space-y-1">
         {refs.map((ref: any) => (
-          <span key={ref.id} className="inline-block mr-2 mb-1 rounded-[4px] border px-2 py-1 text-[13px]" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)' }}>
+          <span
+            key={ref.id}
+            className="inline-block mr-2 mb-1 rounded-[4px] border px-2 py-1 text-[13px]"
+            style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)' }}
+          >
             📄 {ref.title || `文件 #${ref.target_id}`}
           </span>
         ))}
@@ -29,6 +38,7 @@ function RelatedResources({ blogId }: { blogId: number }) {
     </div>
   );
 }
+import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
@@ -110,31 +120,57 @@ export function BlogPreviewPage() {
 
       <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto', position: 'relative' }}>
         <div className="mb-4 flex items-center justify-between">
-        <Link
-          to="/blog"
-          className="mb-0 inline-flex items-center gap-1 text-[14px] no-underline hover:underline transition-colors duration-[0.15s]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          ← 返回列表
-        </Link>
-        <div className="flex gap-1">
-          {Object.entries(READING_THEMES).map(([key, t]) => (
-            <button key={key} type="button" onClick={() => handleThemeChange(key)}
-              className="rounded-[3px] px-2 py-0.5 text-[11px] transition-opacity"
-              style={{ background: readingTheme === key ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-secondary)', opacity: readingTheme === key ? 1 : 0.6 }}
-              title={t.name}>{t.name === '纸张' ? '纸' : t.name === '午夜' ? '夜' : t.name === '复古' ? '古' : t.name === '森林' ? '森' : '樱'}</button>
-          ))}
-        </div>
+          <Link
+            to="/blog"
+            className="mb-0 inline-flex items-center gap-1 text-[14px] no-underline hover:underline transition-colors duration-[0.15s]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            ← 返回列表
+          </Link>
+          <div className="flex gap-1">
+            {Object.entries(READING_THEMES).map(([key, t]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleThemeChange(key)}
+                className="rounded-[3px] px-2 py-0.5 text-[11px] transition-opacity"
+                style={{
+                  background: readingTheme === key ? 'var(--bg-tertiary)' : 'transparent',
+                  color: 'var(--text-secondary)',
+                  opacity: readingTheme === key ? 1 : 0.6,
+                }}
+                title={t.name}
+              >
+                {t.name === '纸张'
+                  ? '纸'
+                  : t.name === '午夜'
+                    ? '夜'
+                    : t.name === '复古'
+                      ? '古'
+                      : t.name === '森林'
+                        ? '森'
+                        : '樱'}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <article className="mt-4 rounded-[8px] p-6 transition-colors duration-500" style={{
-          background: theme.bg, color: theme.text, fontFamily: theme.font,
-        }}>
+        <article
+          className="mt-4 rounded-[8px] p-6 transition-colors duration-500"
+          style={{
+            background: theme.bg,
+            color: theme.text,
+            fontFamily: theme.font,
+          }}
+        >
           <h1 className="mb-3" style={{ color: theme.text }}>
             {blog.title}
           </h1>
 
-          <div className="mb-6 flex flex-wrap items-center gap-3 text-[14px]" style={{ color: 'var(--text-secondary)' }}>
+          <div
+            className="mb-6 flex flex-wrap items-center gap-3 text-[14px]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             <span>{formatDate(blog.createdAt)}</span>
             {blog.createdAt !== blog.updatedAt && <span>· 更新于 {formatDate(blog.updatedAt)}</span>}
             <span
@@ -156,9 +192,7 @@ export function BlogPreviewPage() {
                   key={t.id}
                   type="button"
                   className="tag cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() =>
-                    navigate(`/blog?tagId=${t.id}&tagName=${encodeURIComponent(t.name)}`)
-                  }
+                  onClick={() => navigate(`/blog?tagId=${t.id}&tagName=${encodeURIComponent(t.name)}`)}
                   title={`查看标签: ${t.name}`}
                 >
                   {t.name}
@@ -167,7 +201,7 @@ export function BlogPreviewPage() {
             </div>
           )}
 
-          <div className="prose" dangerouslySetInnerHTML={{ __html: rendered }} />
+          <div className="prose" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rendered) }} />
         </article>
 
         {user && blog.seriesId && (
@@ -180,11 +214,16 @@ export function BlogPreviewPage() {
           <Link to={`/blog/${id}/edit`} className="btn-primary inline-flex items-center gap-2 no-underline">
             编辑此文章
           </Link>
-          <button type="button" onClick={async () => {
-            const d = await window.api.blogExportPdf(Number(id));
-            const r = d as any;
-            if (!r.success && r.error !== '已取消') alert(r.error || '导出失败');
-          }} className="btn-primary inline-flex items-center gap-2" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              const d = await window.api.blogExportPdf(Number(id));
+              const r = d as any;
+              if (!r.success && r.error !== '已取消') alert(r.error || '导出失败');
+            }}
+            className="btn-primary inline-flex items-center gap-2"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+          >
             导出 PDF
           </button>
         </div>

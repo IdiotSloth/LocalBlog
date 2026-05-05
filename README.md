@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 (250 modules) | 测试: 27/27 pass | Phase 1-10 全部完成
+构建: ✅ 通过 (34 main + 2 preload + 213 renderer) | 测试: 27/27 pass | Phase 1-10 完成, Phase 11 P0+P1 完成
 
 ---
 
@@ -37,46 +37,6 @@ npm run test       # 27 单元测试
 
 **首次使用**: 注册 → 选择工作区目录 → 自动创建 `Blogs/` `KnowledgeBase/` `Assets/`
 
-> ⚠️ 如遇 `ELECTRON_RUN_AS_NODE=1`，用 `scripts/launcher.bat` 启动而非直接双击 exe。
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
-
-
-**当前特性**: MySQL 统一存储 | Web 浏览器版 | 博客阅读模式 | 数据库自动备份  
 
 
 ---
@@ -92,7 +52,7 @@ npm run test       # 27 单元测试
 | Web | Express 5, JWT Cookie, mysql2 |
 | 文档处理 | mammoth (DOCX), exceljs (XLSX), pdfjs-dist (PDF), markdown-it, turndown |
 | 测试 | Vitest (27 tests), Playwright (E2E) |
-| 质量 | Biome (lint + format), TypeScript strict |
+| 质量 | Biome (lint + format), TypeScript strict, DOMPurify (XSS) |
 
 ---
 
@@ -127,8 +87,8 @@ src/
 │   ├── index.ts       #   窗口创建、托盘、宠物
 │   ├── tray.ts        #   托盘菜单 + 桌面宠物
 │   ├── pet.ts         #   宠物窗口 + 独立小窗
-│   ├── ipc/           #   IPC handlers (10 文件)
-│   ├── services/      #   业务逻辑 (10 services)
+│   ├── ipc/           #   IPC handlers (11 文件)
+│   ├── services/      #   业务逻辑 (12 services)
 │   ├── db/            #   sql.js + MySQL 抽象层
 │   └── utils/         #   加密、路径工具
 ├── preload/           # contextBridge API
@@ -141,6 +101,7 @@ src/
 │   ├── routes/        #   REST API
 │   └── middleware/     #   auth, error-handler
 ├── shared/            # 跨进程共享 (types, constants, IPC channels)
+│   └── handlers/      #   共享逻辑 (blog-list, knowledge-list)
 └── docs/              # 开发文档
 ```
 
@@ -160,6 +121,9 @@ src/
 | 8 | 系列链/便签/标签清理/关联展示/热力图/Word | 24h | ✅ |
 | 9 | 架构去重/类型安全/XSS/DDL/校验/测试 | 36h | ✅ |
 | 10 | 托盘/桌面宠物/PDF修复/翻页/UI圆润 | 22h | ✅ |
+| 11 | 工程收敛 — 安全加固 + 架构收敛 + 质量基线 | 28h | 🚧 |
+|   | T1101-T1107 P0+P1 完成: DOMPurify, catch修复, 参数校验, DI, Schema冻结, IPC类型, Biome | | ✅ |
+|   | T1108 P2: E2E Playwright (待实施) | 6h | 📋 |
 
 ---
 

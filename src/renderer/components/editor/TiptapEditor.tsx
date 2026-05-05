@@ -4,6 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorToolbar } from './EditorToolbar';
 
@@ -113,7 +114,10 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
         </div>
         {mode === 'split' && (
           <div className="w-1/2 overflow-auto bg-[var(--color-bg-base)] px-6 py-4">
-            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: editor.getHTML() }} />
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(editor.getHTML()) }}
+            />
           </div>
         )}
       </div>

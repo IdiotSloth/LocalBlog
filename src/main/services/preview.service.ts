@@ -9,7 +9,10 @@ import { dbGet } from '../db';
 export class PreviewService {
   /** Generate an HTML preview for a knowledge base file */
   static async generatePreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }> {
-    const row = await dbGet<KnowledgeFile & { file_path: string; filename: string }>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
+    const row = await dbGet<KnowledgeFile & { file_path: string; filename: string }>(
+      'SELECT * FROM knowledge_files WHERE id = ?',
+      [fileId],
+    );
     if (!row) return { error: '文件不存在' };
 
     const filePath = row.file_path || row.filePath;

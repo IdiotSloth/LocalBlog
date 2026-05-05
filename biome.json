@@ -31,6 +31,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "out", ".git", "resources"]
+    "ignore": ["node_modules", "out", ".git", "resources", "release", "scripts"]
   }
 }

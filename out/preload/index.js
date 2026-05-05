@@ -107,7 +107,7 @@ const api = {
   logout: (token) => electron.ipcRenderer.invoke(IPC.AUTH_LOGOUT, token),
   verifyToken: (token) => electron.ipcRenderer.invoke(IPC.AUTH_VERIFY_TOKEN, token),
   deleteAccount: (data) => electron.ipcRenderer.invoke(IPC.AUTH_DELETE_ACCOUNT, data),
-  // Blog — returns ApiResponse<T> = { success: boolean; data?: T; error?: string }
+  // Blog — core
   blogList: (filters) => electron.ipcRenderer.invoke(IPC.BLOG_LIST, filters),
   blogGet: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_GET, blogId),
   blogCreate: (data) => electron.ipcRenderer.invoke(IPC.BLOG_CREATE, data),
@@ -130,8 +130,6 @@ const api = {
   blogSeriesSet: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SERIES_SET, data),
   blogBatchDelete: (blogIds) => electron.ipcRenderer.invoke(IPC.BLOG_BATCH_DELETE, blogIds),
   blogBatchTag: (data) => electron.ipcRenderer.invoke(IPC.BLOG_BATCH_TAG, data),
-  kbBatchDelete: (fileIds) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, fileIds),
-  recycleBatchRestore: (data) => electron.ipcRenderer.invoke(IPC.RECYCLE_BATCH_RESTORE, data),
   // Tag
   tagList: (userId) => electron.ipcRenderer.invoke(IPC.TAG_LIST, userId),
   tagCreate: (data) => electron.ipcRenderer.invoke(IPC.TAG_CREATE, data),
@@ -148,6 +146,7 @@ const api = {
   kbRename: (data) => electron.ipcRenderer.invoke(IPC.KB_RENAME, data),
   kbPreview: (fileId) => electron.ipcRenderer.invoke(IPC.KB_PREVIEW, fileId),
   kbOpenExternal: (fileId) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, fileId),
+  kbBatchDelete: (fileIds) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, fileIds),
   // Search
   searchGlobal: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
   searchBlogs: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
@@ -162,6 +161,7 @@ const api = {
   recycleRestore: (data) => electron.ipcRenderer.invoke(IPC.RECYCLE_RESTORE, data),
   recycleEmpty: (userId) => electron.ipcRenderer.invoke(IPC.RECYCLE_EMPTY, userId),
   recycleSetAutoClean: (data) => electron.ipcRenderer.invoke(IPC.RECYCLE_SET_AUTO_CLEAN, data),
+  recycleBatchRestore: (data) => electron.ipcRenderer.invoke(IPC.RECYCLE_BATCH_RESTORE, data),
   // References
   refAdd: (data) => electron.ipcRenderer.invoke(IPC.REF_ADD, data),
   refRemove: (refId) => electron.ipcRenderer.invoke(IPC.REF_REMOVE, refId),
@@ -196,14 +196,14 @@ const api = {
     return () => electron.ipcRenderer.removeListener("pet-action", handler);
   },
   // File System Dialogs
+  selectFiles: (exts) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => electron.ipcRenderer.invoke(IPC.FS_SELECT_DIR),
-  selectFiles: (extensions) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions }),
   // App
-  getVersion: () => electron.ipcRenderer.invoke(IPC.APP_GET_VERSION),
-  getSystemLanguage: () => electron.ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
-  setAutoStart: (enabled) => electron.ipcRenderer.invoke(IPC.APP_SET_AUTO_START, enabled),
-  getAutoStart: () => electron.ipcRenderer.invoke(IPC.APP_GET_AUTO_START),
-  createStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_CREATE_START_MENU_SHORTCUT),
-  hasStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_HAS_START_MENU_SHORTCUT)
+  appGetVersion: () => electron.ipcRenderer.invoke(IPC.APP_GET_VERSION),
+  appGetSystemLanguage: () => electron.ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
+  appSetAutoStart: (enable) => electron.ipcRenderer.invoke(IPC.APP_SET_AUTO_START, enable),
+  appGetAutoStart: () => electron.ipcRenderer.invoke(IPC.APP_GET_AUTO_START),
+  appCreateStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_CREATE_START_MENU_SHORTCUT),
+  appHasStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_HAS_START_MENU_SHORTCUT)
 };
 electron.contextBridge.exposeInMainWorld("api", api);

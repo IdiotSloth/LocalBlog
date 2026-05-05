@@ -53,7 +53,10 @@ export class SearchService {
         if (idx >= 0) {
           const start = Math.max(0, idx - 30);
           const end = Math.min(row.content_text.length, idx + query.length + 30);
-          snippet = (start > 0 ? '...' : '') + row.content_text.substring(start, end) + (end < row.content_text.length ? '...' : '');
+          snippet =
+            (start > 0 ? '...' : '') +
+            row.content_text.substring(start, end) +
+            (end < row.content_text.length ? '...' : '');
         }
       }
       return {

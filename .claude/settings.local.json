@@ -25,7 +25,12 @@
       "Bash(node scripts/run.js npx electron-forge package)",
       "Bash(cp -r \"e:/5-work/web/out/main\" \"e:/5-work/web/out/preload\" \"e:/5-work/web/out/renderer\" \"e:/5-work/web/out/package.json\" /tmp/app/out/)",
       "Bash(rm \"e:/5-work/web/release/Idiot-win32-x64/resources/app.asar\")",
-      "Bash(rm -rf /tmp/app)"
+      "Bash(rm -rf /tmp/app)",
+      "Bash(npx biome *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(env)",
+      "Bash(reg query *)"
     ]
   },
   "hooks": {

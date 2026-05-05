@@ -1,13 +1,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { MAX_TITLE_LENGTH } from '../../shared/constants';
+import { sanitizePagination } from '../../shared/pagination';
 import type { Blog, BlogFormat, BlogWithTags, ItemStatus, Tag } from '../../shared/types';
-import { dbGet, dbAll, dbRun } from '../db';
-import { getBlogPath, getBlogAssetsDir, getBlogsDir, initWorkspaceDirectories } from '../utils/paths';
+import { dbAll, dbGet, dbRun } from '../db';
+import { getBlogAssetsDir, getBlogPath, getBlogsDir, initWorkspaceDirectories } from '../utils/paths';
 import { TagService } from './tag.service';
 
-interface BlogRow { id: number; user_id: number; title: string; format: string; content?: string; status: string; series_id?: string; series_name?: string; created_at: string; updated_at: string; }
-interface DraftRow { id: number; blog_id: number; content: string; saved_at: string; }
+interface BlogRow {
+  id: number;
+  user_id: number;
+  title: string;
+  format: string;
+  content?: string;
+  status: string;
+  series_id?: string;
+  series_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+interface DraftRow {
+  id: number;
+  blog_id: number;
+  content: string;
+  saved_at: string;
+}
 
 export class BlogService {
   static async createBlog(userId: number, title: string, format: BlogFormat, content: string): Promise<Blog> {
@@ -18,8 +35,14 @@ export class BlogService {
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ''));
 
     const now = new Date().toISOString();
-    await dbRun('INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [userId, title, format, content, now, now]);
-    const row = await dbGet<BlogRow>('SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1', [userId, title, format]);
+    await dbRun(
+      'INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, title, format, content, now, now],
+    );
+    const row = await dbGet<BlogRow>(
+      'SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1',
+      [userId, title, format],
+    );
     if (!row) throw new Error('创建博客失败');
 
     const filePath = await getBlogPath(userId, row.id, format);
@@ -32,7 +55,11 @@ export class BlogService {
     if (!row) return null;
     const filePath = await getBlogPath(row.user_id, row.id, row.format as BlogFormat);
     let content = '';
-    try { content = fs.readFileSync(filePath, 'utf-8'); } catch { content = row.content || ''; }
+    try {
+      content = fs.readFileSync(filePath, 'utf-8');
+    } catch {
+      content = row.content || '';
+    }
     const tags = await BlogService.getBlogTags(blogId);
     return { ...BlogService.rowToBlog(row), tags, content };
   }
@@ -41,13 +68,22 @@ export class BlogService {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ?', [blogId]);
     if (!blog) throw new Error('博客不存在');
     if (update.title !== undefined) {
-      if (!update.title || update.title.length > MAX_TITLE_LENGTH) throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?', [update.title, new Date().toISOString(), blogId]);
+      if (!update.title || update.title.length > MAX_TITLE_LENGTH)
+        throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
+      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?', [
+        update.title,
+        new Date().toISOString(),
+        blogId,
+      ]);
     }
     if (update.content !== undefined) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
       fs.writeFileSync(filePath, update.content, 'utf-8');
-      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [update.content, new Date().toISOString(), blogId]);
+      await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?', [
+        update.content,
+        new Date().toISOString(),
+        blogId,
+      ]);
     }
   }
 
@@ -55,7 +91,12 @@ export class BlogService {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ?', [blogId]);
     if (!blog) throw new Error('博客不存在');
     await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [new Date().toISOString(), blogId]);
-    await dbRun('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [blog.user_id, 'blog', blogId, new Date().toISOString()]);
+    await dbRun('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [
+      blog.user_id,
+      'blog',
+      blogId,
+      new Date().toISOString(),
+    ]);
   }
 
   static async restoreBlog(blogId: number): Promise<void> {
@@ -66,23 +107,47 @@ export class BlogService {
   }
 
   static async listBlogs(filters: {
-    userId: number; status?: string; tagId?: number; folderId?: number; query?: string; sortBy?: string; sortOrder?: string; offset?: number; limit?: number;
+    userId: number;
+    status?: string;
+    tagId?: number;
+    folderId?: number;
+    query?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    offset?: number;
+    limit?: number;
   }): Promise<{ blogs: BlogWithTags[]; total: number }> {
     const conditions: string[] = ['b.user_id = ?'];
     const params: unknown[] = [filters.userId];
     conditions.push("b.status = 'active'");
-    if (filters.query) { conditions.push('b.title LIKE ?'); params.push(`%${filters.query}%`); }
-    if (filters.tagId) { conditions.push('b.id IN (SELECT blog_id FROM blog_tags WHERE tag_id = ?)'); params.push(filters.tagId); }
-    if (filters.folderId !== undefined) { conditions.push('b.folder_id = ?'); params.push(filters.folderId); }
+    if (filters.query) {
+      conditions.push('b.title LIKE ?');
+      params.push(`%${filters.query}%`);
+    }
+    if (filters.tagId) {
+      conditions.push('b.id IN (SELECT blog_id FROM blog_tags WHERE tag_id = ?)');
+      params.push(filters.tagId);
+    }
+    if (filters.folderId !== undefined) {
+      conditions.push('b.folder_id = ?');
+      params.push(filters.folderId);
+    }
 
     const where = conditions.join(' AND ');
-    const safeSort = ['created_at', 'updated_at', 'title'].includes(filters.sortBy || '') ? filters.sortBy : 'updated_at';
+    const safeSort = ['created_at', 'updated_at', 'title'].includes(filters.sortBy || '')
+      ? filters.sortBy
+      : 'updated_at';
     const safeOrder = filters.sortOrder === 'asc' ? 'ASC' : 'DESC';
-    const limit = filters.limit || 20;
+    const { offset, limit } = sanitizePagination(filters.offset, filters.limit);
 
     const totalRow = await dbGet<{ count: number }>(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
-    const rows = await dbAll<BlogRow>(`SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${filters.offset || 0}`, params);
-    const blogs = await Promise.all(rows.map(async (row) => ({ ...BlogService.rowToBlog(row), tags: await BlogService.getBlogTags(row.id) })));
+    const rows = await dbAll<BlogRow>(
+      `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`,
+      params,
+    );
+    const blogs = await Promise.all(
+      rows.map(async (row) => ({ ...BlogService.rowToBlog(row), tags: await BlogService.getBlogTags(row.id) })),
+    );
     return { blogs, total: totalRow?.count || 0 };
   }
 
@@ -94,12 +159,24 @@ export class BlogService {
       if (!blog) continue;
       const srcPath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
       const ext = blog.format === 'html' ? '.html' : '.md';
-      try { fs.copyFileSync(srcPath, path.join(outputDir, `${blog.title.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100)}${ext}`)); count++; } catch {}
+      try {
+        fs.copyFileSync(
+          srcPath,
+          path.join(outputDir, `${blog.title.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100)}${ext}`),
+        );
+        count++;
+      } catch {
+        /* skip files that cannot be copied (permissions, missing source) */
+      }
     }
     return count;
   }
 
-  static async importMarkdownFiles(userId: number, filePaths: string[], contents: { title: string; content: string }[] = []): Promise<Blog[]> {
+  static async importMarkdownFiles(
+    userId: number,
+    filePaths: string[],
+    contents: { title: string; content: string }[] = [],
+  ): Promise<Blog[]> {
     const blogs: Blog[] = [];
 
     // Import from disk files
@@ -112,7 +189,10 @@ export class BlogService {
       let title = filename;
       const fmMatch = content.match(/^---\s*\ntitle:\s*(.+)\s*\n---/);
       if (fmMatch) title = fmMatch[1].trim();
-      else { const h1Match = content.match(/^#\s+(.+)/m); if (h1Match) title = h1Match[1].trim(); }
+      else {
+        const h1Match = content.match(/^#\s+(.+)/m);
+        if (h1Match) title = h1Match[1].trim();
+      }
       const format: BlogFormat = ext === '.html' ? 'html' : 'md';
       const blog = await this.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
       blogs.push(blog);
@@ -131,11 +211,18 @@ export class BlogService {
   static async saveDraft(blogId: number, content: string): Promise<void> {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ?', [blogId]);
     if (!blog) throw new Error('博客不存在');
-    await dbRun('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [blogId, content, new Date().toISOString()]);
+    await dbRun('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [
+      blogId,
+      content,
+      new Date().toISOString(),
+    ]);
   }
 
   static async getHistory(blogId: number): Promise<DraftRow[]> {
-    return dbAll<DraftRow>('SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20', [blogId]);
+    return dbAll<DraftRow>(
+      'SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20',
+      [blogId],
+    );
   }
 
   static async rollback(blogId: number, draftId: number): Promise<void> {
@@ -145,12 +232,16 @@ export class BlogService {
   }
 
   static async getBlogTags(blogId: number): Promise<Tag[]> {
-    return dbAll<Tag>('SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?', [blogId]);
+    return dbAll<Tag>(
+      'SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?',
+      [blogId],
+    );
   }
 
   static async setBlogTags(blogId: number, tagIds: number[]): Promise<void> {
     await dbRun('DELETE FROM blog_tags WHERE blog_id = ?', [blogId]);
-    for (const tagId of tagIds) await dbRun('INSERT OR IGNORE INTO blog_tags (blog_id, tag_id) VALUES (?, ?)', [blogId, tagId]);
+    for (const tagId of tagIds)
+      await dbRun('INSERT OR IGNORE INTO blog_tags (blog_id, tag_id) VALUES (?, ?)', [blogId, tagId]);
   }
 
   // ---- Attachments ----
@@ -168,7 +259,11 @@ export class BlogService {
     return files.map((f) => {
       const fullPath = path.join(assetsDir, f);
       let size = 0;
-      try { size = fs.statSync(fullPath).size; } catch {}
+      try {
+        size = fs.statSync(fullPath).size;
+      } catch {
+        /* file may have been deleted since readdir */
+      }
       return {
         filename: f,
         size,
@@ -207,7 +302,17 @@ export class BlogService {
   }
 
   private static rowToBlog(row: BlogRow): Blog {
-    return { id: row.id, userId: row.user_id, title: row.title, format: row.format as BlogFormat, status: row.status as ItemStatus, seriesId: row.series_id, seriesName: row.series_name, createdAt: row.created_at, updatedAt: row.updated_at };
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      format: row.format as BlogFormat,
+      status: row.status as ItemStatus,
+      seriesId: row.series_id,
+      seriesName: row.series_name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   // ---- Quick Note ----
@@ -227,17 +332,20 @@ export class BlogService {
     return dbAll<{ seriesId: string; seriesName: string; count: number }>(
       `SELECT series_id as seriesId, series_name as seriesName, COUNT(*) as count
        FROM blogs WHERE user_id = ? AND status = 'active' AND series_id IS NOT NULL
-       GROUP BY series_id, series_name ORDER BY series_name`, [userId]);
+       GROUP BY series_id, series_name ORDER BY series_name`,
+      [userId],
+    );
   }
 
   static async getSeriesBlogs(seriesId: string): Promise<Blog[]> {
     const rows = await dbAll<BlogRow>(
-      `SELECT * FROM blogs WHERE series_id = ? AND status = 'active' ORDER BY created_at ASC`, [seriesId]);
+      `SELECT * FROM blogs WHERE series_id = ? AND status = 'active' ORDER BY created_at ASC`,
+      [seriesId],
+    );
     return rows.map(BlogService.rowToBlog);
   }
 
   static async setBlogSeries(blogId: number, seriesId: string | null, seriesName: string | null): Promise<void> {
-    await dbRun('UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ?',
-      [seriesId, seriesName, blogId]);
+    await dbRun('UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ?', [seriesId, seriesName, blogId]);
   }
 }

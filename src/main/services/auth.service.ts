@@ -19,32 +19,48 @@ export class AuthService {
 
     // Check for a reclaimed account (same workspace, cleared password from keepFiles=true deletion)
     const reclaimed = await dbGet<{ id: number; username: string }>(
-      "SELECT id, username FROM users WHERE workspace_path = ? AND password_hash = ''", [workspacePath]);
+      "SELECT id, username FROM users WHERE workspace_path = ? AND password_hash = ''",
+      [workspacePath],
+    );
 
     const passwordHash = hashPassword(password);
     let userId: number;
 
     if (reclaimed) {
       // Reclaim: restore auth on existing user row, preserving all blog/knowledge data
-      await dbRun("UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
-        [username, passwordHash, reclaimed.id]);
+      await dbRun('UPDATE users SET username = ?, password_hash = ? WHERE id = ?', [
+        username,
+        passwordHash,
+        reclaimed.id,
+      ]);
       userId = reclaimed.id;
     } else {
-      await dbRun('INSERT INTO users (username, password_hash, workspace_path, created_at) VALUES (?, ?, ?, ?)',
-        [username, passwordHash, workspacePath, new Date().toISOString()]);
+      await dbRun('INSERT INTO users (username, password_hash, workspace_path, created_at) VALUES (?, ?, ?, ?)', [
+        username,
+        passwordHash,
+        workspacePath,
+        new Date().toISOString(),
+      ]);
       const newUser = await dbGet<{ id: number }>('SELECT id FROM users WHERE username = ?', [username]);
       if (!newUser?.id) return { success: false, error: '创建用户失败: 数据库写入异常' };
       userId = newUser.id;
     }
 
-    try { initWorkspaceDirectories(workspacePath); } catch (err) {
+    try {
+      initWorkspaceDirectories(workspacePath);
+    } catch (err) {
       await dbRun('DELETE FROM users WHERE id = ?', [userId]);
       return { success: false, error: `创建工作区目录失败: ${(err as Error).message}` };
     }
 
     const token = generateToken();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [userId, token, expiresAt, new Date().toISOString()]);
+    await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [
+      userId,
+      token,
+      expiresAt,
+      new Date().toISOString(),
+    ]);
 
     return { success: true, user: { id: userId, username, workspacePath, createdAt: new Date().toISOString() }, token };
   }
@@ -52,9 +68,14 @@ export class AuthService {
   static async login(username: string, password: string, rememberMe: boolean): Promise<AuthResponse> {
     console.log('[Auth] Login attempt:', username);
     const row = await dbGet<{ id: number; password_hash: string; workspace_path: string; created_at: string }>(
-      'SELECT id, password_hash, workspace_path, created_at FROM users WHERE username = ?', [username]);
+      'SELECT id, password_hash, workspace_path, created_at FROM users WHERE username = ?',
+      [username],
+    );
 
-    if (!row) { console.log('[Auth] User not found'); return { success: false, error: '用户名或密码错误' }; }
+    if (!row) {
+      console.log('[Auth] User not found');
+      return { success: false, error: '用户名或密码错误' };
+    }
 
     const valid = verifyPassword(password, row.password_hash);
     if (!valid) return { success: false, error: '用户名或密码错误' };
@@ -64,15 +85,32 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
 
     await dbRun('DELETE FROM sessions WHERE user_id = ?', [row.id]);
-    await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [row.id, token, expiresAt, new Date().toISOString()]);
+    await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [
+      row.id,
+      token,
+      expiresAt,
+      new Date().toISOString(),
+    ]);
 
-    return { success: true, user: { id: row.id, username, workspacePath: row.workspace_path, createdAt: row.created_at }, token };
+    return {
+      success: true,
+      user: { id: row.id, username, workspacePath: row.workspace_path, createdAt: row.created_at },
+      token,
+    };
   }
 
   static async verifyToken(token: string): Promise<AuthResponse> {
-    const row = await dbGet<{ user_id: number; username: string; workspace_path: string; created_at: string; expires_at: string }>(
+    const row = await dbGet<{
+      user_id: number;
+      username: string;
+      workspace_path: string;
+      created_at: string;
+      expires_at: string;
+    }>(
       `SELECT s.user_id, u.username, u.workspace_path, u.created_at, s.expires_at
-       FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`, [token]);
+       FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
+      [token],
+    );
 
     if (!row) return { success: false, error: 'Token 无效' };
     if (new Date(row.expires_at) < new Date()) {
@@ -80,7 +118,11 @@ export class AuthService {
       return { success: false, error: '登录已过期，请重新登录' };
     }
 
-    return { success: true, user: { id: row.user_id, username: row.username, workspacePath: row.workspace_path, createdAt: row.created_at }, token };
+    return {
+      success: true,
+      user: { id: row.user_id, username: row.username, workspacePath: row.workspace_path, createdAt: row.created_at },
+      token,
+    };
   }
 
   static async logout(token: string): Promise<void> {
@@ -98,7 +140,11 @@ export class AuthService {
     } else {
       await dbRun('DELETE FROM users WHERE id = ?', [userId]);
       if (user.workspace_path) {
-        try { fs.rmSync(user.workspace_path, { recursive: true, force: true }); } catch {}
+        try {
+          fs.rmSync(user.workspace_path, { recursive: true, force: true });
+        } catch {
+          /* workspace may not exist or already deleted */
+        }
       }
     }
     return { success: true };

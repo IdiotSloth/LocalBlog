@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Attachment {
   filename: string;
@@ -28,7 +28,9 @@ export function AttachmentPanel({ blogId }: Props) {
     setLoading(false);
   }, [blogId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleDelete = async (filename: string) => {
     if (!confirm(`删除附件 ${filename}？`)) return;
@@ -39,7 +41,8 @@ export function AttachmentPanel({ blogId }: Props) {
   const handleCleanup = async () => {
     const unused = attachments.filter((a) => !a.usedInBlog);
     if (unused.length === 0) return;
-    if (!confirm(`清理 ${unused.length} 个未引用附件，释放 ${fmtSize(unused.reduce((s, a) => s + a.size, 0))}？`)) return;
+    if (!confirm(`清理 ${unused.length} 个未引用附件，释放 ${fmtSize(unused.reduce((s, a) => s + a.size, 0))}？`))
+      return;
     await window.api.blogCleanupAttachments(blogId);
     load();
   };
@@ -66,9 +69,13 @@ export function AttachmentPanel({ blogId }: Props) {
       </div>
 
       {loading ? (
-        <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+        <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          加载中...
+        </p>
       ) : attachments.length === 0 ? (
-        <p className="text-[12px]" style={{ color: 'var(--text-placeholder)' }}>暂无附件</p>
+        <p className="text-[12px]" style={{ color: 'var(--text-placeholder)' }}>
+          暂无附件
+        </p>
       ) : (
         <div className="space-y-1">
           {attachments.map((a) => (

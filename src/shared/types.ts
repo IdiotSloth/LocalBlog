@@ -143,6 +143,10 @@ export interface UserStats {
 
 // ==================== Folder ====================
 export interface FolderTreeNode {
-  id: number; name: string; parentId: number | null; type: string;
-  itemCount: number; children: FolderTreeNode[];
+  id: number;
+  name: string;
+  parentId: number | null;
+  type: string;
+  itemCount: number;
+  children: FolderTreeNode[];
 }

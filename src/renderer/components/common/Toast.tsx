@@ -13,7 +13,10 @@ export function Toast({ message, actionLabel, onAction, onDismiss, duration = 20
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
-    const t = setTimeout(() => { setVisible(false); setTimeout(onDismiss, 300); }, duration);
+    const t = setTimeout(() => {
+      setVisible(false);
+      setTimeout(onDismiss, 300);
+    }, duration);
     return () => clearTimeout(t);
   }, [duration, onDismiss]);
 
@@ -30,7 +33,14 @@ export function Toast({ message, actionLabel, onAction, onDismiss, duration = 20
     >
       <span className="text-[13px]">{message}</span>
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction} className="text-[12px] font-medium hover:underline" style={{ color: 'var(--accent-blue)' }}>{actionLabel}</button>
+        <button
+          type="button"
+          onClick={onAction}
+          className="text-[12px] font-medium hover:underline"
+          style={{ color: 'var(--accent-blue)' }}
+        >
+          {actionLabel}
+        </button>
       )}
     </div>
   );

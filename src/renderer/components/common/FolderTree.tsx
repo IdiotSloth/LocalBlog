@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { FolderTreeNode } from '../../../shared/types';
 
 interface Props {
@@ -20,12 +20,18 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
     try {
       const d = await window.api.folderTree({ userId, type });
       const r = d as any;
-      if (r.success && r.data) { setTree(r.data); setError(false); }
-      else setError(true);
-    } catch { setError(true); }
+      if (r.success && r.data) {
+        setTree(r.data);
+        setError(false);
+      } else setError(true);
+    } catch {
+      setError(true);
+    }
   }, [userId, type]);
 
-  useEffect(() => { loadTree(); }, [loadTree]);
+  useEffect(() => {
+    loadTree();
+  }, [loadTree]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -36,14 +42,23 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
 
   const [actionError, setActionError] = useState('');
   const handleCreate = async (parentId: number | null) => {
-    if (!newName.trim()) { setShowNewInput(null); return; }
+    if (!newName.trim()) {
+      setShowNewInput(null);
+      return;
+    }
     setActionError('');
     try {
       const d = await window.api.folderCreate({ userId, name: newName.trim(), type, parentId });
       const r = d as any;
-      if (r.success) { setNewName(''); setShowNewInput(null); setActionError(''); loadTree(); }
-      else setActionError(r.error || '创建失败');
-    } catch (err) { setActionError(`创建失败: ${(err as Error).message}`); }
+      if (r.success) {
+        setNewName('');
+        setShowNewInput(null);
+        setActionError('');
+        loadTree();
+      } else setActionError(r.error || '创建失败');
+    } catch (err) {
+      setActionError(`创建失败: ${(err as Error).message}`);
+    }
   };
 
   const handleRename = async (folderId: number, name: string) => {
@@ -94,10 +109,17 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(node.id); if (e.key === 'Escape') setShowNewInput(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate(node.id);
+              if (e.key === 'Escape') setShowNewInput(null);
+            }}
             placeholder="文件夹名..."
             className="flex-1 rounded-[3px] px-2 py-0.5 text-[12px]"
-            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            style={{
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-primary)',
+            }}
           />
         </div>
       )}
@@ -107,7 +129,10 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
   return (
     <div className="select-none">
       {actionError && (
-        <div className="mb-2 rounded-[4px] px-2 py-1 text-[11px]" style={{ background: 'rgba(248,81,73,0.1)', color: 'var(--accent-red)' }}>
+        <div
+          className="mb-2 rounded-[4px] px-2 py-1 text-[11px]"
+          style={{ background: 'rgba(248,81,73,0.1)', color: 'var(--accent-red)' }}
+        >
           {actionError}
         </div>
       )}
@@ -119,7 +144,10 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
           type="button"
           className="text-[16px] leading-none"
           style={{ color: 'var(--text-secondary)' }}
-          onClick={() => { setShowNewInput(-1); setNewName(''); }}
+          onClick={() => {
+            setShowNewInput(-1);
+            setNewName('');
+          }}
           title="新建文件夹"
         >
           +
@@ -134,10 +162,17 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(null); if (e.key === 'Escape') setShowNewInput(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate(null);
+              if (e.key === 'Escape') setShowNewInput(null);
+            }}
             placeholder="文件夹名..."
             className="flex-1 rounded-[3px] px-2 py-0.5 text-[12px]"
-            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            style={{
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-primary)',
+            }}
           />
         </div>
       )}
@@ -171,16 +206,32 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button type="button" className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80" style={{ color: 'var(--text-primary)' }}
-            onClick={() => { setShowNewInput(contextFolder.id); setNewName(''); setContextFolder(null); }}>
+          <button
+            type="button"
+            className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80"
+            style={{ color: 'var(--text-primary)' }}
+            onClick={() => {
+              setShowNewInput(contextFolder.id);
+              setNewName('');
+              setContextFolder(null);
+            }}
+          >
             + 新建子文件夹
           </button>
-          <button type="button" className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80" style={{ color: 'var(--text-primary)' }}
-            onClick={() => handleRename(contextFolder.id, contextFolder.name)}>
+          <button
+            type="button"
+            className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80"
+            style={{ color: 'var(--text-primary)' }}
+            onClick={() => handleRename(contextFolder.id, contextFolder.name)}
+          >
             重命名
           </button>
-          <button type="button" className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80" style={{ color: 'var(--accent-red)' }}
-            onClick={() => handleDelete(contextFolder.id)}>
+          <button
+            type="button"
+            className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80"
+            style={{ color: 'var(--accent-red)' }}
+            onClick={() => handleDelete(contextFolder.id)}
+          >
             删除
           </button>
         </div>

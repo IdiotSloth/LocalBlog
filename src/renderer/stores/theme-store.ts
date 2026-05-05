@@ -31,7 +31,9 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     // Guard against duplicate listener registration
     if (mqlListener) return;
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => { if (get().theme === 'system') applyTheme('system'); };
+    const handler = () => {
+      if (get().theme === 'system') applyTheme('system');
+    };
     mql.addEventListener('change', handler);
     mqlListener = () => mql.removeEventListener('change', handler);
   },

@@ -1,9 +1,14 @@
 import type { FolderTreeNode } from '../../shared/types';
-import { dbGet, dbAll, dbRun } from '../db';
+import { dbAll, dbGet, dbRun } from '../db';
 
 interface FolderRow {
-  id: number; user_id: number; name: string; parent_id: number | null;
-  type: string; sort_order: number; created_at: string;
+  id: number;
+  user_id: number;
+  name: string;
+  parent_id: number | null;
+  type: string;
+  sort_order: number;
+  created_at: string;
 }
 
 export class FolderService {
@@ -27,13 +32,25 @@ export class FolderService {
     if (!trimmed) throw new Error('文件夹名不能为空');
 
     // MySQL: IS only accepts literal NULL — split query by parentId presence
-    const existing = parentId != null
-      ? await dbGet<FolderRow>('SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id = ? AND type = ?', [userId, trimmed, parentId, type])
-      : await dbGet<FolderRow>('SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id IS NULL AND type = ?', [userId, trimmed, type]);
+    const existing =
+      parentId != null
+        ? await dbGet<FolderRow>(
+            'SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id = ? AND type = ?',
+            [userId, trimmed, parentId, type],
+          )
+        : await dbGet<FolderRow>(
+            'SELECT * FROM folders WHERE user_id = ? AND name = ? AND parent_id IS NULL AND type = ?',
+            [userId, trimmed, type],
+          );
     if (existing) throw new Error('同名文件夹已存在');
 
-    await dbRun('INSERT INTO folders (user_id, name, parent_id, type, created_at) VALUES (?, ?, ?, ?, ?)',
-      [userId, trimmed, parentId ?? null, type, new Date().toISOString()]);
+    await dbRun('INSERT INTO folders (user_id, name, parent_id, type, created_at) VALUES (?, ?, ?, ?, ?)', [
+      userId,
+      trimmed,
+      parentId ?? null,
+      type,
+      new Date().toISOString(),
+    ]);
 
     const row = await dbGet<FolderRow>(
       'SELECT * FROM folders WHERE user_id = ? AND name = ? AND type = ? ORDER BY id DESC LIMIT 1',
@@ -60,8 +77,11 @@ export class FolderService {
     folderId: number | null,
   ): Promise<void> {
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`,
-      [folderId, new Date().toISOString(), itemId]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [
+      folderId,
+      new Date().toISOString(),
+      itemId,
+    ]);
   }
 }
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
@@ -8,12 +8,22 @@ import { useAuthStore } from './stores/auth-store';
 import { useThemeStore } from './stores/theme-store';
 
 // Lazy-loaded page components — reduces initial bundle parse time
-const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const DashboardPage = lazy(() =>
+  import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
 const BlogListPage = lazy(() => import('./features/blog/BlogListPage').then((m) => ({ default: m.BlogListPage })));
-const BlogEditorPage = lazy(() => import('./features/blog/BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })));
-const BlogPreviewPage = lazy(() => import('./features/blog/BlogPreviewPage').then((m) => ({ default: m.BlogPreviewPage })));
-const KnowledgeListPage = lazy(() => import('./features/knowledge/KnowledgeListPage').then((m) => ({ default: m.KnowledgeListPage })));
-const RecycleBinPage = lazy(() => import('./features/recycle/RecycleBinPage').then((m) => ({ default: m.RecycleBinPage })));
+const BlogEditorPage = lazy(() =>
+  import('./features/blog/BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })),
+);
+const BlogPreviewPage = lazy(() =>
+  import('./features/blog/BlogPreviewPage').then((m) => ({ default: m.BlogPreviewPage })),
+);
+const KnowledgeListPage = lazy(() =>
+  import('./features/knowledge/KnowledgeListPage').then((m) => ({ default: m.KnowledgeListPage })),
+);
+const RecycleBinPage = lazy(() =>
+  import('./features/recycle/RecycleBinPage').then((m) => ({ default: m.RecycleBinPage })),
+);
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const TagManagePage = lazy(() => import('./features/tags/TagManagePage').then((m) => ({ default: m.TagManagePage })));
 
@@ -79,7 +89,13 @@ export default function App() {
           <Route path="/settings" element={lazyPage(SettingsPage)} />
         </Route>
         {/* Standalone editor — bypasses MainLayout for pet/tray "新建博客" action */}
-        <Route element={<ProtectedRoute><></></ProtectedRoute>}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <></>
+            </ProtectedRoute>
+          }
+        >
           <Route path="/standalone/editor" element={lazyPage(BlogEditorPage)} />
         </Route>
       </Routes>

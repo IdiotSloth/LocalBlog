@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface BlogItem {
@@ -27,17 +27,35 @@ export function TimelineView({ userId }: Props) {
   useEffect(() => {
     if (!userId) return;
     setLoading(true);
-    window.api.blogList({ userId, sortBy: 'created_at', sortOrder: 'desc', limit: 200 }).then((d: unknown) => {
-      const r = d as any;
-      if (r.success && r.data) {
-        setGroups(groupByMonth(r.data.blogs || []));
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    window.api
+      .blogList({ userId, sortBy: 'created_at', sortOrder: 'desc', limit: 200 })
+      .then((d: unknown) => {
+        const r = d as any;
+        if (r.success && r.data) {
+          setGroups(groupByMonth(r.data.blogs || []));
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [userId]);
 
-  if (loading) return <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>;
-  if (groups.length === 0) return <div className="rounded-[6px] border border-dashed p-12 text-center" style={{ borderColor: 'var(--border-default)' }}><p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>还没有博客，开始记录吧</p></div>;
+  if (loading)
+    return (
+      <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>
+        加载中...
+      </p>
+    );
+  if (groups.length === 0)
+    return (
+      <div
+        className="rounded-[6px] border border-dashed p-12 text-center"
+        style={{ borderColor: 'var(--border-default)' }}
+      >
+        <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>
+          还没有博客，开始记录吧
+        </p>
+      </div>
+    );
 
   return (
     <div className="timeline-container" style={{ paddingLeft: 32 }}>
@@ -74,7 +92,10 @@ export function TimelineView({ userId }: Props) {
                 <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                   {item.title || '无标题'}
                 </span>
-                <span className="rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] uppercase" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                <span
+                  className="rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] uppercase"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                >
                   {item.format}
                 </span>
               </div>

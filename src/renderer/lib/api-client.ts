@@ -25,18 +25,15 @@ function getQuery(filters: Record<string, unknown>): string {
 
 const webApi = {
   // Auth
-  login: (req: { username: string; password: string; rememberMe: boolean }) =>
-    request('POST', '/api/auth/login', req),
+  login: (req: { username: string; password: string; rememberMe: boolean }) => request('POST', '/api/auth/login', req),
   register: (req: { username: string; password: string; workspacePath: string }) =>
     request('POST', '/api/auth/register', req),
   logout: () => request('POST', '/api/auth/logout'),
   verifyToken: () => request('GET', '/api/auth/session'),
-  deleteAccount: (data: { userId: number; keepFiles: boolean }) =>
-    request('POST', '/api/auth/delete', data),
+  deleteAccount: (data: { userId: number; keepFiles: boolean }) => request('POST', '/api/auth/delete', data),
 
   // Blog
-  blogList: (filters: Record<string, unknown> = {}) =>
-    request('GET', `/api/blog/list${getQuery(filters)}`),
+  blogList: (filters: Record<string, unknown> = {}) => request('GET', `/api/blog/list${getQuery(filters)}`),
   blogGet: (blogId: number) => request('GET', `/api/blog/${blogId}`),
   blogCreate: (data: object) => request('POST', '/api/blog/create', data),
   blogUpdate: (data: { blogId: number; title?: string; content?: string }) =>
@@ -44,10 +41,8 @@ const webApi = {
   blogDelete: (blogId: number) => request('POST', `/api/blog/${blogId}/delete`),
   blogRestore: (blogId: number) => request('POST', `/api/blog/${blogId}/restore`),
   blogExport: () => Promise.resolve({ success: false, error: '网页版暂不支持导出' }),
-  blogImportMd: (data: { userId: number; filePaths: string[] }) =>
-    request('POST', '/api/blog/import-md', data),
-  blogSaveDraft: (data: { blogId: number; content: string }) =>
-    request('POST', '/api/blog/save-draft', data),
+  blogImportMd: (data: { userId: number; filePaths: string[] }) => request('POST', '/api/blog/import-md', data),
+  blogSaveDraft: (data: { blogId: number; content: string }) => request('POST', '/api/blog/save-draft', data),
   blogGetHistory: (blogId: number) => request('GET', `/api/blog/${blogId}/history`),
   blogRollback: (data: { blogId: number; draftId: number }) =>
     request('POST', `/api/blog/${data.blogId}/rollback`, data),
@@ -55,17 +50,14 @@ const webApi = {
   // Tag
   tagList: () => request('GET', '/api/tags/list'),
   tagCreate: (data: { userId: number; name: string }) => request('POST', '/api/tags/create', data),
-  tagUpdate: (data: { tagId: number; name: string }) =>
-    request('POST', `/api/tags/${data.tagId}/update`, data),
+  tagUpdate: (data: { tagId: number; name: string }) => request('POST', `/api/tags/${data.tagId}/update`, data),
   tagDelete: (tagId: number) => request('POST', `/api/tags/${tagId}/delete`),
-  tagSetBlog: (data: { blogId: number; tagIds: number[] }) =>
-    request('POST', `/api/blog/${data.blogId}/tags`, data),
+  tagSetBlog: (data: { blogId: number; tagIds: number[] }) => request('POST', `/api/blog/${data.blogId}/tags`, data),
   tagSetFile: (data: { fileId: number; tagIds: number[] }) =>
     request('POST', `/api/knowledge/${data.fileId}/tags`, data),
 
   // Knowledge Base
-  kbList: (filters: Record<string, unknown> = {}) =>
-    request('GET', `/api/knowledge/list${getQuery(filters)}`),
+  kbList: (filters: Record<string, unknown> = {}) => request('GET', `/api/knowledge/list${getQuery(filters)}`),
   kbGet: (fileId: number) => request('GET', `/api/knowledge/${fileId}`),
   kbImport: (data: { userId: number; filePaths: string[]; copyToWorkspace: boolean }) =>
     request('POST', '/api/knowledge/import', data),
@@ -78,12 +70,9 @@ const webApi = {
   kbOpenExternal: () => Promise.resolve({ success: false, error: '网页版暂不支持系统程序打开' }),
 
   // Search
-  searchGlobal: (data: { userId: number; query: string }) =>
-    request('POST', '/api/search/global', data),
-  searchBlogs: (data: { userId: number; query: string }) =>
-    request('POST', '/api/search/blogs', data),
-  searchKb: (data: { userId: number; query: string }) =>
-    request('POST', '/api/search/kb', data),
+  searchGlobal: (data: { userId: number; query: string }) => request('POST', '/api/search/global', data),
+  searchBlogs: (data: { userId: number; query: string }) => request('POST', '/api/search/blogs', data),
+  searchKb: (data: { userId: number; query: string }) => request('POST', '/api/search/kb', data),
 
   // Workspace
   workspaceGetInfo: () => request('GET', '/api/workspace/info'),
@@ -96,8 +85,7 @@ const webApi = {
   recycleRestore: (data: { userId: number; itemId: number; itemType: string }) =>
     request('POST', '/api/recycle/restore', data),
   recycleEmpty: () => request('POST', '/api/recycle/empty'),
-  recycleSetAutoClean: (data: { userId: number; days: number }) =>
-    request('POST', '/api/recycle/auto-clean', data),
+  recycleSetAutoClean: (data: { userId: number; days: number }) => request('POST', '/api/recycle/auto-clean', data),
 
   // Web scraping
   scrapeWebpage: (url: string) => request('POST', '/api/scrape/webpage', { url }),

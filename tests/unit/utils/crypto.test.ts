@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { hashPassword, verifyPassword, generateToken } from '../../../src/main/utils/crypto';
+import { describe, expect, it } from 'vitest';
+import { generateToken, hashPassword, verifyPassword } from '../../../src/main/utils/crypto';
 
 describe('crypto', () => {
   describe('hashPassword', () => {

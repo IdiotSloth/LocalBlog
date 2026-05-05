@@ -4,19 +4,35 @@ import { TagService } from '../services/tag.service';
 
 export function registerTagHandlers(): void {
   ipcMain.handle(IPC.TAG_LIST, async (_event, userId: number) => {
-    try { const tags = await TagService.listTags(userId); return { success: true, data: tags }; }
-    catch (err) { return { success: false, error: (err as Error).message }; }
+    try {
+      const tags = await TagService.listTags(userId);
+      return { success: true, data: tags };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
   ipcMain.handle(IPC.TAG_CREATE, async (_event, data: { userId: number; name: string }) => {
-    try { const tag = await TagService.createTag(data.userId, data.name); return { success: true, data: tag }; }
-    catch (err) { return { success: false, error: (err as Error).message }; }
+    try {
+      const tag = await TagService.createTag(data.userId, data.name);
+      return { success: true, data: tag };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
   ipcMain.handle(IPC.TAG_UPDATE, async (_event, data: { tagId: number; name: string }) => {
-    try { await TagService.updateTag(data.tagId, data.name); return { success: true }; }
-    catch (err) { return { success: false, error: (err as Error).message }; }
+    try {
+      await TagService.updateTag(data.tagId, data.name);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
   ipcMain.handle(IPC.TAG_DELETE, async (_event, tagId: number) => {
-    try { await TagService.deleteTag(tagId); return { success: true }; }
-    catch (err) { return { success: false, error: (err as Error).message }; }
+    try {
+      await TagService.deleteTag(tagId);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
 }

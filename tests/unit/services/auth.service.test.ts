@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the db module before importing the service
 vi.mock('../../../src/main/db', () => ({
@@ -17,8 +17,8 @@ vi.mock('../../../src/main/utils/paths', () => ({
   initWorkspaceDirectories: vi.fn(),
 }));
 
-import { AuthService } from '../../../src/main/services/auth.service';
 import { dbGet, dbRun } from '../../../src/main/db';
+import { AuthService } from '../../../src/main/services/auth.service';
 
 const mockDbGet = dbGet as ReturnType<typeof vi.fn>;
 const mockDbRun = dbRun as ReturnType<typeof vi.fn>;
@@ -114,7 +114,11 @@ describe('AuthService', () => {
     it('should reject expired token', async () => {
       const pastDate = new Date(Date.now() - 999 * 24 * 60 * 60 * 1000).toISOString();
       mockDbGet.mockResolvedValueOnce({
-        user_id: 1, username: 'test', workspace_path: '/tmp', created_at: '2026-01-01', expires_at: pastDate,
+        user_id: 1,
+        username: 'test',
+        workspace_path: '/tmp',
+        created_at: '2026-01-01',
+        expires_at: pastDate,
       });
       const result = await AuthService.verifyToken('expired-token');
       expect(result.success).toBe(false);
@@ -127,10 +131,7 @@ describe('AuthService', () => {
       mockDbRun.mockResolvedValue(undefined);
       const result = await AuthService.deleteAccount(1, true);
       expect(result.success).toBe(true);
-      expect(mockDbRun).toHaveBeenCalledWith(
-        "UPDATE users SET password_hash = '' WHERE id = ?",
-        [1],
-      );
+      expect(mockDbRun).toHaveBeenCalledWith("UPDATE users SET password_hash = '' WHERE id = ?", [1]);
     });
 
     it('should delete user and clean up workspace when keepFiles is false', async () => {

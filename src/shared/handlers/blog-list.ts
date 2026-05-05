@@ -3,6 +3,8 @@
  *  BlogService.listBlogs + server/routes/blog.ts GET /list.
  */
 
+import { sanitizePagination } from '../pagination';
+
 type QueryRows = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 type QueryOne = (sql: string, params: unknown[]) => Promise<Record<string, unknown> | undefined>;
 
@@ -35,11 +37,7 @@ function mapBlogRow(row: Record<string, unknown>) {
   };
 }
 
-export async function getSharedBlogList(
-  dbAll: QueryRows,
-  dbGet: QueryOne,
-  filters: BlogListFilters,
-) {
+export async function getSharedBlogList(dbAll: QueryRows, dbGet: QueryOne, filters: BlogListFilters) {
   const {
     userId,
     status = 'active',
@@ -52,8 +50,9 @@ export async function getSharedBlogList(
     limit = 50,
   } = filters;
 
-  const safeSort = VALID_SORT.includes(sortBy as any) ? sortBy : 'updated_at';
-  const safeOrder = VALID_ORDER.includes(sortOrder as any) ? sortOrder : 'desc';
+  const safeSort = (VALID_SORT as readonly string[]).includes(sortBy) ? sortBy : 'updated_at';
+  const safeOrder = (VALID_ORDER as readonly string[]).includes(sortOrder) ? sortOrder : 'desc';
+  const { offset: safeOffset, limit: safeLimit } = sanitizePagination(offset, limit);
 
   const conditions: string[] = ['b.user_id = ?'];
   const params: unknown[] = [userId];
@@ -76,21 +75,25 @@ export async function getSharedBlogList(
 
   const where = conditions.join(' AND ');
 
-  const totalRow = await dbGet(
-    `SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
+  const totalRow = await dbGet(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
   const rows = await dbAll(
-    `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`,
+    `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${safeLimit} OFFSET ${safeOffset}`,
     params,
   );
 
-  const blogs = await Promise.all(rows.map(async (row) => {
-    const blog = mapBlogRow(row);
-    const tags = await dbAll(
-      'SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?',
-      [blog.id],
-    );
-    return { ...blog, tags: tags.map((t: any) => ({ id: t.id, userId: t.user_id, name: t.name })) };
-  }));
+  const blogs = await Promise.all(
+    rows.map(async (row) => {
+      const blog = mapBlogRow(row);
+      const tags = await dbAll(
+        'SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?',
+        [blog.id],
+      );
+      return {
+        ...blog,
+        tags: tags.map((t) => ({ id: t.id as number, userId: t.user_id as number, name: t.name as string })),
+      };
+    }),
+  );
 
   return { blogs, total: (totalRow?.count as number) || 0 };
 }

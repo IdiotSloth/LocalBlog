@@ -16,8 +16,9 @@ export class BackupService {
 
   /** Get database file path */
   static getDbPath(): string {
-    const base = process.env.APPDATA
-      || (process.platform === 'darwin'
+    const base =
+      process.env.APPDATA ||
+      (process.platform === 'darwin'
         ? path.join(process.env.HOME || '', 'Library', 'Application Support')
         : path.join(process.env.HOME || '', '.local', 'share'));
     return path.join(base, 'LocalBlogKB', 'database.db');
@@ -55,7 +56,8 @@ export class BackupService {
     const backupDir = this.getBackupDir();
     if (!fs.existsSync(backupDir)) return 0;
 
-    const files = fs.readdirSync(backupDir)
+    const files = fs
+      .readdirSync(backupDir)
       .filter((f) => f.startsWith('database.db.backup.'))
       .map((f) => ({
         name: f,
@@ -69,7 +71,9 @@ export class BackupService {
       try {
         fs.unlinkSync(files[i].path);
         cleaned++;
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     if (cleaned > 0) console.log(`[Backup] Cleaned ${cleaned} old backup(s)`);
@@ -106,7 +110,8 @@ export class BackupService {
     const backupDir = this.getBackupDir();
     if (!fs.existsSync(backupDir)) return [];
 
-    return fs.readdirSync(backupDir)
+    return fs
+      .readdirSync(backupDir)
       .filter((f) => f.startsWith('database.db.backup.'))
       .map((f) => {
         const fullPath = path.join(backupDir, f);

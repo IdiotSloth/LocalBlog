@@ -6,7 +6,7 @@ interface DayStat {
   wordCount: number;
 }
 
-const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const DAY_LABELS = ['', '一', '', '三', '', '五', '日'];
 
 function getColor(count: number, words: number): string {
@@ -24,7 +24,9 @@ interface Props {
 
 export function Heatmap({ userId }: Props) {
   const [data, setData] = useState<DayStat[]>([]);
-  const [tooltip, setTooltip] = useState<{ date: string; count: number; words: number; x: number; y: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ date: string; count: number; words: number; x: number; y: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     window.api.statsDaily(userId).then((d: unknown) => {
@@ -52,7 +54,7 @@ export function Heatmap({ userId }: Props) {
   }
 
   // Group into weeks (columns)
-  const weeks: typeof cells[] = [];
+  const weeks: (typeof cells)[] = [];
   let week: typeof cells = [];
   for (const cell of cells) {
     week.push(cell);
@@ -76,20 +78,40 @@ export function Heatmap({ userId }: Props) {
   });
 
   return (
-    <div className="rounded-[6px] border p-4" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
-      <h3 className="mb-3 text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>写作热力图</h3>
+    <div
+      className="rounded-[6px] border p-4"
+      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
+    >
+      <h3 className="mb-3 text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>
+        写作热力图
+      </h3>
       <div className="overflow-x-auto">
         {/* Month labels */}
         <div className="flex mb-1 ml-7">
           {monthLabels.map((m, i) => (
-            <span key={i} className="text-[10px]" style={{ color: 'var(--text-secondary)', width: weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14 + 'px', minWidth: 28, textAlign: 'left' }}>{m.label}</span>
+            <span
+              key={i}
+              className="text-[10px]"
+              style={{
+                color: 'var(--text-secondary)',
+                width:
+                  weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14 +
+                  'px',
+                minWidth: 28,
+                textAlign: 'left',
+              }}
+            >
+              {m.label}
+            </span>
           ))}
         </div>
         <div className="flex">
           {/* Day labels */}
           <div className="flex flex-col mr-1 gap-[2px]">
             {DAY_LABELS.map((l, i) => (
-              <span key={i} className="text-[9px] leading-[12px] h-[12px]" style={{ color: 'var(--text-secondary)' }}>{l}</span>
+              <span key={i} className="text-[9px] leading-[12px] h-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                {l}
+              </span>
             ))}
           </div>
           {/* Grid */}
@@ -106,7 +128,13 @@ export function Heatmap({ userId }: Props) {
                       style={{ background: getColor(cell.count, cell.words) }}
                       onMouseEnter={(e) => {
                         const rect = (e.target as HTMLElement).getBoundingClientRect();
-                        setTooltip({ date: cell.date, count: cell.count, words: cell.words, x: rect.left, y: rect.top - 28 });
+                        setTooltip({
+                          date: cell.date,
+                          count: cell.count,
+                          words: cell.words,
+                          x: rect.left,
+                          y: rect.top - 28,
+                        });
                       }}
                       onMouseLeave={() => setTooltip(null)}
                     />

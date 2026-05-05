@@ -1,5 +1,5 @@
 import type { UserStats } from '../../shared/types';
-import { dbGet, dbAll } from '../db';
+import { dbAll, dbGet } from '../db';
 
 export class StatsService {
   static async getUserStats(userId: number): Promise<UserStats> {
@@ -16,7 +16,9 @@ export class StatsService {
 
     // Hour-based stats calculated from raw data (portable across SQLite/MySQL)
     const timestamps = await dbAll<{ created_at: string }>(
-      "SELECT created_at FROM blogs WHERE user_id = ? AND status = 'active'", [userId]);
+      "SELECT created_at FROM blogs WHERE user_id = ? AND status = 'active'",
+      [userId],
+    );
     let nightCount = 0;
     let earlyCount = 0;
     for (const t of timestamps) {
@@ -27,18 +29,23 @@ export class StatsService {
 
     // File count
     const fileRow = await dbGet<{ total: number }>(
-      "SELECT COUNT(*) as total FROM knowledge_files WHERE user_id = ? AND status = 'active'", [userId]);
+      "SELECT COUNT(*) as total FROM knowledge_files WHERE user_id = ? AND status = 'active'",
+      [userId],
+    );
 
     // Tag count
     const tagRow = await dbGet<{ unique: number }>(
-      'SELECT COUNT(DISTINCT tag_id) as unique FROM blog_tags bt JOIN blogs b ON bt.blog_id = b.id WHERE b.user_id = ?', [userId]);
+      'SELECT COUNT(DISTINCT tag_id) as unique FROM blog_tags bt JOIN blogs b ON bt.blog_id = b.id WHERE b.user_id = ?',
+      [userId],
+    );
 
     // Monthly stats
     const monthRow = await dbGet<{ count: number; words: number }>(
       `SELECT COUNT(*) as count, COALESCE(SUM(LENGTH(content)), 0) as words
        FROM blogs WHERE user_id = ? AND status = 'active'
        AND created_at >= datetime('now', '-30 days')`,
-      [userId]);
+      [userId],
+    );
 
     // Tag distribution (top 10)
     const byTag = await dbAll<{ name: string; count: number }>(
@@ -47,11 +54,14 @@ export class StatsService {
        JOIN blogs b ON bt.blog_id = b.id
        WHERE b.user_id = ? AND b.status = 'active'
        GROUP BY t.name ORDER BY count DESC LIMIT 10`,
-      [userId]);
+      [userId],
+    );
 
     // Format distribution
     const byFormat = await dbAll<{ format: string; count: number }>(
-      "SELECT format, COUNT(*) as count FROM blogs WHERE user_id = ? AND status = 'active' GROUP BY format", [userId]);
+      "SELECT format, COUNT(*) as count FROM blogs WHERE user_id = ? AND status = 'active' GROUP BY format",
+      [userId],
+    );
 
     // Heatmap (last 365 days)
     const heatmap = await dbAll<{ date: string; count: number }>(
@@ -59,11 +69,14 @@ export class StatsService {
        FROM blogs WHERE user_id = ? AND status = 'active'
        AND created_at >= datetime('now', '-365 days')
        GROUP BY DATE(created_at) ORDER BY date`,
-      [userId]);
+      [userId],
+    );
 
     // Streak calculation
     const allDates = await dbAll<{ d: string }>(
-      `SELECT DISTINCT DATE(created_at) as d FROM blogs WHERE user_id = ? AND status = 'active' ORDER BY d DESC`, [userId]);
+      `SELECT DISTINCT DATE(created_at) as d FROM blogs WHERE user_id = ? AND status = 'active' ORDER BY d DESC`,
+      [userId],
+    );
     const { currentStreak, longestStreak } = calcStreak(allDates.map((r) => r.d));
 
     return {
@@ -129,5 +142,7 @@ export async function getDailyStats(userId: number): Promise<DailyStats[]> {
     `SELECT DATE(created_at) as date, COUNT(*) as blogCount, COALESCE(SUM(LENGTH(content)), 0) as wordCount
      FROM blogs WHERE user_id = ? AND status = 'active'
      AND created_at >= datetime('now', '-365 days')
-     GROUP BY DATE(created_at) ORDER BY date`, [userId]);
+     GROUP BY DATE(created_at) ORDER BY date`,
+    [userId],
+  );
 }

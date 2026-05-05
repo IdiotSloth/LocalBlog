@@ -25,7 +25,10 @@ export const blogUpdateSchema = z.object({
 
 export const blogImportSchema = z.object({
   filePaths: z.array(z.string()).max(100).optional(),
-  contents: z.array(z.object({ title: z.string(), content: z.string() })).max(100).optional(),
+  contents: z
+    .array(z.object({ title: z.string(), content: z.string() }))
+    .max(100)
+    .optional(),
 });
 
 export const tagCreateSchema = z.object({

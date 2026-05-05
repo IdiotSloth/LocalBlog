@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from 'react';
+import DOMPurify from 'dompurify';
+import { useCallback, useEffect } from 'react';
 
 interface Props {
   content: string;
@@ -21,7 +22,12 @@ export function FocusMode({ content, charCount, readingMinutes, onExit }: Props)
   }, [handleKey]);
 
   // Count words from content
-  const wordCount = content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().split(/\s+/).length || 0;
+  const wordCount =
+    content
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(/\s+/).length || 0;
 
   return (
     <div
@@ -57,7 +63,7 @@ export function FocusMode({ content, charCount, readingMinutes, onExit }: Props)
             lineHeight: 2,
             color: 'var(--text-primary)',
           }}
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
         />
       </div>
 

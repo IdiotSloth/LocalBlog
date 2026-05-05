@@ -1,6 +1,6 @@
-import { app, BrowserWindow, Menu, Notification, dialog, ipcMain, screen } from 'electron';
-import path from 'node:path';
 import fs from 'node:fs';
+import path from 'node:path';
+import { BrowserWindow, Menu, Notification, app, dialog, ipcMain, screen } from 'electron';
 import { setPetActions } from './tray';
 
 let petWin: BrowserWindow | null = null;
@@ -8,8 +8,10 @@ let mainWindow: BrowserWindow | null = null;
 let dragInterval: ReturnType<typeof setInterval> | null = null;
 let dragOffset: { x: number; y: number } = { x: 0, y: 0 };
 
-const POS_FILE = path.join(app.getPath('userData'), 'pet-position.json');
-const PET_DIR = path.join(app.getPath('userData'), 'pet');
+let _posFile: string;
+function posFile(): string { return _posFile || (_posFile = path.join(app.getPath('userData'), 'pet-position.json')); }
+let _petDir: string;
+function petDir(): string { return _petDir || (_petDir = path.join(app.getPath('userData'), 'pet')); }
 
 let cachedUserId: number | null = null;
 async function getUserId(): Promise<number> {
@@ -21,7 +23,7 @@ async function getUserId(): Promise<number> {
 }
 
 function ensurePetImages(): { static: string; drug: string } {
-  const imgDir = path.join(PET_DIR, 'img');
+  const imgDir = path.join(petDir(), 'img');
   fs.mkdirSync(imgDir, { recursive: true });
   const srcDir = path.join(__dirname, '..', '..', 'img');
   const files = ['static.png', 'drug.png'];
@@ -45,7 +47,10 @@ function ensureMiniPreload(): string {
   const p = path.join(app.getPath('userData'), 'mini-preload.js');
   if (!fs.existsSync(p)) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`);
+    fs.writeFileSync(
+      p,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`,
+    );
   }
   return p;
 }
@@ -55,12 +60,19 @@ let miniNoteWin: BrowserWindow | null = null;
 let miniScrapeWin: BrowserWindow | null = null;
 
 function showQuickNote(): void {
-  if (miniNoteWin && !miniNoteWin.isDestroyed()) { miniNoteWin.focus(); return; }
+  if (miniNoteWin && !miniNoteWin.isDestroyed()) {
+    miniNoteWin.focus();
+    return;
+  }
   const miniPreload = ensureMiniPreload();
   let closing = false;
   const win = new BrowserWindow({
-    width: 380, height: 60,
-    frame: false, alwaysOnTop: true, resizable: false, skipTaskbar: true,
+    width: 380,
+    height: 60,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload },
   });
   win.center();
@@ -79,11 +91,15 @@ function showQuickNote(): void {
   miniNoteWin = win;
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   win.once('ready-to-show', () => win.show());
-  win.on('closed', () => { miniNoteWin = null; });
+  win.on('closed', () => {
+    miniNoteWin = null;
+  });
 
   // Save function with visual feedback + force-close safety
   const saveAndClose = async () => {
-    const text: string = await win.webContents.executeJavaScript('document.getElementById("inp").value').catch(() => '');
+    const text: string = await win.webContents
+      .executeJavaScript('document.getElementById("inp").value')
+      .catch(() => '');
     if (text.trim()) {
       try {
         const { BlogService } = await import('./services/blog.service');
@@ -95,29 +111,53 @@ function showQuickNote(): void {
         `);
         await new Promise((r) => setTimeout(r, 400));
         new Notification({ title: '便签已保存', body: text.trim().substring(0, 60) }).show();
-      } catch (e) { new Notification({ title: '保存失败', body: (e as Error).message }).show(); }
+      } catch (e) {
+        new Notification({ title: '保存失败', body: (e as Error).message }).show();
+      }
     }
     if (!win.isDestroyed()) win.close();
   };
 
   // Force close after 5s to prevent stranded window
-  const forceClose = setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 5000);
+  const forceClose = setTimeout(() => {
+    if (!win.isDestroyed()) win.close();
+  }, 5000);
 
   // Enter saves, Esc closes
   win.webContents.on('before-input-event', (_e, input) => {
-    if (input.key === 'Escape') { clearTimeout(forceClose); win.close(); }
-    if (input.key === 'Enter') { clearTimeout(forceClose); saveAndClose(); }
+    if (input.key === 'Escape') {
+      clearTimeout(forceClose);
+      win.close();
+    }
+    if (input.key === 'Enter') {
+      clearTimeout(forceClose);
+      saveAndClose();
+    }
   });
   // Clicking × also saves (prevent re-entrant close)
-  win.on('close', (e) => { if (!closing) { e.preventDefault(); closing = true; clearTimeout(forceClose); saveAndClose(); } });
+  win.on('close', (e) => {
+    if (!closing) {
+      e.preventDefault();
+      closing = true;
+      clearTimeout(forceClose);
+      saveAndClose();
+    }
+  });
 }
 
 function showScrapeWindow(): void {
-  if (miniScrapeWin && !miniScrapeWin.isDestroyed()) { miniScrapeWin.focus(); return; }
+  if (miniScrapeWin && !miniScrapeWin.isDestroyed()) {
+    miniScrapeWin.focus();
+    return;
+  }
   const miniPreload = ensureMiniPreload();
   const win = new BrowserWindow({
-    width: 500, height: 420,
-    frame: false, alwaysOnTop: true, resizable: false, skipTaskbar: true,
+    width: 500,
+    height: 420,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload },
   });
   win.center();
@@ -147,7 +187,9 @@ function showScrapeWindow(): void {
   </body></html>`;
   miniScrapeWin = win;
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  win.on('closed', () => { miniScrapeWin = null; });
+  win.on('closed', () => {
+    miniScrapeWin = null;
+  });
 
   win.webContents.once('did-finish-load', () => {
     win.webContents.executeJavaScript(`
@@ -191,7 +233,8 @@ function showScrapeWindow(): void {
 
 async function handleImportMd(): Promise<void> {
   const result = await dialog.showOpenDialog({
-    title: '导入 Markdown 文件', properties: ['openFile', 'multiSelections'],
+    title: '导入 Markdown 文件',
+    properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown', extensions: ['md', 'txt', 'html'] }],
   });
   if (result.canceled || !result.filePaths.length) return;
@@ -200,13 +243,37 @@ async function handleImportMd(): Promise<void> {
     const uid = await getUserId();
     const blogs = await BlogService.importMarkdownFiles(uid, result.filePaths);
     new Notification({ title: '导入完成', body: `已导入 ${blogs.length} 篇博客` }).show();
-  } catch (e) { new Notification({ title: '导入失败', body: (e as Error).message }).show(); }
+  } catch (e) {
+    new Notification({ title: '导入失败', body: (e as Error).message }).show();
+  }
 }
 
 async function handleImportFile(): Promise<void> {
   const result = await dialog.showOpenDialog({
-    title: '导入知识库文件', properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'All Supported', extensions: ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'txt', 'md', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
+    title: '导入知识库文件',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      {
+        name: 'All Supported',
+        extensions: [
+          'docx',
+          'doc',
+          'xlsx',
+          'xls',
+          'pptx',
+          'ppt',
+          'pdf',
+          'txt',
+          'md',
+          'png',
+          'jpg',
+          'jpeg',
+          'gif',
+          'webp',
+          'svg',
+        ],
+      },
+    ],
   });
   if (result.canceled || !result.filePaths.length) return;
   try {
@@ -214,7 +281,9 @@ async function handleImportFile(): Promise<void> {
     const uid = await getUserId();
     await KnowledgeService.importFiles(uid, result.filePaths, true);
     new Notification({ title: '导入完成', body: `已导入 ${result.filePaths.length} 个文件` }).show();
-  } catch (e) { new Notification({ title: '导入失败', body: (e as Error).message }).show(); }
+  } catch (e) {
+    new Notification({ title: '导入失败', body: (e as Error).message }).show();
+  }
 }
 
 function showStandaloneEditor(): void {
@@ -235,7 +304,15 @@ function petMenu(): Menu {
     { label: '📎 导入文件', click: () => handleImportFile() },
     { label: '🌐 收藏网页', click: () => showScrapeWindow() },
     { type: 'separator' },
-    { label: '📂 打开主窗口', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    {
+      label: '📂 打开主窗口',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
   ]);
 }
 
@@ -243,8 +320,8 @@ function petMenu(): Menu {
 
 function loadPosition(): { x: number; y: number } {
   try {
-    if (fs.existsSync(POS_FILE)) {
-      const pos = JSON.parse(fs.readFileSync(POS_FILE, 'utf-8'));
+    if (fs.existsSync(posFile())) {
+      const pos = JSON.parse(fs.readFileSync(posFile(), 'utf-8'));
       const displays = screen.getAllDisplays();
       const inBounds = displays.some((d) => {
         const { x, y, width, height } = d.workArea;
@@ -252,7 +329,9 @@ function loadPosition(): { x: number; y: number } {
       });
       if (inBounds) return pos;
     }
-  } catch {}
+  } catch {
+    /* position file missing or corrupt, use default */
+  }
   const primary = screen.getPrimaryDisplay().workArea;
   return { x: primary.width - 160, y: primary.height - 160 };
 }
@@ -267,7 +346,9 @@ export function createPet(win: BrowserWindow): void {
 
   // Write pet HTML — always regenerate to pick up image path changes
   const petHtmlPath = path.join(app.getPath('userData'), 'pet.html');
-  fs.writeFileSync(petHtmlPath, `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  fs.writeFileSync(
+    petHtmlPath,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{margin:0;overflow:hidden;background:transparent}
 #pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
@@ -286,92 +367,133 @@ const pet=document.getElementById('pet');
 pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
 window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
 window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
-</script></html>`);
+</script></html>`,
+  );
 
   // Write preload if not built
   if (!fs.existsSync(preloadPath)) {
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
-    fs.writeFileSync(preloadPath,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`);
+    fs.writeFileSync(
+      preloadPath,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`,
+    );
   }
 
   petWin = new BrowserWindow({
-    width: 128, height: 128, x: pos.x, y: pos.y,
-    frame: false, transparent: true, alwaysOnTop: true,
-    resizable: false, skipTaskbar: true, hasShadow: false, focusable: false,
+    width: 128,
+    height: 128,
+    x: pos.x,
+    y: pos.y,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    focusable: false,
     webPreferences: {
-      sandbox: true, contextIsolation: true, nodeIntegration: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
       preload: preloadPath,
     },
   });
   petWin.loadFile(petHtmlPath);
   petWin.once('ready-to-show', () => petWin?.show());
 
+  registerPetIpc();
   // Wire tray menu to same mini-window actions
   setPetActions({
-    'quick-note': showQuickNote, 'new-blog': showStandaloneEditor,
-    'import-md': handleImportMd, 'import-file': handleImportFile,
+    'quick-note': showQuickNote,
+    'new-blog': showStandaloneEditor,
+    'import-md': handleImportMd,
+    'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
   });
 }
 
 /** Initialize tray actions without requiring pet window to be open */
 export function initPetActions(): void {
+  registerPetIpc();
   setPetActions({
-    'quick-note': showQuickNote, 'new-blog': showStandaloneEditor,
-    'import-md': handleImportMd, 'import-file': handleImportFile,
+    'quick-note': showQuickNote,
+    'new-blog': showStandaloneEditor,
+    'import-md': handleImportMd,
+    'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
   });
 }
 
-// ==================== Scrape IPC (mini window → main process) ====================
+// ==================== IPC Registration (deferred to avoid top-level electron access) ====================
+let _ipcRegistered = false;
 
-ipcMain.handle('pet:scrape', async (_e, url: string) => {
-  try {
-    const { WebScraperService } = await import('./services/web-scraper.service');
-    return await WebScraperService.scrapeWebpage(url);
-  } catch (e) { return { success: false, error: (e as Error).message }; }
-});
+function registerPetIpc(): void {
+  if (_ipcRegistered) return;
+  _ipcRegistered = true;
 
-ipcMain.handle('pet:scrape-import', async (_e, data: { title: string; content: string }) => {
-  try {
-    const { BlogService } = await import('./services/blog.service');
-    const uid = await getUserId();
-    const blog = await BlogService.createBlog(uid, data.title, 'md', data.content);
-    new Notification({ title: '已导入', body: data.title }).show();
-    return { success: true, data: blog };
-  } catch (e) { return { success: false, error: (e as Error).message }; }
-});
+  // Scrape IPC (mini window → main process)
+  ipcMain.handle('pet:scrape', async (_e, url: string) => {
+    try {
+      const { WebScraperService } = await import('./services/web-scraper.service');
+      return await WebScraperService.scrapeWebpage(url);
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  });
 
-// ==================== Pet Drag/Click IPC Handlers ====================
+  ipcMain.handle('pet:scrape-import', async (_e, data: { title: string; content: string }) => {
+    try {
+      const { BlogService } = await import('./services/blog.service');
+      const uid = await getUserId();
+      const blog = await BlogService.createBlog(uid, data.title, 'md', data.content);
+      new Notification({ title: '已导入', body: data.title }).show();
+      return { success: true, data: blog };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  });
 
-ipcMain.on('pet:startDrag', () => {
-  if (!petWin || petWin.isDestroyed()) return;
-  const cursor = screen.getCursorScreenPoint();
-  const [wx, wy] = petWin.getPosition();
-  dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
-  dragInterval = setInterval(() => {
-    if (!petWin || petWin.isDestroyed()) { if (dragInterval) clearInterval(dragInterval); return; }
-    const c = screen.getCursorScreenPoint();
-    petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
-  }, 16);
-});
+  // Pet Drag/Click IPC Handlers
+  ipcMain.on('pet:startDrag', () => {
+    if (!petWin || petWin.isDestroyed()) return;
+    const cursor = screen.getCursorScreenPoint();
+    const [wx, wy] = petWin.getPosition();
+    dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
+    dragInterval = setInterval(() => {
+      if (!petWin || petWin.isDestroyed()) {
+        if (dragInterval) clearInterval(dragInterval);
+        return;
+      }
+      const c = screen.getCursorScreenPoint();
+      petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
+    }, 16);
+  });
 
-ipcMain.on('pet:stopDrag', () => {
-  if (dragInterval) { clearInterval(dragInterval); dragInterval = null; }
-});
+  ipcMain.on('pet:stopDrag', () => {
+    if (dragInterval) {
+      clearInterval(dragInterval);
+      dragInterval = null;
+    }
+  });
 
-ipcMain.on('pet:savePosition', () => {
-  if (petWin && !petWin.isDestroyed()) {
-    const [x, y] = petWin.getPosition();
-    try { fs.writeFileSync(POS_FILE, JSON.stringify({ x, y })); } catch {}
-  }
-});
+  ipcMain.on('pet:savePosition', () => {
+    if (petWin && !petWin.isDestroyed()) {
+      const [x, y] = petWin.getPosition();
+      try {
+        fs.writeFileSync(posFile(), JSON.stringify({ x, y }));
+      } catch {
+        /* save position is best-effort */
+      }
+    }
+  });
 
-ipcMain.on('pet:click', () => {
-  if (petWin && !petWin.isDestroyed()) {
-    petMenu().popup({ window: petWin, x: 64, y: 64 });
-  }
-});
+  ipcMain.on('pet:click', () => {
+    if (petWin && !petWin.isDestroyed()) {
+      petMenu().popup({ window: petWin, x: 64, y: 64 });
+    }
+  });
+}
 
-export function getPetWindow(): BrowserWindow | null { return petWin; }
+export function getPetWindow(): BrowserWindow | null {
+  return petWin;
+}

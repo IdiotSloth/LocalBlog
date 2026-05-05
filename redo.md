@@ -9,7 +9,7 @@
 > - **Boss 裁决**: Boss 对争议或优先级的最终决定
 > - **Auditor 审查意见**: Auditor 验证修复后的结论（✅ 通过 / 🔄 不完整 + 具体原因）
 > - **Developer 备注**: Developer 对问题的技术分析或修复过程中的发现
-> 最后更新: 2026-05-05
+> 最后更新: 2026-05-06 | Phase 11 P0+P1 完成
 
 ---
 
@@ -310,3 +310,347 @@ Biome 报了 180 个 lint error，其中大部分是 "CSS inline styles should n
 ---
 
 > **Developer 注**: 这不是"积怨"——这是修了 66 个 Fix 工单、实现了 7 个 Phase 8 任务之后的工程判断。代码能跑、功能齐全、架构方向正确。上面列的每一项都不是"错了"，而是"如果不做，一年后会很痛"。
+
+---
+
+## Phase 11 审计 (2026-05-06 Auditor)
+
+> 审计方法：对照 todo.md Phase 11 8 项任务规格，对代码库现状做逐项摸底 + 交叉验证。不重复 Phase 9 已列入但 ⏭ 的项目（S6/S8-S10/S12-S13/S15-S18），聚焦三项：契约一致性（IPC→Preload→前端闭环）、数据流完整性（DB 包装器方言隔离）、失败可见性（错误边界与静默吞噬）。
+
+### 一、Phase 11 任务规格逐项评估
+
+#### T1101 DOMPurify XSS 加强
+
+**现状摸底**：`dangerouslySetInnerHTML` 当前 4 处调用点：
+- `BlogPreviewPage.tsx:170` — 博客渲染（主入口）
+- `BlogEditorPage.tsx` (TiptapEditor.tsx:116) — 编辑器预览
+- `FocusMode.tsx:60` — 专注模式渲染
+- 共 4 个渲染点，非规格所述的 2 个
+
+**结论**：规格覆盖范围不足。FocusMode 和 TiptapEditor 的 dangerouslySetInnerHTML 同样需要 DOMPurify。另外 DOMPurify 默认配置会剥离部分安全标签（如 `<video>`、`<audio>`），需确认用户是否使用这些元素后再决定白名单策略。
+
+**风险等级**：规格偏差（范围少计 2 处），非阻塞。
+
+---
+
+#### T1102 catch {} 全量修复
+
+**现状摸底**：
+- 裸 `catch {}`：26 处（含 6 处 ALTER TABLE 迁移、4 处磁盘清理 fallout、16 处业务逻辑）
+- `.catch(() => {})` 空回调：3 处（DashboardPage:21/30、TimelineView:36、auth-store:108）
+- **合计约 30 处**，规格 "30+" 准确
+
+**关键分类**：
+| 类别 | 数量 | 当前行为 | 修复策略 |
+|------|------|---------|---------|
+| ALTER TABLE 迁移 | 6 | 静默吞错 | 可保留（列已存在是预期错误）；但需加注释说明 WHY |
+| 磁盘清理 fallout | 5 | 静默吞错 | `console.error`（文件可能已被手动删除，非关键） |
+| 业务逻辑 | 16 | 用户无感知 | `console.error` + 关键路径加 Notification |
+| 空 `.catch(() => {})` | 3 | Promise rejection 被吞 | `console.error` 最低限度 |
+
+**结论**：规格的 "替换为 console.error(e)" 策略对主进程代码不够——主进程 console 在打包后不可见。关键用户操作（如 save、import、restore）需要 Notification 反馈。另外 6 处 ALTER TABLE 迁移的 `catch {}` 是设计意图（幂等迁移），不应机械替换。
+
+**风险等级**：修复策略一维化，需分类处理。
+
+---
+
+#### T1103 DB 参数边界校验
+
+**现状摸底**：
+- `Math.max/parseInt` 校验已存在于 **server 侧**（`knowledge.ts:29-30`、`blog.ts:33-34`）
+- **shared handler**（`blog-list.ts:51-52`）仅设默认值 `offset = 0, limit = 50`，**无边界强转**
+- **main services**（`blog.service.ts:84`、`knowledge.service.ts:63`）直接用 `filters.offset || 0`，无 `Math.floor(Number())` 强转
+- 关键：offset/limit 在进入 `dbAll` 前已内联到 SQL 字符串（`LIMIT ${limit} OFFSET ${offset}`），**dbAll/dbGet/dbRun 包装层无法拦截**
+
+**结论**：**规格的修复位置有误**。规格说 "在 dbAll/dbGet/dbRun 包装层对 offset/limit 做数值强转"，但 offset/limit 不是作为独立参数传入包装层的——它们已经烘焙在 SQL 字符串里了。正确修复点：
+1. shared handler `blog-list.ts:51-52` — 加入 `Math.max(0, Math.floor(Number(offset)))` 
+2. main service `blog.service.ts`、`knowledge.service.ts` — 同上
+3. 未来 DI 推广后的新 shared handlers — 建立统一校验函数 `sanitizePagination(offset, limit)`
+
+**风险等级**：规格设计缺陷（修复点错误），必须修正否则实现无效。
+
+---
+
+#### T1104 DI 模式复制
+
+**现状摸底**：
+| 领域 | Server 路由 | Main IPC/Service | 共享 Handler | DI 收益 |
+|------|------------|------------------|-------------|---------|
+| blog/list | ✅ 已接入 `getSharedBlogList` | `blog.service.ts:listBlogs` 独立实现 | `blog-list.ts` | — |
+| knowledge/list | ❌ `knowledge.ts:20-53` 独立 SQL | `knowledge.service.ts:listFiles` 独立 SQL | 无 | **高** — 过滤维度多 |
+| search | ❌ `search.ts:8-80` 独立 SQL | `search.service.ts` 独立 SQL | 无 | **低** — 3 个简单端点，无排序/分页复用 |
+| tags | ❌ `tags.ts:8-57` 独立 SQL | `tag.service.ts` 独立 SQL | 无 | **低** — 纯 CRUD，无跨域共享逻辑 |
+| recycle | ❌ `recycle.ts:8-79` 独立 SQL | `recycle.service.ts` 独立 SQL | 无 | **低** — 单个 list 查询，无过滤参数 |
+
+**结论**：规格要求 4 个领域全做 DI，但 search/tags/recycle 三个领域的共享逻辑极薄——server 和 main 的实现几乎相同且极其简单（~10 行 SQL），套 DI 层反而增加调用栈深度。建议：**knowledge/list 优先（真有重复逻辑），search/tags/recycle 暂缓**。省下的工时可用于 T1103 的正确修复和 T1106 的深度类型化。
+
+**风险等级**：过度工程化（8h→4h 合理范围）。
+
+---
+
+#### T1105 sql.js Schema 冻结
+
+**现状摸底**：
+- 两套 DDL 已存在差异：
+  - MySQL `knowledge_files`：`content_text` 和 `folder_id` 在 MIGRATIONS 中，不在 DDL 正文
+  - sql.js `knowledge_files`：两者均在 CREATE TABLE 正文中
+  - MySQL `blogs`：`folder_id` 在 MIGRATIONS 中
+  - sql.js `blogs`：`folder_id` 在 CREATE TABLE 正文中
+- sql.js `db/index.ts:65-70`：6 条 ALTER TABLE 用裸 `catch {}` 做幂等迁移
+- 现有 sql.js 用户数据库已包含所有列
+
+**结论**：规格方向正确（减少双写 DDL 的维护负担），但需明确：
+1. sql.js 用户的期望：如果新功能需要新列，sql.js 模式是报错还是降级？需 Boss 决策
+2. 当前所有列 sql.js 已补齐——短期无实际影响
+3. 建议：冻结 sql.js DDL 的同时，在 `db/index.ts` 添加注释标记 "SCHEMA FROZEN as of 2026-05-06"
+
+**风险等级**：产品决策待定（sql.js 用户降级策略）。
+
+---
+
+#### T1106 IPC 类型收敛
+
+**现状摸底**：
+- `WindowApi` 接口存在，80+ 方法，但 ~50 个返回 `Promise<unknown>`
+- `preload/index.ts` 已使用 `const api: WindowApi`（双向类型约束生效）
+- `ipcRenderer.invoke()` 返回 `Promise<any>`——类型丢失发生在 Electron 层面，非 preload 层面
+- 前端 86 处 `as any` 分布：27 个文件，主要集中在 KnowledgeListPage(4)、BlogListPage(5)、BlogEditorPage(7)、BlogPreviewPage(3) 等
+- **核心矛盾**：WindowApi 返回 `Promise<unknown>` → 前端不得不 `as any` → 类型安全链断裂
+
+**结论**：规格 "auth 4 + blog 5 + delete" 的 10 通道 Zod 校验是正确的切入点。但需要同步完成：
+1. WindowApi 中对应方法从 `Promise<unknown>` → 具体类型（如 `Promise<ApiResponse<Blog>>`）
+2. 前端调用点消除对应的 `as any` 断言
+3. Zod schema 放在 shared/validation.ts 中，IPC handler 调用 `schema.parse()` 做 runtime guard
+
+注意：当前 preload 已经通过 `const api: WindowApi` 做了编译期约束——如果 WindowApi 中 `blogList` 返回 `Promise<unknown>`，前端拿到 `unknown` 必须 cast。修复 WindowApi 的返回类型比加 Zod 更优先。
+
+**风险等级**：方向正确，但修复优先级应调整为：先收紧 WindowApi 返回类型 → 再消前端 `as any` → 最后加 Zod runtime guard。
+
+---
+
+#### T1107 Biome 清零
+
+**现状摸底**（`npx biome check` 实测）：
+- 格式问题：`tsconfig.json`（references 数组格式）、`release/` 目录文件
+- Lint 错误：`useNodejsImportProtocol`（`node:path`/`node:child_process`）、`noDelete`（`delete process.env`）、CSS inline styles
+- `release/` 目录是构建产物，不应被 Biome 扫描——需加 `biome.json` ignore 配置
+
+**结论**：规格合理。建议第一步配置 ignore（排除 `release/`、`out/`、`node_modules/`），第二步 `biome check --fix` 自动修复格式类，第三步手动处理剩余 lint 规则。4h 工时在配置好 ignore 后可行。
+
+**风险等级**：无设计风险，纯机械执行。
+
+---
+
+#### T1108 E2E 核心路径
+
+**现状摸底**：零 E2E 基础设施。Playwright 未安装。Electron + Playwright 集成需 `electron` 作为 browser context。
+
+**结论**：6h 覆盖 5 条链路极度乐观。业界基准：Electron E2E 首条链路（含环境搭建）通常 3-4h。建议：Phase 11 只覆盖 2-3 条最核心路径（注册→登录→写博客），剩余 2 条延后。
+
+**风险等级**：工时估算不足（6h→10-12h 现实），不影响正确性但影响完成度。
+
+---
+
+### 二、新发现（Phase 11 规格未覆盖的系统性裂缝）
+
+#### 🔴 P0 — 安全与数据完整性
+
+| # | 问题 | 位置 | 后果 |
+|---|------|------|------|
+| **R60** | **workspace.ts 方言隔离破裂** — `import { get as dbGet } from '../db'` 导入已弃用的同步 `get()`，绕过 async 包装层直接操作 sql.js。与 Phase 9 F37（标记 deprecated）直接矛盾 | `src/main/ipc/workspace.ts:6,16` | sql.js 路径使用同步 API，MySQL 路径使用 async API，同一文件内两种调用约定并存。新增开发者容易复制错误模式 |
+| **R61** | **Server INSERT 缺时间戳** — Phase 9 R36 修复了 main process 的 9 处 INSERT，但 server routes 遗漏。`POST /register`（auth.ts:22-25）和 `POST /import`（knowledge.ts:84-87）依赖 DB DEFAULT `CURRENT_TIMESTAMP`，在非 UTC 服务器上产生时间偏移 | `server/routes/auth.ts:22-25,30`、`server/routes/knowledge.ts:84-87` | 用户注册时间和文件导入时间在 UTC+8 服务器上偏移 8 小时 |
+| **R62** | **Server recycle restore UPDATE 无 user_id 过滤** — `recycle.ts:27` `UPDATE blogs SET status = 'active' WHERE id = ?` 仅用 blog id 过滤，不加 `AND user_id = ?`。虽通过 recycle_bin 间接限制了范围，但缺少 defense-in-depth | `server/routes/recycle.ts:27,29` | 若 recycle_bin 数据损坏，用户 A 可能恢复用户 B 的博客 |
+
+#### 🟡 P1 — 类型安全与架构一致性
+
+| # | 问题 | 位置 | 后果 |
+|---|------|------|------|
+| **R63** | **共享 handler 自身使用 `any`** — `blog-list.ts:55` `sortBy as any`、`:92` `tags.map((t: any) => ...)`。作为 DI 模式推广的范本，自身不应包含 `any` 类型断言 | `src/shared/handlers/blog-list.ts:55,92` | T1104 推广前应先修复范本的类型污染 |
+| **R64** | **WindowApi 类型系统未生效于前端** — `KnowledgeListPage.tsx:47` `const resp = r as any` 绕过 WindowApi 类型。根本原因是 WindowApi 中 `kbList` 返回 `Promise<unknown>`，前端无法推导具体类型 | `KnowledgeListPage.tsx:47`、`BlogPreviewPage.tsx:14` | T1106 修复后应在 plan 中明确要求消除对应前端 `as any` |
+| **R65** | **Server recycle empty 无磁盘清理** — 与 main process RecycleService（F59 修复）行为不一致。Server 侧 `emptyTrash` 删 DB 记录但不删工作区文件 | `server/routes/recycle.ts:36-55` | Web 端清空回收站后磁盘文件残留 |
+| **R66** | **`server/routes/blog.ts:89` UPDATE 用 `NOW()` 而非 ISO 8601** — `updates.push('updated_at = NOW()')` 用 MySQL `NOW()` 函数（服务器本地时间）。main process 已统一用 `new Date().toISOString()` | `server/routes/blog.ts:89` | 与 Phase 9 R35 修复方向不一致；server 侧更新时间可能为本地时间而非 UTC |
+| **R67** | **`server/routes/auth.ts` DELETE account 无 keepFiles 参数** — 硬删 DB（CASCADE），不清理磁盘也不保留文件。与 main process 的 `deleteAccount(keepFiles)` 双路径设计不一致 | `server/routes/auth.ts:87-95` | Web 端删号行为与桌面端不一致；用户无法选择保留文件 |
+
+#### 🟢 P3 — 文档与可维护性
+
+| # | 问题 | 位置 | 后果 |
+|---|------|------|------|
+| **R68** | **6 处 ALTER TABLE 裸 `catch {}` 无注释** — `db/index.ts:65-70` 的迁移 catch 没有解释为何空 catch 是可接受的 | `src/main/db/index.ts:65-70` | 新开发者可能模仿此模式用于非幂等操作 |
+
+---
+
+### 三、Phase 11 规格总体评价
+
+**正确识别的核心问题**：T1101（XSS）、T1102（静默吞错）、T1103（参数边界）三者确实构成安全底线，P0 优先级合理。
+
+**规格中的三个偏差**：
+1. **T1103 修复位置错误** — 不能在 dbAll/dbGet/dbRun 包装层修复，因为 offset/limit 已内联到 SQL 字符串。需改为 caller 级别。
+2. **T1104 范围过大** — search/tags/recycle 三个领域的 DI 收益极低（~10 行 SQL，无共享过滤逻辑）。建议收缩到 knowledge/list 一个领域，省下 4h 分配给 T1106 的 WindowApi 类型收紧。
+3. **T1106 优先级倒置** — 当前 preload 已通过 `const api: WindowApi` 做好编译期锚定，真正的类型断裂在 WindowApi 返回 `Promise<unknown>` 和前端 `as any` 消费。应先收紧 WindowApi 返回类型，再消前端 as any，最后加 Zod runtime guard。Zod 是锦上添花，类型才是雪中送炭。
+
+**遗漏的系统性裂缝**：R60-R68 共 9 项，其中 R60（方言隔离）、R61（时间戳遗漏）、R62（权限过滤不全）、R63（shared handler any 类型）、R65（Server 磁盘清理）、R66（NOW()→ISO）、R67（deleteAccount keepFiles）已在 Phase 11 P0/P1 实施中全部修复。R64（WindowApi 类型未生效于前端）随 T1106 WindowApi 100% 类型化改善。R68（ALTER TABLE catch 注释）随 T1102 修复。
+
+**工时评估**：总 28h 估算偏乐观。T1104 可省 4h（收缩范围），但 T1106 需 +2h（WindowApi 类型化），T1108 需 +4h（环境搭建），新发现 R60-R67 需 +4h（P0 三项），净增 ~6h → 建议总工时调整为 34h。
+
+---
+
+### 四、Boss 提请裁决
+
+| # | 问题 | 选项 A | 选项 B |
+|---|------|--------|--------|
+| D1 | T1105 sql.js 冻结后，sql.js 用户遇新功能怎么办？ | 报错 "离线模式下此功能不可用" | 保留 sql.js DDL 同步维护（违背 T1105） |
+| D2 | T1104 是否收缩到 knowledge/list 一个领域？ | 收缩（省 4h，分配给类型安全） | 全部 4 领域推广（8h，按原计划） |
+| D3 | R60-R62 是否纳入 Phase 11 P0？ | 纳入（+3h，安全优先） | 延后到 Phase 12 |
+
+---
+
+> **Auditor 注**: 本审计执行了 6 轮并行 grep + 9 个关键文件精读 + Biome 实跑。未逐行审查——聚焦契约一致性、数据流完整性与失败可见性三类隐性风险。T1101/T1102/T1103 方向正确但实现细节需修正。R60-R62 三项需紧急纳入 Phase 11 P0，它们分别对应"方言隔离破裂""时间戳修复遗漏""权限过滤不全"，恰好命中用户指定的三个审查维度。Phase 11 是我对这个项目的最后一次结构性审计建议——8 个 Phase、260+ 工时之后，代码库的主干已经健康。接下来一年最大的风险不是新功能写错，而是旧假设被新代码悄悄打破。DI 模式、WindowApi 类型、dbGet/dbAll 包装器——这三层防护网一旦建立，新代码在编译期就会被拦住。这才是 Phase 11 的真正价值。
+
+---
+
+## Phase 11 实施验证 (2026-05-06 Auditor)
+
+> 验证方法：对照实施报告逐项检查代码变更。tsc --noEmit 实测 + Biome 实测 + 文件逐行比对。
+
+### 一、逐项验证结果
+
+#### P0 安全底线
+
+| 任务 | 验证结果 | 证据 |
+|------|---------|------|
+| **T1101** DOMPurify | ✅ 通过 | 3/3 站点：BlogPreviewPage:204、FocusMode:66、TiptapEditor:119。`dompurify` + `@types/dompurify` 已安装 |
+| **T1102** catch{} | ✅ 通过 | `grep -r "catch {}" src/` 返回 0 结果。所有 catch 已分类：ALTER TABLE 有注释说明幂等性，业务逻辑有 console.error，磁盘清理有注释 |
+| **T1103** sanitizePagination | ✅ 通过 | `src/shared/pagination.ts` 存在。`Math.max(0, Math.floor(Number())` + `Math.min(200, Math.max(1, ...))` 边界正确。3 处调用：blog-list.ts:55、knowledge-list.ts:54、blog.service.ts:141 |
+| **R60** workspace 方言隔离 | ✅ 通过 | `workspace.ts:6` 改为 `import { dbGet } from '../db'`（统一 async 包装器）。`getAsync`/`isUsingMySQL` 条件分支已移除。单一 dbGet 调用路径 |
+| **R61** Server INSERT 时间戳 | ✅ 通过 | auth.ts:22-26 (users INSERT + created_at)、auth.ts:31-36 (sessions INSERT + created_at)、knowledge.ts:96-99 (knowledge_files INSERT + created_at/updated_at)、blog.ts:78-82 (blogs INSERT + created_at/updated_at)、blog.ts:196-199 (import-md INSERT)、blog.ts:213-216 (save-draft INSERT + saved_at)。共 6 处，全部使用 `new Date().toISOString()` |
+| **R62** Server recycle 权限 | ✅ 通过 | recycle.ts:30: `WHERE id = ? AND user_id = ?`（blog restore）、recycle.ts:32: `WHERE id = ? AND user_id = ?`（knowledge_file restore）。defense-in-depth 已建立 |
+
+#### P1 架构收敛
+
+| 任务 | 验证结果 | 证据 |
+|------|---------|------|
+| **T1104** knowledge-list DI | ✅ 通过 | `src/shared/handlers/knowledge-list.ts` 存在。DI 接口（QueryRows/QueryOne）与 blog-list.ts 一致。sanitizePagination 接入。server/routes/knowledge.ts:29-40 使用 getSharedKnowledgeList |
+| **T1105** sql.js 冻结 | ✅ 通过 | `db/index.ts:66` "SCHEMA FROZEN as of 2026-05-06" 注释。6 条 ALTER TABLE 均有 `/* column already exists */` 注释。biome.json files.ignore 已含 release/scripts |
+| **R63** blog-list.ts 类型 | ✅ 通过 | `tags.map((t) => ({ id: t.id as number, ... }))` — 不再使用 `(t: any)` |
+| **R65** Server recycle 磁盘清理 | ✅ 通过 | recycle.ts:58-68 (empty) + recycle.ts:96-106 (auto-clean)：先 SELECT file_path → fs.unlinkSync → 再 DELETE DB 记录。catch 有注释 `/* file already deleted or locked */` |
+| **R66** Server NOW()→ISO | ✅ 通过 | blog.ts:78/124-125/151-152/172-173/196-199/213-216/252-254 全部使用 `new Date().toISOString()`。knowledge.ts:96-99/166-168 同上。recycle.ts:131-135 DELETE→INSERT recycle_bin 加 `deleted_at`。0 处 `NOW()` 残留 |
+| **R67** Server deleteAccount | ✅ 通过 | auth.ts:115-123: `if (keepFiles)` 清空 password_hash + sessions；`else` DELETE CASCADE。与 main process 双路径一致 |
+
+#### P2 质量基线
+
+| 任务 | 验证结果 | 证据 |
+|------|---------|------|
+| **T1106** WindowApi 类型化 | ❌ **修复不完整** — 见下文详述 | WindowApi 接口已 100% 类型化（136 行，0 处 `Promise<unknown>`）。但 preload/index.ts 未同步更新，63 处 `Promise<unknown>` 残留 + `(data: object)` 参数未改为 `Record<string, unknown>` |
+| **T1107** Biome | ⚠️ **部分完成** | biome.json ignore 已含 release/scripts。tsc 实测 77 错误（含 63 preload + 13 main 预存）。Biome 实测仍有错误输出 |
+
+---
+
+### 二、关键发现：T1106 契约断裂（R69）
+
+**严重程度**：🔴 P0
+
+**问题**：WindowApi 接口已完整类型化——每个方法都有精确的返回类型（如 `blogList(): Promise<ApiResponse<{ blogs: BlogWithTags[]; total: number }>>`）。但 `preload/index.ts` 仍使用旧签名：
+
+```ts
+// preload/index.ts:16 — 当前状态
+blogList: (filters?: object): Promise<unknown> => ipcRenderer.invoke(IPC.BLOG_LIST, filters),
+
+// WindowApi 要求
+blogList(filters?: Record<string, unknown>): Promise<ApiResponse<{ blogs: BlogWithTags[]; total: number }>>;
+```
+
+**影响**：
+- `tsc -p tsconfig.node.json --noEmit` 报告 **63 个 preload 类型错误**（全部源于此 mismatch）
+- `const api: WindowApi = { ... }` 的双向检查**确实在工作** — 但 preload 没被修复
+- electron-vite 使用 esbuild 编译，**不进行类型检查**，所以 `npm run build` 表面通过但类型安全并未生效
+- 前端 `window.api.blogList()` 仍然返回 `Promise<unknown>` → 前端必须继续 `as any`
+
+**根因**：WindowApi 类型化只做了一半。接口定义更新了，preload 实现没跟上。这是典型的"类型安全幻觉"——接口文件看起来健康，但运行时路径（preload → IPC → handler）仍然无类型保障。
+
+**修复方向**：移除 preload 中所有 63 处显式 `Promise<unknown>` 返回类型标注，让 TypeScript 从 `const api: WindowApi` 推导返回类型。同时将 `(data: object)` 改为 `(data: Record<string, unknown>)` 以匹配 WindowApi 参数类型。
+
+---
+
+### 三、预存问题（非本次变更引入）
+
+tsc 在 main process 检测到 13 个预存类型错误：
+
+| 文件 | 错误数 | 代表性问题 |
+|------|--------|-----------|
+| `forge.config.ts:32` | 1 | maker-zip 缺少 config 字段 |
+| `db/index.ts:112,152` | 2 | `unknown[]` 与 `never[]` 不兼容 |
+| `index.ts:32` | 1 | `webviewTag` 不在 BrowserWindowConstructorOptions 类型中 |
+| `ipc/blog.ts:316` | 1 | `TextRun` 用作类型（应为 `typeof TextRun`） |
+| `pet.ts:428` | 1 | `scrapeWebpage` 不存在于 WebScraperService |
+| `blog.service.ts:324-325` | 2 | Tag.count 必需但缺失；quickTag 可能 undefined |
+| `knowledge.service.ts:103-104` | 2 | QueryRows DI 类型不匹配（KbFileRow vs Record） |
+| `reference.service.ts:81,93` | 2 | `.title` 不存在于联合类型 |
+| `web-scraper.service.ts:63` | 1 | `document` 属性不存在 |
+
+这些是 electron-vite（esbuild）不检查类型导致的累积问题。tsc --noEmit 可一次性暴露全部。
+
+---
+
+### 四、总体评估
+
+**14 项声称完成，实际验证**：
+- ✅ 12 项通过（T1101/T1102/T1103/T1104/T1105/R60/R61/R62/R63/R65/R66/R67）
+- ❌ 1 项不完整（T1106 — preload 未更新，63 tsc 错误）
+- ⚠️ 1 项部分完成（T1107 — Biome 有改进但仍有错误；77 tsc 总错误）
+
+**Build 报告 "✅" 的准确度**：electron-vite 构建确实通过了（esbuild 不检查类型），但 `tsc --noEmit` 揭示 77 个类型错误。如果 CI 中加入 `tsc --noEmit`，当前状态会阻断合入。
+
+**建议优先修复顺序**：
+1. 🔴 T1106 preload 更新 — 移除 63 处 `Promise<unknown>`，消除新引入的类型错误（~2h）
+2. 🟡 tsc 13 个预存错误 — 分批修复 main process 的类型问题（~4h）
+3. 🟢 Biome 残存错误 — `biome check --fix` + 手动收尾（~1h）
+4. 🔵 T1108 E2E — 独立安排（~10h）
+
+---
+
+> **验证注**: 本次验证使用 `tsc --noEmit` + `Biome check` + `grep` + 逐文件比对。P0/P1 的 12 项代码变更质量好——DOMPurify 覆盖完整、sanitizePagination 边界正确、R60-R67 的修复点位精准、server 时间戳全部统一为 ISO。唯一结构性缺陷是 T1106 的 preload 契约断裂——WindowApi 接口精美的类型签名悬在空中，没有落地到运行时路径。这是"类型安全"与"编译器失明"的经典分界线：接口声明了类型 ≠ 代码通过了类型检查。
+>
+> **Boss 裁决 (2026-05-06)**: T1106 合并不完整但方向正确，Developer 已修复 preload。核收。
+
+---
+
+## Phase 11 二次验证 (2026-05-06 Auditor)
+
+### 修复确认：T1106 preload 契约闭合（R69 ✅）
+
+**变更**：`preload/index.ts` 移除全部 63 处显式类型标注，改为依赖 `const api: WindowApi` 的上下文类型推导。
+
+**验证结果**：
+
+| 指标 | 修复前 | 修复后 |
+|------|--------|--------|
+| preload tsc 错误 | 63 | **0** |
+| `Promise<unknown>` 残留 | 63 | **0** |
+| `catch {}` 裸块 | 0 | **0** |
+| `as any` 总计 | 86 (27 files) | **40 (16 files)** |
+| main tsc 错误 | 14 (预存) | **14 (预存)** |
+| renderer tsc 错误 | 7 (预存) | **7 (预存)** |
+| `npm run build` | pass | **pass** (2.27s) |
+
+**分析**：
+- Preload 修复方式正确：移除显式 `Promise<unknown>` 标注后，TypeScript 从 `const api: WindowApi` 推导每个方法的参数和返回类型。`ipcRenderer.invoke()` 返回 `Promise<any>`，TypeScript 在赋值检查时将其与 WindowApi 的具体类型比较——如果 mismatch 会报错
+- `as any` 从 86 降到 40（减少 53%），但仍有 16 个文件存在——主要原因是部分 IPC 方法的 WindowApi 返回类型仍用 `ApiResponse<Record<string, unknown>[]>`（如 blogSeriesGet），前端消费时为访问字段仍需 cast
+- renderer 7 个 tsc 错误全为预存（EditorToolbar:4 + GlobalSearch:1 + SettingsPage:2），非本次引入
+
+### Phase 11 最终成绩
+
+| 类别 | 完成/总数 | 明细 |
+|------|----------|------|
+| P0 安全底线 | **6/6** ✅ | T1101/T1102/T1103/R60/R61/R62 |
+| P1 架构收敛 | **5/5** ✅ | T1104/T1105/R63/R65/R66/R67 |
+| P2 质量基线 | **1.5/2** ⚠️ | T1106 ✅ (二修后通过) / T1107 ⚠️ (Biome 有改进但仍有残存) |
+| 延期 | **1** 📋 | T1108 E2E |
+
+**Phase 11 结案条件**：
+- ✅ 契约一致性：IPC→Preload→前端闭环已建立（`const api: WindowApi` 双向检查生效，63 preload 错误清零）
+- ✅ 数据流完整性：dbGet/dbAll 包装器统一，0 处 deprecated sync API 残留，方言隔离恢复
+- ✅ 失败可见性：0 裸 `catch {}`，所有吞错点有注释或 console.error
+- ⚠️ CI 阻断链：tsc --noEmit 仍有 21 个预存错误（14 main + 7 renderer），暂不阻断构建但需后续清理
+- 📋 T1108 E2E 骨架待建
+
+> **二审注**: R69 修复正确且干净——Developer 选择了正确的方案（移除标注而非修补标注），让 TypeScript 的类型推导引擎接管了契约校验。21 个预存 tsc 错误建议在后续独立安排一次 "tsc strict 冲刺"，批量修复后纳入 CI 阻断。Phase 11 核心目标（安全底线 + 架构收敛 + 契约闭环）已达成。

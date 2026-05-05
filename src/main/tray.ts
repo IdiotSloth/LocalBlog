@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron';
+import { type BrowserWindow, Menu, Tray, app, nativeImage } from 'electron';
 import { createPet, getPetWindow } from './pet';
 
 // Late-bound imports to avoid circular deps — these are set by pet.ts
@@ -37,11 +37,24 @@ function buildMenu(): Menu {
     { label: '📎 导入文件', click: () => petActions['import-file']?.() },
     { label: '🌐 收藏网页', click: () => petActions['scrape-web']?.() },
     { type: 'separator' },
-    { label: '📂 打开主窗口', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    {
+      label: '📂 打开主窗口',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
     { type: 'separator' },
     { label: '🐱 桌面宠物', click: () => togglePet(), type: 'checkbox', checked: petActive },
     { type: 'separator' },
-    { label: '❌ 退出', click: () => { app.exit(); } },
+    {
+      label: '❌ 退出',
+      click: () => {
+        app.exit();
+      },
+    },
   ]);
 }
 
@@ -66,7 +79,12 @@ export function setupTray(win: BrowserWindow): void {
   tray = new Tray(makeIcon(16));
   tray.setToolTip('本地博客与知识库');
   tray.setContextMenu(buildMenu());
-  tray.on('double-click', () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 }
 
 export function refreshTrayMenu(): void {

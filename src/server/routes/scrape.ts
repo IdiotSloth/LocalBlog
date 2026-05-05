@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, type AuthRequest } from '../middleware/auth';
+import { type AuthRequest, requireAuth } from '../middleware/auth';
 
 export const scrapeRouter = Router();
 scrapeRouter.use(requireAuth);
@@ -10,8 +10,13 @@ scrapeRouter.post('/webpage', async (req: AuthRequest, res) => {
     if (!url) return res.json({ success: false, error: '请提供 URL' });
 
     let parsed: URL;
-    try { parsed = new URL(url); } catch { return res.json({ success: false, error: '无效的 URL' }); }
-    if (!['http:', 'https:'].includes(parsed.protocol)) return res.json({ success: false, error: '仅支持 http/https 链接' });
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.json({ success: false, error: '无效的 URL' });
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol))
+      return res.json({ success: false, error: '仅支持 http/https 链接' });
 
     const { parseHTML } = await import('linkedom');
     const { Readability } = await import('@mozilla/readability');
@@ -39,11 +44,16 @@ scrapeRouter.post('/webpage', async (req: AuthRequest, res) => {
     const markdown = turndown.turndown(article.content);
     const excerpt = (article.excerpt || article.textContent?.substring(0, 200) || '').replace(/\s+/g, ' ').trim();
 
-    return res.json({ success: true, data: {
-      title: article.title || '未命名文章',
-      content: markdown,
-      excerpt,
-      siteName: article.siteName || parsed.hostname,
-    }});
-  } catch (err) { return res.json({ success: false, error: `抓取失败: ${(err as Error).message}` }); }
+    return res.json({
+      success: true,
+      data: {
+        title: article.title || '未命名文章',
+        content: markdown,
+        excerpt,
+        siteName: article.siteName || parsed.hostname,
+      },
+    });
+  } catch (err) {
+    return res.json({ success: false, error: `抓取失败: ${(err as Error).message}` });
+  }
 });

@@ -1,10 +1,11 @@
-/** Express Web Server — provides browser-accessible frontend + REST API */
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initMySQL, closeMySQL } from './db';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+/** Express Web Server — provides browser-accessible frontend + REST API */
+import express from 'express';
+import { closeMySQL, initMySQL } from './db';
+import { errorHandler } from './middleware/error-handler';
 import { authRouter } from './routes/auth';
 import { blogRouter } from './routes/blog';
 import { knowledgeRouter } from './routes/knowledge';
@@ -13,7 +14,6 @@ import { scrapeRouter } from './routes/scrape';
 import { searchRouter } from './routes/search';
 import { tagRouter } from './routes/tags';
 import { workspaceRouter } from './routes/workspace';
-import { errorHandler } from './middleware/error-handler';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +21,9 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3456;
 const app = express();
 
-app.use(cors({ origin: ['http://localhost:3456', 'http://localhost:5173', 'http://127.0.0.1:3456'], credentials: true }));
+app.use(
+  cors({ origin: ['http://localhost:3456', 'http://localhost:5173', 'http://127.0.0.1:3456'], credentials: true }),
+);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
@@ -40,12 +42,14 @@ app.use(errorHandler);
 
 // Serve React frontend (built by `npm run build`) with caching
 const frontendDir = path.join(__dirname, '../../out/renderer');
-app.use(express.static(frontendDir, {
-  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
-  setHeaders(res, filePath) {
-    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
-  },
-}));
+app.use(
+  express.static(frontendDir, {
+    maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    },
+  }),
+);
 // Express 5: use /{*splat} for catch-all
 app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(frontendDir, 'index.html'));
@@ -66,4 +70,7 @@ async function start() {
 
 start();
 
-process.on('SIGTERM', () => { closeMySQL(); process.exit(); });
+process.on('SIGTERM', () => {
+  closeMySQL();
+  process.exit();
+});

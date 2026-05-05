@@ -2,8 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth-store';
 
-interface TagItem { id: number; userId: number; name: string; count: number; }
-interface ResultItem { id: number; title: string; type: 'blog' | 'knowledge'; updatedAt?: string; }
+interface TagItem {
+  id: number;
+  userId: number;
+  name: string;
+  count: number;
+}
+interface ResultItem {
+  id: number;
+  title: string;
+  type: 'blog' | 'knowledge';
+  updatedAt?: string;
+}
 
 export function TagManagePage() {
   const user = useAuthStore((s) => s.user);
@@ -21,7 +31,7 @@ export function TagManagePage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await window.api.tagList(user.id) as { success: boolean; data?: TagItem[] };
+      const res = (await window.api.tagList(user.id)) as { success: boolean; data?: TagItem[] };
       setTags(res?.data || []);
     } catch {
       setTags([]);
@@ -88,16 +98,32 @@ export function TagManagePage() {
 
       {/* Zero-use cleanup */}
       {tags.some((t) => (t.count ?? 0) === 0) && (
-        <div className="mb-4 flex items-center gap-3 rounded-[6px] border p-3" style={{ borderColor: 'var(--accent-amber)', background: 'var(--bg-secondary)' }}>
-          <span className="text-[13px]" style={{ color: 'var(--accent-amber)' }}>⚠️ {tags.filter((t) => (t.count ?? 0) === 0).length} 个标签未被使用</span>
-          <button type="button" onClick={async () => {
-            const unused = tags.filter((t) => (t.count ?? 0) === 0);
-            if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
-            for (const t of unused) {
-              try { await window.api.tagDelete(t.id); } catch {}
-            }
-            loadTags();
-          }} className="text-[12px] font-medium hover:underline" style={{ color: 'var(--accent-red)' }}>清理未使用标签</button>
+        <div
+          className="mb-4 flex items-center gap-3 rounded-[6px] border p-3"
+          style={{ borderColor: 'var(--accent-amber)', background: 'var(--bg-secondary)' }}
+        >
+          <span className="text-[13px]" style={{ color: 'var(--accent-amber)' }}>
+            ⚠️ {tags.filter((t) => (t.count ?? 0) === 0).length} 个标签未被使用
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              const unused = tags.filter((t) => (t.count ?? 0) === 0);
+              if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
+              for (const t of unused) {
+                try {
+                  await window.api.tagDelete(t.id);
+                } catch {
+                  console.error(`[TagManage] Failed to delete tag ${t.id}`);
+                }
+              }
+              loadTags();
+            }}
+            className="text-[12px] font-medium hover:underline"
+            style={{ color: 'var(--accent-red)' }}
+          >
+            清理未使用标签
+          </button>
         </div>
       )}
 
@@ -150,8 +176,20 @@ export function TagManagePage() {
                     autoFocus
                     className="w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none"
                   />
-                  <button type="button" onClick={() => handleSaveEdit(tag.id)} className="text-xs text-green-600 hover:underline">保存</button>
-                  <button type="button" onClick={() => setEditingId(null)} className="text-xs text-[var(--color-text-muted)] hover:underline">取消</button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveEdit(tag.id)}
+                    className="text-xs text-green-600 hover:underline"
+                  >
+                    保存
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="text-xs text-[var(--color-text-muted)] hover:underline"
+                  >
+                    取消
+                  </button>
                 </>
               ) : (
                 <>
@@ -164,26 +202,68 @@ export function TagManagePage() {
                         try {
                           const [blogsRes, kbRes] = await Promise.all([
                             window.api.blogList({ userId: user!.id, tagId: tag.id, limit: 20 }),
-                            user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null),
+                            user
+                              ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 })
+                              : Promise.resolve(null),
                           ]);
                           const items: ResultItem[] = [];
-                          const br = blogsRes as any; if (br?.success && br.data?.blogs) items.push(...br.data.blogs.map((b: any) => ({ id: b.id, title: b.title, type: 'blog' as const, updatedAt: b.updatedAt })));
-                          const kr = kbRes as any; if (kr?.success && kr.data?.files) items.push(...kr.data.files.map((f: any) => ({ id: f.id, title: f.filename, type: 'knowledge' as const })));
+                          const br = blogsRes as any;
+                          if (br?.success && br.data?.blogs)
+                            items.push(
+                              ...br.data.blogs.map((b: any) => ({
+                                id: b.id,
+                                title: b.title,
+                                type: 'blog' as const,
+                                updatedAt: b.updatedAt,
+                              })),
+                            );
+                          const kr = kbRes as any;
+                          if (kr?.success && kr.data?.files)
+                            items.push(
+                              ...kr.data.files.map((f: any) => ({
+                                id: f.id,
+                                title: f.filename,
+                                type: 'knowledge' as const,
+                              })),
+                            );
                           setResults(items);
-                        } catch { setResults([]); }
+                        } catch {
+                          setResults([]);
+                        }
                         setResultsLoading(false);
-                      } else { setResults([]); }
+                      } else {
+                        setResults([]);
+                      }
                     }}
                     title={`查看标签"${tag.name}"关联的内容`}
                   >
                     {tag.name}
                   </span>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-[var(--color-text-muted)]" title={`${tag.count ?? 0} 篇关联`}>
+                  <span
+                    className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-[var(--color-text-muted)]"
+                    title={`${tag.count ?? 0} 篇关联`}
+                  >
                     {tag.count ?? 0}
                   </span>
-                  {(tag.count ?? 0) === 0 && <span className="text-[11px]" style={{ color: 'var(--accent-amber)' }}>⚠️ 未使用</span>}
-                  <button type="button" onClick={() => startEdit(tag)} className="ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all">编辑</button>
-                  <button type="button" onClick={() => handleDelete(tag.id)} className="text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all">删除</button>
+                  {(tag.count ?? 0) === 0 && (
+                    <span className="text-[11px]" style={{ color: 'var(--accent-amber)' }}>
+                      ⚠️ 未使用
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => startEdit(tag)}
+                    className="ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(tag.id)}
+                    className="text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all"
+                  >
+                    删除
+                  </button>
                 </>
               )}
             </div>
@@ -193,26 +273,57 @@ export function TagManagePage() {
 
       {/* Filtered results */}
       {selectedTag && (
-        <div className="mt-6 rounded-[8px] border p-5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+        <div
+          className="mt-6 rounded-[8px] border p-5"
+          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
+        >
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>
               标签「{selectedTag.name}」关联的内容 ({results.length})
             </h3>
-            <button type="button" onClick={() => { setSelectedTag(null); setResults([]); }} className="text-[13px] hover:underline" style={{ color: 'var(--text-secondary)' }}>关闭</button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTag(null);
+                setResults([]);
+              }}
+              className="text-[13px] hover:underline"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              关闭
+            </button>
           </div>
-          {resultsLoading ? <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-          : results.length === 0 ? <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>该标签下暂无内容</p>
-          : <div className="space-y-2">
-            {results.map((item) => (
-              <Link key={`${item.type}-${item.id}`} to={item.type === 'blog' ? `/blog/${item.id}` : `/knowledge`}
-                className="flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity"
-                style={{ background: 'var(--bg-primary)' }}>
-                <span>{item.type === 'blog' ? '📝' : '📄'}</span>
-                <span className="flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
-                <span className="rounded-[3px] px-1.5 py-0.5 text-[11px]" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>{item.type === 'blog' ? '博客' : '知识库'}</span>
-              </Link>
-            ))}
-          </div>}
+          {resultsLoading ? (
+            <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+              加载中...
+            </p>
+          ) : results.length === 0 ? (
+            <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>
+              该标签下暂无内容
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {results.map((item) => (
+                <Link
+                  key={`${item.type}-${item.id}`}
+                  to={item.type === 'blog' ? `/blog/${item.id}` : `/knowledge`}
+                  className="flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--bg-primary)' }}
+                >
+                  <span>{item.type === 'blog' ? '📝' : '📄'}</span>
+                  <span className="flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                    {item.title}
+                  </span>
+                  <span
+                    className="rounded-[3px] px-1.5 py-0.5 text-[11px]"
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                  >
+                    {item.type === 'blog' ? '博客' : '知识库'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

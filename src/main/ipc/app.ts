@@ -162,7 +162,11 @@ export function registerAppHandlers(): void {
       if (!fs.existsSync(backupPath)) return { success: false, error: '备份文件不存在' };
       // Create a safety backup of current DB before restoring
       const safetyName = `${filename}.pre-restore`;
-      try { fs.copyFileSync(dbPath, path.join(backupDir, safetyName)); } catch {}
+      try {
+        fs.copyFileSync(dbPath, path.join(backupDir, safetyName));
+      } catch {
+        /* best-effort safety backup, non-critical */
+      }
       fs.copyFileSync(backupPath, dbPath);
       return { success: true, data: { needsRestart: true } };
     } catch (err) {
@@ -184,12 +188,16 @@ export function registerAppHandlers(): void {
     try {
       const stats = await StatsService.getUserStats(userId);
       return { success: true, data: stats };
-    } catch (err) { return { success: false, error: (err as Error).message }; }
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
   ipcMain.handle(IPC.STATS_DAILY, async (_event, userId: number) => {
     try {
       const stats = await getDailyStats(userId);
       return { success: true, data: stats };
-    } catch (err) { return { success: false, error: (err as Error).message }; }
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
 }
