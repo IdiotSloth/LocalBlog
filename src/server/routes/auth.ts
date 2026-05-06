@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { loginSchema, registerSchema } from '../../shared/validation';
+import { nowMySQL } from '../config';
 import { JWT_SECRET } from '../config';
 import { getPool } from '../db';
 import { type AuthRequest, requireAuth } from '../middleware/auth';
@@ -19,7 +20,7 @@ authRouter.post('/register', async (req, res) => {
     if (existing.length > 0) return res.json({ success: false, error: '用户名已存在' });
 
     const hash = hashPassword(password);
-    const now = new Date().toISOString();
+    const now = nowMySQL();
     const [result] = (await pool.execute(
       'INSERT INTO users (username, password_hash, workspace_path, created_at) VALUES (?, ?, ?, ?)',
       [username, hash, workspacePath, now],
@@ -40,7 +41,7 @@ authRouter.post('/register', async (req, res) => {
 
     return res.json({
       success: true,
-      user: { id: userId, username, workspacePath, createdAt: new Date().toISOString() },
+      user: { id: userId, username, workspacePath, createdAt: nowMySQL() },
       token: jwtToken,
     });
   } catch (err) {
@@ -63,7 +64,7 @@ authRouter.post('/login', async (req, res) => {
     const sessionToken = generateToken();
     const expiryDays = rememberMe ? 30 : 1;
     const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
-    const now = new Date().toISOString();
+    const now = nowMySQL();
     await pool.execute('DELETE FROM sessions WHERE user_id = ?', [user.id]);
     await pool.execute('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [
       user.id,

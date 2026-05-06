@@ -1,3 +1,4 @@
+import { nowMySQL } from '../../shared/datetime';
 import type { FolderTreeNode } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 
@@ -49,7 +50,7 @@ export class FolderService {
       trimmed,
       parentId ?? null,
       type,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
 
     const row = await dbGet<FolderRow>(
@@ -77,11 +78,7 @@ export class FolderService {
     folderId: number | null,
   ): Promise<void> {
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [
-      folderId,
-      new Date().toISOString(),
-      itemId,
-    ]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [folderId, nowMySQL(), itemId]);
   }
 }
 
@@ -102,7 +99,7 @@ function buildTree(rows: (FolderRow & { item_count: number })[]): FolderTreeNode
   const roots: FolderTreeNode[] = [];
   for (const node of map.values()) {
     if (node.parentId && map.has(node.parentId)) {
-      map.get(node.parentId)!.children.push(node);
+      map.get(node.parentId)?.children.push(node);
     } else {
       roots.push(node);
     }

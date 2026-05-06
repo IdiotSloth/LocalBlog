@@ -109,6 +109,23 @@ const api: WindowApi = {
     ipcRenderer.on('pet-action', handler);
     return () => ipcRenderer.removeListener('pet-action', handler);
   },
+  onBlogRefresh: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('blog:refresh', handler);
+    return () => ipcRenderer.removeListener('blog:refresh', handler);
+  },
+  onNoteRefresh: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('note:refresh', handler);
+    return () => ipcRenderer.removeListener('note:refresh', handler);
+  },
+
+  // Notes
+  noteList: (userId) => ipcRenderer.invoke(IPC.NOTE_LIST, userId),
+  noteCreate: (data) => ipcRenderer.invoke(IPC.NOTE_CREATE, data),
+  noteDelete: (noteId) => ipcRenderer.invoke(IPC.NOTE_DELETE, noteId),
+  notePin: (noteId) => ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
+  noteClipboard: () => ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
 
   // File System Dialogs
   selectFiles: (exts) => ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),

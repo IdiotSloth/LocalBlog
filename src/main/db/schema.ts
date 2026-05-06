@@ -98,6 +98,15 @@ CREATE TABLE IF NOT EXISTS refs (
   UNIQUE(source_type, source_id, target_type, target_id)
 );
 
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'manual',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_blogs_user_status ON blogs(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_blogs_user_updated ON blogs(user_id, updated_at DESC);

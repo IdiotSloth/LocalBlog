@@ -207,11 +207,27 @@ export function registerBlogHandlers(): void {
       }
 
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:"Noto Serif SC","Microsoft YaHei",serif;max-width:680px;margin:40px auto;padding:0 20px;color:#2c2c2c;line-height:1.8}
-        h1{font-size:28px}h2{font-size:22px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:8px}
-        h3{font-size:18px;margin-top:24px}pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto}
-        code{font-family:"JetBrains Mono",monospace;font-size:14px}blockquote{border-left:3px solid #c0392b;padding-left:16px;color:#666}
-        img{max-width:100%}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
+        :root {
+          --text-primary: #2c2c2c; --text-secondary: #666; --text-muted: #999;
+          --bg-primary: #fff; --bg-secondary: #f8f9fa; --bg-tertiary: #f0f2f5;
+          --color-primary: #2563eb; --color-bg-card: #fff;
+          --border-default: #e5e7eb; --accent-amber: #d97706; --accent-red: #dc2626;
+          --color-text-primary: #2c2c2c; --color-text-secondary: #666; --color-text-muted: #999;
+          --color-bg-base: #fff;
+        }
+        body{font-family:"Noto Serif SC","Microsoft YaHei",serif;max-width:680px;margin:40px auto;padding:0 20px;color:#2c2c2c;background:#fff;line-height:1.8}
+        h1{font-size:28px;margin-top:0}h2{font-size:22px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:8px}
+        h3{font-size:18px;margin-top:24px}h4{font-size:16px;margin-top:20px}p{margin:12px 0}
+        pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto}
+        code{font-family:"JetBrains Mono","Courier New",monospace;font-size:14px}pre code{font-size:13px}
+        blockquote{border-left:3px solid #c0392b;padding:4px 16px;margin:16px 0;color:#555;background:#fdf8f8}
+        img{max-width:100%;height:auto}
+        table{border-collapse:collapse;width:100%;margin:16px 0}
+        th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left}
+        th{background:#f6f8fa;font-weight:600}
+        ul,ol{padding-left:24px}li{margin:4px 0}a{color:#2563eb}
+        hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}
+        .footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
       </style></head><body>
         <h1>${blog.title}</h1>
         <p style="color:#888;font-size:14px">${blog.createdAt}</p>

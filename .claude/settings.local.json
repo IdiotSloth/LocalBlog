@@ -30,7 +30,8 @@
       "Bash(npx tsc *)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(env)",
-      "Bash(reg query *)"
+      "Bash(reg query *)",
+      "Bash(npx vitest *)"
     ]
   },
   "hooks": {

@@ -69,7 +69,7 @@ export class WebScraperService {
     }
 
     // Convert HTML to Markdown
-    const markdown = this.turndown.turndown(article.content);
+    const markdown = WebScraperService.turndown.turndown(article.content);
     const excerpt = article.excerpt || article.textContent?.substring(0, 200) || '';
 
     return {

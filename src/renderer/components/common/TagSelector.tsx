@@ -55,7 +55,7 @@ export function TagSelector({ userId, selectedTagIds, onChange }: Props) {
       const resp = data as { success: boolean; data?: TagItem; error?: string };
       if (resp.success && resp.data) {
         setTags((prev) => [...prev, resp.data!]);
-        onChange([...selectedTagIds, resp.data!.id]);
+        onChange([...selectedTagIds, resp.data?.id]);
         setNewName('');
       } else {
         setError(resp.error || '创建失败');
@@ -73,7 +73,7 @@ export function TagSelector({ userId, selectedTagIds, onChange }: Props) {
   useEffect(() => {
     if (!open || !triggerRef.current) return;
     const calc = () => {
-      const rect = triggerRef.current!.getBoundingClientRect();
+      const rect = triggerRef.current?.getBoundingClientRect();
       const panelH = 340;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;

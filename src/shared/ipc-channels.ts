@@ -113,6 +113,13 @@ export const IPC = {
   BLOG_EXPORT_PDF: 'blog:exportPdf',
   BLOG_EXPORT_DOCX: 'blog:exportDocx',
 
+  // Notes
+  NOTE_LIST: 'note:list',
+  NOTE_CREATE: 'note:create',
+  NOTE_DELETE: 'note:delete',
+  NOTE_PIN: 'note:pin',
+  NOTE_CLIPBOARD: 'note:clipboard',
+
   // App
   APP_GET_VERSION: 'app:get-version',
   APP_GET_SYSTEM_LANGUAGE: 'app:get-system-language',

@@ -1,5 +1,7 @@
+import fs from 'node:fs';
 import { Router } from 'express';
 import { getSharedKnowledgeList } from '../../shared/handlers/knowledge-list';
+import { nowMySQL } from '../config';
 import { getPool } from '../db';
 import { type AuthRequest, requireAuth } from '../middleware/auth';
 
@@ -93,10 +95,16 @@ knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
       const filename = filePath.split(/[/\\]/).pop() || 'unknown';
       const ext = (filename.split('.').pop() || '').toLowerCase();
       const fileType = typeMap[ext] || 'other';
-      const now = new Date().toISOString();
+      const now = nowMySQL();
+      let fileSize = 0;
+      try {
+        fileSize = fs.statSync(filePath).size;
+      } catch {
+        /* file may not exist on server */
+      }
       const [result] = (await pool.execute(
-        'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, filename, filePath, fileType, now, now],
+        'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [userId, filename, filePath, fileType, fileSize, '', now, now],
       )) as any[];
       files.push({
         id: result.insertId,
@@ -104,10 +112,10 @@ knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
         filename,
         filePath,
         fileType,
-        fileSize: 0,
+        fileSize,
         status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: nowMySQL(),
+        updatedAt: nowMySQL(),
         tags: [],
       });
     }
@@ -132,7 +140,7 @@ knowledgeRouter.post('/:id/delete', async (req: AuthRequest, res) => {
       userId,
       'knowledge_file',
       req.params.id,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
     return res.json({ success: true });
   } catch (err) {
@@ -165,7 +173,7 @@ knowledgeRouter.post('/:id/rename', async (req: AuthRequest, res) => {
     const pool = getPool();
     await pool.execute('UPDATE knowledge_files SET filename = ?, updated_at = ? WHERE id = ? AND user_id = ?', [
       newFilename.trim(),
-      new Date().toISOString(),
+      nowMySQL(),
       req.params.id,
       userId,
     ]);

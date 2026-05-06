@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 (34 main + 2 preload + 213 renderer) | 测试: 27/27 pass | Phase 1-10 完成, Phase 11 P0+P1 完成
+构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-12 ✅
 
 ---
 
@@ -19,9 +19,12 @@
 | **仪表盘** | 统计数据，写作热力图 (GitHub 风格)，成就系统 (16 徽章) |
 | **编辑器** | 专注写作模式，模板系统，阅读时间 + TOC，双向引用 (博客↔知识库) |
 | **导出** | PDF (Electron printToPDF)，Word (.docx) |
-| **桌面** | 托盘常驻，桌面宠物 (可拖拽 + 动画)，独立小窗快捷操作 (便签/导入/收藏) |
-| **主题** | 暗色/亮色/系统，5 套阅读主题，CSS Token 驱动的圆润 UI |
+| **便签** | 独立 notes 表，剪贴板读取，24h 自动清理，置顶永久保留 |
+| **桌面** | 托盘常驻，桌面宠物 (可拖拽 + 动画)，快捷写作浮窗，全局快捷键 (Ctrl+Shift+N) |
+| **主题** | 暗色/亮色/系统，5 套阅读主题，CSS Token 驱动的圆润 UI，统一 Toast/Progress 反馈 |
+| **质量** | 27 单元测试 + 11 E2E 核心链路，DOMPurify XSS 防护 |
 | **Web 版** | Express 5 服务器 (端口 3456)，JWT 认证，MySQL 双模支持 |
+| **指南** | 内置使用指南 (`/guide`)，冷启动零门槛 |
 
 ---
 
@@ -32,7 +35,7 @@ npm install
 npm run dev        # 开发模式 (HMR)
 npm run build      # 生产构建
 npm run make       # 打包安装程序
-npm run test       # 27 单元测试
+npm run test       # 27 单元测试 + 11 E2E
 ```
 
 **首次使用**: 注册 → 选择工作区目录 → 自动创建 `Blogs/` `KnowledgeBase/` `Assets/`
@@ -51,8 +54,8 @@ npm run test       # 27 单元测试
 | 数据库 | sql.js (SQLite WASM) / MySQL 8.3 双模 |
 | Web | Express 5, JWT Cookie, mysql2 |
 | 文档处理 | mammoth (DOCX), exceljs (XLSX), pdfjs-dist (PDF), markdown-it, turndown |
-| 测试 | Vitest (27 tests), Playwright (E2E) |
-| 质量 | Biome (lint + format), TypeScript strict, DOMPurify (XSS) |
+| 测试 | Vitest (27 tests), Playwright (11 E2E) |
+| 质量 | Biome (lint + format), DOMPurify (XSS) |
 
 ---
 
@@ -64,7 +67,7 @@ npm run test       # 27 单元测试
 │  ┌──────────┐  IPC (80 ch)  ┌──────────────┐ │
 │  │ 主进程    │◄────────────►│ 渲染进程       │ │
 │  │ Node.js  │  contextBridge│ React 19      │ │
-│  │ 12 svc   │               │ 10 routes     │ │
+│  │ 12 svc   │               │ 7 features    │ │
 │  └────┬─────┘               └──────┬────────┘ │
 │       │                            │          │
 │       │  sql.js WASM / MySQL 8.3   │          │
@@ -87,16 +90,17 @@ src/
 │   ├── index.ts       #   窗口创建、托盘、宠物
 │   ├── tray.ts        #   托盘菜单 + 桌面宠物
 │   ├── pet.ts         #   宠物窗口 + 独立小窗
-│   ├── ipc/           #   IPC handlers (11 文件)
+│   ├── ipc/           #   IPC handlers (12 文件)
 │   ├── services/      #   业务逻辑 (12 services)
 │   ├── db/            #   sql.js + MySQL 抽象层
 │   └── utils/         #   加密、路径工具
 ├── preload/           # contextBridge API
 ├── renderer/          # React 前端
-│   ├── features/      #   页面组件 (auth/blog/knowledge/...)
-│   ├── components/    #   通用组件 (editor/layout/common)
+│   ├── features/      #   页面组件 (auth/blog/knowledge/guide/...)
+│   ├── components/    #   通用组件 (editor/layout/common/toast)
 │   ├── stores/        #   Zustand stores
 │   └── hooks/         #   自定义 hooks
+├── tests/             # E2E Playwright (11 tests)
 ├── server/            # Express Web 服务器
 │   ├── routes/        #   REST API
 │   └── middleware/     #   auth, error-handler
@@ -107,7 +111,7 @@ src/
 
 ---
 
-## 分阶段实施 (10 Phase, ~250h)
+## 分阶段实施 (12 Phase, ~297h)
 
 | Phase | 范围 | 工时 | 状态 |
 |-------|------|------|------|
@@ -121,9 +125,8 @@ src/
 | 8 | 系列链/便签/标签清理/关联展示/热力图/Word | 24h | ✅ |
 | 9 | 架构去重/类型安全/XSS/DDL/校验/测试 | 36h | ✅ |
 | 10 | 托盘/桌面宠物/PDF修复/翻页/UI圆润 | 22h | ✅ |
-| 11 | 工程收敛 — 安全加固 + 架构收敛 + 质量基线 | 28h | 🚧 |
-|   | T1101-T1107 P0+P1 完成: DOMPurify, catch修复, 参数校验, DI, Schema冻结, IPC类型, Biome | | ✅ |
-|   | T1108 P2: E2E Playwright (待实施) | 6h | 📋 |
+| 11 | 工程收敛 — 安全加固 + 架构收敛 + 质量基线 | 28h | ✅ |
+| 12 | 缺陷修复 + E2E 兜底 + 体验收尾 — PDF/编辑器/浮窗/E2E/图标/快捷键/Toast/指南/便签 | 22h | ✅ |
 
 ---
 
@@ -147,7 +150,7 @@ src/
 - [STYLE.md](STYLE.md) — 设计系统规范
 - [todo.md](todo.md) — 当前待办与 Phase 状态
 - [redo.md](redo.md) — 技术债与修复清单
-- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-7 详细任务规格
+- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-10 详细任务规格
 - [docs/development-guide.md](docs/development-guide.md) — 测试策略、工作流程图
 
 ## License

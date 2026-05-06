@@ -1,11 +1,13 @@
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app, globalShortcut, shell } from 'electron';
 import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
-import { initPetActions } from './pet';
+import { setNoteRefreshTarget } from './ipc/note';
+import { initPetActions, showMdFloatWindow } from './pet';
 import { BackupService } from './services/backup.service';
+import { NoteService } from './services/note.service';
 import { setupTray } from './tray';
 
 // Disable GPU hardware acceleration to prevent white screen on some Windows environments
@@ -63,8 +65,21 @@ app.whenReady().then(async () => {
   }
   registerAllIpcHandlers();
   createWindow();
-  if (mainWindow) setupTray(mainWindow);
+  if (mainWindow) {
+    setupTray(mainWindow);
+    setNoteRefreshTarget(mainWindow.webContents);
+  }
   initPetActions(); // tray menu actions work even if pet never opened
+
+  // T12S1: Auto-clean old unpinned notes every 5 minutes
+  const noteCleanTimer = setInterval(() => {
+    NoteService.cleanOldNotes().catch(() => { /* best-effort */ });
+  }, 5 * 60 * 1000);
+
+  // T1209a: Global shortcut Ctrl+Shift+N → MD float window
+  globalShortcut.register('CommandOrControl+Shift+N', () => {
+    showMdFloatWindow();
+  });
 
   // Auto-create Start Menu shortcut on first launch (uses .bat launcher to avoid ELECTRON_RUN_AS_NODE)
   const shortcutDir = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
@@ -91,6 +106,11 @@ app.whenReady().then(async () => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    clearInterval(noteCleanTimer);
   });
 });
 

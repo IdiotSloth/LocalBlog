@@ -51,8 +51,7 @@ export function BlogEditorPage() {
 
   useEffect(() => {
     if (id && user) {
-      window.api.blogGet(Number(id)).then((d: unknown) => {
-        const r = d as any;
+      window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
           setTitle(r.data.title);
           setFormat(r.data.format);
@@ -63,8 +62,7 @@ export function BlogEditorPage() {
           setSeriesName(r.data.seriesName || '');
         }
       });
-      window.api.blogSeriesList(user.id).then((d: unknown) => {
-        const r = d as any;
+      window.api.blogSeriesList(user.id).then((r) => {
         if (r.success && r.data) setSeriesList(r.data);
       });
     }
@@ -101,8 +99,8 @@ export function BlogEditorPage() {
 
   const loadHistory = useCallback(async () => {
     if (!blogIdRef.current) return;
-    const d = await window.api.blogGetHistory(blogIdRef.current);
-    const r = d as any;
+    const r = await window.api.blogGetHistory(blogIdRef.current);
+
     if (r.success) setDrafts(r.data);
   }, []);
 
@@ -116,8 +114,8 @@ export function BlogEditorPage() {
     const contentToSave = format === 'md' ? turndown.turndown(content) : content;
     try {
       if (isNew) {
-        const d = await window.api.blogCreate({ userId: user.id, title: title.trim(), format, content: contentToSave });
-        const r = d as any;
+        const r = await window.api.blogCreate({ userId: user.id, title: title.trim(), format, content: contentToSave });
+
         if (r.success && r.data) {
           blogIdRef.current = r.data.id;
           const pt = pendingTagIds;
@@ -126,8 +124,8 @@ export function BlogEditorPage() {
           navigate(`/blog/${r.data.id}/edit`, { replace: true });
         } else setError(r.error || '创建失败');
       } else {
-        const d = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
-        const r = d as any;
+        const r = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
+
         if (r.success) {
           setDraftStatus('已保存');
           setTimeout(() => setDraftStatus(''), 2000);
@@ -204,7 +202,7 @@ export function BlogEditorPage() {
                   try {
                     const r = (await window.api.blogExportDocx(blogIdRef.current!)) as any;
                     if (r?.success) alert('已导出为 Word');
-                    else if (r?.error !== '已取消') alert('导出失败: ' + (r?.error || ''));
+                    else if (r?.error !== '已取消') alert(`导出失败: ${r?.error || ''}`);
                   } catch {
                     alert('导出失败');
                   }
@@ -221,7 +219,7 @@ export function BlogEditorPage() {
                   try {
                     const r = (await window.api.blogExportPdf(blogIdRef.current!)) as any;
                     if (r?.success) alert('已导出为 PDF');
-                    else if (r?.error !== '已取消') alert('导出失败: ' + (r?.error || ''));
+                    else if (r?.error !== '已取消') alert(`导出失败: ${r?.error || ''}`);
                   } catch {
                     alert('导出失败');
                   }

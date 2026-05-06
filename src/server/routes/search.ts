@@ -16,17 +16,17 @@ searchRouter.post('/global', async (req: AuthRequest, res) => {
     const like = `%${query}%`;
 
     const [blogs] = (await pool.execute(
-      `SELECT id, title, 'title' as match_field FROM blogs
+      `SELECT id, title, 'title' as matchField, 'blog' as scope, '' as snippet FROM blogs
        WHERE user_id = ? AND status = 'active' AND title LIKE ?
        UNION
-       SELECT id, title, 'content' as match_field FROM blogs
+       SELECT id, title, 'content' as matchField, 'blog' as scope, '' as snippet FROM blogs
        WHERE user_id = ? AND status = 'active' AND content LIKE ?
        LIMIT 20`,
       [userId, like, userId, like],
     )) as any[];
 
     const [knowledge] = (await pool.execute(
-      `SELECT id, filename as title, file_type as match_field FROM knowledge_files
+      `SELECT id, filename as title, file_type as matchField, 'knowledge' as scope, '' as snippet FROM knowledge_files
        WHERE user_id = ? AND status = 'active' AND filename LIKE ?
        LIMIT 20`,
       [userId, like],
@@ -48,10 +48,10 @@ searchRouter.post('/blogs', async (req: AuthRequest, res) => {
     const pool = getPool();
     const like = `%${query}%`;
     const [rows] = (await pool.execute(
-      `SELECT id, title, 'title' as match_field FROM blogs
+      `SELECT id, title, 'title' as matchField, 'blog' as scope, '' as snippet FROM blogs
        WHERE user_id = ? AND status = 'active' AND title LIKE ?
        UNION
-       SELECT id, title, 'content' as match_field FROM blogs
+       SELECT id, title, 'content' as matchField, 'blog' as scope, '' as snippet FROM blogs
        WHERE user_id = ? AND status = 'active' AND content LIKE ?
        LIMIT 20`,
       [userId, like, userId, like],
@@ -73,7 +73,7 @@ searchRouter.post('/kb', async (req: AuthRequest, res) => {
     const pool = getPool();
     const like = `%${query}%`;
     const [rows] = (await pool.execute(
-      `SELECT id, filename as title, file_type as match_field FROM knowledge_files
+      `SELECT id, filename as title, file_type as matchField, 'knowledge' as scope, '' as snippet FROM knowledge_files
        WHERE user_id = ? AND status = 'active' AND filename LIKE ?
        LIMIT 20`,
       [userId, like],

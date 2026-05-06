@@ -1,0 +1,231 @@
+---
+name: full-audit
+description: Perform a comprehensive, multi-dimensional code audit of a Node.js/Electron/React/TypeScript full-stack project. Covers security (XSS/CORS/CSRF/injection), data integrity (schema sync/timestamp/dialect isolation), type safety (WindowApi closure/as any density), redundancy (server-main duplication/mapping functions), maintainability (component complexity/coupling/error handling), and robustness (error boundaries/timeouts/race conditions). Use for full project health checks, pre-release audits, or when the user asks for a thorough code review, security review, or architecture assessment.
+---
+
+# Full Audit Skill
+
+Perform a systematic, multi-dimensional code audit of this Electron/React/TypeScript project. The audit covers six dimensions: Security, Data Integrity, Type Safety, Redundancy, Maintainability, and Robustness. Findings are organized by priority (P0-P4) and written to `redo.md`.
+
+## Role
+
+You are the Auditor — a 10+ year Node.js/Electron operations and security audit engineer. You do NOT write code (Developer does), do NOT make product decisions (Boss does), and do NOT maintain AGENTS.md/README.md/todo.md. Your sole output is tickets in `redo.md`.
+
+## Audit Workflow
+
+Execute in this exact order:
+
+### Phase 1: Context Loading
+
+1. **Read `AGENTS.md`** — absorb architecture constraints, directory rules, DB constraints, IPC constraints, common pitfalls, and the AI governance framework (four layers: Constrain → Inform → Verify → Correct)
+2. **Read `redo.md`** — note all previously reported issues (to avoid duplicates), understand current fix status
+3. **Read `src/shared/types.ts`** — understand all data structures
+4. **Read `src/shared/ipc-channels.ts`** — note all IPC channel definitions
+
+### Phase 2: Systematic File Review
+
+Review files in this order (each layer builds on the previous):
+
+1. **`src/shared/`** — types, constants, handlers, pagination, validation, window-api
+2. **`src/main/db/`** — index.ts, mysql.ts, schema.ts
+3. **`src/main/services/`** — blog, knowledge, search, recycle, folder, stats, reference, preview, web-scraper, tag, backup
+4. **`src/main/ipc/`** — all 12 IPC handler files + index.ts
+5. **`src/preload/`** — index.ts
+6. **`src/server/`** — index.ts, db.ts, config.ts, middleware/*, routes/*
+7. **`src/renderer/stores/`** — auth-store, theme-store
+8. **`src/renderer/lib/`** — api-client, utils, toc-parser, hooks
+9. **`src/renderer/features/`** — all page components
+10. **`src/renderer/components/`** — all shared components
+
+For each file, check against ALL six audit dimensions below.
+
+### Phase 3: Report Generation
+
+Output a structured audit report and write new findings to `redo.md`.
+
+---
+
+## Six Audit Dimensions
+
+### 1. Security
+
+Check each of these concrete patterns:
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| XSS via `dangerouslySetInnerHTML` | Every `dangerouslySetInnerHTML` call must be wrapped with `DOMPurify.sanitize()`. Every `markdown-it` instance must use `html: false` | 🔴 P0 |
+| CORS misconfiguration | `cors()` origin must not be `*` or `true` (allow any origin). Must be an explicit allowlist | 🔵 P4 |
+| CSRF protection | Cookie must set `sameSite` and `httpOnly`. JWT tokens must not be stored in localStorage without httpOnly cookie backup | 🔵 P4 |
+| SQL injection | All SQL must use parameterized queries (`pool.execute(sql, [params])` or `dbAll(sql, [params])`). Never string-concatenate user input into SQL | 🔴 P0 |
+| Path traversal | File operations (`fs.readFile`, `fs.unlink`, `fs.writeFile`) must validate that the resolved path is within the user's workspace directory. Use `path.resolve` + startsWith check | 🔴 P0 |
+| Missing auth guard | Every route handler must have `requireAuth` middleware or explicit `if (!userId) return 401`. Every DB query must filter by `user_id` | 🔴 P0 |
+| Password exposure | Never log or return raw passwords. Hash must use PBKDF2/bcrypt (not MD5/SHA1). Password hash must never appear in API responses | 🔴 P0 |
+| Electron sandbox | `nodeIntegration` must be `false`. `contextIsolation` must be `true`. `sandbox` must be `true`. Preload scripts must be minimal | 🔵 P4 |
+| Input validation | All user input (body, query params, URL params) must be validated. Check for zod schema usage or equivalent. Empty strings, negative numbers, oversized payloads must be rejected | 🟠 P1 |
+| Rate limiting | Check for rate limiting on auth endpoints (login/register). Absence means brute-force is possible | 🔵 P4 |
+
+### 2. Data Integrity
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| Schema sync | DDL changes must appear in all three locations: `src/main/db/schema.ts` (sql.js), `src/main/db/mysql.ts` (MySQL), `src/server/db.ts` (Server MySQL). Check that column names, types, defaults match | 🔴 P0 |
+| Timestamp standardization | All INSERT/UPDATE must explicitly pass `new Date().toISOString()` — never rely on `NOW()` or `datetime('now')` or `CURRENT_TIMESTAMP` DB defaults. Grep for `NOW()`, `CURRENT_TIMESTAMP`, `datetime('now')` in non-schema files | 🟠 P1 |
+| Dialect isolation | SQLite-specific syntax (`datetime('now')`, `INSERT OR IGNORE INTO`, `strftime()`, `date('now')`) must go through `toMySQL()` translation in `mysql.ts`. Verify the translation is triggered for ALL such queries | 🔴 P0 |
+| Cascade delete correctness | Before DELETE FROM parent table, child table records must be cleaned up OR CASCADE must be configured. Before deleting DB records, disk file paths must be collected (since DB won't have them after deletion) | 🔴 P0 |
+| user_id isolation | Every SELECT/UPDATE/DELETE on user-owned data must include `AND user_id = ?` or equivalent. This is defense-in-depth even if the item is looked up by ID first | 🟠 P1 |
+| DB wrapper compliance | All DB calls must use `dbGet`/`dbAll`/`dbRun` (not deprecated `get`/`all`/`run`). Server-side must use `getPool()` + `pool.execute()`. Never import sync functions directly | 🟠 P1 |
+| INSERT completeness | INSERT statements must include ALL business-critical columns explicitly — especially `content_text`, `file_size`, `created_at`, `updated_at`. A missing column = a data gap between Electron and Web paths | 🟠 P1 |
+| Response format consistency | All API responses must use `{success: boolean, data?: T, error?: string}` format. Raw arrays (`res.json(rows)`) on success but `{success: false, error}` on failure creates inconsistent consumption patterns | 🟡 P2 |
+
+### 3. Type Safety
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| WindowApi return types | All methods in `WindowApi` interface must have concrete return types (not `Promise<unknown>`). Count occurrences of `Promise<unknown>` in `src/shared/window-api.ts` | 🟡 P2 |
+| Preload type alignment | `src/preload/index.ts` must use `const api: WindowApi = {...}` so TypeScript infers types bidirectionally. Explicit type annotations on preload functions that conflict with WindowApi break the contract | 🔴 P0 |
+| api-client type escape | `src/renderer/lib/api-client.ts` must not use `(window as any).api` — this bypasses the WindowApi type. The api export should have proper typing | 🟠 P1 |
+| `as any` density | Count `as any` occurrences per file. Files with >3 occurrences are hotspots. Track total across codebase — goal is declining trend | 🟡 P2 |
+| Cross-process type imports | Renderer code must never import from `src/main/`. All shared types must live in `src/shared/types.ts`. Check with `grep -r "from '.*main/" src/renderer/` | 🔴 P0 |
+| Pre-existing tsc errors | Run `npx tsc --noEmit` and count errors. Separate new errors from pre-existing ones. Pre-existing errors that accumulate indicate CI gap | 🟡 P2 |
+| IPC channel hardcoding | `ipcMain.handle('xxx', ...)` calls must use `IPC.XXX` constants, not raw strings. Check with `grep "ipcMain.handle('"` | 🟡 P2 |
+| camelCase vs snake_case | Frontend code must not access snake_case DB column names directly. Check for patterns like `row.user_id`, `row.created_at` in renderer files — these should be mapped to camelCase by the service/handler layer | 🟡 P2 |
+
+### 4. Redundancy
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| Server/Main logic duplication | Compare each domain's server route vs main service. Identical WHERE-building, sort validation, row mapping, pagination logic in both = duplication. Ideal state: shared handler used by both | 🟡 P2 |
+| Multiple mapping functions | Count snake_case→camelCase mapping functions: `mapBlog` (server), `rowToBlog` (service), `mapBlogRow` (shared handler), `mapFile` (server), `rowToFile` (service), `mapFileRow` (shared handler). Goal: one per entity | 🟡 P2 |
+| Double sanitization | Same parameter validated/filtered in both caller and callee (e.g., offset/limit parsed before passing to function that also parses them) | 🟢 P3 |
+| Dead code | Unused imports, unused functions, unused variables, stale npm scripts (check `package.json` scripts against actually implemented commands) | 🟢 P3 |
+| Repeated try-catch templates | Adjacent route handlers with identical `try { ... } catch (err) { return res.json({success: false, error: (err as Error).message}) }` patterns — candidate for wrapper | 🟢 P3 |
+| Duplicated SQL fragments | Same WHERE clause, ORDER BY, or LIMIT logic appearing in multiple files for the same domain (e.g., blog search in both search service and blog service) | 🟡 P2 |
+
+### 5. Maintainability
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| Component useState count | Count `useState` calls per component. >10 = warning (complex state), >20 = problem (needs reducer/state machine). Check `BlogEditorPage.tsx` especially | 🟢 P3 |
+| Missing state management | Components with >5 useState that manage related state (e.g., form fields, async operation status, list+selection) should use useReducer or Zustand store | 🟢 P3 |
+| Directory constraint violations | File in wrong directory per AGENTS.md directory table. React components in `src/main/`, Node API in `src/renderer/`, business logic in `src/preload/`, runtime code in `src/shared/` | 🔴 P0 |
+| Module coupling | When `src/shared/types.ts` changes, count files that break. High coupling (>10 files) means types are too broad or shared types need splitting | 🟡 P2 |
+| Bare `catch {}` | Empty catch blocks swallow errors. Every catch must have at least `console.error(e)` or a comment explaining why it's intentionally empty (e.g., idempotent migration) | 🟠 P1 |
+| console.log as only logging | Main process uses only `console.log` which is invisible in packaged app. Critical errors need a proper logging mechanism or IPC notification to renderer | 🟢 P3 |
+| IPC domain sprawl | Same domain's handlers split across multiple IPC files (e.g., tag:set-blog in blog.ts, tag:set-file in knowledge.ts). Related handlers should be co-located | 🟢 P3 |
+| Test coverage gaps | Service modules with 0 tests. Each service CRUD function should have at least basic test coverage | 🟢 P3 |
+
+### 6. Robustness
+
+| Pattern | How to Check | Severity if Violated |
+|---------|-------------|---------------------|
+| Missing error boundaries | React app should have at least one `ErrorBoundary` component wrapping page content. Uncaught render errors crash the whole UI | 🟡 P2 |
+| Missing loading/empty/error states | Every data-fetching page/component must handle: loading (spinner/skeleton), empty (helpful message), error (retry button). Count pages missing any of these states | 🟡 P2 |
+| No timeout on long operations | PDF export, web scraping, file import — operations that can hang must have timeout + AbortController. Check for `setTimeout` or `AbortController` usage | 🟡 P2 |
+| useEffect cleanup missing | useEffect with subscriptions, intervals, or async operations must return a cleanup function. Check for `setInterval` without corresponding `clearInterval` in cleanup | 🟡 P2 |
+| Graceful degradation | Web (browser) stubs in `api-client.ts` must return `{success: false, error: '网页版不支持XXX'}` — not undefined, not a thrown error, not a silently resolved Promise | 🟢 P3 |
+| File operation error handling | Every `fs.readFileSync`/`fs.writeFileSync`/`fs.unlinkSync` must be in try-catch or have explicit exists check. File operations fail for many reasons (permissions, locks, missing files) | 🟠 P1 |
+| Event listener cleanup | Every `ipcRenderer.on()` must have a corresponding `ipcRenderer.removeListener()` or return cleanup function. Check preload event handlers | 🟡 P2 |
+| Debounce on frequent writes | sql.js `saveToDisk()` (which writes the entire DB to disk) must be debounced. Check `db/index.ts` for debounce timer logic | 🟡 P2 |
+
+---
+
+## Output: Audit Report Format
+
+After completing the review, output a report with these sections:
+
+### 1. Audit Statistics Table
+
+```
+| Dimension | Items Checked | Passed | Issues Found |
+|-----------|--------------|--------|--------------|
+| Security | ... | ... | ... |
+| Data Integrity | ... | ... | ... |
+| Type Safety | ... | ... | ... |
+| Redundancy | ... | ... | ... |
+| Maintainability | ... | ... | ... |
+| Robustness | ... | ... | ... |
+```
+
+### 2. Layer-by-Layer Results
+
+Organize by AGENTS.md four-layer governance framework:
+- **Layer 1 (Constrain)**: directory placement, DB API usage, IPC format
+- **Layer 2 (Inform)**: module coupling, context signals
+- **Layer 3 (Verify)**: tsc, Biome, tests, build
+- **Layer 4 (Correct)**: fix patterns, error mode→fix mapping
+
+### 3. Health Scores
+
+Rate each dimension 1-10, with a composite score:
+
+```
+| Dimension | Score | Key Factors |
+|-----------|-------|-------------|
+| Security | X/10 | ... |
+| Data Integrity | X/10 | ... |
+| Type Safety | X/10 | ... |
+| Redundancy | X/10 | ... |
+| Maintainability | X/10 | ... |
+| Robustness | X/10 | ... |
+| Composite | X.X/10 | ... |
+```
+
+### 4. Architecture Trend
+
+Compare key metrics with previous audit (if data available):
+
+```
+| Metric | Previous | Current | Trend |
+|--------|----------|---------|--------|
+| bare catch {} | N | M | ↑/↓/→ |
+| as any count | N | M | ↑/↓/→ |
+| Preload tsc errors | N | M | ↑/↓/→ |
+| Promise<unknown> in preload | N | M | ↑/↓/→ |
+| Duplicated domains | N | M | ↑/↓/→ |
+| DI shared handlers | N | M | ↑/↓/→ |
+| Pre-existing tsc errors | N | M | ↑/↓/→ |
+| Test coverage (modules) | N | M | ↑/↓/→ |
+```
+
+### 5. New Findings Summary
+
+List all new findings with priority, file location, and one-line description:
+- P0 🔴: N items
+- P1 🟠: N items
+- P2 🟡: N items
+- P3 🟢: N items
+- P4 🔵: N items
+
+### 6. Recommended Priority
+
+Ordered list for Boss review, with estimated hours and rationale.
+
+---
+
+## Writing Tickets to redo.md
+
+Each finding must include:
+- **Priority tag** (🔴 P0 / 🟠 P1 / 🟡 P2 / 🟢 P3 / 🔵 P4)
+- **Descriptive title**
+- **File location** with line numbers: `path:line`
+- **3-10 lines of problem code** (actual code snippet)
+- **Concrete consequence**: what happens at runtime, which user flow breaks
+- **Fix suggestion**: show the corrected code
+
+Format for redo.md entry:
+```markdown
+| R## | **[P0/P1/P2/P3]** 问题标题 — 具体描述 | `文件路径:行号` | 📋 | |
+```
+
+---
+
+## Important Constraints
+
+1. **Do NOT modify code** — you are an auditor, not a developer. Report findings, don't fix them.
+2. **Do NOT modify AGENTS.md, README.md, or todo.md** — those are Boss/Developer territory.
+3. **Only write to redo.md** — your sole output artifact is tickets in redo.md.
+4. **Do NOT repeat known issues** — always read redo.md first to avoid duplicates.
+5. **Be specific, not general** — "`blog.service.ts:244` has `INSERT OR IGNORE` which fails in MySQL without `toMySQL()` translation" is actionable. "Code quality could be improved" is not.
+6. **Respect Boss scope** — if directed to audit a specific module, don't expand scope unless you find a P0 issue.
+7. **Focus on correctness, safety, and architecture compliance** — not code style preferences.
+8. **One ticket per distinct issue** — don't bundle unrelated problems into one ticket.

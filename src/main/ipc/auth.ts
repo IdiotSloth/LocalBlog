@@ -2,11 +2,14 @@ import { ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import type { AuthResponse, LoginRequest, RegisterRequest } from '../../shared/types';
 import { AuthService } from '../services/auth.service';
+import { setCurrentUserId } from '../pet';
 
 export function registerAuthHandlers(): void {
   ipcMain.handle(IPC.AUTH_LOGIN, async (_event, req: LoginRequest): Promise<AuthResponse> => {
     try {
-      return await AuthService.login(req.username, req.password, req.rememberMe);
+      const res = await AuthService.login(req.username, req.password, req.rememberMe);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error('[Auth IPC] Login error:', err);
       return { success: false, error: `登录异常: ${(err as Error).message}` };
@@ -15,7 +18,9 @@ export function registerAuthHandlers(): void {
 
   ipcMain.handle(IPC.AUTH_REGISTER, async (_event, req: RegisterRequest): Promise<AuthResponse> => {
     try {
-      return await AuthService.register(req.username, req.password, req.workspacePath);
+      const res = await AuthService.register(req.username, req.password, req.workspacePath);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error('[Auth IPC] Register error:', err);
       return { success: false, error: `注册异常: ${(err as Error).message}` };
@@ -32,7 +37,9 @@ export function registerAuthHandlers(): void {
 
   ipcMain.handle(IPC.AUTH_VERIFY_TOKEN, async (_event, token: string): Promise<AuthResponse> => {
     try {
-      return await AuthService.verifyToken(token);
+      const res = await AuthService.verifyToken(token);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error('[Auth IPC] Verify error:', err);
       return { success: false, error: '验证失败' };

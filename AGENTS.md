@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code、Codex、Cline 等 AI 工具读取。
-> 最后更新：2026-05-02 (Phase 7 P1+P2 实施完成)
+> 最后更新：2026-05-06 (Phase 11 P0+P1 完成, todo.md 拆分)
 
 ---
 
@@ -12,7 +12,7 @@
 │                    Electron 41 桌面壳                  │
 │  ┌──────────┐   contextBridge    ┌──────────────────┐ │
 │  │ 主进程    │◄─────IPC───────►│ 渲染进程 (React 19) │ │
-│  │ Node.js  │  34 个通道        │ Vite 7 + Tailwind │ │
+│  │ Node.js  │  80 个通道      │ Vite 7 + Tailwind │ │
 │  └────┬─────┘                   └────────┬─────────┘ │
 │       │                                  │            │
 │       │  ┌────────────────────┐          │            │
@@ -244,25 +244,18 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 18. **Tiptap `setContent` 会触发 `onUpdate`** — Tiptap 规范化 HTML（加空格、改属性顺序）导致 `setContent(content)` ≈ `onUpdate(editor.getHTML() ≠ content)` ≈ 死循环。修复：用 `isSettingRef` 标志在 `onUpdate` 中跳过本次 `onChange` (R34)
 19. **SQLite `datetime('now')` 返回无时区字符串** — `datetime('now')` 返回 `2026-05-02 00:00:00` 不带 Z 后缀。JS `new Date()` 在 V8 中当本地时间解析。存储统一用 `new Date().toISOString()` (ISO 8601 UTC)；显示端 `formatDate` 检测无 TZ 字符串时追加 `Z` 强制 UTC 解析 (R35)
 20. **INSERT 也必须显式传时间戳** — UPDATE 语句已改用 `new Date().toISOString()`，但 INSERT 若省略 `created_at` 列仍依赖 DB DEFAULT。MySQL `CURRENT_TIMESTAMP` 返回服务器本地时间而非 UTC，导致显示端二次偏移。所有 INSERT 必须显式传入时间戳 (R36)
-21. **`markdown-it` 的 `html: true` 是 XSS 入口** — `dangerouslySetInnerHTML` + `html: true` 会透传 `<script>` 标签。虽然 Electron 的 `contextIsolation` 限制了破坏力，但应改为 `html: false` 或在渲染前 strip 脚本标签 (B4/T903)
-22. **IPC 所有返回值都是 `unknown`** — `preload/index.ts` 没有类型导出，前端大量 `as any`。新增或修改 IPC 字段时编译器不会报错，前端可能静默接收到错误数据。应定义 `WindowApi` 接口 (A1/T901)
+21. **`markdown-it` 的 `html: true` 是 XSS 入口** — `dangerouslySetInnerHTML` + `html: true` 会透传 `<script>` 标签。DOMPurify 已在渲染前做白名单过滤 (T1101)。Electron 的 `contextIsolation` 进一步限制了破坏力 (B4/T903)
 
 ---
 
-## 当前状态 (2026-05-02)
+## 当前状态 (2026-05-06)
 
-- **Phase 1-6**: ✅ 完成
-- **Phase 7**: ✅ 17/17 全部完成 (~55h)
-  - **P1 核心** 7/7: TOC/全文搜索/备份UI/批量操作/模板/文件夹/附件管理器
-  - **P2 增强** 8/8: 快捷键/拖放基础设施/写作统计/双向引用/专注模式/成就系统/时间线视图/PDF导出
-  - **P3 改良** 2/2: React.lazy代码分割/阅读主题
-- **Phase 8**: ✅ 7 项全部完成 (~24h) — 系列链/便签/标签清理/关联展示/热力图/Word导出/设计审查
-- **Phase 9**: ✅ 13 项全部完成 (~36h) — 逻辑去重/类型/XSS/DDL/校验/分页/样式/测试/UI
-- **Phase 10**: ✅ 7 项全部完成 (~22h) — 托盘/桌面宠物/PDF/翻页/UI圆润
-- **审查修复** (2026-04-30 ~ 05-03): 累计 69 项修复 (F01-F69), 40 个工单 (R01-R40) 全部关闭 — 详见 [redo.md](redo.md)
-- **当前待修复**: 🔴0 🟡0 🟢0 — 全部清零。F01-F85+ 已修, R01-R56 已关
-- **已知缺口**: E2E测试、国际化、FTS5、Biome lint、TypeScript strict、测试覆盖率
-- **构建状态**: ✅ 250 modules (36 main + 2 preload + 212 renderer), 测试 27/27 pass
+- **Phase 1-12**: ✅ 全部完成 (~297h)
+  - Phase 12 8/8 任务 + 3 审计修复 (R83-R85)：PDF 导出修复 / 代码块溢出修复 / 快捷写作浮窗 MVF / E2E 11 tests / 图标统一 / 快捷键 / Toast 组件 / 使用指南
+- **审查修复** (2026-04-30 ~ 05-06): 累计 85 项修复 (F01-F85), 97 个工单 (R01-R97) 全部关闭
+- **当前待修复**: 🔴0 🟡0 🟢0 — redo.md 清零 (含 R77/R78 ⏭)
+- **已知缺口**: 国际化、FTS5、Biome lint (64e/116w)、TypeScript strict
+- **构建状态**: ✅ 测试 27/27 pass | E2E 11/11 pass
 
 ---
 
@@ -324,13 +317,13 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 |--------|------|--------|
 | P0 | `AGENTS.md` | 本文档 — 架构约束 + 常见陷阱 |
 | P0 | `src/shared/types.ts` | 所有数据结构的权威定义 |
-| P0 | `src/shared/ipc-channels.ts` | 32 个 IPC 通道签名 |
+| P0 | `src/shared/ipc-channels.ts` | 80 个 IPC 通道签名 |
 | P1 | `src/shared/constants.ts` | 目录名、扩展名白名单、限制值 |
 | P1 | `todo.md` | 当前待办与 Phase 完成状态 (详细任务规格已移至 docs/) |
 | P1 | `redo.md` | 技术债与修复清单 |
 | P1 | `STYLE.md` | 设计系统规范 (颜色/间距/字体) |
 | P1 | `prompts/*.md` | 角色切换时读取对应文件，获取完整工作规则 |
-| P2 | `docs/phase-archive.md` | Phase 1-7 完整任务规格 (历史档案) |
+| P2 | `docs/phase-archive.md` | Phase 1-12 完整任务规格 (历史档案) |
 | P2 | `docs/development-guide.md` | 测试策略、工作流程图、文件清单、依赖关系 |
 | P2 | `package.json` | 依赖版本、可执行脚本 |
 | P2 | `src/main/db/schema.ts` | SQLite DDL (sql.js 回退) |

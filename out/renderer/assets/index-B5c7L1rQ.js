@@ -14076,6 +14076,63 @@ function useViewTransitionState(to, opts) {
   let nextPath = stripBasename(vtContext.nextLocation.pathname, basename) || vtContext.nextLocation.pathname;
   return matchPath(path.pathname, nextPath) != null || matchPath(path.pathname, currentPath) != null;
 }
+class ErrorBoundary extends reactExports.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error2) {
+    return { hasError: true, error: error2 };
+  }
+  componentDidCatch(error2, errorInfo) {
+    console.error("[ErrorBoundary] Caught render error:", error2, errorInfo.componentStack);
+    this.props.onError?.(error2, errorInfo);
+  }
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+  handleReload = () => {
+    window.location.hash = "#/dashboard";
+    this.handleReset();
+  };
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback;
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center gap-4 p-12 text-center", style: { minHeight: "60vh" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-full p-4", style: { background: "var(--bg-tertiary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 32 }, children: "⚠️" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold", style: { color: "var(--text-primary)" }, children: "页面加载出错" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "max-w-md text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: this.state.error?.message || "渲染过程中发生了未预期的错误。" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: this.handleReset,
+              className: "rounded-[6px] px-4 py-2 text-[13px] font-medium transition-colors",
+              style: {
+                background: "var(--bg-tertiary)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-default)"
+              },
+              children: "重试"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: this.handleReload,
+              className: "rounded-[6px] px-4 py-2 text-[13px] font-medium text-white transition-colors",
+              style: { background: "var(--color-primary)" },
+              children: "返回首页"
+            }
+          )
+        ] })
+      ] });
+    }
+    return this.props.children;
+  }
+}
 function AuthLayout() {
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-full items-center justify-center", style: { background: "var(--bg-primary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
@@ -14464,37 +14521,78 @@ function GlobalSearch() {
     ] })
   ] });
 }
-function Toast({ message, actionLabel, onAction, onDismiss, duration = 2e3 }) {
-  const [visible, setVisible] = reactExports.useState(false);
-  reactExports.useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
-    const t = setTimeout(() => {
-      setVisible(false);
-      setTimeout(onDismiss, 300);
-    }, duration);
-    return () => clearTimeout(t);
-  }, [duration, onDismiss]);
+const ToastContext = reactExports.createContext({ toast: () => {
+} });
+let nextId = 0;
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = reactExports.useState([]);
+  const toast = reactExports.useCallback((message, type = "info") => {
+    const id = ++nextId;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(ToastContext.Provider, { value: { toast }, children: [
+    children,
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "pointer-events-none fixed right-4 bottom-4 z-[9999] flex flex-col gap-2",
+        style: { maxWidth: 360 },
+        children: toasts.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "pointer-events-auto rounded-[6px] px-4 py-3 text-[13px] font-medium shadow-lg",
+            style: {
+              background: t.type === "success" ? "#1a3a2e" : t.type === "error" ? "#3a1a1a" : "var(--bg-secondary)",
+              color: t.type === "success" ? "#3fb950" : t.type === "error" ? "#f85149" : "var(--text-primary)",
+              border: t.type !== "info" ? `1px solid ${t.type === "success" ? "#238636" : "#da3633"}` : "1px solid var(--border-default)",
+              animation: "toast-slide-in .3s ease"
+            },
+            children: [
+              t.type === "success" ? "✓ " : t.type === "error" ? "✗ " : "",
+              t.message
+            ]
+          },
+          t.id
+        ))
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
+        @keyframes toast-slide-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      ` })
+  ] });
+}
+function Toast({ message, actionLabel, onAction, onDismiss }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "fixed bottom-6 left-1/2 z-50 flex items-center gap-3 rounded-[6px] border px-4 py-2.5 shadow-lg transition-all duration-300",
-      style: {
-        borderColor: "var(--accent-green)",
-        background: "var(--bg-secondary)",
-        color: "var(--text-primary)",
-        transform: `translateX(-50%) translateY(${visible ? 0 : 20}px)`,
-        opacity: visible ? 1 : 0
-      },
+      className: "mt-2 flex items-center gap-3 rounded-[6px] px-3 py-2 text-[13px]",
+      style: { background: "var(--bg-secondary)", color: "var(--text-primary)" },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px]", children: message }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1", children: message }),
         actionLabel && onAction && /* @__PURE__ */ jsxRuntimeExports.jsx(
           "button",
           {
             type: "button",
             onClick: onAction,
-            className: "text-[12px] font-medium hover:underline",
-            style: { color: "var(--accent-blue)" },
+            className: "rounded-[3px] px-2 py-0.5 text-[12px] font-medium hover:opacity-80 transition-opacity",
+            style: { background: "var(--color-primary)", color: "#fff" },
             children: actionLabel
+          }
+        ),
+        onDismiss && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: onDismiss,
+            className: "text-[14px] hover:opacity-60 transition-opacity",
+            style: { color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" },
+            children: "×"
           }
         )
       ]
@@ -14556,10 +14654,12 @@ function QuickNote({ userId }) {
 }
 const navItems = [
   { to: "/dashboard", label: "仪表盘", icon: "⌂" },
+  { to: "/notes", label: "便签", icon: "📝" },
   { to: "/blog", label: "博客", icon: "✎" },
   { to: "/knowledge", label: "知识库", icon: "▤" },
   { to: "/tags", label: "标签", icon: "#" },
   { to: "/recycle", label: "回收站", icon: "↺" },
+  { to: "/guide", label: "指南", icon: "?" },
   { to: "/settings", label: "设置", icon: "⚙" }
 ];
 function MainLayout() {
@@ -14718,8 +14818,7 @@ function LoginPage() {
           onChange: (e) => setUsername(e.target.value),
           placeholder: "输入用户名",
           className: "input-dark",
-          required: true,
-          autoFocus: true
+          required: true
         }
       )
     ] }),
@@ -14816,8 +14915,7 @@ function RegisterPage() {
           onChange: (e) => setUsername(e.target.value),
           placeholder: "至少2个字符",
           className: "input-dark",
-          required: true,
-          autoFocus: true
+          required: true
         }
       )
     ] }),
@@ -14927,6 +15025,8 @@ const RecycleBinPage$2 = reactExports.lazy(
 );
 const SettingsPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => SettingsPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.SettingsPage })));
 const TagManagePage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => TagManagePage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.TagManagePage })));
+const GuidePage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => GuidePage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.GuidePage })));
+const NoteListPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => NoteListPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.NoteListPage })));
 function PageSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "animate-pulse space-y-4 p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-1/3 rounded", style: { background: "var(--bg-tertiary)" } }),
@@ -14940,7 +15040,7 @@ function ProtectedRoute({ children }) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-full items-center justify-center text-sm text-[var(--color-text-muted)]", children: "加载中..." });
   }
   if (!isAuthenticated) return /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/login", replace: true });
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children });
+  return children ? /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Outlet, {});
 }
 function App() {
   const initSession = useAuthStore((s) => s.initSession);
@@ -14949,7 +15049,7 @@ function App() {
     initSession();
     initTheme();
   }, [initSession, initTheme]);
-  const lazyPage = (Page) => /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(PageSkeleton, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Page, {}) });
+  const lazyPage = (Page) => /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(PageSkeleton, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Page, {}) }) });
   return /* @__PURE__ */ jsxRuntimeExports.jsx(HashRouter, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(Route, { element: /* @__PURE__ */ jsxRuntimeExports.jsx(AuthLayout, {}), children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/login", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LoginPage, {}) }),
@@ -14969,17 +15069,13 @@ function App() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/tags", element: lazyPage(TagManagePage$2) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/recycle", element: lazyPage(RecycleBinPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: lazyPage(SettingsPage$2) })
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: lazyPage(SettingsPage$2) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/notes", element: lazyPage(NoteListPage$2) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/guide", element: lazyPage(GuidePage$2) })
         ]
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Route,
-      {
-        element: /* @__PURE__ */ jsxRuntimeExports.jsx(ProtectedRoute, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, {}) }),
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/standalone/editor", element: lazyPage(BlogEditorPage$2) })
-      }
-    )
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { element: /* @__PURE__ */ jsxRuntimeExports.jsx(ProtectedRoute, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/standalone/editor", element: lazyPage(BlogEditorPage$2) }) })
   ] }) });
 }
 const BASE = "http://localhost:3456";
@@ -15085,7 +15181,15 @@ const webApi = {
   setAutoStart: () => Promise.resolve({ success: true }),
   getAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
   createStartMenuShortcut: () => Promise.resolve({ success: false, error: "网页版不支持" }),
-  hasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } })
+  hasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
+  // Notes (desktop-only)
+  noteList: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  noteCreate: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  noteDelete: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  notePin: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  noteClipboard: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  onNoteRefresh: () => () => {
+  }
 };
 const api = (() => {
   if (typeof window !== "undefined" && window.api) {
@@ -15100,7 +15204,7 @@ const container = document.getElementById("root");
 if (!container) throw new Error("Root element not found");
 const root$1 = clientExports.createRoot(container);
 root$1.render(
-  /* @__PURE__ */ jsxRuntimeExports.jsx(React4.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) })
+  /* @__PURE__ */ jsxRuntimeExports.jsx(React4.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ToastProvider, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) }) }) })
 );
 const ACHIEVEMENTS = [
   // Production
@@ -15237,9 +15341,10 @@ function Heatmap({ userId }) {
     null
   );
   reactExports.useEffect(() => {
-    window.api.statsDaily(userId).then((d) => {
-      const r = d;
+    window.api.statsDaily(userId).then((r) => {
       if (r.success && r.data) setData(r.data);
+    }).catch((e) => {
+      console.error("[Heatmap] Failed to load daily stats:", e);
     });
   }, [userId]);
   const today = /* @__PURE__ */ new Date();
@@ -15292,7 +15397,7 @@ function Heatmap({ userId }) {
               className: "text-[10px]",
               style: {
                 color: "var(--text-secondary)",
-                width: weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14 + "px",
+                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14}px`,
                 minWidth: 28,
                 textAlign: "left"
               },
@@ -15594,7 +15699,7 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
   };
   const handleRename = async (folderId, name) => {
     const newName2 = prompt("重命名文件夹:", name);
-    if (newName2 && newName2.trim() && newName2.trim() !== name) {
+    if (newName2?.trim() && newName2.trim() !== name) {
       await window.api.folderRename({ folderId, name: newName2.trim() });
       loadTree();
     }
@@ -15635,7 +15740,6 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
     showNewInput === node.id && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-1 px-2 py-1", style: { paddingLeft: 8 + (depth + 1) * 16 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
       "input",
       {
-        autoFocus: true,
         type: "text",
         value: newName,
         onChange: (e) => setNewName(e.target.value),
@@ -15682,7 +15786,6 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
     showNewInput === -1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-1 flex gap-1 px-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
       "input",
       {
-        autoFocus: true,
         type: "text",
         value: newName,
         onChange: (e) => setNewName(e.target.value),
@@ -15813,13 +15916,13 @@ function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+  return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`;
 }
 function formatDate(iso) {
-  if (!iso) return "—";
-  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
+  if (!iso || typeof iso !== "string") return "—";
+  const normalized = iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`;
   const d = new Date(normalized);
-  if (isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "2-digit",
@@ -15904,7 +16007,7 @@ function groupByMonth(blogs) {
   for (const b of blogs) {
     const key = b.createdAt.substring(0, 7);
     if (!map3.has(key)) map3.set(key, []);
-    map3.get(key).push(b);
+    map3.get(key)?.push(b);
   }
   const months = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
   return Array.from(map3.entries()).map(([month, items]) => {
@@ -15938,8 +16041,7 @@ function BlogListPage() {
   const [folderTree, setFolderTree] = reactExports.useState([]);
   const loadFolders = reactExports.useCallback(async () => {
     if (!user) return;
-    const d = await window.api.folderTree({ userId: user.id, type: "blog" });
-    const r = d;
+    const r = await window.api.folderTree({ userId: user.id, type: "blog" });
     if (r.success && r.data) setFolderTree(r.data);
   }, [user]);
   reactExports.useEffect(() => {
@@ -15949,7 +16051,7 @@ function BlogListPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await window.api.blogList({
+      const r = await window.api.blogList({
         userId: user.id,
         query: query || void 0,
         tagId: filterTagId || void 0,
@@ -15959,10 +16061,9 @@ function BlogListPage() {
         offset: pagination.offset,
         limit: pagination.limit
       });
-      const resp = res;
-      if (resp.success && resp.data) {
-        setBlogs(resp.data.blogs);
-        setTotal(resp.data.total);
+      if (r.success && r.data) {
+        setBlogs(r.data.blogs);
+        setTotal(r.data.total);
       }
     } catch (e) {
       console.error(e);
@@ -15980,6 +16081,12 @@ function BlogListPage() {
   }, [searchParams]);
   reactExports.useEffect(() => {
     loadBlogs();
+  }, [loadBlogs]);
+  reactExports.useEffect(() => {
+    const unsubscribe = window.api.onBlogRefresh(() => {
+      loadBlogs();
+    });
+    return unsubscribe;
   }, [loadBlogs]);
   const handleDelete2 = async (id) => {
     if (!confirm("移至回收站？")) return;
@@ -16002,7 +16109,7 @@ function BlogListPage() {
         try {
           const r = await window.api.blogImportMd({ userId: user.id, filePaths: files });
           if (r?.success === false) {
-            alert("导入失败: " + (r.error || "未知错误"));
+            alert(`导入失败: ${r.error || "未知错误"}`);
           } else loadBlogs();
         } catch {
           alert("导入失败");
@@ -16013,7 +16120,7 @@ function BlogListPage() {
       }
       fileInputRef.current?.click();
     } catch (err) {
-      alert("打开文件对话框失败: " + err.message);
+      alert(`打开文件对话框失败: ${err.message}`);
     }
   };
   const handleWebFileImport = async (e) => {
@@ -16163,6 +16270,7 @@ function BlogListPage() {
           {
             value: sortBy,
             onChange: (e) => setSortBy(e.target.value),
+            title: "排序方式",
             className: "max-w-[140px] surface-input px-3 py-1.5 text-[13px]",
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "updated_at", children: "最近修改" }),
@@ -16281,7 +16389,7 @@ function BlogListPage() {
                   onClick: (e) => e.stopPropagation()
                 }
               ),
-              batch.isBatchMode ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `text-[20px] font-semibold ml-8 text-primary`, children: blog.title || "无标题" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+              batch.isBatchMode ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px] font-semibold ml-8 text-primary", children: blog.title || "无标题" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
                 Link$1,
                 {
                   to: `/blog/${blog.id}`,
@@ -22496,8 +22604,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
                     onChange: (e) => setQuery(e.target.value),
                     onKeyDown: (e) => e.key === "Enter" && handleSearch(),
                     placeholder: "搜索博客或知识库文件...",
-                    className: "input-dark flex-1",
-                    autoFocus: true
+                    className: "input-dark flex-1"
                   }
                 ),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSearch, className: "btn-primary text-[12px]", children: "搜索" })
@@ -22564,7 +22671,7 @@ function TagSelector({ userId, selectedTagIds, onChange }) {
       const resp = data;
       if (resp.success && resp.data) {
         setTags((prev) => [...prev, resp.data]);
-        onChange([...selectedTagIds, resp.data.id]);
+        onChange([...selectedTagIds, resp.data?.id]);
         setNewName("");
       } else {
         setError(resp.error || "创建失败");
@@ -22579,7 +22686,7 @@ function TagSelector({ userId, selectedTagIds, onChange }) {
   reactExports.useEffect(() => {
     if (!open || !triggerRef.current) return;
     const calc = () => {
-      const rect = triggerRef.current.getBoundingClientRect();
+      const rect = triggerRef.current?.getBoundingClientRect();
       const panelH = 340;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
@@ -27443,7 +27550,7 @@ class Mapping {
   }
 }
 const stepsByID = /* @__PURE__ */ Object.create(null);
-class Step {
+let Step$1 = class Step {
   /**
   Get the step map that represents the changes made by this step,
   and which can be used to transform between positions in the old
@@ -27485,7 +27592,7 @@ class Step {
     stepClass.prototype.jsonID = id;
     return stepClass;
   }
-}
+};
 class StepResult {
   /**
   @internal
@@ -27533,7 +27640,7 @@ function mapFragment(fragment, f, parent) {
   }
   return Fragment.fromArray(mapped);
 }
-class AddMarkStep extends Step {
+class AddMarkStep extends Step$1 {
   /**
   Create a mark step.
   */
@@ -27584,8 +27691,8 @@ class AddMarkStep extends Step {
     return new AddMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
   }
 }
-Step.jsonID("addMark", AddMarkStep);
-class RemoveMarkStep extends Step {
+Step$1.jsonID("addMark", AddMarkStep);
+class RemoveMarkStep extends Step$1 {
   /**
   Create a mark-removing step.
   */
@@ -27633,8 +27740,8 @@ class RemoveMarkStep extends Step {
     return new RemoveMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
   }
 }
-Step.jsonID("removeMark", RemoveMarkStep);
-class AddNodeMarkStep extends Step {
+Step$1.jsonID("removeMark", RemoveMarkStep);
+class AddNodeMarkStep extends Step$1 {
   /**
   Create a node mark step.
   */
@@ -27679,8 +27786,8 @@ class AddNodeMarkStep extends Step {
     return new AddNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
   }
 }
-Step.jsonID("addNodeMark", AddNodeMarkStep);
-class RemoveNodeMarkStep extends Step {
+Step$1.jsonID("addNodeMark", AddNodeMarkStep);
+class RemoveNodeMarkStep extends Step$1 {
   /**
   Create a mark-removing step.
   */
@@ -27718,8 +27825,8 @@ class RemoveNodeMarkStep extends Step {
     return new RemoveNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
   }
 }
-Step.jsonID("removeNodeMark", RemoveNodeMarkStep);
-class ReplaceStep extends Step {
+Step$1.jsonID("removeNodeMark", RemoveNodeMarkStep);
+class ReplaceStep extends Step$1 {
   /**
   The given `slice` should fit the 'gap' between `from` and
   `to`—the depths must line up, and the surrounding nodes must be
@@ -27785,8 +27892,8 @@ class ReplaceStep extends Step {
   }
 }
 ReplaceStep.MAP_BIAS = 1;
-Step.jsonID("replace", ReplaceStep);
-class ReplaceAroundStep extends Step {
+Step$1.jsonID("replace", ReplaceStep);
+class ReplaceAroundStep extends Step$1 {
   /**
   Create a replace-around step with the given range and gap.
   `insert` should be the point in the slice into which the content
@@ -27860,7 +27967,7 @@ class ReplaceAroundStep extends Step {
     return new ReplaceAroundStep(json.from, json.to, json.gapFrom, json.gapTo, Slice.fromJSON(schema, json.slice), json.insert, !!json.structure);
   }
 }
-Step.jsonID("replaceAround", ReplaceAroundStep);
+Step$1.jsonID("replaceAround", ReplaceAroundStep);
 function contentBetween(doc2, from2, to) {
   let $from = doc2.resolve(from2), dist = to - from2, depth = $from.depth;
   while (dist > 0 && depth > 0 && $from.indexAfter(depth) == $from.node(depth).childCount) {
@@ -28656,7 +28763,7 @@ function coveredDepths($from, $to) {
   }
   return result;
 }
-class AttrStep extends Step {
+class AttrStep extends Step$1 {
   /**
   Construct an attribute step.
   */
@@ -28696,8 +28803,8 @@ class AttrStep extends Step {
     return new AttrStep(json.pos, json.attr, json.value);
   }
 }
-Step.jsonID("attr", AttrStep);
-class DocAttrStep extends Step {
+Step$1.jsonID("attr", AttrStep);
+class DocAttrStep extends Step$1 {
   /**
   Construct an attribute step.
   */
@@ -28732,7 +28839,7 @@ class DocAttrStep extends Step {
     return new DocAttrStep(json.attr, json.value);
   }
 }
-Step.jsonID("docAttr", DocAttrStep);
+Step$1.jsonID("docAttr", DocAttrStep);
 let TransformError = class extends Error {
 };
 TransformError = function TransformError2(message) {
@@ -48630,8 +48737,7 @@ function BlogEditorPage() {
   }, []);
   reactExports.useEffect(() => {
     if (id && user) {
-      window.api.blogGet(Number(id)).then((d) => {
-        const r = d;
+      window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
           setTitle(r.data.title);
           setFormat(r.data.format);
@@ -48642,8 +48748,7 @@ function BlogEditorPage() {
           setSeriesName(r.data.seriesName || "");
         }
       });
-      window.api.blogSeriesList(user.id).then((d) => {
-        const r = d;
+      window.api.blogSeriesList(user.id).then((r) => {
         if (r.success && r.data) setSeriesList(r.data);
       });
     }
@@ -48677,8 +48782,7 @@ function BlogEditorPage() {
   }, []);
   const loadHistory = reactExports.useCallback(async () => {
     if (!blogIdRef.current) return;
-    const d = await window.api.blogGetHistory(blogIdRef.current);
-    const r = d;
+    const r = await window.api.blogGetHistory(blogIdRef.current);
     if (r.success) setDrafts(r.data);
   }, []);
   const handleSave = reactExports.useCallback(async () => {
@@ -48691,8 +48795,7 @@ function BlogEditorPage() {
     const contentToSave = format2 === "md" ? turndown.turndown(content) : content;
     try {
       if (isNew) {
-        const d = await window.api.blogCreate({ userId: user.id, title: title.trim(), format: format2, content: contentToSave });
-        const r = d;
+        const r = await window.api.blogCreate({ userId: user.id, title: title.trim(), format: format2, content: contentToSave });
         if (r.success && r.data) {
           blogIdRef.current = r.data.id;
           const pt = pendingTagIds;
@@ -48701,8 +48804,7 @@ function BlogEditorPage() {
           navigate(`/blog/${r.data.id}/edit`, { replace: true });
         } else setError(r.error || "创建失败");
       } else {
-        const d = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
-        const r = d;
+        const r = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
         if (r.success) {
           setDraftStatus("已保存");
           setTimeout(() => setDraftStatus(""), 2e3);
@@ -48782,7 +48884,7 @@ function BlogEditorPage() {
                 try {
                   const r = await window.api.blogExportDocx(blogIdRef.current);
                   if (r?.success) alert("已导出为 Word");
-                  else if (r?.error !== "已取消") alert("导出失败: " + (r?.error || ""));
+                  else if (r?.error !== "已取消") alert(`导出失败: ${r?.error || ""}`);
                 } catch {
                   alert("导出失败");
                 }
@@ -48804,7 +48906,7 @@ function BlogEditorPage() {
                 try {
                   const r = await window.api.blogExportPdf(blogIdRef.current);
                   if (r?.success) alert("已导出为 PDF");
-                  else if (r?.error !== "已取消") alert("导出失败: " + (r?.error || ""));
+                  else if (r?.error !== "已取消") alert(`导出失败: ${r?.error || ""}`);
                 } catch {
                   alert("导出失败");
                 }
@@ -50068,7 +50170,7 @@ function RecycleBinPage() {
   }, [loadItems]);
   const handleRestore = async (item) => {
     try {
-      await window.api.recycleRestore({ userId: user.id, itemId: item.itemId, itemType: item.itemType });
+      await window.api.recycleRestore({ userId: user?.id, itemId: item.itemId, itemType: item.itemType });
       loadItems();
     } catch (e) {
       console.error(e);
@@ -50569,7 +50671,7 @@ function TagManagePage() {
     try {
       const result = await window.api.tagDelete(tagId);
       const resp = result;
-      if (resp && resp.success) {
+      if (resp?.success) {
         loadTags();
       } else {
         setError(resp?.error || "删除失败");
@@ -50658,7 +50760,8 @@ function TagManagePage() {
                 if (e.key === "Enter") handleSaveEdit(tag.id);
                 if (e.key === "Escape") setEditingId(null);
               },
-              autoFocus: true,
+              placeholder: tag.name,
+              title: "编辑标签名称",
               className: "w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none"
             }
           ),
@@ -50691,7 +50794,7 @@ function TagManagePage() {
                   setResultsLoading(true);
                   try {
                     const [blogsRes, kbRes] = await Promise.all([
-                      window.api.blogList({ userId: user.id, tagId: tag.id, limit: 20 }),
+                      window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
                       user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null)
                     ]);
                     const items = [];
@@ -50789,7 +50892,7 @@ function TagManagePage() {
           resultsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : results.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "该标签下暂无内容" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: results.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
             Link$1,
             {
-              to: item.type === "blog" ? `/blog/${item.id}` : `/knowledge`,
+              to: item.type === "blog" ? `/blog/${item.id}` : "/knowledge",
               className: "flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity",
               style: { background: "var(--bg-primary)" },
               children: [
@@ -50816,4 +50919,697 @@ function TagManagePage() {
 const TagManagePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   TagManagePage
+}, Symbol.toStringTag, { value: "Module" }));
+function TipBox({ children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "mt-3 rounded-[8px] border p-4 text-[13px] leading-relaxed",
+      style: {
+        background: "var(--bg-secondary)",
+        borderColor: "var(--accent-amber)",
+        color: "var(--text-secondary)",
+        borderLeftWidth: 3,
+        borderLeftStyle: "solid"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mr-2", style: { color: "var(--accent-amber)" }, children: "💡" }),
+        children
+      ]
+    }
+  );
+}
+function Kbd({ children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "kbd",
+    {
+      className: "inline-block rounded-[4px] px-1.5 py-0.5 font-mono text-[12px]",
+      style: {
+        background: "var(--bg-tertiary)",
+        border: "1px solid var(--border-default)",
+        color: "var(--text-primary)",
+        fontFamily: "var(--font-mono)"
+      },
+      children
+    }
+  );
+}
+function Section({ icon, title, subtitle, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "section",
+    {
+      className: "rounded-[12px] border p-6 md:p-8",
+      style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-start gap-4", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-[20px]",
+              style: { background: "var(--bg-tertiary)" },
+              children: icon
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "h2",
+              {
+                className: "text-[18px] font-semibold leading-snug",
+                style: { color: "var(--text-primary)" },
+                children: title
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "p",
+              {
+                className: "mt-0.5 text-[13px] leading-relaxed",
+                style: { color: "var(--text-secondary)" },
+                children: subtitle
+              }
+            )
+          ] })
+        ] }),
+        children
+      ]
+    }
+  );
+}
+function Step2({ num, label, detail }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3 py-1.5", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "span",
+      {
+        className: "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white",
+        style: { background: "var(--color-primary)" },
+        children: num
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] font-medium", style: { color: "var(--text-primary)" }, children: label }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-[13px]", style: { color: "var(--text-muted)" }, children: detail })
+    ] })
+  ] });
+}
+function GuidePage() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-3xl pb-16", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "relative mb-10 overflow-hidden rounded-[16px] p-8 md:p-10",
+        style: {
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--border-default)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "absolute right-0 top-0 h-full w-1/3",
+              style: {
+                background: "linear-gradient(135deg, transparent 0%, var(--bg-tertiary) 100%)",
+                opacity: 0.6
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "p",
+              {
+                className: "mb-2 text-[13px] font-medium tracking-wide uppercase",
+                style: { color: "var(--color-primary)" },
+                children: "使用指南"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "h1",
+              {
+                className: "mb-3 text-[28px] font-bold leading-tight",
+                style: { color: "var(--text-primary)" },
+                children: "本地博客与知识库"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "p",
+              {
+                className: "max-w-lg text-[15px] leading-relaxed",
+                style: { color: "var(--text-secondary)" },
+                children: [
+                  "一款离线优先的个人桌面应用，集",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "Markdown 写作" }),
+                  "、",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "知识库管理" }),
+                  "、",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "网页收藏" }),
+                  "于一体。 数据完全由您掌控，无需网络连接。"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-5 flex flex-wrap gap-2", children: ["Electron 41", "React 19", "TypeScript", "MySQL / SQLite", "离线可用", "免费开源"].map(
+              (t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "rounded-full px-3 py-0.5 text-[11px] font-medium",
+                  style: {
+                    background: "var(--bg-tertiary)",
+                    color: "var(--text-secondary)"
+                  },
+                  children: t
+                },
+                t
+              )
+            ) })
+          ] })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "🚀",
+        title: "快速开始",
+        subtitle: "首次使用的 3 个步骤，3 分钟上手",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1 rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 1, label: "注册账号", detail: "输入用户名、密码，选择一个本地目录作为工作区" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 2, label: "写作第一篇文章", detail: "点击「新建博客」，用 Markdown 或所见即所得模式写作，Ctrl+S 保存" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 3, label: "探索更多功能", detail: "导入文件到知识库、收藏网页、设置桌面宠物——从左侧栏开始探索" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "工作区目录是数据存储位置，请选择一个有足够空间且常驻的文件夹。所有博客、知识库文件、附件都保存在此。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "✍️",
+        title: "博客写作",
+        subtitle: "Markdown 与所见即所得双模式，从草稿到发布的完整流程",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "grid gap-5 md:grid-cols-2",
+              style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "编辑器功能" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Markdown / 所见即所得双模式自由切换" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      "· ",
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
+                      " 保存，自动草稿每 30 秒备份"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 专注模式（全屏无干扰写作）" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 模板系统：快速复用常用文章结构" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 历史版本回滚：随时回到之前的版本" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 阅读时间预估 + 目录自动生成" })
+                  ] })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "组织与发布" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 标签系统：为文章打标签，点击标签名查看关联内容" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 系列链：设置系列 ID，自动生成上一篇/下一篇导航" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 文件夹分类：拖放移动文章到文件夹" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 批量操作：多选 → 批量删除 / 批量打标签" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导出 PDF（打印质量）" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导出 Word (.docx)，兼容 Microsoft Office" })
+                  ] })
+                ] })
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "写作前选好模板可以大幅提升效率。模板支持自定义标题、格式和默认标签，新建博客时自动应用。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "📚",
+        title: "知识库管理",
+        subtitle: "导入、预览、搜索——打造您的第二大脑",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "grid gap-5 md:grid-cols-2",
+              style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "文件支持" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· PDF — 内嵌预览，支持翻页" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Word (.docx) — mammoth 渲染预览" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Excel (.xlsx) — 表格数据预览" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 纯文本 (.txt, .md) — 直接预览" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 图片 (.png, .jpg, .gif, .webp, .svg)" })
+                  ] })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "管理功能" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖放导入：直接拖文件到窗口" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 文件夹分类：创建多层文件夹组织文件" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 全文搜索：文件名 + 内容文本检索" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 标签关联：知识库文件也可以打标签" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 博客引用：博客正文中引用知识库文件" })
+                  ] })
+                ] })
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "大文件建议使用「系统程序打开」功能（双击文件），使用本地应用程序打开原始文件，比内嵌预览体验更好。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "🌐",
+        title: "网页收藏",
+        subtitle: "一键抓取网页正文，转为 Markdown 保存为博客",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 1, label: "点击「收藏网页」", detail: "在博客列表页顶部操作栏找到按钮" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 2, label: "输入 URL", detail: "粘贴网页链接，支持批量输入（每行一个）" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 3, label: "自动提取正文", detail: "readability 算法自动识别文章主体，去掉广告和导航" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 4, label: "一键保存为博客", detail: "抓取结果直接导入为 Markdown 博客，保留排版结构" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "抓取的网页会保留标题、段落、链接等结构。图片不会被下载到本地——如果需要离线查看，建议手动保存图片到附件。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Section,
+      {
+        icon: "🖥️",
+        title: "桌面体验",
+        subtitle: "托盘常驻、桌面宠物、快捷便签——不打开主窗口也能高效工作",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "grid gap-5 md:grid-cols-3",
+            style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "rounded-[8px] p-4",
+                  style: { background: "var(--bg-secondary)" },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "🖱️ 托盘菜单" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2", children: "关闭窗口 → 应用缩小到系统托盘。右键托盘图标：" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快速便签 — 一行记录" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· MD 写作浮窗 — 独立窗口" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 新建博客 — 独立编辑器" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导入 MD / 文件" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 收藏网页" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 打开主窗口" })
+                    ] })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "rounded-[8px] p-4",
+                  style: { background: "var(--bg-secondary)" },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "🐱 桌面宠物" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2", children: "可拖拽的小精灵，悬浮在桌面最顶层：" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖拽移动位置" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 静息态上下微浮呼吸动画" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖拽时表情变化" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击弹出快捷菜单" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 右键菜单 = 托盘菜单" })
+                    ] })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "rounded-[8px] p-4",
+                  style: { background: "var(--bg-secondary)" },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "⌨️ 快捷键" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+Shift+N" }),
+                        " · MD 写作浮窗"
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
+                        " · 保存当前博客"
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Esc" }),
+                        " · 关闭浮窗/便签"
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "?" }),
+                        " · 快捷键帮助面板"
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Enter" }),
+                        " · 便签中保存"
+                      ] })
+                    ] })
+                  ]
+                }
+              )
+            ]
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Section,
+      {
+        icon: "🔍",
+        title: "搜索与回收站",
+        subtitle: "快速找到内容，误删也能找回",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "grid gap-5 md:grid-cols-2",
+            style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "全局搜索" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                    "· 顶部搜索栏 — 任意页面可用 ",
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+K" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 同时搜索博客标题/内容和知识库文件名" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· SQL LIKE 中文全文检索" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 搜索结果区分博客/知识库两类" })
+                ] })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "回收站" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 删除 → 移入回收站（非永久删除）" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 30 天内可恢复" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 支持批量恢复 / 批量删除" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 超过 30 天自动清理" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 清空回收站同步删除磁盘文件" })
+                ] })
+              ] })
+            ]
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Section,
+      {
+        icon: "🎨",
+        title: "主题与个性化",
+        subtitle: "让应用符合您的审美偏好",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "rounded-[8px] p-5",
+            style: { background: "var(--bg-secondary)", color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3 mb-4", children: [
+                { name: "暗色模式", color: "#1a1a2e" },
+                { name: "亮色模式", color: "#faf9f6" },
+                { name: "跟随系统", color: "var(--color-primary)" }
+              ].map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "span",
+                {
+                  className: "inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]",
+                  style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        className: "inline-block h-3 w-3 rounded-full border",
+                        style: { background: t.color, borderColor: "var(--border-default)" }
+                      }
+                    ),
+                    t.name
+                  ]
+                },
+                t.name
+              )) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 三种主题模式：暗色 / 亮色 / 跟随系统自动切换" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 博客预览页支持 5 套阅读主题：默认 / 报纸 / 极简 / 护眼 / 夜间" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 写作热力图：仪表盘上展示 GitHub 风格贡献日历" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 成就系统：16 个成就徽章，覆盖写作、知识库、收藏、探索四类" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 200ms 平滑过渡动画，切换主题不刺眼" })
+              ] })
+            ]
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "mt-10 rounded-[12px] border p-6 text-center text-[13px]",
+        style: {
+          background: "var(--bg-secondary)",
+          borderColor: "var(--border-default)",
+          color: "var(--text-muted)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mb-1", children: [
+            "Local Blog KB v",
+            "0.3.0"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "Electron 41 · React 19 · TypeScript · 离线可用 · 数据完全由您掌控" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 flex justify-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Link$1,
+              {
+                to: "/dashboard",
+                className: "rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80",
+                style: { background: "var(--color-primary)", color: "#fff" },
+                children: "前往仪表盘"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Link$1,
+              {
+                to: "/blog",
+                className: "rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80",
+                style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
+                children: "开始写作"
+              }
+            )
+          ] })
+        ]
+      }
+    )
+  ] });
+}
+const GuidePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  GuidePage
+}, Symbol.toStringTag, { value: "Module" }));
+function NoteListPage() {
+  const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const [notes, setNotes] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [input, setInput] = reactExports.useState("");
+  const loadNotes = reactExports.useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const r = await window.api.noteList(user.id);
+      if (r.success && r.data) setNotes(r.data);
+    } catch (e) {
+      console.error("[NoteList] Failed to load:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+  reactExports.useEffect(() => {
+    loadNotes();
+  }, [loadNotes, location.pathname]);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onNoteRefresh(() => {
+      loadNotes();
+    });
+    return unsub;
+  }, [loadNotes]);
+  const handleCreate = async () => {
+    if (!user || !input.trim()) return;
+    await window.api.noteCreate({ userId: user.id, content: input.trim() });
+    setInput("");
+    loadNotes();
+  };
+  const handleTogglePin = async (noteId) => {
+    await window.api.notePin(noteId);
+    loadNotes();
+  };
+  const handleDelete2 = async (noteId) => {
+    await window.api.noteDelete(noteId);
+    loadNotes();
+  };
+  const handleClipboard = async () => {
+    const r = await window.api.noteClipboard();
+    if (r.success && r.data) {
+      setInput((prev) => prev + r.data);
+    }
+  };
+  const sorted = [...notes].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-2xl", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "h2",
+      {
+        className: "mb-6 text-xl font-bold",
+        style: { color: "var(--text-primary)" },
+        children: "便签"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "mb-6 flex gap-2 rounded-[8px] border p-3",
+        style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              value: input,
+              onChange: (e) => setInput(e.target.value),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") handleCreate();
+              },
+              placeholder: "新便签... Enter 保存",
+              className: "flex-1 rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
+              style: {
+                background: "var(--color-bg-base)",
+                borderColor: "var(--border-default)",
+                color: "var(--text-primary)"
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: handleCreate,
+              disabled: !input.trim(),
+              className: "rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40",
+              style: { background: "var(--color-primary)" },
+              children: "保存"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: handleClipboard,
+              title: "从剪贴板粘贴",
+              className: "rounded-[4px] px-3 py-1.5 text-[13px] transition-opacity hover:opacity-80",
+              style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+              children: "📋"
+            }
+          )
+        ]
+      }
+    ),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "p",
+      {
+        className: "py-12 text-center text-[13px]",
+        style: { color: "var(--text-muted)" },
+        children: "加载中..."
+      }
+    ) : sorted.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "rounded-[8px] border border-dashed p-12 text-center",
+        style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "暂无便签。输入内容后按 Enter 保存，或按 📋 从剪贴板粘贴。" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-[12px]", style: { color: "var(--text-muted)" }, children: "非置顶便签 24 小时后自动清理" })
+        ]
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: sorted.map((note) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "group flex items-start gap-3 rounded-[8px] border p-4 transition-shadow hover:shadow-md",
+        style: {
+          borderColor: note.pinned ? "var(--accent-amber)" : "var(--border-default)",
+          background: note.pinned ? "var(--bg-secondary)" : "var(--color-bg-card)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "p",
+              {
+                className: "select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words",
+                style: { color: "var(--text-primary)" },
+                children: note.content
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "p",
+              {
+                className: "mt-1.5 text-[11px]",
+                style: { color: "var(--text-muted)" },
+                children: formatDate(note.createdAt)
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleTogglePin(note.id),
+                title: note.pinned ? "取消置顶" : "置顶",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
+                style: {
+                  background: note.pinned ? "var(--accent-amber)" : "var(--bg-tertiary)",
+                  color: note.pinned ? "var(--text-on-accent)" : "var(--text-secondary)"
+                },
+                children: note.pinned ? "📌" : "📌"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleDelete2(note.id),
+                title: "删除",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] text-red-400 transition-colors hover:text-red-600",
+                children: "✕"
+              }
+            )
+          ] })
+        ]
+      },
+      note.id
+    )) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "p",
+      {
+        className: "mt-6 text-center text-[12px]",
+        style: { color: "var(--text-muted)" },
+        children: "便签是临时记录工具 · 非置顶便签 24 小时后自动清理 · 剪贴板内容可一键填入"
+      }
+    )
+  ] });
+}
+const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  NoteListPage
 }, Symbol.toStringTag, { value: "Module" }));

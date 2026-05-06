@@ -34,7 +34,7 @@ export function RecycleBinPage() {
 
   const handleRestore = async (item: RecycleItem) => {
     try {
-      await window.api.recycleRestore({ userId: user!.id, itemId: item.itemId, itemType: item.itemType });
+      await window.api.recycleRestore({ userId: user?.id, itemId: item.itemId, itemType: item.itemType });
       loadItems();
     } catch (e) {
       console.error(e);

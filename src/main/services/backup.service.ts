@@ -26,13 +26,13 @@ export class BackupService {
 
   /** Create a backup of the database */
   static createBackup(): string | null {
-    const dbPath = this.getDbPath();
+    const dbPath = BackupService.getDbPath();
     if (!fs.existsSync(dbPath)) {
       console.log('[Backup] Database file not found, skipping');
       return null;
     }
 
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
@@ -53,7 +53,7 @@ export class BackupService {
 
   /** Clean up old backups, keeping only the latest N */
   static cleanOldBackups(): number {
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) return 0;
 
     const files = fs
@@ -82,16 +82,16 @@ export class BackupService {
 
   /** Start automatic periodic backups */
   static startAutoBackup(): void {
-    if (this.timer) return;
+    if (BackupService.timer) return;
 
     // Create backup on startup
-    this.createBackup();
-    this.cleanOldBackups();
+    BackupService.createBackup();
+    BackupService.cleanOldBackups();
 
     // Schedule periodic backups
-    this.timer = setInterval(() => {
-      this.createBackup();
-      this.cleanOldBackups();
+    BackupService.timer = setInterval(() => {
+      BackupService.createBackup();
+      BackupService.cleanOldBackups();
     }, BACKUP_INTERVAL_MS);
 
     console.log('[Backup] Auto-backup started (every 24h, keeping last 7)');
@@ -99,15 +99,15 @@ export class BackupService {
 
   /** Stop auto-backup timer */
   static stopAutoBackup(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (BackupService.timer) {
+      clearInterval(BackupService.timer);
+      BackupService.timer = null;
     }
   }
 
   /** List available backups */
   static listBackups(): { name: string; size: number; createdAt: Date }[] {
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) return [];
 
     return fs

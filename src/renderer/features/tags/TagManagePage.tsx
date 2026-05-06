@@ -77,7 +77,7 @@ export function TagManagePage() {
     try {
       const result = await window.api.tagDelete(tagId);
       const resp = result as { success: boolean; error?: string };
-      if (resp && resp.success) {
+      if (resp?.success) {
         loadTags();
       } else {
         setError(resp?.error || '删除失败');
@@ -173,7 +173,8 @@ export function TagManagePage() {
                       if (e.key === 'Enter') handleSaveEdit(tag.id);
                       if (e.key === 'Escape') setEditingId(null);
                     }}
-                    autoFocus
+                    placeholder={tag.name}
+                    title="编辑标签名称"
                     className="w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none"
                   />
                   <button
@@ -201,7 +202,7 @@ export function TagManagePage() {
                         setResultsLoading(true);
                         try {
                           const [blogsRes, kbRes] = await Promise.all([
-                            window.api.blogList({ userId: user!.id, tagId: tag.id, limit: 20 }),
+                            window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
                             user
                               ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 })
                               : Promise.resolve(null),
@@ -306,7 +307,7 @@ export function TagManagePage() {
               {results.map((item) => (
                 <Link
                   key={`${item.type}-${item.id}`}
-                  to={item.type === 'blog' ? `/blog/${item.id}` : `/knowledge`}
+                  to={item.type === 'blog' ? `/blog/${item.id}` : '/knowledge'}
                   className="flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity"
                   style={{ background: 'var(--bg-primary)' }}
                 >

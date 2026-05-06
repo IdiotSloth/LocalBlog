@@ -50,7 +50,6 @@ export function LoginPage() {
           placeholder="输入用户名"
           className="input-dark"
           required
-          autoFocus
         />
       </div>
       <div>

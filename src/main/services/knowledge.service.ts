@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { SUPPORTED_KB_EXTENSIONS } from '../../shared/constants';
+import { nowMySQL } from '../../shared/datetime';
 import type { FileType, KnowledgeFile, KnowledgeFileWithTags, Tag } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 import { getKnowledgeBaseDir, initWorkspaceDirectories } from '../utils/paths';
@@ -27,7 +28,7 @@ export class KnowledgeService {
       const ext = path.extname(srcPath).toLowerCase();
       if (!SUPPORTED_KB_EXTENSIONS.includes(ext)) continue;
       const originalName = path.basename(srcPath);
-      const fileType = this.detectFileType(ext);
+      const fileType = KnowledgeService.detectFileType(ext);
       const stat = fs.statSync(srcPath);
       let destPath: string;
       if (copyToWorkspace) {
@@ -74,7 +75,7 @@ export class KnowledgeService {
         /* content extraction is best-effort; file may be unreadable */
       }
 
-      const now = new Date().toISOString();
+      const now = nowMySQL();
       await dbRun(
         'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
         [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now],
@@ -83,7 +84,7 @@ export class KnowledgeService {
         'SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1',
         [userId, path.basename(destPath), fileType],
       );
-      if (row) imported.push(this.rowToFile(row));
+      if (row) imported.push(KnowledgeService.rowToFile(row));
     }
     return imported;
   }
@@ -110,21 +111,18 @@ export class KnowledgeService {
   static async getFile(fileId: number): Promise<KnowledgeFileWithTags | null> {
     const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
     if (!row) return null;
-    return { ...this.rowToFile(row), tags: await this.getFileTags(fileId) };
+    return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
   }
 
   static async deleteFile(fileId: number, dpf: boolean): Promise<void> {
     const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
     if (!row) throw new Error('文件不存在');
-    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [
-      new Date().toISOString(),
-      fileId,
-    ]);
+    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
     await dbRun('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [
       row.user_id,
       'knowledge_file',
       fileId,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
     if (dpf && fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
   }
@@ -132,10 +130,7 @@ export class KnowledgeService {
   static async restoreFile(fileId: number): Promise<void> {
     const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ? AND status = ?', [fileId, 'trash']);
     if (!row) throw new Error('文件不在回收站中');
-    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [
-      new Date().toISOString(),
-      fileId,
-    ]);
+    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
     await dbRun('DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?', ['knowledge_file', fileId]);
   }
 
@@ -148,7 +143,7 @@ export class KnowledgeService {
     await dbRun('UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?', [
       nf,
       np,
-      new Date().toISOString(),
+      nowMySQL(),
       fileId,
     ]);
   }

@@ -8,10 +8,12 @@ import { QuickNote } from './QuickNote';
 
 const navItems = [
   { to: '/dashboard', label: '仪表盘', icon: '⌂' },
+  { to: '/notes', label: '便签', icon: '📝' },
   { to: '/blog', label: '博客', icon: '✎' },
   { to: '/knowledge', label: '知识库', icon: '▤' },
   { to: '/tags', label: '标签', icon: '#' },
   { to: '/recycle', label: '回收站', icon: '↺' },
+  { to: '/guide', label: '指南', icon: '?' },
   { to: '/settings', label: '设置', icon: '⚙' },
 ];
 

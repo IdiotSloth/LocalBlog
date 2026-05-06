@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import type { BlogWithTags, FolderTreeNode } from '../../../shared/types';
 import { FolderTree } from '../../components/common/FolderTree';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
@@ -11,7 +12,7 @@ export function BlogListPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [blogs, setBlogs] = useState<any[]>([]);
+  const [blogs, setBlogs] = useState<BlogWithTags[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,11 +31,10 @@ export function BlogListPage() {
   const [scrapeError, setScrapeError] = useState('');
   const batch = useBatchSelect(blogs as { id: number }[]);
   const pagination = usePagination(20);
-  const [folderTree, setFolderTree] = useState<any[]>([]);
+  const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
   const loadFolders = useCallback(async () => {
     if (!user) return;
-    const d = await window.api.folderTree({ userId: user.id, type: 'blog' });
-    const r = d as any;
+    const r = await window.api.folderTree({ userId: user.id, type: 'blog' });
     if (r.success && r.data) setFolderTree(r.data);
   }, [user]);
   useEffect(() => {
@@ -45,7 +45,7 @@ export function BlogListPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await window.api.blogList({
+      const r = await window.api.blogList({
         userId: user.id,
         query: query || undefined,
         tagId: filterTagId || undefined,
@@ -55,10 +55,9 @@ export function BlogListPage() {
         offset: pagination.offset,
         limit: pagination.limit,
       });
-      const resp = res as any;
-      if (resp.success && resp.data) {
-        setBlogs(resp.data.blogs);
-        setTotal(resp.data.total);
+      if (r.success && r.data) {
+        setBlogs(r.data.blogs);
+        setTotal(r.data.total);
       }
     } catch (e) {
       console.error(e);
@@ -76,6 +75,14 @@ export function BlogListPage() {
   }, [searchParams]);
   useEffect(() => {
     loadBlogs();
+  }, [loadBlogs]);
+
+  // Listen for blog:refresh from main process (e.g., MVF save)
+  useEffect(() => {
+    const unsubscribe = window.api.onBlogRefresh(() => {
+      loadBlogs();
+    });
+    return unsubscribe;
   }, [loadBlogs]);
 
   const handleDelete = async (id: number) => {
@@ -99,7 +106,7 @@ export function BlogListPage() {
         try {
           const r = (await window.api.blogImportMd({ userId: user.id, filePaths: files })) as any;
           if (r?.success === false) {
-            alert('导入失败: ' + (r.error || '未知错误'));
+            alert(`导入失败: ${r.error || '未知错误'}`);
           } else loadBlogs();
         } catch {
           alert('导入失败');
@@ -110,7 +117,7 @@ export function BlogListPage() {
       }
       fileInputRef.current?.click();
     } catch (err) {
-      alert('打开文件对话框失败: ' + (err as Error).message);
+      alert(`打开文件对话框失败: ${(err as Error).message}`);
     }
   };
   const handleWebFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,6 +257,7 @@ export function BlogListPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
+            title="排序方式"
             className="max-w-[140px] surface-input px-3 py-1.5 text-[13px]"
           >
             <option value="updated_at">最近修改</option>
@@ -362,7 +370,7 @@ export function BlogListPage() {
                   />
                 )}
                 {batch.isBatchMode ? (
-                  <span className={`text-[20px] font-semibold ml-8 text-primary`}>{blog.title || '无标题'}</span>
+                  <span className={'text-[20px] font-semibold ml-8 text-primary'}>{blog.title || '无标题'}</span>
                 ) : (
                   <Link
                     to={`/blog/${blog.id}`}

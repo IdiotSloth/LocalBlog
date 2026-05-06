@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { type BrowserWindow, Menu, Tray, app, nativeImage } from 'electron';
 import { createPet, getPetWindow } from './pet';
 
@@ -11,12 +12,32 @@ export function setPetActions(actions: Record<string, () => void>): void {
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 
-/** Generate tray icon as SVG data URI — open book design */
+/** Find favicon path — resources/ in packaged, img/ in dev */
+function getFaviconPath(): string {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'img', 'favicon.ico'),
+    path.join(app.getAppPath(), 'img', 'favicon.ico'),
+    path.join(__dirname, '..', '..', 'img', 'favicon.ico'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (require('node:fs').existsSync(p)) return p;
+    } catch {
+      /* not found */
+    }
+  }
+  return candidates[1]; // fallback to app path
+}
+
+/** Generate tray icon — uses favicon.ico for brand consistency */
 function makeIcon(size: number): nativeImage {
+  const icoPath = getFaviconPath();
+  const img = nativeImage.createFromPath(icoPath);
+  if (!img.isEmpty()) return img.resize({ width: size, height: size });
+  // Fallback SVG if .ico not loadable
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
-    <path d="M8 2.5C8 2.5 5.5 1.5 4 1.5C2.5 1.5 1.5 2 1.5 2v10c0 0 1-.5 2.5-.5C5.5 11.5 8 12.5 8 12.5V2.5z" fill="#58a6ff"/>
-    <path d="M8 2.5C8 2.5 10.5 1.5 12 1.5S14.5 2 14.5 2v10c0 0-1-.5-2.5-.5S8 12.5 8 12.5V2.5z" fill="#4090e0"/>
-    <line x1="8" y1="2.5" x2="8" y2="12.5" stroke="#1a3a5c" stroke-width="0.5"/>
+    <rect width="16" height="16" rx="3" fill="#2563eb"/>
+    <text x="8" y="12" text-anchor="middle" font-size="10" fill="#fff">B</text>
   </svg>`;
   return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
 }

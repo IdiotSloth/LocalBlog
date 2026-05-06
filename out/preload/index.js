@@ -92,6 +92,12 @@ const IPC = {
   // PDF Export
   BLOG_EXPORT_PDF: "blog:exportPdf",
   BLOG_EXPORT_DOCX: "blog:exportDocx",
+  // Notes
+  NOTE_LIST: "note:list",
+  NOTE_CREATE: "note:create",
+  NOTE_DELETE: "note:delete",
+  NOTE_PIN: "note:pin",
+  NOTE_CLIPBOARD: "note:clipboard",
   // App
   APP_GET_VERSION: "app:get-version",
   APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
@@ -195,6 +201,22 @@ const api = {
     electron.ipcRenderer.on("pet-action", handler);
     return () => electron.ipcRenderer.removeListener("pet-action", handler);
   },
+  onBlogRefresh: (cb) => {
+    const handler = () => cb();
+    electron.ipcRenderer.on("blog:refresh", handler);
+    return () => electron.ipcRenderer.removeListener("blog:refresh", handler);
+  },
+  onNoteRefresh: (cb) => {
+    const handler = () => cb();
+    electron.ipcRenderer.on("note:refresh", handler);
+    return () => electron.ipcRenderer.removeListener("note:refresh", handler);
+  },
+  // Notes
+  noteList: (userId) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId),
+  noteCreate: (data) => electron.ipcRenderer.invoke(IPC.NOTE_CREATE, data),
+  noteDelete: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, noteId),
+  notePin: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
+  noteClipboard: () => electron.ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
   // File System Dialogs
   selectFiles: (exts) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => electron.ipcRenderer.invoke(IPC.FS_SELECT_DIR),

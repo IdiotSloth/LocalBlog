@@ -17,7 +17,7 @@ tagRouter.get('/list', async (req: AuthRequest, res) => {
        FROM tags t WHERE t.user_id = ? ORDER BY t.name`,
       [userId],
     )) as any[];
-    return res.json(rows); // IPC handler returns raw array, not {success,data}
+    return res.json({ success: true, data: rows });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });
   }

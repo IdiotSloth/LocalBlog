@@ -136,7 +136,6 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="搜索博客或知识库文件..."
                 className="input-dark flex-1"
-                autoFocus
               />
               <button type="button" onClick={handleSearch} className="btn-primary text-[12px]">
                 搜索

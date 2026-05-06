@@ -79,6 +79,15 @@ export const MYSQL_DDL = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_ref (source_type, source_id, target_type, target_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL, content TEXT NOT NULL,
+    pinned TINYINT NOT NULL DEFAULT 0,
+    source VARCHAR(20) NOT NULL DEFAULT 'manual',
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 /** ALTER TABLE statements for columns added after initial schema */

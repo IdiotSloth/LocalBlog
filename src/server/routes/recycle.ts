@@ -14,7 +14,7 @@ recycleRouter.get('/list', async (req: AuthRequest, res) => {
     const [rows] = (await pool.execute('SELECT * FROM recycle_bin WHERE user_id = ? ORDER BY deleted_at DESC', [
       userId,
     ])) as any[];
-    return res.json(rows);
+    return res.json({ success: true, data: rows });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });
   }

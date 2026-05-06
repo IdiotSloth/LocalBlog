@@ -29,9 +29,10 @@ export function Heatmap({ userId }: Props) {
   );
 
   useEffect(() => {
-    window.api.statsDaily(userId).then((d: unknown) => {
-      const r = d as any;
+    window.api.statsDaily(userId).then((r) => {
       if (r.success && r.data) setData(r.data);
+    }).catch((e) => {
+      console.error('[Heatmap] Failed to load daily stats:', e);
     });
   }, [userId]);
 
@@ -94,9 +95,7 @@ export function Heatmap({ userId }: Props) {
               className="text-[10px]"
               style={{
                 color: 'var(--text-secondary)',
-                width:
-                  weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14 +
-                  'px',
+                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14}px`,
                 minWidth: 28,
                 textAlign: 'left',
               }}

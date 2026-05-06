@@ -97,6 +97,19 @@ export async function initDatabase(): Promise<void> {
   } catch {
     /* column already exists */
   }
+  // T12S1: notes table for standalone sticky notes (Phase 12 supplement)
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'manual',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+  } catch {
+    /* table already exists */
+  }
 
   sqlJsSave();
   useMySQL = false;

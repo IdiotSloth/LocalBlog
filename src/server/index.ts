@@ -8,6 +8,7 @@ import { closeMySQL, initMySQL } from './db';
 import { errorHandler } from './middleware/error-handler';
 import { authRouter } from './routes/auth';
 import { blogRouter } from './routes/blog';
+import { folderRouter } from './routes/folder';
 import { knowledgeRouter } from './routes/knowledge';
 import { recycleRouter } from './routes/recycle';
 import { scrapeRouter } from './routes/scrape';
@@ -30,6 +31,7 @@ app.use(cookieParser());
 // API routes
 app.use('/api/auth', authRouter);
 app.use('/api/blog', blogRouter);
+app.use('/api/folders', folderRouter);
 app.use('/api/knowledge', knowledgeRouter);
 app.use('/api/tags', tagRouter);
 app.use('/api/search', searchRouter);
@@ -58,7 +60,7 @@ app.get('/{*splat}', (_req, res) => {
 async function start() {
   try {
     await initMySQL();
-    console.log(`[Server] MySQL connected`);
+    console.log('[Server] MySQL connected');
   } catch {
     console.log('[Server] MySQL unavailable — running with sql.js fallback');
   }

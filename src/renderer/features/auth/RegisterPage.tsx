@@ -63,7 +63,6 @@ export function RegisterPage() {
           placeholder="至少2个字符"
           className="input-dark"
           required
-          autoFocus
         />
       </div>
       <div>

@@ -71,8 +71,8 @@ export class SearchService {
 
   static async globalSearch(userId: number, query: string) {
     const [blogs, knowledge] = await Promise.all([
-      this.searchBlogs(userId, query),
-      this.searchKnowledge(userId, query),
+      SearchService.searchBlogs(userId, query),
+      SearchService.searchKnowledge(userId, query),
     ]);
     return { blogs, knowledge };
   }

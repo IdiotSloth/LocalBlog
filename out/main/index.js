@@ -101,6 +101,14 @@ const MYSQL_DDL = [
     source_id INT NOT NULL, target_type VARCHAR(20) NOT NULL, target_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_ref (source_type, source_id, target_type, target_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL, content TEXT NOT NULL,
+    pinned TINYINT NOT NULL DEFAULT 0,
+    source VARCHAR(20) NOT NULL DEFAULT 'manual',
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 const MYSQL_MIGRATIONS = [
@@ -117,7 +125,7 @@ function getMySQLConfig() {
   return {
     host: process.env.MYSQL_HOST || "localhost",
     user: process.env.MYSQL_USER || "root",
-    password: process.env.MYSQL_PASSWORD || "",
+    password: process.env.MYSQL_PASSWORD || "123456",
     database: process.env.MYSQL_DATABASE || "local_blog_kb"
   };
 }
@@ -292,6 +300,15 @@ CREATE TABLE IF NOT EXISTS refs (
   UNIQUE(source_type, source_id, target_type, target_id)
 );
 
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'manual',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_blogs_user_status ON blogs(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_blogs_user_updated ON blogs(user_id, updated_at DESC);
@@ -359,6 +376,17 @@ async function initDatabase() {
   }
   try {
     sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''");
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'manual',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
   } catch {
   }
   sqlJsSave();
@@ -641,6 +669,12 @@ const IPC = {
   // PDF Export
   BLOG_EXPORT_PDF: "blog:exportPdf",
   BLOG_EXPORT_DOCX: "blog:exportDocx",
+  // Notes
+  NOTE_LIST: "note:list",
+  NOTE_CREATE: "note:create",
+  NOTE_DELETE: "note:delete",
+  NOTE_PIN: "note:pin",
+  NOTE_CLIPBOARD: "note:clipboard",
   // App
   APP_GET_VERSION: "app:get-version",
   APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
@@ -665,12 +699,12 @@ class BackupService {
   }
   /** Create a backup of the database */
   static createBackup() {
-    const dbPath = this.getDbPath();
+    const dbPath = BackupService.getDbPath();
     if (!fs.existsSync(dbPath)) {
       console.log("[Backup] Database file not found, skipping");
       return null;
     }
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
@@ -688,7 +722,7 @@ class BackupService {
   }
   /** Clean up old backups, keeping only the latest N */
   static cleanOldBackups() {
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) return 0;
     const files = fs.readdirSync(backupDir).filter((f) => f.startsWith("database.db.backup.")).map((f) => ({
       name: f,
@@ -708,25 +742,25 @@ class BackupService {
   }
   /** Start automatic periodic backups */
   static startAutoBackup() {
-    if (this.timer) return;
-    this.createBackup();
-    this.cleanOldBackups();
-    this.timer = setInterval(() => {
-      this.createBackup();
-      this.cleanOldBackups();
+    if (BackupService.timer) return;
+    BackupService.createBackup();
+    BackupService.cleanOldBackups();
+    BackupService.timer = setInterval(() => {
+      BackupService.createBackup();
+      BackupService.cleanOldBackups();
     }, BACKUP_INTERVAL_MS);
     console.log("[Backup] Auto-backup started (every 24h, keeping last 7)");
   }
   /** Stop auto-backup timer */
   static stopAutoBackup() {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (BackupService.timer) {
+      clearInterval(BackupService.timer);
+      BackupService.timer = null;
     }
   }
   /** List available backups */
   static listBackups() {
-    const backupDir = this.getBackupDir();
+    const backupDir = BackupService.getBackupDir();
     if (!fs.existsSync(backupDir)) return [];
     return fs.readdirSync(backupDir).filter((f) => f.startsWith("database.db.backup.")).map((f) => {
       const fullPath = path.join(backupDir, f);
@@ -1027,6 +1061,10 @@ start "" npm run dev\r
     }
   });
 }
+function toMySQLDateTime(date = /* @__PURE__ */ new Date()) {
+  return date.toISOString().replace("T", " ").slice(0, 19);
+}
+const nowMySQL = () => toMySQLDateTime();
 const TOKEN_BYTES = 48;
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -1126,7 +1164,7 @@ class AuthService {
         username,
         passwordHash,
         workspacePath,
-        (/* @__PURE__ */ new Date()).toISOString()
+        nowMySQL()
       ]);
       const newUser = await dbGet("SELECT id FROM users WHERE username = ?", [username]);
       if (!newUser?.id) return { success: false, error: "创建用户失败: 数据库写入异常" };
@@ -1139,14 +1177,14 @@ class AuthService {
       return { success: false, error: `创建工作区目录失败: ${err.message}` };
     }
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1e3).toISOString();
+    const expiresAt = toMySQLDateTime(new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1e3));
     await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
       userId,
       token,
       expiresAt,
-      (/* @__PURE__ */ new Date()).toISOString()
+      nowMySQL()
     ]);
-    return { success: true, user: { id: userId, username, workspacePath, createdAt: (/* @__PURE__ */ new Date()).toISOString() }, token };
+    return { success: true, user: { id: userId, username, workspacePath, createdAt: nowMySQL() }, token };
   }
   static async login(username, password, rememberMe) {
     console.log("[Auth] Login attempt:", username);
@@ -1162,13 +1200,13 @@ class AuthService {
     if (!valid) return { success: false, error: "用户名或密码错误" };
     const token = generateToken();
     const expiryDays = rememberMe ? TOKEN_EXPIRY_DAYS : 1;
-    const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1e3).toISOString();
+    const expiresAt = toMySQLDateTime(new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1e3));
     await dbRun("DELETE FROM sessions WHERE user_id = ?", [row.id]);
     await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
       row.id,
       token,
       expiresAt,
-      (/* @__PURE__ */ new Date()).toISOString()
+      nowMySQL()
     ]);
     return {
       success: true,
@@ -1214,10 +1252,674 @@ class AuthService {
     return { success: true };
   }
 }
+let petActions = {};
+function setPetActions(actions) {
+  petActions = actions;
+}
+let tray = null;
+let mainWindow$2 = null;
+function getFaviconPath() {
+  const candidates = [
+    path.join(process.resourcesPath || "", "img", "favicon.ico"),
+    path.join(electron.app.getAppPath(), "img", "favicon.ico"),
+    path.join(__dirname, "..", "..", "img", "favicon.ico")
+  ];
+  for (const p of candidates) {
+    try {
+      if (require("node:fs").existsSync(p)) return p;
+    } catch {
+    }
+  }
+  return candidates[1];
+}
+function makeIcon(size) {
+  const icoPath = getFaviconPath();
+  const img = electron.nativeImage.createFromPath(icoPath);
+  if (!img.isEmpty()) return img.resize({ width: size, height: size });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
+    <rect width="16" height="16" rx="3" fill="#2563eb"/>
+    <text x="8" y="12" text-anchor="middle" font-size="10" fill="#fff">B</text>
+  </svg>`;
+  return electron.nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
+}
+function buildMenu() {
+  return electron.Menu.buildFromTemplate([
+    { label: "📝 快速便签", click: () => petActions["quick-note"]?.() },
+    { label: "📄 新建博客", click: () => petActions["new-blog"]?.() },
+    { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
+    { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
+    { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
+    { type: "separator" },
+    {
+      label: "📂 打开主窗口",
+      click: () => {
+        if (mainWindow$2) {
+          mainWindow$2.show();
+          mainWindow$2.focus();
+        }
+      }
+    },
+    { type: "separator" },
+    { label: "🐱 桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
+    { type: "separator" },
+    {
+      label: "❌ 退出",
+      click: () => {
+        electron.app.exit();
+      }
+    }
+  ]);
+}
+let petActive = false;
+function togglePet() {
+  if (petActive) {
+    petActive = false;
+    const pw = getPetWindow();
+    if (pw && !pw.isDestroyed()) pw.close();
+    if (tray) tray.setContextMenu(buildMenu());
+    return;
+  }
+  petActive = true;
+  if (mainWindow$2) createPet(mainWindow$2);
+  if (tray) tray.setContextMenu(buildMenu());
+}
+function setupTray(win) {
+  mainWindow$2 = win;
+  if (tray) tray.destroy();
+  tray = new electron.Tray(makeIcon(16));
+  tray.setToolTip("本地博客与知识库");
+  tray.setContextMenu(buildMenu());
+  tray.on("double-click", () => {
+    if (mainWindow$2) {
+      mainWindow$2.show();
+      mainWindow$2.focus();
+    }
+  });
+}
+let petWin = null;
+let mainWindow$1 = null;
+let dragInterval = null;
+let dragOffset = { x: 0, y: 0 };
+let _posFile;
+function posFile() {
+  return _posFile || (_posFile = path.join(electron.app.getPath("userData"), "pet-position.json"));
+}
+let _petDir;
+function petDir() {
+  return _petDir || (_petDir = path.join(electron.app.getPath("userData"), "pet"));
+}
+let cachedUserId = null;
+function setCurrentUserId(id) {
+  cachedUserId = id;
+}
+async function getUserId() {
+  if (cachedUserId) return cachedUserId;
+  const { dbGet: dbGet2 } = await Promise.resolve().then(() => index);
+  const session = await dbGet2(
+    "SELECT user_id FROM sessions WHERE expires_at > datetime('now') ORDER BY id DESC LIMIT 1"
+  );
+  if (session?.user_id) {
+    cachedUserId = session.user_id;
+    return cachedUserId;
+  }
+  const user = await dbGet2("SELECT id FROM users LIMIT 1");
+  if (user?.id) cachedUserId = user.id;
+  else cachedUserId = 0;
+  return cachedUserId;
+}
+function ensurePetImages() {
+  const imgDir = path.join(petDir(), "img");
+  fs.mkdirSync(imgDir, { recursive: true });
+  const srcDir = path.join(__dirname, "..", "..", "img");
+  const files = ["static.png", "drug.png"];
+  for (const f of files) {
+    const dest = path.join(imgDir, f);
+    if (!fs.existsSync(dest)) {
+      const src = path.join(srcDir, f);
+      if (fs.existsSync(src)) fs.copyFileSync(src, dest);
+    }
+  }
+  return {
+    static: path.join(imgDir, "static.png").replace(/\\/g, "/"),
+    drug: path.join(imgDir, "drug.png").replace(/\\/g, "/")
+  };
+}
+function ensureMiniPreload() {
+  const p = path.join(electron.app.getPath("userData"), "mini-preload.js");
+  if (!fs.existsSync(p)) {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(
+      p,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`
+    );
+  }
+  return p;
+}
+let miniNoteWin = null;
+let miniScrapeWin = null;
+function showQuickNote() {
+  if (miniNoteWin && !miniNoteWin.isDestroyed()) {
+    miniNoteWin.focus();
+    return;
+  }
+  const miniPreload = ensureMiniPreload();
+  let closing = false;
+  const win = new electron.BrowserWindow({
+    width: 380,
+    height: 60,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
+  });
+  win.center();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s}
+    body.saved{background:#1a3a2e}
+    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif}
+    input::placeholder{color:#666}
+    .hint{color:#555;font-size:11px;white-space:nowrap;margin-left:8px;transition:color .2s}
+    body.saved .hint{color:#3fb950}
+  </style></head><body>
+    <input id="inp" placeholder="快速便签..." autofocus>
+    <span class="hint" id="hint">Enter 保存 · Esc 关闭</span>
+  </body></html>`;
+  miniNoteWin = win;
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  win.once("ready-to-show", () => win.show());
+  win.on("closed", () => {
+    miniNoteWin = null;
+  });
+  const saveAndClose = async () => {
+    if (closing) return;
+    closing = true;
+    const text = await win.webContents.executeJavaScript('document.getElementById("inp").value').catch(() => "");
+    if (text.trim()) {
+      try {
+        const { NoteService: NoteService2 } = await Promise.resolve().then(() => note_service);
+        const uid = await getUserId();
+        const note = await NoteService2.createNote(uid, text.trim(), "quick");
+        await win.webContents.executeJavaScript(`
+          document.body.classList.add('saved');
+          document.getElementById('hint').textContent='✓ 已保存';
+        `);
+        await new Promise((r) => setTimeout(r, 400));
+        new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
+        if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
+          mainWindow$1.webContents.send("note:refresh");
+        }
+      } catch (e) {
+        console.error("[QuickNote/MVF] Save failed:", e);
+        new electron.Notification({ title: "保存失败", body: e.message || "未知错误" }).show();
+      }
+    }
+    if (!win.isDestroyed()) win.close();
+  };
+  const forceClose = setTimeout(() => {
+    if (!win.isDestroyed()) win.close();
+  }, 5e3);
+  win.webContents.on("before-input-event", (_e, input) => {
+    if (input.key === "Escape") {
+      clearTimeout(forceClose);
+      win.close();
+    }
+    if (input.key === "Enter") {
+      clearTimeout(forceClose);
+      saveAndClose();
+    }
+  });
+  win.on("close", (e) => {
+    if (!closing) {
+      e.preventDefault();
+      clearTimeout(forceClose);
+      saveAndClose();
+    }
+  });
+}
+let mdFloatWin = null;
+function showMdFloatWindow() {
+  if (mdFloatWin && !mdFloatWin.isDestroyed()) {
+    mdFloatWin.focus();
+    return;
+  }
+  let closing = false;
+  const win = new electron.BrowserWindow({
+    width: 550,
+    height: 420,
+    minWidth: 400,
+    minHeight: 280,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: true,
+    titleBarStyle: "hidden",
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false }
+  });
+  win.center();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;flex-direction:column;height:100vh;background:#1a1a2e;border-radius:8px;font-family:-apple-system,system-ui,sans-serif;overflow:hidden}
+    .titlebar{display:flex;align-items:center;padding:8px 12px;background:#16162a;gap:8px;-webkit-app-region:drag}
+    .titlebar .dot{width:10px;height:10px;border-radius:50%;-webkit-app-region:no-drag}
+    .dot.r{background:#ff5f57;cursor:pointer}
+    .dot.y{background:#febc2e}
+    .dot.g{background:#28c840}
+    .titlebar .label{flex:1;font-size:12px;color:#888;text-align:center}
+    .title-input{border:none;outline:none;background:transparent;color:#e0e0e0;font-size:18px;font-weight:600;padding:10px 16px 4px;font-family:inherit}
+    .title-input::placeholder{color:#555}
+    #content{flex:1;border:none;outline:none;resize:none;background:transparent;color:#c0c0c0;font-size:14px;line-height:1.7;padding:10px 16px;font-family:"JetBrains Mono","Courier New",monospace;tab-size:2}
+    #content::placeholder{color:#444}
+    .statusbar{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#16162a;font-size:11px;color:#555}
+    .statusbar .hint{transition:color .3s}
+    .statusbar .hint.saved{color:#3fb950}
+    .close-btn{cursor:pointer;-webkit-app-region:no-drag}
+  </style></head><body>
+    <div class="titlebar">
+      <span class="dot r close-btn" title="关闭并保存" onclick="window.close()"></span>
+      <span class="dot y"></span>
+      <span class="dot g"></span>
+      <span class="label">MD 快捷写作</span>
+    </div>
+    <input id="title" class="title-input" placeholder="标题..." autofocus>
+    <textarea id="content" placeholder="Markdown 内容...&#10;&#10;Ctrl+S / 点红点 → 保存并关闭&#10;Esc → 丢弃并关闭"></textarea>
+    <div class="statusbar">
+      <span id="hint" class="hint">Ctrl+S 保存 · Esc 丢弃 · 拖标题栏移动</span>
+      <span id="wc">0 字</span>
+    </div>
+    <script>
+      const titleEl = document.getElementById('title');
+      const contentEl = document.getElementById('content');
+      const hintEl = document.getElementById('hint');
+      const wcEl = document.getElementById('wc');
+      let saved = false;
+      contentEl.addEventListener('input', function() {
+        const len = contentEl.value.length;
+        wcEl.textContent = len + ' 字';
+      });
+      function getData() {
+        return { title: titleEl.value.trim(), content: contentEl.value };
+      }
+      // Expose for main process to read
+      window._getData = getData;
+    <\/script>
+  </body></html>`;
+  mdFloatWin = win;
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  win.once("ready-to-show", () => win.show());
+  win.on("closed", () => {
+    mdFloatWin = null;
+  });
+  win.webContents.on("before-input-event", (_e, input) => {
+    if (input.key === "Escape") {
+      if (!win.isDestroyed()) win.close();
+    }
+  });
+  const saveAndClose = async () => {
+    const data = await win.webContents.executeJavaScript('window._getData ? window._getData() : {title:"",content:""}').catch(() => ({ title: "", content: "" }));
+    const title = data.title || "快捷写作";
+    const body = data.content || "";
+    if (body.trim() || data.title) {
+      try {
+        const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
+        const uid = await getUserId();
+        await BlogService2.quickCreate(uid, title.substring(0, 100), body);
+        await win.webContents.executeJavaScript(`
+          hintEl.textContent='\\u2713 已保存';
+          hintEl.classList.add('saved');
+        `);
+        new electron.Notification({ title: "已保存", body: title }).show();
+        if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
+          mainWindow$1.webContents.send("blog:refresh");
+        }
+      } catch (e) {
+        console.error("[QuickNote/MVF] Save failed:", e);
+        new electron.Notification({ title: "保存失败", body: e.message || "未知错误" }).show();
+      }
+    }
+    if (!win.isDestroyed()) win.close();
+  };
+  win.webContents.on("before-input-event", (_e, input) => {
+    if ((input.control || input.meta) && input.key === "s") {
+      saveAndClose();
+    }
+    if (input.key === "Escape") {
+      if (!win.isDestroyed()) win.close();
+    }
+  });
+  win.on("close", (e) => {
+    if (!closing) {
+      e.preventDefault();
+      closing = true;
+      saveAndClose();
+    }
+  });
+}
+function showScrapeWindow() {
+  if (miniScrapeWin && !miniScrapeWin.isDestroyed()) {
+    miniScrapeWin.focus();
+    return;
+  }
+  const miniPreload = ensureMiniPreload();
+  const win = new electron.BrowserWindow({
+    width: 500,
+    height: 420,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
+  });
+  win.center();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px}
+    h2{font-size:16px;margin-bottom:12px}
+    input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
+    input:focus{border-color:#58a6ff}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
+    .btn-primary{background:#58a6ff;color:#fff}
+    .btn-primary:disabled{opacity:.4;cursor:default}
+    .status{margin-top:8px;font-size:12px;color:#888}
+    .preview{margin-top:12px;padding:12px;background:#0d1117;border-radius:6px;max-height:180px;overflow-y:auto;font-size:13px;line-height:1.6}
+    .close-btn{position:absolute;top:8px;right:12px;cursor:pointer;color:#666;font-size:16px;background:none;border:none}
+    .close-btn:hover{color:#e0e0e0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{display:none;width:16px;height:16px;border:2px solid #333;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;margin-left:8px}
+  </style></head><body>
+    <button class="close-btn" onclick="window.close()">✕</button>
+    <h2>🌐 收藏网页</h2>
+    <input id="url" placeholder="粘贴网页 URL" autofocus>
+    <button class="btn btn-primary" id="scrape-btn" onclick="doScrape()">抓取</button>
+    <div class="status" id="status"><span class="spinner" id="spinner"></span></div>
+    <div class="preview" id="preview" style="display:none"></div>
+    <button class="btn btn-primary" id="import-btn" style="display:none;margin-top:8px" onclick="doImport()">导入为博客</button>
+  </body></html>`;
+  miniScrapeWin = win;
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  win.on("closed", () => {
+    miniScrapeWin = null;
+  });
+  win.webContents.once("did-finish-load", () => {
+    win.webContents.executeJavaScript(`
+      let lastResult=null;
+      window.doScrape=async()=>{
+        const url=document.getElementById('url').value.trim();
+        if(!url)return;
+        document.getElementById('status').innerHTML='<span class="spinner" style="display:inline-block"></span> 抓取中...';
+        document.getElementById('scrape-btn').disabled=true;
+        try{
+          const result=await window.miniApi.invoke('pet:scrape',url);
+          if(result.success){
+            lastResult=result.data;
+            document.getElementById('status').textContent='✓ '+result.data.title;
+            document.getElementById('preview').style.display='block';
+            document.getElementById('preview').textContent=result.data.excerpt||result.data.content?.substring(0,1500)||'';
+            document.getElementById('import-btn').style.display='inline-flex';
+          }else{
+            document.getElementById('status').textContent='✗ '+(result.error||'抓取失败');
+          }
+        }catch(e){document.getElementById('status').textContent='✗ 抓取失败';}
+        document.getElementById('scrape-btn').disabled=false;
+      };
+      window.doImport=async()=>{
+        if(!lastResult)return;
+        document.getElementById('import-btn').disabled=true;
+        document.getElementById('import-btn').textContent='导入中...';
+        try{
+          const result=await window.miniApi.invoke('pet:scrape-import',lastResult);
+          document.getElementById('status').textContent=result.success?'✓ 已导入':'✗ 导入失败';
+          if(result.success)setTimeout(()=>window.close(),800);
+        }catch(e){document.getElementById('status').textContent='✗ 导入失败';}
+        document.getElementById('import-btn').disabled=false;
+        document.getElementById('import-btn').textContent='导入为博客';
+      };
+    `);
+  });
+  win.once("ready-to-show", () => win.show());
+}
+async function handleImportMd() {
+  const result = await electron.dialog.showOpenDialog({
+    title: "导入 Markdown 文件",
+    properties: ["openFile", "multiSelections"],
+    filters: [{ name: "Markdown", extensions: ["md", "txt", "html"] }]
+  });
+  if (result.canceled || !result.filePaths.length) return;
+  try {
+    const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
+    const uid = await getUserId();
+    const blogs = await BlogService2.importMarkdownFiles(uid, result.filePaths);
+    new electron.Notification({ title: "导入完成", body: `已导入 ${blogs.length} 篇博客` }).show();
+  } catch (e) {
+    new electron.Notification({ title: "导入失败", body: e.message }).show();
+  }
+}
+async function handleImportFile() {
+  const result = await electron.dialog.showOpenDialog({
+    title: "导入知识库文件",
+    properties: ["openFile", "multiSelections"],
+    filters: [
+      {
+        name: "All Supported",
+        extensions: [
+          "docx",
+          "doc",
+          "xlsx",
+          "xls",
+          "pptx",
+          "ppt",
+          "pdf",
+          "txt",
+          "md",
+          "png",
+          "jpg",
+          "jpeg",
+          "gif",
+          "webp",
+          "svg"
+        ]
+      }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return;
+  try {
+    const { KnowledgeService: KnowledgeService2 } = await Promise.resolve().then(() => knowledge_service);
+    const uid = await getUserId();
+    await KnowledgeService2.importFiles(uid, result.filePaths, true);
+    new electron.Notification({ title: "导入完成", body: `已导入 ${result.filePaths.length} 个文件` }).show();
+  } catch (e) {
+    new electron.Notification({ title: "导入失败", body: e.message }).show();
+  }
+}
+function showStandaloneEditor() {
+  if (mainWindow$1) {
+    if (!mainWindow$1.isVisible()) mainWindow$1.show();
+    mainWindow$1.focus();
+    mainWindow$1.webContents.send("pet-action", "new-blog");
+  }
+}
+function petMenu() {
+  return electron.Menu.buildFromTemplate([
+    { label: "📝 快速便签", click: () => showQuickNote() },
+    { label: "📄 新建博客", click: () => showStandaloneEditor() },
+    { label: "📥 导入 MD", click: () => handleImportMd() },
+    { label: "📎 导入文件", click: () => handleImportFile() },
+    { label: "🌐 收藏网页", click: () => showScrapeWindow() },
+    { type: "separator" },
+    {
+      label: "📂 打开主窗口",
+      click: () => {
+        if (mainWindow$1) {
+          mainWindow$1.show();
+          mainWindow$1.focus();
+        }
+      }
+    }
+  ]);
+}
+function loadPosition() {
+  try {
+    if (fs.existsSync(posFile())) {
+      const pos = JSON.parse(fs.readFileSync(posFile(), "utf-8"));
+      const displays = electron.screen.getAllDisplays();
+      const inBounds = displays.some((d) => {
+        const { x, y, width, height } = d.workArea;
+        return pos.x >= x - 20 && pos.y >= y - 20 && pos.x <= x + width && pos.y <= y + height;
+      });
+      if (inBounds) return pos;
+    }
+  } catch {
+  }
+  const primary = electron.screen.getPrimaryDisplay().workArea;
+  return { x: primary.width - 160, y: primary.height - 160 };
+}
+function createPet(win) {
+  mainWindow$1 = win;
+  if (petWin && !petWin.isDestroyed()) petWin.close();
+  const pos = loadPosition();
+  const images = ensurePetImages();
+  const preloadPath = path.join(electron.app.getPath("userData"), "pet-preload.js");
+  const petHtmlPath = path.join(electron.app.getPath("userData"), "pet.html");
+  fs.writeFileSync(
+    petHtmlPath,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{margin:0;overflow:hidden;background:transparent}
+#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
+#pet:active{cursor:grabbing}
+@keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
+#pet.dragging{background-image:url('${images.drug}');animation:none;transform:scale(1.08)}
+@keyframes click-pop{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
+#pet.clicked{animation:click-pop .2s ease}
+#pet:hover{transform:scale(1.05)}
+#pet.dragging:hover{transform:scale(1.08)}
+</style></head><body><div id="pet" class="idle"></div>
+<script>
+let mouseDownPos=null,hasMoved=false;
+const pet=document.getElementById('pet');
+pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
+window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
+window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
+<\/script></html>`
+  );
+  if (!fs.existsSync(preloadPath)) {
+    fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
+    fs.writeFileSync(
+      preloadPath,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`
+    );
+  }
+  petWin = new electron.BrowserWindow({
+    width: 128,
+    height: 128,
+    x: pos.x,
+    y: pos.y,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    focusable: false,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath
+    }
+  });
+  petWin.loadFile(petHtmlPath);
+  petWin.once("ready-to-show", () => petWin?.show());
+  registerPetIpc();
+  setPetActions({
+    "quick-note": showQuickNote,
+    "md-float": showMdFloatWindow,
+    "new-blog": showStandaloneEditor,
+    "import-md": handleImportMd,
+    "import-file": handleImportFile,
+    "scrape-web": showScrapeWindow
+  });
+}
+function initPetActions() {
+  registerPetIpc();
+  setPetActions({
+    "quick-note": showQuickNote,
+    "md-float": showMdFloatWindow,
+    "new-blog": showStandaloneEditor,
+    "import-md": handleImportMd,
+    "import-file": handleImportFile,
+    "scrape-web": showScrapeWindow
+  });
+}
+let _ipcRegistered = false;
+function registerPetIpc() {
+  if (_ipcRegistered) return;
+  _ipcRegistered = true;
+  electron.ipcMain.handle("pet:scrape", async (_e, url) => {
+    try {
+      const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
+      return await WebScraperService2.scrapeWebpage(url);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+  electron.ipcMain.handle("pet:scrape-import", async (_e, data) => {
+    try {
+      const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
+      const uid = await getUserId();
+      const blog = await BlogService2.createBlog(uid, data.title, "md", data.content);
+      new electron.Notification({ title: "已导入", body: data.title }).show();
+      return { success: true, data: blog };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+  electron.ipcMain.on("pet:startDrag", () => {
+    if (!petWin || petWin.isDestroyed()) return;
+    const cursor = electron.screen.getCursorScreenPoint();
+    const [wx, wy] = petWin.getPosition();
+    dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
+    dragInterval = setInterval(() => {
+      if (!petWin || petWin.isDestroyed()) {
+        if (dragInterval) clearInterval(dragInterval);
+        return;
+      }
+      const c = electron.screen.getCursorScreenPoint();
+      petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
+    }, 16);
+  });
+  electron.ipcMain.on("pet:stopDrag", () => {
+    if (dragInterval) {
+      clearInterval(dragInterval);
+      dragInterval = null;
+    }
+  });
+  electron.ipcMain.on("pet:savePosition", () => {
+    if (petWin && !petWin.isDestroyed()) {
+      const [x, y] = petWin.getPosition();
+      try {
+        fs.writeFileSync(posFile(), JSON.stringify({ x, y }));
+      } catch {
+      }
+    }
+  });
+  electron.ipcMain.on("pet:click", () => {
+    if (petWin && !petWin.isDestroyed()) {
+      petMenu().popup({ window: petWin, x: 64, y: 64 });
+    }
+  });
+}
+function getPetWindow() {
+  return petWin;
+}
 function registerAuthHandlers() {
   electron.ipcMain.handle(IPC.AUTH_LOGIN, async (_event, req) => {
     try {
-      return await AuthService.login(req.username, req.password, req.rememberMe);
+      const res = await AuthService.login(req.username, req.password, req.rememberMe);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error("[Auth IPC] Login error:", err);
       return { success: false, error: `登录异常: ${err.message}` };
@@ -1225,7 +1927,9 @@ function registerAuthHandlers() {
   });
   electron.ipcMain.handle(IPC.AUTH_REGISTER, async (_event, req) => {
     try {
-      return await AuthService.register(req.username, req.password, req.workspacePath);
+      const res = await AuthService.register(req.username, req.password, req.workspacePath);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error("[Auth IPC] Register error:", err);
       return { success: false, error: `注册异常: ${err.message}` };
@@ -1240,7 +1944,9 @@ function registerAuthHandlers() {
   });
   electron.ipcMain.handle(IPC.AUTH_VERIFY_TOKEN, async (_event, token) => {
     try {
-      return await AuthService.verifyToken(token);
+      const res = await AuthService.verifyToken(token);
+      if (res.success && res.user) setCurrentUserId(res.user.id);
+      return res;
     } catch (err) {
       console.error("[Auth IPC] Verify error:", err);
       return { success: false, error: "验证失败" };
@@ -1364,7 +2070,7 @@ class BlogService {
     if (!["md", "html"].includes(format)) throw new Error("格式必须是 md 或 html");
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ""));
-    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const now = nowMySQL();
     await dbRun(
       "INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
       [userId, title, format, content, now, now]
@@ -1397,37 +2103,29 @@ class BlogService {
     if (update.title !== void 0) {
       if (!update.title || update.title.length > MAX_TITLE_LENGTH)
         throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?", [
-        update.title,
-        (/* @__PURE__ */ new Date()).toISOString(),
-        blogId
-      ]);
+      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?", [update.title, nowMySQL(), blogId]);
     }
     if (update.content !== void 0) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format);
       fs.writeFileSync(filePath, update.content, "utf-8");
-      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [
-        update.content,
-        (/* @__PURE__ */ new Date()).toISOString(),
-        blogId
-      ]);
+      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [update.content, nowMySQL(), blogId]);
     }
   }
   static async deleteBlog(blogId) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
     if (!blog) throw new Error("博客不存在");
-    await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [(/* @__PURE__ */ new Date()).toISOString(), blogId]);
+    await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
     await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
       blog.user_id,
       "blog",
       blogId,
-      (/* @__PURE__ */ new Date()).toISOString()
+      nowMySQL()
     ]);
   }
   static async restoreBlog(blogId) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ? AND status = ?", [blogId, "trash"]);
     if (!blog) throw new Error("博客不在回收站中");
-    await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [(/* @__PURE__ */ new Date()).toISOString(), blogId]);
+    await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
     await dbRun("DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?", ["blog", blogId]);
   }
   static async listBlogs(filters) {
@@ -1495,12 +2193,12 @@ class BlogService {
         if (h1Match) title = h1Match[1].trim();
       }
       const format = ext === ".html" ? "html" : "md";
-      const blog = await this.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
+      const blog = await BlogService.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
       blogs.push(blog);
     }
     for (const item of contents) {
       const title = (item.title || "未命名").substring(0, MAX_TITLE_LENGTH);
-      const blog = await this.createBlog(userId, title, "md", item.content);
+      const blog = await BlogService.createBlog(userId, title, "md", item.content);
       blogs.push(blog);
     }
     return blogs;
@@ -1508,11 +2206,7 @@ class BlogService {
   static async saveDraft(blogId, content) {
     const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
     if (!blog) throw new Error("博客不存在");
-    await dbRun("INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)", [
-      blogId,
-      content,
-      (/* @__PURE__ */ new Date()).toISOString()
-    ]);
+    await dbRun("INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)", [blogId, content, nowMySQL()]);
   }
   static async getHistory(blogId) {
     return dbAll(
@@ -1523,7 +2217,7 @@ class BlogService {
   static async rollback(blogId, draftId) {
     const draft = await dbGet("SELECT * FROM blog_drafts WHERE id = ? AND blog_id = ?", [draftId, blogId]);
     if (!draft) throw new Error("草稿不存在");
-    await this.updateBlog(blogId, { content: draft.content });
+    await BlogService.updateBlog(blogId, { content: draft.content });
   }
   static async getBlogTags(blogId) {
     return dbAll(
@@ -1797,11 +2491,27 @@ function registerBlogHandlers() {
         bodyHtml = md.render(bodyHtml);
       }
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:"Noto Serif SC","Microsoft YaHei",serif;max-width:680px;margin:40px auto;padding:0 20px;color:#2c2c2c;line-height:1.8}
-        h1{font-size:28px}h2{font-size:22px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:8px}
-        h3{font-size:18px;margin-top:24px}pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto}
-        code{font-family:"JetBrains Mono",monospace;font-size:14px}blockquote{border-left:3px solid #c0392b;padding-left:16px;color:#666}
-        img{max-width:100%}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
+        :root {
+          --text-primary: #2c2c2c; --text-secondary: #666; --text-muted: #999;
+          --bg-primary: #fff; --bg-secondary: #f8f9fa; --bg-tertiary: #f0f2f5;
+          --color-primary: #2563eb; --color-bg-card: #fff;
+          --border-default: #e5e7eb; --accent-amber: #d97706; --accent-red: #dc2626;
+          --color-text-primary: #2c2c2c; --color-text-secondary: #666; --color-text-muted: #999;
+          --color-bg-base: #fff;
+        }
+        body{font-family:"Noto Serif SC","Microsoft YaHei",serif;max-width:680px;margin:40px auto;padding:0 20px;color:#2c2c2c;background:#fff;line-height:1.8}
+        h1{font-size:28px;margin-top:0}h2{font-size:22px;margin-top:32px;border-bottom:1px solid #eee;padding-bottom:8px}
+        h3{font-size:18px;margin-top:24px}h4{font-size:16px;margin-top:20px}p{margin:12px 0}
+        pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto}
+        code{font-family:"JetBrains Mono","Courier New",monospace;font-size:14px}pre code{font-size:13px}
+        blockquote{border-left:3px solid #c0392b;padding:4px 16px;margin:16px 0;color:#555;background:#fdf8f8}
+        img{max-width:100%;height:auto}
+        table{border-collapse:collapse;width:100%;margin:16px 0}
+        th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left}
+        th{background:#f6f8fa;font-weight:600}
+        ul,ol{padding-left:24px}li{margin:4px 0}a{color:#2563eb}
+        hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}
+        .footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
       </style></head><body>
         <h1>${blog.title}</h1>
         <p style="color:#888;font-size:14px">${blog.createdAt}</p>
@@ -1985,7 +2695,7 @@ class FolderService {
       trimmed,
       parentId ?? null,
       type,
-      (/* @__PURE__ */ new Date()).toISOString()
+      nowMySQL()
     ]);
     const row = await dbGet(
       "SELECT * FROM folders WHERE user_id = ? AND name = ? AND type = ? ORDER BY id DESC LIMIT 1",
@@ -2004,11 +2714,7 @@ class FolderService {
   }
   static async moveToFolder(itemType, itemId, folderId) {
     const table = itemType === "blog" ? "blogs" : "knowledge_files";
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [
-      folderId,
-      (/* @__PURE__ */ new Date()).toISOString(),
-      itemId
-    ]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [folderId, nowMySQL(), itemId]);
   }
 }
 function buildTree(rows) {
@@ -2026,7 +2732,7 @@ function buildTree(rows) {
   const roots = [];
   for (const node of map.values()) {
     if (node.parentId && map.has(node.parentId)) {
-      map.get(node.parentId).children.push(node);
+      map.get(node.parentId)?.children.push(node);
     } else {
       roots.push(node);
     }
@@ -2091,7 +2797,7 @@ class KnowledgeService {
       const ext = path.extname(srcPath).toLowerCase();
       if (!SUPPORTED_KB_EXTENSIONS.includes(ext)) continue;
       const originalName = path.basename(srcPath);
-      const fileType = this.detectFileType(ext);
+      const fileType = KnowledgeService.detectFileType(ext);
       const stat = fs.statSync(srcPath);
       let destPath;
       if (copyToWorkspace) {
@@ -2132,7 +2838,7 @@ class KnowledgeService {
         }
       } catch {
       }
-      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const now = nowMySQL();
       await dbRun(
         "INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
         [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now]
@@ -2141,7 +2847,7 @@ class KnowledgeService {
         "SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1",
         [userId, path.basename(destPath), fileType]
       );
-      if (row) imported.push(this.rowToFile(row));
+      if (row) imported.push(KnowledgeService.rowToFile(row));
     }
     return imported;
   }
@@ -2156,30 +2862,24 @@ class KnowledgeService {
   static async getFile(fileId) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
     if (!row) return null;
-    return { ...this.rowToFile(row), tags: await this.getFileTags(fileId) };
+    return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
   }
   static async deleteFile(fileId, dpf) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
     if (!row) throw new Error("文件不存在");
-    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [
-      (/* @__PURE__ */ new Date()).toISOString(),
-      fileId
-    ]);
+    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
     await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
       row.user_id,
       "knowledge_file",
       fileId,
-      (/* @__PURE__ */ new Date()).toISOString()
+      nowMySQL()
     ]);
     if (dpf && fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
   }
   static async restoreFile(fileId) {
     const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ? AND status = ?", [fileId, "trash"]);
     if (!row) throw new Error("文件不在回收站中");
-    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [
-      (/* @__PURE__ */ new Date()).toISOString(),
-      fileId
-    ]);
+    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
     await dbRun("DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?", ["knowledge_file", fileId]);
   }
   static async renameFile(fileId, nf) {
@@ -2191,7 +2891,7 @@ class KnowledgeService {
     await dbRun("UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?", [
       nf,
       np,
-      (/* @__PURE__ */ new Date()).toISOString(),
+      nowMySQL(),
       fileId
     ]);
   }
@@ -2252,29 +2952,29 @@ class PreviewService {
       [fileId]
     );
     if (!row) return { error: "文件不存在" };
-    const filePath = row.file_path || row.filePath;
+    const filePath = row.file_path;
     if (!fs.existsSync(filePath)) return { error: "文件不存在于磁盘" };
     const ext = path.extname(row.filename || filePath).toLowerCase();
     try {
       switch (ext) {
         case ".docx":
         case ".doc":
-          return await this.previewDocx(filePath);
+          return await PreviewService.previewDocx(filePath);
         case ".xlsx":
         case ".xls":
-          return await this.previewXlsx(filePath);
+          return await PreviewService.previewXlsx(filePath);
         case ".pdf":
-          return await this.previewPdf(filePath);
+          return await PreviewService.previewPdf(filePath);
         case ".txt":
         case ".md":
-          return this.previewText(filePath);
+          return PreviewService.previewText(filePath);
         case ".png":
         case ".jpg":
         case ".jpeg":
         case ".gif":
         case ".webp":
         case ".svg":
-          return this.previewImage(filePath);
+          return PreviewService.previewImage(filePath);
         case ".pptx":
         case ".ppt":
           return { error: "PPT 预览暂不支持，请使用系统程序打开", fileType: ext };
@@ -2476,6 +3176,110 @@ function registerKnowledgeHandlers() {
     }
   });
 }
+function rowToNote(r) {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    content: r.content,
+    pinned: r.pinned !== 0,
+    source: r.source,
+    createdAt: r.created_at
+  };
+}
+class NoteService {
+  static async listNotes(userId) {
+    const rows = await dbAll(
+      "SELECT * FROM notes WHERE user_id = ? ORDER BY pinned DESC, created_at DESC",
+      [userId]
+    );
+    return rows.map(rowToNote);
+  }
+  static async createNote(userId, content, source = "manual") {
+    const now = nowMySQL();
+    await dbRun("INSERT INTO notes (user_id, content, source, created_at) VALUES (?, ?, ?, ?)", [
+      userId,
+      content,
+      source,
+      now
+    ]);
+    const row = await dbGet(
+      "SELECT * FROM notes WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+      [userId]
+    );
+    if (!row) throw new Error("创建便签失败");
+    return rowToNote(row);
+  }
+  static async deleteNote(noteId) {
+    await dbRun("DELETE FROM notes WHERE id = ?", [noteId]);
+  }
+  static async togglePin(noteId) {
+    const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    if (!row) return null;
+    await dbRun("UPDATE notes SET pinned = ? WHERE id = ?", [row.pinned ? 0 : 1, noteId]);
+    const updated = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    return updated ? rowToNote(updated) : null;
+  }
+  /** Clean notes older than 24h (unpinned only) */
+  static async cleanOldNotes() {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3);
+    const cutoffStr = cutoff.toISOString().replace("T", " ").slice(0, 19);
+    await dbRun("DELETE FROM notes WHERE pinned = 0 AND created_at < ?", [cutoffStr]);
+    return 0;
+  }
+}
+const note_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  NoteService
+}, Symbol.toStringTag, { value: "Module" }));
+let noteRefreshTarget = null;
+function setNoteRefreshTarget(wc) {
+  noteRefreshTarget = wc;
+}
+function registerNoteHandlers() {
+  electron.ipcMain.handle(IPC.NOTE_LIST, async (_event, userId) => {
+    try {
+      const notes = await NoteService.listNotes(userId);
+      return { success: true, data: notes };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.NOTE_CREATE, async (_event, data) => {
+    try {
+      const note = await NoteService.createNote(data.userId, data.content, data.source || "manual");
+      noteRefreshTarget?.send("note:refresh");
+      return { success: true, data: note };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, noteId) => {
+    try {
+      await NoteService.deleteNote(noteId);
+      noteRefreshTarget?.send("note:refresh");
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.NOTE_PIN, async (_event, noteId) => {
+    try {
+      const note = await NoteService.togglePin(noteId);
+      noteRefreshTarget?.send("note:refresh");
+      return note ? { success: true, data: note } : { success: false, error: "便签不存在" };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.NOTE_CLIPBOARD, async () => {
+    try {
+      const text = electron.clipboard.readText();
+      return { success: true, data: text };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
 function rowToItem(r) {
   return {
     id: r.id,
@@ -2499,7 +3303,7 @@ class RecycleService {
       [userId, itemId, itemType]
     );
     if (!item) throw new Error("回收站中未找到该项目");
-    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const now = nowMySQL();
     if (itemType === "blog")
       await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
     else if (itemType === "knowledge_file")
@@ -2794,7 +3598,7 @@ class WebScraperService {
     if (!article) {
       throw new Error("无法提取网页正文");
     }
-    const markdown = this.turndown.turndown(article.content);
+    const markdown = WebScraperService.turndown.turndown(article.content);
     const excerpt = article.excerpt || article.textContent?.substring(0, 200) || "";
     return {
       title: article.title || "未命名文章",
@@ -2875,8 +3679,8 @@ class SearchService {
   }
   static async globalSearch(userId, query) {
     const [blogs, knowledge] = await Promise.all([
-      this.searchBlogs(userId, query),
-      this.searchKnowledge(userId, query)
+      SearchService.searchBlogs(userId, query),
+      SearchService.searchKnowledge(userId, query)
     ]);
     return { blogs, knowledge };
   }
@@ -3012,516 +3816,7 @@ function registerAllIpcHandlers() {
   registerScrapeHandler();
   registerAppHandlers();
   registerTagHandlers();
-}
-let petActions = {};
-function setPetActions(actions) {
-  petActions = actions;
-}
-let tray = null;
-let mainWindow$2 = null;
-function makeIcon(size) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
-    <path d="M8 2.5C8 2.5 5.5 1.5 4 1.5C2.5 1.5 1.5 2 1.5 2v10c0 0 1-.5 2.5-.5C5.5 11.5 8 12.5 8 12.5V2.5z" fill="#58a6ff"/>
-    <path d="M8 2.5C8 2.5 10.5 1.5 12 1.5S14.5 2 14.5 2v10c0 0-1-.5-2.5-.5S8 12.5 8 12.5V2.5z" fill="#4090e0"/>
-    <line x1="8" y1="2.5" x2="8" y2="12.5" stroke="#1a3a5c" stroke-width="0.5"/>
-  </svg>`;
-  return electron.nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`);
-}
-function buildMenu() {
-  return electron.Menu.buildFromTemplate([
-    { label: "📝 快速便签", click: () => petActions["quick-note"]?.() },
-    { label: "📄 新建博客", click: () => petActions["new-blog"]?.() },
-    { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
-    { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
-    { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
-    { type: "separator" },
-    {
-      label: "📂 打开主窗口",
-      click: () => {
-        if (mainWindow$2) {
-          mainWindow$2.show();
-          mainWindow$2.focus();
-        }
-      }
-    },
-    { type: "separator" },
-    { label: "🐱 桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
-    { type: "separator" },
-    {
-      label: "❌ 退出",
-      click: () => {
-        electron.app.exit();
-      }
-    }
-  ]);
-}
-let petActive = false;
-function togglePet() {
-  if (petActive) {
-    petActive = false;
-    const pw = getPetWindow();
-    if (pw && !pw.isDestroyed()) pw.close();
-    if (tray) tray.setContextMenu(buildMenu());
-    return;
-  }
-  petActive = true;
-  if (mainWindow$2) createPet(mainWindow$2);
-  if (tray) tray.setContextMenu(buildMenu());
-}
-function setupTray(win) {
-  mainWindow$2 = win;
-  if (tray) tray.destroy();
-  tray = new electron.Tray(makeIcon(16));
-  tray.setToolTip("本地博客与知识库");
-  tray.setContextMenu(buildMenu());
-  tray.on("double-click", () => {
-    if (mainWindow$2) {
-      mainWindow$2.show();
-      mainWindow$2.focus();
-    }
-  });
-}
-let petWin = null;
-let mainWindow$1 = null;
-let dragInterval = null;
-let dragOffset = { x: 0, y: 0 };
-let _posFile;
-function posFile() {
-  return _posFile || (_posFile = path.join(electron.app.getPath("userData"), "pet-position.json"));
-}
-let _petDir;
-function petDir() {
-  return _petDir || (_petDir = path.join(electron.app.getPath("userData"), "pet"));
-}
-let cachedUserId = null;
-async function getUserId() {
-  if (cachedUserId) return cachedUserId;
-  const { dbGet: dbGet2 } = await Promise.resolve().then(() => index);
-  const user = await dbGet2("SELECT id FROM users LIMIT 1");
-  cachedUserId = user?.id || 1;
-  return cachedUserId;
-}
-function ensurePetImages() {
-  const imgDir = path.join(petDir(), "img");
-  fs.mkdirSync(imgDir, { recursive: true });
-  const srcDir = path.join(__dirname, "..", "..", "img");
-  const files = ["static.png", "drug.png"];
-  for (const f of files) {
-    const dest = path.join(imgDir, f);
-    if (!fs.existsSync(dest)) {
-      const src = path.join(srcDir, f);
-      if (fs.existsSync(src)) fs.copyFileSync(src, dest);
-    }
-  }
-  return {
-    static: path.join(imgDir, "static.png").replace(/\\/g, "/"),
-    drug: path.join(imgDir, "drug.png").replace(/\\/g, "/")
-  };
-}
-function ensureMiniPreload() {
-  const p = path.join(electron.app.getPath("userData"), "mini-preload.js");
-  if (!fs.existsSync(p)) {
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(
-      p,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`
-    );
-  }
-  return p;
-}
-let miniNoteWin = null;
-let miniScrapeWin = null;
-function showQuickNote() {
-  if (miniNoteWin && !miniNoteWin.isDestroyed()) {
-    miniNoteWin.focus();
-    return;
-  }
-  const miniPreload = ensureMiniPreload();
-  let closing = false;
-  const win = new electron.BrowserWindow({
-    width: 380,
-    height: 60,
-    frame: false,
-    alwaysOnTop: true,
-    resizable: false,
-    skipTaskbar: true,
-    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
-  });
-  win.center();
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s}
-    body.saved{background:#1a3a2e}
-    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif}
-    input::placeholder{color:#666}
-    .hint{color:#555;font-size:11px;white-space:nowrap;margin-left:8px;transition:color .2s}
-    body.saved .hint{color:#3fb950}
-  </style></head><body>
-    <input id="inp" placeholder="快速便签..." autofocus>
-    <span class="hint" id="hint">Enter 保存 · Esc 关闭</span>
-  </body></html>`;
-  miniNoteWin = win;
-  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  win.once("ready-to-show", () => win.show());
-  win.on("closed", () => {
-    miniNoteWin = null;
-  });
-  const saveAndClose = async () => {
-    const text = await win.webContents.executeJavaScript('document.getElementById("inp").value').catch(() => "");
-    if (text.trim()) {
-      try {
-        const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
-        const uid = await getUserId();
-        await BlogService2.quickCreate(uid, text.trim().substring(0, 50), text.trim());
-        await win.webContents.executeJavaScript(`
-          document.body.classList.add('saved');
-          document.getElementById('hint').textContent='✓ 已保存';
-        `);
-        await new Promise((r) => setTimeout(r, 400));
-        new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
-      } catch (e) {
-        new electron.Notification({ title: "保存失败", body: e.message }).show();
-      }
-    }
-    if (!win.isDestroyed()) win.close();
-  };
-  const forceClose = setTimeout(() => {
-    if (!win.isDestroyed()) win.close();
-  }, 5e3);
-  win.webContents.on("before-input-event", (_e, input) => {
-    if (input.key === "Escape") {
-      clearTimeout(forceClose);
-      win.close();
-    }
-    if (input.key === "Enter") {
-      clearTimeout(forceClose);
-      saveAndClose();
-    }
-  });
-  win.on("close", (e) => {
-    if (!closing) {
-      e.preventDefault();
-      closing = true;
-      clearTimeout(forceClose);
-      saveAndClose();
-    }
-  });
-}
-function showScrapeWindow() {
-  if (miniScrapeWin && !miniScrapeWin.isDestroyed()) {
-    miniScrapeWin.focus();
-    return;
-  }
-  const miniPreload = ensureMiniPreload();
-  const win = new electron.BrowserWindow({
-    width: 500,
-    height: 420,
-    frame: false,
-    alwaysOnTop: true,
-    resizable: false,
-    skipTaskbar: true,
-    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
-  });
-  win.center();
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px}
-    h2{font-size:16px;margin-bottom:12px}
-    input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
-    input:focus{border-color:#58a6ff}
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
-    .btn-primary{background:#58a6ff;color:#fff}
-    .btn-primary:disabled{opacity:.4;cursor:default}
-    .status{margin-top:8px;font-size:12px;color:#888}
-    .preview{margin-top:12px;padding:12px;background:#0d1117;border-radius:6px;max-height:180px;overflow-y:auto;font-size:13px;line-height:1.6}
-    .close-btn{position:absolute;top:8px;right:12px;cursor:pointer;color:#666;font-size:16px;background:none;border:none}
-    .close-btn:hover{color:#e0e0e0}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .spinner{display:none;width:16px;height:16px;border:2px solid #333;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;margin-left:8px}
-  </style></head><body>
-    <button class="close-btn" onclick="window.close()">✕</button>
-    <h2>🌐 收藏网页</h2>
-    <input id="url" placeholder="粘贴网页 URL" autofocus>
-    <button class="btn btn-primary" id="scrape-btn" onclick="doScrape()">抓取</button>
-    <div class="status" id="status"><span class="spinner" id="spinner"></span></div>
-    <div class="preview" id="preview" style="display:none"></div>
-    <button class="btn btn-primary" id="import-btn" style="display:none;margin-top:8px" onclick="doImport()">导入为博客</button>
-  </body></html>`;
-  miniScrapeWin = win;
-  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  win.on("closed", () => {
-    miniScrapeWin = null;
-  });
-  win.webContents.once("did-finish-load", () => {
-    win.webContents.executeJavaScript(`
-      let lastResult=null;
-      window.doScrape=async()=>{
-        const url=document.getElementById('url').value.trim();
-        if(!url)return;
-        document.getElementById('status').innerHTML='<span class="spinner" style="display:inline-block"></span> 抓取中...';
-        document.getElementById('scrape-btn').disabled=true;
-        try{
-          const result=await window.miniApi.invoke('pet:scrape',url);
-          if(result.success){
-            lastResult=result.data;
-            document.getElementById('status').textContent='✓ '+result.data.title;
-            document.getElementById('preview').style.display='block';
-            document.getElementById('preview').textContent=result.data.excerpt||result.data.content?.substring(0,1500)||'';
-            document.getElementById('import-btn').style.display='inline-flex';
-          }else{
-            document.getElementById('status').textContent='✗ '+(result.error||'抓取失败');
-          }
-        }catch(e){document.getElementById('status').textContent='✗ 抓取失败';}
-        document.getElementById('scrape-btn').disabled=false;
-      };
-      window.doImport=async()=>{
-        if(!lastResult)return;
-        document.getElementById('import-btn').disabled=true;
-        document.getElementById('import-btn').textContent='导入中...';
-        try{
-          const result=await window.miniApi.invoke('pet:scrape-import',lastResult);
-          document.getElementById('status').textContent=result.success?'✓ 已导入':'✗ 导入失败';
-          if(result.success)setTimeout(()=>window.close(),800);
-        }catch(e){document.getElementById('status').textContent='✗ 导入失败';}
-        document.getElementById('import-btn').disabled=false;
-        document.getElementById('import-btn').textContent='导入为博客';
-      };
-    `);
-  });
-  win.once("ready-to-show", () => win.show());
-}
-async function handleImportMd() {
-  const result = await electron.dialog.showOpenDialog({
-    title: "导入 Markdown 文件",
-    properties: ["openFile", "multiSelections"],
-    filters: [{ name: "Markdown", extensions: ["md", "txt", "html"] }]
-  });
-  if (result.canceled || !result.filePaths.length) return;
-  try {
-    const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
-    const uid = await getUserId();
-    const blogs = await BlogService2.importMarkdownFiles(uid, result.filePaths);
-    new electron.Notification({ title: "导入完成", body: `已导入 ${blogs.length} 篇博客` }).show();
-  } catch (e) {
-    new electron.Notification({ title: "导入失败", body: e.message }).show();
-  }
-}
-async function handleImportFile() {
-  const result = await electron.dialog.showOpenDialog({
-    title: "导入知识库文件",
-    properties: ["openFile", "multiSelections"],
-    filters: [
-      {
-        name: "All Supported",
-        extensions: [
-          "docx",
-          "doc",
-          "xlsx",
-          "xls",
-          "pptx",
-          "ppt",
-          "pdf",
-          "txt",
-          "md",
-          "png",
-          "jpg",
-          "jpeg",
-          "gif",
-          "webp",
-          "svg"
-        ]
-      }
-    ]
-  });
-  if (result.canceled || !result.filePaths.length) return;
-  try {
-    const { KnowledgeService: KnowledgeService2 } = await Promise.resolve().then(() => knowledge_service);
-    const uid = await getUserId();
-    await KnowledgeService2.importFiles(uid, result.filePaths, true);
-    new electron.Notification({ title: "导入完成", body: `已导入 ${result.filePaths.length} 个文件` }).show();
-  } catch (e) {
-    new electron.Notification({ title: "导入失败", body: e.message }).show();
-  }
-}
-function showStandaloneEditor() {
-  if (mainWindow$1) {
-    if (!mainWindow$1.isVisible()) mainWindow$1.show();
-    mainWindow$1.focus();
-    mainWindow$1.webContents.send("pet-action", { action: "new-blog" });
-  }
-}
-function petMenu() {
-  return electron.Menu.buildFromTemplate([
-    { label: "📝 快速便签", click: () => showQuickNote() },
-    { label: "📄 新建博客", click: () => showStandaloneEditor() },
-    { label: "📥 导入 MD", click: () => handleImportMd() },
-    { label: "📎 导入文件", click: () => handleImportFile() },
-    { label: "🌐 收藏网页", click: () => showScrapeWindow() },
-    { type: "separator" },
-    {
-      label: "📂 打开主窗口",
-      click: () => {
-        if (mainWindow$1) {
-          mainWindow$1.show();
-          mainWindow$1.focus();
-        }
-      }
-    }
-  ]);
-}
-function loadPosition() {
-  try {
-    if (fs.existsSync(posFile())) {
-      const pos = JSON.parse(fs.readFileSync(posFile(), "utf-8"));
-      const displays = electron.screen.getAllDisplays();
-      const inBounds = displays.some((d) => {
-        const { x, y, width, height } = d.workArea;
-        return pos.x >= x - 20 && pos.y >= y - 20 && pos.x <= x + width && pos.y <= y + height;
-      });
-      if (inBounds) return pos;
-    }
-  } catch {
-  }
-  const primary = electron.screen.getPrimaryDisplay().workArea;
-  return { x: primary.width - 160, y: primary.height - 160 };
-}
-function createPet(win) {
-  mainWindow$1 = win;
-  if (petWin && !petWin.isDestroyed()) petWin.close();
-  const pos = loadPosition();
-  const images = ensurePetImages();
-  const preloadPath = path.join(electron.app.getPath("userData"), "pet-preload.js");
-  const petHtmlPath = path.join(electron.app.getPath("userData"), "pet.html");
-  fs.writeFileSync(
-    petHtmlPath,
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{margin:0;overflow:hidden;background:transparent}
-#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
-#pet:active{cursor:grabbing}
-@keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-#pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
-#pet.dragging{background-image:url('${images.drug}');animation:none;transform:scale(1.08)}
-@keyframes click-pop{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
-#pet.clicked{animation:click-pop .2s ease}
-#pet:hover{transform:scale(1.05)}
-#pet.dragging:hover{transform:scale(1.08)}
-</style></head><body><div id="pet" class="idle"></div>
-<script>
-let mouseDownPos=null,hasMoved=false;
-const pet=document.getElementById('pet');
-pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
-window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
-window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
-<\/script></html>`
-  );
-  if (!fs.existsSync(preloadPath)) {
-    fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
-    fs.writeFileSync(
-      preloadPath,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`
-    );
-  }
-  petWin = new electron.BrowserWindow({
-    width: 128,
-    height: 128,
-    x: pos.x,
-    y: pos.y,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    resizable: false,
-    skipTaskbar: true,
-    hasShadow: false,
-    focusable: false,
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: preloadPath
-    }
-  });
-  petWin.loadFile(petHtmlPath);
-  petWin.once("ready-to-show", () => petWin?.show());
-  registerPetIpc();
-  setPetActions({
-    "quick-note": showQuickNote,
-    "new-blog": showStandaloneEditor,
-    "import-md": handleImportMd,
-    "import-file": handleImportFile,
-    "scrape-web": showScrapeWindow
-  });
-}
-function initPetActions() {
-  registerPetIpc();
-  setPetActions({
-    "quick-note": showQuickNote,
-    "new-blog": showStandaloneEditor,
-    "import-md": handleImportMd,
-    "import-file": handleImportFile,
-    "scrape-web": showScrapeWindow
-  });
-}
-let _ipcRegistered = false;
-function registerPetIpc() {
-  if (_ipcRegistered) return;
-  _ipcRegistered = true;
-  electron.ipcMain.handle("pet:scrape", async (_e, url) => {
-    try {
-      const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
-      return await WebScraperService2.scrapeWebpage(url);
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-  electron.ipcMain.handle("pet:scrape-import", async (_e, data) => {
-    try {
-      const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
-      const uid = await getUserId();
-      const blog = await BlogService2.createBlog(uid, data.title, "md", data.content);
-      new electron.Notification({ title: "已导入", body: data.title }).show();
-      return { success: true, data: blog };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-  electron.ipcMain.on("pet:startDrag", () => {
-    if (!petWin || petWin.isDestroyed()) return;
-    const cursor = electron.screen.getCursorScreenPoint();
-    const [wx, wy] = petWin.getPosition();
-    dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
-    dragInterval = setInterval(() => {
-      if (!petWin || petWin.isDestroyed()) {
-        if (dragInterval) clearInterval(dragInterval);
-        return;
-      }
-      const c = electron.screen.getCursorScreenPoint();
-      petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
-    }, 16);
-  });
-  electron.ipcMain.on("pet:stopDrag", () => {
-    if (dragInterval) {
-      clearInterval(dragInterval);
-      dragInterval = null;
-    }
-  });
-  electron.ipcMain.on("pet:savePosition", () => {
-    if (petWin && !petWin.isDestroyed()) {
-      const [x, y] = petWin.getPosition();
-      try {
-        fs.writeFileSync(posFile(), JSON.stringify({ x, y }));
-      } catch {
-      }
-    }
-  });
-  electron.ipcMain.on("pet:click", () => {
-    if (petWin && !petWin.isDestroyed()) {
-      petMenu().popup({ window: petWin, x: 64, y: 64 });
-    }
-  });
-}
-function getPetWindow() {
-  return petWin;
+  registerNoteHandlers();
 }
 electron.app.disableHardwareAcceleration();
 electron.app.commandLine.appendSwitch("disable-gpu");
@@ -3571,8 +3866,18 @@ electron.app.whenReady().then(async () => {
   }
   registerAllIpcHandlers();
   createWindow();
-  if (mainWindow) setupTray(mainWindow);
+  if (mainWindow) {
+    setupTray(mainWindow);
+    setNoteRefreshTarget(mainWindow.webContents);
+  }
   initPetActions();
+  const noteCleanTimer = setInterval(() => {
+    NoteService.cleanOldNotes().catch(() => {
+    });
+  }, 5 * 60 * 1e3);
+  electron.globalShortcut.register("CommandOrControl+Shift+N", () => {
+    showMdFloatWindow();
+  });
   const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
   const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
   if (!fs.existsSync(shortcutPath)) {
@@ -3603,6 +3908,10 @@ start "" npm run dev\r
   }
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+  electron.app.on("will-quit", () => {
+    electron.globalShortcut.unregisterAll();
+    clearInterval(noteCleanTimer);
   });
 });
 electron.app.on("window-all-closed", () => {

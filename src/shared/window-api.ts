@@ -121,6 +121,15 @@ export interface WindowApi {
   // Events
   onTrayAction(cb: (action: string) => void): () => void;
   onPetAction(cb: (action: string) => void): () => void;
+  onBlogRefresh(cb: () => void): () => void;
+  onNoteRefresh(cb: () => void): () => void;
+
+  // Notes
+  noteList(userId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }[]>>;
+  noteCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
+  noteDelete(noteId: number): Promise<ApiResponse<void>>;
+  notePin(noteId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
+  noteClipboard(): Promise<ApiResponse<string>>;
 
   // File System
   selectFiles(exts: string[]): Promise<string[] | undefined>;

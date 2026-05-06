@@ -121,7 +121,7 @@ function groupByMonth(blogs: BlogItem[]): MonthGroup[] {
   for (const b of blogs) {
     const key = b.createdAt.substring(0, 7); // '2026-05'
     if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(b);
+    map.get(key)?.push(b);
   }
   const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
   return Array.from(map.entries()).map(([month, items]) => {

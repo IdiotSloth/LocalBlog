@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './features/auth/LoginPage';
@@ -26,6 +27,8 @@ const RecycleBinPage = lazy(() =>
 );
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const TagManagePage = lazy(() => import('./features/tags/TagManagePage').then((m) => ({ default: m.TagManagePage })));
+const GuidePage = lazy(() => import('./features/guide/GuidePage').then((m) => ({ default: m.GuidePage })));
+const NoteListPage = lazy(() => import('./features/notes/NoteListPage').then((m) => ({ default: m.NoteListPage })));
 
 function PageSkeleton() {
   return (
@@ -37,7 +40,7 @@ function PageSkeleton() {
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
   if (isLoading) {
     return (
@@ -45,7 +48,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return children ? <>{children}</> : <Outlet />;
 }
 
 export default function App() {
@@ -58,9 +61,11 @@ export default function App() {
   }, [initSession, initTheme]);
 
   const lazyPage = (Page: React.LazyExoticComponent<React.ComponentType<any>>) => (
-    <Suspense fallback={<PageSkeleton />}>
-      <Page />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<PageSkeleton />}>
+        <Page />
+      </Suspense>
+    </ErrorBoundary>
   );
 
   return (
@@ -87,15 +92,11 @@ export default function App() {
           <Route path="/tags" element={lazyPage(TagManagePage)} />
           <Route path="/recycle" element={lazyPage(RecycleBinPage)} />
           <Route path="/settings" element={lazyPage(SettingsPage)} />
+          <Route path="/notes" element={lazyPage(NoteListPage)} />
+          <Route path="/guide" element={lazyPage(GuidePage)} />
         </Route>
         {/* Standalone editor — bypasses MainLayout for pet/tray "新建博客" action */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <></>
-            </ProtectedRoute>
-          }
-        >
+        <Route element={<ProtectedRoute></ProtectedRoute>}>
           <Route path="/standalone/editor" element={lazyPage(BlogEditorPage)} />
         </Route>
       </Routes>

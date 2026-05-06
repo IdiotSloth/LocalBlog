@@ -3,19 +3,18 @@ import path from 'node:path';
 import { shell } from 'electron';
 import ExcelJS from 'exceljs';
 import mammoth from 'mammoth';
-import type { KnowledgeFile } from '../../shared/types';
 import { dbGet } from '../db';
 
 export class PreviewService {
   /** Generate an HTML preview for a knowledge base file */
   static async generatePreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }> {
-    const row = await dbGet<KnowledgeFile & { file_path: string; filename: string }>(
+    const row = await dbGet<{ file_path: string; filename: string; file_type: string }>(
       'SELECT * FROM knowledge_files WHERE id = ?',
       [fileId],
     );
     if (!row) return { error: '文件不存在' };
 
-    const filePath = row.file_path || row.filePath;
+    const filePath = row.file_path;
     if (!fs.existsSync(filePath)) return { error: '文件不存在于磁盘' };
 
     const ext = path.extname(row.filename || filePath).toLowerCase();
@@ -24,22 +23,22 @@ export class PreviewService {
       switch (ext) {
         case '.docx':
         case '.doc':
-          return await this.previewDocx(filePath);
+          return await PreviewService.previewDocx(filePath);
         case '.xlsx':
         case '.xls':
-          return await this.previewXlsx(filePath);
+          return await PreviewService.previewXlsx(filePath);
         case '.pdf':
-          return await this.previewPdf(filePath);
+          return await PreviewService.previewPdf(filePath);
         case '.txt':
         case '.md':
-          return this.previewText(filePath);
+          return PreviewService.previewText(filePath);
         case '.png':
         case '.jpg':
         case '.jpeg':
         case '.gif':
         case '.webp':
         case '.svg':
-          return this.previewImage(filePath);
+          return PreviewService.previewImage(filePath);
         case '.pptx':
         case '.ppt':
           return { error: 'PPT 预览暂不支持，请使用系统程序打开', fileType: ext };

@@ -1,6 +1,8 @@
 /**
  * Universal API client — works in Electron (window.api) and Browser (fetch REST API).
  */
+import type { WindowApi } from '../../shared/window-api';
+
 const BASE = 'http://localhost:3456';
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
@@ -126,12 +128,20 @@ const webApi = {
   getAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
   createStartMenuShortcut: () => Promise.resolve({ success: false, error: '网页版不支持' }),
   hasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
+
+  // Notes (desktop-only)
+  noteList: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  noteCreate: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  noteDelete: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  notePin: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  noteClipboard: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  onNoteRefresh: () => () => {},
 };
 
 /** Detect environment and return the appropriate API */
-export const api: typeof webApi = (() => {
+export const api: WindowApi = (() => {
   if (typeof window !== 'undefined' && (window as any).api) {
-    return (window as any).api;
+    return (window as any).api as WindowApi;
   }
-  return webApi;
+  return webApi as WindowApi;
 })();

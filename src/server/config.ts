@@ -1,4 +1,6 @@
 /** Shared server configuration */
+export { nowMySQL } from '../shared/datetime';
+
 export const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',

@@ -63,7 +63,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
 
   const handleRename = async (folderId: number, name: string) => {
     const newName2 = prompt('重命名文件夹:', name);
-    if (newName2 && newName2.trim() && newName2.trim() !== name) {
+    if (newName2?.trim() && newName2.trim() !== name) {
       await window.api.folderRename({ folderId, name: newName2.trim() });
       loadTree();
     }
@@ -105,7 +105,6 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
       {showNewInput === node.id && (
         <div className="flex gap-1 px-2 py-1" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
           <input
-            autoFocus
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -158,7 +157,6 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
       {showNewInput === -1 && (
         <div className="mb-1 flex gap-1 px-1">
           <input
-            autoFocus
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}

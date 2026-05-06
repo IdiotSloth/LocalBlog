@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import { blogCreateSchema, blogUpdateSchema } from '../../shared/validation';
+import { nowMySQL } from '../config';
 import { getPool } from '../db';
 import { type AuthRequest, requireAuth } from '../middleware/auth';
 
@@ -35,8 +36,8 @@ blogRouter.get('/list', async (req: AuthRequest, res) => {
       query: (req.query.query as string) || undefined,
       sortBy: req.query.sortBy as string,
       sortOrder: req.query.sortOrder as string,
-      offset: Math.max(0, Number.parseInt(req.query.offset as string) || 0),
-      limit: Math.min(200, Math.max(1, Number.parseInt(req.query.limit as string) || 50)),
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
     });
 
     return res.json({ success: true, data: result });
@@ -75,7 +76,7 @@ blogRouter.post('/create', async (req: AuthRequest, res) => {
     const { title, format, content } = parsed.data;
 
     const pool = getPool();
-    const now = new Date().toISOString();
+    const now = nowMySQL();
     const [result] = (await pool.execute(
       'INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       [userId, title.trim(), format, content, now, now],
@@ -90,8 +91,8 @@ blogRouter.post('/create', async (req: AuthRequest, res) => {
         format,
         content,
         status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: nowMySQL(),
+        updatedAt: nowMySQL(),
         tags: [],
       },
     });
@@ -122,7 +123,7 @@ blogRouter.post('/:id/update', async (req: AuthRequest, res) => {
     if (updates.length === 0) return res.json({ success: false, error: '无更新内容' });
 
     updates.push('updated_at = ?');
-    params.push(new Date().toISOString());
+    params.push(nowMySQL());
     params.push(req.params.id, userId);
     await pool.execute(`UPDATE blogs SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`, params);
 
@@ -148,15 +149,12 @@ blogRouter.post('/:id/delete', async (req: AuthRequest, res) => {
     ])) as any[];
     if (!blog) return res.json({ success: false, error: '博客不存在' });
 
-    await pool.execute("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [
-      new Date().toISOString(),
-      req.params.id,
-    ]);
+    await pool.execute("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), req.params.id]);
     await pool.execute('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [
       userId,
       'blog',
       req.params.id,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
     return res.json({ success: true });
   } catch (err) {
@@ -170,7 +168,7 @@ blogRouter.post('/:id/restore', async (req: AuthRequest, res) => {
     if (!userId) return res.status(401).json({ success: false, error: '未登录' });
     const pool = getPool();
     await pool.execute("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?", [
-      new Date().toISOString(),
+      nowMySQL(),
       req.params.id,
       userId,
     ]);
@@ -193,7 +191,7 @@ blogRouter.post('/import-md', async (req: AuthRequest, res) => {
     for (const item of items) {
       const title = typeof item === 'string' ? item.substring(0, 50) || '未命名' : item.title || '导入文章';
       const content = typeof item === 'string' ? item : item.content || '';
-      const now = new Date().toISOString();
+      const now = nowMySQL();
       const [result] = (await pool.execute(
         'INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
         [userId, title.substring(0, 100), 'md', content, now, now],
@@ -213,7 +211,7 @@ blogRouter.post('/save-draft', async (req: AuthRequest, res) => {
     await pool.execute('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [
       blogId,
       content,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
     return res.json({ success: true });
   } catch (err) {
@@ -251,7 +249,7 @@ blogRouter.post('/:id/rollback', async (req: AuthRequest, res) => {
     const draft = drafts[0];
     await pool.execute('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?', [
       draft.content,
-      new Date().toISOString(),
+      nowMySQL(),
       req.params.id,
       uid,
     ]);

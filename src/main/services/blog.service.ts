@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { MAX_TITLE_LENGTH } from '../../shared/constants';
+import { nowMySQL } from '../../shared/datetime';
 import { sanitizePagination } from '../../shared/pagination';
 import type { Blog, BlogFormat, BlogWithTags, ItemStatus, Tag } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
@@ -34,7 +35,7 @@ export class BlogService {
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ''));
 
-    const now = new Date().toISOString();
+    const now = nowMySQL();
     await dbRun(
       'INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       [userId, title, format, content, now, now],
@@ -70,39 +71,31 @@ export class BlogService {
     if (update.title !== undefined) {
       if (!update.title || update.title.length > MAX_TITLE_LENGTH)
         throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?', [
-        update.title,
-        new Date().toISOString(),
-        blogId,
-      ]);
+      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?', [update.title, nowMySQL(), blogId]);
     }
     if (update.content !== undefined) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
       fs.writeFileSync(filePath, update.content, 'utf-8');
-      await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?', [
-        update.content,
-        new Date().toISOString(),
-        blogId,
-      ]);
+      await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?', [update.content, nowMySQL(), blogId]);
     }
   }
 
   static async deleteBlog(blogId: number): Promise<void> {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ?', [blogId]);
     if (!blog) throw new Error('博客不存在');
-    await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [new Date().toISOString(), blogId]);
+    await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
     await dbRun('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [
       blog.user_id,
       'blog',
       blogId,
-      new Date().toISOString(),
+      nowMySQL(),
     ]);
   }
 
   static async restoreBlog(blogId: number): Promise<void> {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ? AND status = ?', [blogId, 'trash']);
     if (!blog) throw new Error('博客不在回收站中');
-    await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [new Date().toISOString(), blogId]);
+    await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
     await dbRun('DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?', ['blog', blogId]);
   }
 
@@ -194,14 +187,14 @@ export class BlogService {
         if (h1Match) title = h1Match[1].trim();
       }
       const format: BlogFormat = ext === '.html' ? 'html' : 'md';
-      const blog = await this.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
+      const blog = await BlogService.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
       blogs.push(blog);
     }
 
     // Import from inline content (web fallback)
     for (const item of contents) {
       const title = (item.title || '未命名').substring(0, MAX_TITLE_LENGTH);
-      const blog = await this.createBlog(userId, title, 'md', item.content);
+      const blog = await BlogService.createBlog(userId, title, 'md', item.content);
       blogs.push(blog);
     }
 
@@ -211,11 +204,7 @@ export class BlogService {
   static async saveDraft(blogId: number, content: string): Promise<void> {
     const blog = await dbGet<BlogRow>('SELECT * FROM blogs WHERE id = ?', [blogId]);
     if (!blog) throw new Error('博客不存在');
-    await dbRun('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [
-      blogId,
-      content,
-      new Date().toISOString(),
-    ]);
+    await dbRun('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [blogId, content, nowMySQL()]);
   }
 
   static async getHistory(blogId: number): Promise<DraftRow[]> {
@@ -228,7 +217,7 @@ export class BlogService {
   static async rollback(blogId: number, draftId: number): Promise<void> {
     const draft = await dbGet<DraftRow>('SELECT * FROM blog_drafts WHERE id = ? AND blog_id = ?', [draftId, blogId]);
     if (!draft) throw new Error('草稿不存在');
-    await this.updateBlog(blogId, { content: draft.content });
+    await BlogService.updateBlog(blogId, { content: draft.content });
   }
 
   static async getBlogTags(blogId: number): Promise<Tag[]> {

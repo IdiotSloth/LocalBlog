@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { nowMySQL } from '../../shared/datetime';
 import type { RecycleBinItem } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 import { getBlogAssetsDir, getBlogPath, getWorkspacePath } from '../utils/paths';
@@ -37,7 +38,7 @@ export class RecycleService {
       [userId, itemId, itemType],
     );
     if (!item) throw new Error('回收站中未找到该项目');
-    const now = new Date().toISOString();
+    const now = nowMySQL();
     if (itemType === 'blog')
       await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
     else if (itemType === 'knowledge_file')

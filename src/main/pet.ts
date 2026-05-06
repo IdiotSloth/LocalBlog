@@ -9,16 +9,35 @@ let dragInterval: ReturnType<typeof setInterval> | null = null;
 let dragOffset: { x: number; y: number } = { x: 0, y: 0 };
 
 let _posFile: string;
-function posFile(): string { return _posFile || (_posFile = path.join(app.getPath('userData'), 'pet-position.json')); }
+function posFile(): string {
+  return _posFile || (_posFile = path.join(app.getPath('userData'), 'pet-position.json'));
+}
 let _petDir: string;
-function petDir(): string { return _petDir || (_petDir = path.join(app.getPath('userData'), 'pet')); }
+function petDir(): string {
+  return _petDir || (_petDir = path.join(app.getPath('userData'), 'pet'));
+}
 
 let cachedUserId: number | null = null;
+
+/** Called by auth IPC after successful login to keep pet/tray in sync with current user */
+export function setCurrentUserId(id: number): void {
+  cachedUserId = id;
+}
+
 async function getUserId(): Promise<number> {
   if (cachedUserId) return cachedUserId;
   const { dbGet } = await import('./db');
+  // Fallback: resolve from active session if setCurrentUserId was never called
+  const session = await dbGet<{ user_id: number }>(
+    "SELECT user_id FROM sessions WHERE expires_at > datetime('now') ORDER BY id DESC LIMIT 1",
+  );
+  if (session?.user_id) {
+    cachedUserId = session.user_id;
+    return cachedUserId;
+  }
   const user = await dbGet<{ id: number }>('SELECT id FROM users LIMIT 1');
-  cachedUserId = user?.id || 1;
+  if (user?.id) cachedUserId = user.id;
+  else cachedUserId = 0;
   return cachedUserId;
 }
 
@@ -97,22 +116,28 @@ function showQuickNote(): void {
 
   // Save function with visual feedback + force-close safety
   const saveAndClose = async () => {
+    if (closing) return;
+    closing = true;
     const text: string = await win.webContents
       .executeJavaScript('document.getElementById("inp").value')
       .catch(() => '');
     if (text.trim()) {
       try {
-        const { BlogService } = await import('./services/blog.service');
+        const { NoteService } = await import('./services/note.service');
         const uid = await getUserId();
-        await BlogService.quickCreate(uid, text.trim().substring(0, 50), text.trim());
+        const note = await NoteService.createNote(uid, text.trim(), 'quick');
         await win.webContents.executeJavaScript(`
           document.body.classList.add('saved');
           document.getElementById('hint').textContent='✓ 已保存';
         `);
         await new Promise((r) => setTimeout(r, 400));
         new Notification({ title: '便签已保存', body: text.trim().substring(0, 60) }).show();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('note:refresh');
+        }
       } catch (e) {
-        new Notification({ title: '保存失败', body: (e as Error).message }).show();
+        console.error('[QuickNote/MVF] Save failed:', e);
+        new Notification({ title: '保存失败', body: (e as Error).message || '未知错误' }).show();
       }
     }
     if (!win.isDestroyed()) win.close();
@@ -138,8 +163,138 @@ function showQuickNote(): void {
   win.on('close', (e) => {
     if (!closing) {
       e.preventDefault();
-      closing = true;
       clearTimeout(forceClose);
+      saveAndClose();
+    }
+  });
+}
+
+// ---- T1207 MVF: Lightweight MD quick-writing floating window ----
+let mdFloatWin: BrowserWindow | null = null;
+
+export function showMdFloatWindow(): void {
+  if (mdFloatWin && !mdFloatWin.isDestroyed()) {
+    mdFloatWin.focus();
+    return;
+  }
+  let closing = false;
+  const win = new BrowserWindow({
+    width: 550,
+    height: 420,
+    minWidth: 400,
+    minHeight: 280,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: true,
+    titleBarStyle: 'hidden',
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  win.center();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;flex-direction:column;height:100vh;background:#1a1a2e;border-radius:8px;font-family:-apple-system,system-ui,sans-serif;overflow:hidden}
+    .titlebar{display:flex;align-items:center;padding:8px 12px;background:#16162a;gap:8px;-webkit-app-region:drag}
+    .titlebar .dot{width:10px;height:10px;border-radius:50%;-webkit-app-region:no-drag}
+    .dot.r{background:#ff5f57;cursor:pointer}
+    .dot.y{background:#febc2e}
+    .dot.g{background:#28c840}
+    .titlebar .label{flex:1;font-size:12px;color:#888;text-align:center}
+    .title-input{border:none;outline:none;background:transparent;color:#e0e0e0;font-size:18px;font-weight:600;padding:10px 16px 4px;font-family:inherit}
+    .title-input::placeholder{color:#555}
+    #content{flex:1;border:none;outline:none;resize:none;background:transparent;color:#c0c0c0;font-size:14px;line-height:1.7;padding:10px 16px;font-family:"JetBrains Mono","Courier New",monospace;tab-size:2}
+    #content::placeholder{color:#444}
+    .statusbar{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#16162a;font-size:11px;color:#555}
+    .statusbar .hint{transition:color .3s}
+    .statusbar .hint.saved{color:#3fb950}
+    .close-btn{cursor:pointer;-webkit-app-region:no-drag}
+  </style></head><body>
+    <div class="titlebar">
+      <span class="dot r close-btn" title="关闭并保存" onclick="window.close()"></span>
+      <span class="dot y"></span>
+      <span class="dot g"></span>
+      <span class="label">MD 快捷写作</span>
+    </div>
+    <input id="title" class="title-input" placeholder="标题..." autofocus>
+    <textarea id="content" placeholder="Markdown 内容...&#10;&#10;Ctrl+S / 点红点 → 保存并关闭&#10;Esc → 丢弃并关闭"></textarea>
+    <div class="statusbar">
+      <span id="hint" class="hint">Ctrl+S 保存 · Esc 丢弃 · 拖标题栏移动</span>
+      <span id="wc">0 字</span>
+    </div>
+    <script>
+      const titleEl = document.getElementById('title');
+      const contentEl = document.getElementById('content');
+      const hintEl = document.getElementById('hint');
+      const wcEl = document.getElementById('wc');
+      let saved = false;
+      contentEl.addEventListener('input', function() {
+        const len = contentEl.value.length;
+        wcEl.textContent = len + ' 字';
+      });
+      function getData() {
+        return { title: titleEl.value.trim(), content: contentEl.value };
+      }
+      // Expose for main process to read
+      window._getData = getData;
+    </script>
+  </body></html>`;
+  mdFloatWin = win;
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  win.once('ready-to-show', () => win.show());
+  win.on('closed', () => {
+    mdFloatWin = null;
+  });
+
+  // Close button (red dot)
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (input.key === 'Escape') {
+      if (!win.isDestroyed()) win.close();
+    }
+  });
+
+  const saveAndClose = async () => {
+    const data: { title: string; content: string } = await win.webContents
+      .executeJavaScript('window._getData ? window._getData() : {title:"",content:""}')
+      .catch(() => ({ title: '', content: '' }));
+    const title = data.title || '快捷写作';
+    const body = data.content || '';
+    if (body.trim() || data.title) {
+      try {
+        const { BlogService } = await import('./services/blog.service');
+        const uid = await getUserId();
+        await BlogService.quickCreate(uid, title.substring(0, 100), body);
+        await win.webContents.executeJavaScript(`
+          hintEl.textContent='\\u2713 已保存';
+          hintEl.classList.add('saved');
+        `);
+        new Notification({ title: '已保存', body: title }).show();
+        // Notify main window to refresh blog list
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('blog:refresh');
+        }
+      } catch (e) {
+        console.error('[QuickNote/MVF] Save failed:', e);
+        new Notification({ title: '保存失败', body: (e as Error).message || '未知错误' }).show();
+      }
+    }
+    if (!win.isDestroyed()) win.close();
+  };
+
+  // Save on Ctrl+S / Cmd+S
+  win.webContents.on('before-input-event', (_e, input) => {
+    if ((input.control || input.meta) && input.key === 's') {
+      saveAndClose();
+    }
+    if (input.key === 'Escape') {
+      if (!win.isDestroyed()) win.close();
+    }
+  });
+
+  // Close window → save
+  win.on('close', (e) => {
+    if (!closing) {
+      e.preventDefault();
+      closing = true;
       saveAndClose();
     }
   });
@@ -290,7 +445,7 @@ function showStandaloneEditor(): void {
   if (mainWindow) {
     if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
-    mainWindow.webContents.send('pet-action', { action: 'new-blog' });
+    mainWindow.webContents.send('pet-action', 'new-blog');
   }
 }
 
@@ -405,6 +560,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
   // Wire tray menu to same mini-window actions
   setPetActions({
     'quick-note': showQuickNote,
+    'md-float': showMdFloatWindow,
     'new-blog': showStandaloneEditor,
     'import-md': handleImportMd,
     'import-file': handleImportFile,
@@ -417,6 +573,7 @@ export function initPetActions(): void {
   registerPetIpc();
   setPetActions({
     'quick-note': showQuickNote,
+    'md-float': showMdFloatWindow,
     'new-blog': showStandaloneEditor,
     'import-md': handleImportMd,
     'import-file': handleImportFile,
