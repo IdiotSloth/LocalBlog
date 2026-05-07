@@ -51,6 +51,7 @@ const IPC = {
   SEARCH_BLOGS: "search:blogs",
   SEARCH_KB: "search:kb",
   // Workspace
+  WORKSPACE_EXPORT_ZIP: "workspace:export-zip",
   WORKSPACE_GET_INFO: "workspace:get-info",
   WORKSPACE_SET_PATH: "workspace:set-path",
   WORKSPACE_MIGRATE: "workspace:migrate",
@@ -94,11 +95,20 @@ const IPC = {
   BLOG_EXPORT_DOCX: "blog:exportDocx",
   // Notes
   NOTE_LIST: "note:list",
+  // Continue Writing
+  CONTINUE_GET_DRAFTS: "continue:get-drafts",
+  CONTINUE_GET_LAST_BLOG: "continue:get-last-blog",
+  CONTINUE_GET_RECENT_FILES: "continue:get-recent-files",
   NOTE_CREATE: "note:create",
   NOTE_DELETE: "note:delete",
   NOTE_PIN: "note:pin",
   NOTE_CLIPBOARD: "note:clipboard",
+  // Shortcuts
+  SHORTCUT_GET_ALL: "shortcut:get-all",
+  SHORTCUT_UPDATE: "shortcut:update",
+  SHORTCUT_RESET: "shortcut:reset",
   // App
+  APP_VISIBILITY: "app:visibility",
   APP_GET_VERSION: "app:get-version",
   APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
   APP_SET_AUTO_START: "app:set-auto-start",
@@ -158,6 +168,7 @@ const api = {
   searchBlogs: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
   searchKb: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_KB, data),
   // Workspace
+  workspaceExportZip: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_ZIP, userId),
   workspaceGetInfo: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_GET_INFO, userId),
   workspaceSetPath: (data) => electron.ipcRenderer.invoke(IPC.WORKSPACE_SET_PATH, data),
   workspaceMigrate: (data) => electron.ipcRenderer.invoke(IPC.WORKSPACE_MIGRATE, data),
@@ -191,6 +202,11 @@ const api = {
   backupRestore: (filename) => electron.ipcRenderer.invoke(IPC.BACKUP_RESTORE, filename),
   backupDelete: (filename) => electron.ipcRenderer.invoke(IPC.BACKUP_DELETE, filename),
   // Events — Electron → Renderer
+  onAppVisibility: (cb) => {
+    const handler = (_event, state) => cb(state);
+    electron.ipcRenderer.on(IPC.APP_VISIBILITY, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.APP_VISIBILITY, handler);
+  },
   onTrayAction: (cb) => {
     const handler = (_event, action) => cb(action);
     electron.ipcRenderer.on("tray-action", handler);
@@ -217,9 +233,17 @@ const api = {
   noteDelete: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, noteId),
   notePin: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
   noteClipboard: () => electron.ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
+  // Continue Writing
+  continueGetDrafts: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
+  continueGetLastBlog: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
+  continueGetRecentFiles: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
   // File System Dialogs
   selectFiles: (exts) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => electron.ipcRenderer.invoke(IPC.FS_SELECT_DIR),
+  // Shortcuts
+  shortcutGetAll: () => electron.ipcRenderer.invoke(IPC.SHORTCUT_GET_ALL),
+  shortcutUpdate: (id, key) => electron.ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, id, key),
+  shortcutReset: () => electron.ipcRenderer.invoke(IPC.SHORTCUT_RESET),
   // App
   appGetVersion: () => electron.ipcRenderer.invoke(IPC.APP_GET_VERSION),
   appGetSystemLanguage: () => electron.ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),

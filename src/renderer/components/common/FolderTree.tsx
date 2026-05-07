@@ -18,8 +18,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
   const [error, setError] = useState(false);
   const loadTree = useCallback(async () => {
     try {
-      const d = await window.api.folderTree({ userId, type });
-      const r = d as any;
+      const r = await window.api.folderTree({ userId, type });
       if (r.success && r.data) {
         setTree(r.data);
         setError(false);
@@ -48,8 +47,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
     }
     setActionError('');
     try {
-      const d = await window.api.folderCreate({ userId, name: newName.trim(), type, parentId });
-      const r = d as any;
+      const r = await window.api.folderCreate({ userId, name: newName.trim(), type, parentId });
       if (r.success) {
         setNewName('');
         setShowNewInput(null);

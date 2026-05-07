@@ -29,8 +29,7 @@ export function TimelineView({ userId }: Props) {
     setLoading(true);
     window.api
       .blogList({ userId, sortBy: 'created_at', sortOrder: 'desc', limit: 200 })
-      .then((d: unknown) => {
-        const r = d as any;
+      .then((r) => {
         if (r.success && r.data) {
           setGroups(groupByMonth(r.data.blogs || []));
         }

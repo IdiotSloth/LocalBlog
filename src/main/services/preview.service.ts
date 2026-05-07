@@ -30,18 +30,28 @@ export class PreviewService {
         case '.pdf':
           return await PreviewService.previewPdf(filePath);
         case '.txt':
-        case '.md':
           return PreviewService.previewText(filePath);
+        case '.md':
+          return await PreviewService.previewMarkdown(filePath);
         case '.png':
         case '.jpg':
         case '.jpeg':
         case '.gif':
         case '.webp':
         case '.svg':
+        case '.bmp':
           return PreviewService.previewImage(filePath);
+        case '.mp4':
+        case '.webm':
+        case '.mov':
+          return PreviewService.previewMedia(filePath, 'video');
+        case '.mp3':
+        case '.wav':
+        case '.ogg':
+          return PreviewService.previewMedia(filePath, 'audio');
         case '.pptx':
         case '.ppt':
-          return { error: 'PPT 预览暂不支持，请使用系统程序打开', fileType: ext };
+          return { error: 'PPT 预览暂不支持，请点击"外部打开"使用系统程序查看', fileType: ext };
         default:
           return { error: '不支持的文件格式', fileType: ext };
       }
@@ -155,7 +165,6 @@ export class PreviewService {
   }
 
   private static previewImage(filePath: string): { html?: string; fileType?: string } {
-    // Use file:// protocol for local images (works in Electron)
     const encodedPath = filePath.replace(/\\/g, '/');
     return {
       html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -163,5 +172,42 @@ export class PreviewService {
         img { max-width: 100%; max-height: 100vh; object-fit: contain; }
       </style></head><body><img src="file:///${encodedPath}" onerror="this.parentElement.innerHTML='<p style=color:#999>图片加载失败</p>'" /></body></html>`,
     };
+  }
+
+  private static async previewMarkdown(filePath: string): Promise<{ html?: string }> {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const MarkdownIt = (await import('markdown-it')).default;
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+    const bodyHtml = md.render(raw);
+    return {
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; line-height: 1.8; max-width: 800px; margin: 0 auto; color: #333; }
+        h1,h2,h3 { color: #1f4e79; }
+        pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 13px; }
+        code { font-family: "Consolas", "Courier New", monospace; font-size: 13px; }
+        table { border-collapse: collapse; width: 100%; }
+        td,th { border: 1px solid #ddd; padding: 8px; }
+        img { max-width: 100%; }
+        blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 16px; color: #666; }
+      </style></head><body>${bodyHtml}</body></html>`,
+    };
+  }
+
+  private static previewMedia(filePath: string, type: 'video' | 'audio'): { html?: string } {
+    const encodedPath = filePath.replace(/\\/g, '/');
+    const tag = type === 'video' ? 'video' : 'audio';
+    return {
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
+        ${tag} { max-width: 100%; max-height: 100vh; outline: none; }
+      </style></head><body><${tag} src="file:///${encodedPath}" controls autoplay style="max-width:100%;max-height:100vh">
+        您的浏览器不支持此媒体格式
+      </${tag}></body></html>`,
+    };
+  }
+
+  /** Check if file is large — export for renderer to decide on loading UX */
+  static getFileSize(filePath: string): number {
+    try { return fs.statSync(filePath).size; } catch { return 0; }
   }
 }

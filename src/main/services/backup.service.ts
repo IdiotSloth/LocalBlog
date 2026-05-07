@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import { getBlogsDir, getKnowledgeBaseDir, getAssetsDir } from '../utils/paths';
 
 const MAX_BACKUPS = 7;
 const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -103,6 +104,108 @@ export class BackupService {
       clearInterval(BackupService.timer);
       BackupService.timer = null;
     }
+  }
+
+  /** Export entire workspace as a ZIP file (STORE-only, zero dependencies) */
+  static async exportWorkspaceAsZip(userId: number, outputPath: string): Promise<string> {
+    const files: { name: string; data: Buffer }[] = [];
+
+    const collectDir = (dir: string, prefix: string): void => {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        const zipName = prefix + '/' + e.name;
+        if (e.isDirectory()) {
+          collectDir(full, zipName);
+        } else {
+          files.push({ name: zipName, data: fs.readFileSync(full) });
+        }
+      }
+    };
+
+    const blogsDir = await getBlogsDir(userId);
+    const kbDir = await getKnowledgeBaseDir(userId);
+    const assetsDir = await getAssetsDir(userId);
+
+    collectDir(blogsDir, 'Blogs');
+    collectDir(kbDir, 'KnowledgeBase');
+    collectDir(assetsDir, 'Assets');
+
+    const dbPath = BackupService.getDbPath();
+    if (fs.existsSync(dbPath)) {
+      files.push({ name: 'database.db', data: fs.readFileSync(dbPath) });
+    }
+
+    // Minimal ZIP writer (STORE method, zero compression)
+    const crcTable = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      crcTable[i] = c;
+    }
+    const crc32 = (buf: Buffer): number => {
+      let c = 0xffffffff;
+      for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    };
+
+    const chunks: Buffer[] = [];
+    const centralEntries: Buffer[] = [];
+    let offset = 0;
+
+    for (const file of files) {
+      const nameBuf = Buffer.from(file.name, 'utf-8');
+      const crc = crc32(file.data);
+      const size = file.data.length;
+
+      const localHeader = Buffer.alloc(30);
+      localHeader.writeUInt32LE(0x04034b50, 0);
+      localHeader.writeUInt16LE(20, 4);
+      localHeader.writeUInt16LE(0, 8);
+      localHeader.writeUInt16LE(0, 10);
+      localHeader.writeUInt32LE(crc, 14);
+      localHeader.writeUInt32LE(size, 18);
+      localHeader.writeUInt32LE(size, 22);
+      localHeader.writeUInt16LE(nameBuf.length, 26);
+
+      chunks.push(localHeader, nameBuf, file.data);
+
+      const central = Buffer.alloc(46);
+      central.writeUInt32LE(0x02014b50, 0);
+      central.writeUInt16LE(20, 4);
+      central.writeUInt16LE(20, 6);
+      central.writeUInt16LE(0, 10);
+      central.writeUInt16LE(0, 12);
+      central.writeUInt32LE(crc, 16);
+      central.writeUInt32LE(size, 20);
+      central.writeUInt32LE(size, 24);
+      central.writeUInt16LE(nameBuf.length, 28);
+      central.writeUInt16LE(0, 32);
+      central.writeUInt16LE(0, 34);
+      central.writeUInt16LE(0, 36);
+      central.writeUInt32LE(0, 38);
+      central.writeUInt32LE(offset, 42);
+
+      centralEntries.push(central, nameBuf);
+      offset += 30 + nameBuf.length + size;
+    }
+
+    const centralOffset = chunks.reduce((a, b) => a + b.length, 0);
+    const centralSize = centralEntries.reduce((a, b) => a + b.length, 0);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(0, 4);
+    eocd.writeUInt16LE(0, 6);
+    eocd.writeUInt16LE(files.length, 8);
+    eocd.writeUInt16LE(files.length, 10);
+    eocd.writeUInt32LE(centralSize, 12);
+    eocd.writeUInt32LE(centralOffset, 16);
+    eocd.writeUInt16LE(0, 20);
+
+    const zipBuf = Buffer.concat([...chunks, ...centralEntries, eocd]);
+    fs.writeFileSync(outputPath, zipBuf);
+    return outputPath;
   }
 
   /** List available backups */

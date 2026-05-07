@@ -1,16 +1,41 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, Menu, Notification, app, dialog, ipcMain, screen } from 'electron';
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, screen } from 'electron';
 import { setPetActions } from './tray';
 
 let petWin: BrowserWindow | null = null;
 let mainWindow: BrowserWindow | null = null;
-let dragInterval: ReturnType<typeof setInterval> | null = null;
+let isDragging = false;
+let dragTimer: ReturnType<typeof setTimeout> | null = null;
 let dragOffset: { x: number; y: number } = { x: 0, y: 0 };
 
 let _posFile: string;
 function posFile(): string {
   return _posFile || (_posFile = path.join(app.getPath('userData'), 'pet-position.json'));
+}
+
+/** Validate a stored position is visible on any connected display */
+function isPosOnScreen(x: number, y: number, w: number, h: number): boolean {
+  return screen.getAllDisplays().some((d) => {
+    const wa = d.workArea;
+    return x >= wa.x - 20 && y >= wa.y - 20 && x <= wa.x + wa.width - 100 && y <= wa.y + wa.height - 100;
+  });
+}
+
+function loadMiniPos(name: string, dw: number, dh: number): { x: number; y: number } {
+  const file = path.join(app.getPath('userData'), `mini-${name}-pos.json`);
+  try {
+    if (fs.existsSync(file)) {
+      const pos = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      if (isPosOnScreen(pos.x, pos.y, dw, dh)) return pos;
+    }
+  } catch { /* ignore */ }
+  return { x: -1, y: -1 };
+}
+
+function saveMiniPos(name: string, x: number, y: number): void {
+  const file = path.join(app.getPath('userData'), `mini-${name}-pos.json`);
+  fs.writeFileSync(file, JSON.stringify({ x, y }));
 }
 let _petDir: string;
 function petDir(): string {
@@ -89,17 +114,20 @@ function showQuickNote(): void {
     width: 380,
     height: 60,
     frame: false,
+    movable: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload },
   });
-  win.center();
+  const qPos = loadMiniPos('note', 380, 60);
+  if (qPos.x >= 0) win.setPosition(qPos.x, qPos.y);
+  else win.center();
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s}
+    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s;-webkit-app-region:drag}
     body.saved{background:#1a3a2e}
-    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif}
+    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif;-webkit-app-region:no-drag}
     input::placeholder{color:#666}
     .hint{color:#555;font-size:11px;white-space:nowrap;margin-left:8px;transition:color .2s}
     body.saved .hint{color:#3fb950}
@@ -111,6 +139,10 @@ function showQuickNote(): void {
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => {
+    if (miniNoteWin && !miniNoteWin.isDestroyed()) {
+      const [x, y] = miniNoteWin.getPosition();
+      saveMiniPos('note', x, y);
+    }
     miniNoteWin = null;
   });
 
@@ -310,18 +342,22 @@ function showScrapeWindow(): void {
     width: 500,
     height: 420,
     frame: false,
+    movable: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload },
   });
-  win.center();
+  const sPos = loadMiniPos('scrape', 500, 420);
+  if (sPos.x >= 0) win.setPosition(sPos.x, sPos.y);
+  else win.center();
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px}
+    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px;-webkit-app-region:drag}
     h2{font-size:16px;margin-bottom:12px}
-    input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
+    input{-webkit-app-region:no-drag;width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
     input:focus{border-color:#58a6ff}
+    .btn{-webkit-app-region:no-drag}
     .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
     .btn-primary{background:#58a6ff;color:#fff}
     .btn-primary:disabled{opacity:.4;cursor:default}
@@ -343,6 +379,10 @@ function showScrapeWindow(): void {
   miniScrapeWin = win;
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   win.on('closed', () => {
+    if (miniScrapeWin && !miniScrapeWin.isDestroyed()) {
+      const [x, y] = miniScrapeWin.getPosition();
+      saveMiniPos('scrape', x, y);
+    }
     miniScrapeWin = null;
   });
 
@@ -451,6 +491,25 @@ function showStandaloneEditor(): void {
 
 // ==================== Pet Menu ====================
 
+async function handleClipboardNote(): Promise<void> {
+  const text = clipboard.readText();
+  if (!text.trim()) {
+    new Notification({ title: '剪贴板为空', body: '无法读取剪贴板内容' }).show();
+    return;
+  }
+  try {
+    const { NoteService } = await import('./services/note.service');
+    const uid = await getUserId();
+    await NoteService.createNote(uid, text.trim(), 'clipboard');
+    new Notification({ title: '便签已保存', body: text.trim().substring(0, 60) }).show();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('note:refresh');
+    }
+  } catch (e) {
+    new Notification({ title: '保存失败', body: (e as Error).message || '未知错误' }).show();
+  }
+}
+
 function petMenu(): Menu {
   return Menu.buildFromTemplate([
     { label: '📝 快速便签', click: () => showQuickNote() },
@@ -458,6 +517,7 @@ function petMenu(): Menu {
     { label: '📥 导入 MD', click: () => handleImportMd() },
     { label: '📎 导入文件', click: () => handleImportFile() },
     { label: '🌐 收藏网页', click: () => showScrapeWindow() },
+    { label: '📋 剪贴板→便签', click: () => handleClipboardNote() },
     { type: 'separator' },
     {
       label: '📂 打开主窗口',
@@ -506,7 +566,7 @@ export function createPet(win: BrowserWindow): void {
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{margin:0;overflow:hidden;background:transparent}
-#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
+#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .08s linear;cursor:grab;user-select:none;-webkit-user-drag:none}
 #pet:active{cursor:grabbing}
 @keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 #pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
@@ -565,6 +625,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     'import-md': handleImportMd,
     'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
+    'clipboard-note': handleClipboardNote,
   });
 }
 
@@ -578,6 +639,7 @@ export function initPetActions(): void {
     'import-md': handleImportMd,
     'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
+    'clipboard-note': handleClipboardNote,
   });
 }
 
@@ -616,21 +678,22 @@ function registerPetIpc(): void {
     const cursor = screen.getCursorScreenPoint();
     const [wx, wy] = petWin.getPosition();
     dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
-    dragInterval = setInterval(() => {
-      if (!petWin || petWin.isDestroyed()) {
-        if (dragInterval) clearInterval(dragInterval);
+    isDragging = true;
+    const dragLoop = () => {
+      if (!isDragging || !petWin || petWin.isDestroyed()) {
+        if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
         return;
       }
       const c = screen.getCursorScreenPoint();
       petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
-    }, 16);
+      dragTimer = setTimeout(dragLoop, 16);
+    };
+    dragLoop();
   });
 
   ipcMain.on('pet:stopDrag', () => {
-    if (dragInterval) {
-      clearInterval(dragInterval);
-      dragInterval = null;
-    }
+    isDragging = false;
+    if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
   });
 
   ipcMain.on('pet:savePosition', () => {

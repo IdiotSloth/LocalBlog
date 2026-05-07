@@ -75,7 +75,9 @@ export class BlogService {
     }
     if (update.content !== undefined) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
-      fs.writeFileSync(filePath, update.content, 'utf-8');
+      const tmpPath = filePath + '.tmp.' + Date.now();
+      fs.writeFileSync(tmpPath, update.content, 'utf-8');
+      fs.renameSync(tmpPath, filePath);
       await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?', [update.content, nowMySQL(), blogId]);
     }
   }

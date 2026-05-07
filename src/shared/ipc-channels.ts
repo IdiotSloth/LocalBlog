@@ -62,6 +62,7 @@ export const IPC = {
   REBUILD_FTS_INDEX: 'search:rebuild-index',
 
   // Workspace
+  WORKSPACE_EXPORT_ZIP: 'workspace:export-zip',
   WORKSPACE_GET_INFO: 'workspace:get-info',
   WORKSPACE_SET_PATH: 'workspace:set-path',
   WORKSPACE_MIGRATE: 'workspace:migrate',
@@ -115,12 +116,23 @@ export const IPC = {
 
   // Notes
   NOTE_LIST: 'note:list',
+
+  // Continue Writing
+  CONTINUE_GET_DRAFTS: 'continue:get-drafts',
+  CONTINUE_GET_LAST_BLOG: 'continue:get-last-blog',
+  CONTINUE_GET_RECENT_FILES: 'continue:get-recent-files',
   NOTE_CREATE: 'note:create',
   NOTE_DELETE: 'note:delete',
   NOTE_PIN: 'note:pin',
   NOTE_CLIPBOARD: 'note:clipboard',
 
+  // Shortcuts
+  SHORTCUT_GET_ALL: 'shortcut:get-all',
+  SHORTCUT_UPDATE: 'shortcut:update',
+  SHORTCUT_RESET: 'shortcut:reset',
+
   // App
+  APP_VISIBILITY: 'app:visibility',
   APP_GET_VERSION: 'app:get-version',
   APP_GET_SYSTEM_LANGUAGE: 'app:get-system-language',
   APP_SET_AUTO_START: 'app:set-auto-start',

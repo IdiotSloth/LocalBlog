@@ -1,20 +1,23 @@
 export interface ShortcutDef {
+  id: string;
   key: string;
+  label: string;
   description: string;
   group: 'global' | 'editor' | 'blog' | 'knowledge';
 }
 
 export const SHORTCUTS: ShortcutDef[] = [
-  { key: 'Ctrl+N', description: '新建博客', group: 'global' },
-  { key: 'Ctrl+F', description: '全局搜索', group: 'global' },
-  { key: 'Ctrl+H', description: '打开仪表盘', group: 'global' },
-  { key: '?', description: '显示快捷键帮助', group: 'global' },
-  { key: 'Escape', description: '关闭弹窗/面板', group: 'global' },
-  { key: 'Ctrl+S', description: '保存当前内容', group: 'editor' },
-  { key: 'Ctrl+B', description: '加粗', group: 'editor' },
-  { key: 'Ctrl+I', description: '斜体', group: 'editor' },
-  { key: 'Ctrl+Z', description: '撤销', group: 'editor' },
-  { key: 'Ctrl+Shift+Z', description: '重做', group: 'editor' },
+  { id: 'new-blog', key: 'Ctrl+N', label: '新建博客', description: '打开博客编辑器', group: 'global' },
+  { id: 'global-search', key: 'Ctrl+F', label: '全局搜索', description: '聚焦全局搜索框', group: 'global' },
+  { id: 'dashboard', key: 'Ctrl+H', label: '仪表盘', description: '打开仪表盘页面', group: 'global' },
+  { id: 'help', key: '?', label: '快捷键帮助', description: '显示快捷键列表', group: 'global' },
+  { id: 'escape', key: 'Escape', label: '关闭弹窗', description: '关闭当前弹窗或面板', group: 'global' },
+  { id: 'save', key: 'Ctrl+S', label: '保存', description: '保存当前内容', group: 'editor' },
+  { id: 'bold', key: 'Ctrl+B', label: '加粗', description: '切换加粗格式', group: 'editor' },
+  { id: 'italic', key: 'Ctrl+I', label: '斜体', description: '切换斜体格式', group: 'editor' },
+  { id: 'undo', key: 'Ctrl+Z', label: '撤销', description: '撤销上一步操作', group: 'editor' },
+  { id: 'redo', key: 'Ctrl+Shift+Z', label: '重做', description: '重做已撤销操作', group: 'editor' },
+  { id: 'md-float', key: 'Ctrl+Shift+N', label: 'MD 浮窗', description: '打开 Markdown 快捷写作浮窗', group: 'global' },
 ];
 
 export function formatKey(key: string): string {

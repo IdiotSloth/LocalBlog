@@ -10,8 +10,7 @@ import { useAuthStore } from '../../stores/auth-store';
 function RelatedResources({ blogId }: { blogId: number }) {
   const [refs, setRefs] = useState<any[]>([]);
   useEffect(() => {
-    window.api.refGetFrom({ sourceType: 'blog', sourceId: blogId }).then((d: unknown) => {
-      const r = d as any;
+    window.api.refGetFrom({ sourceType: 'blog', sourceId: blogId }).then((r) => {
       if (r.success && r.data) setRefs(r.data.filter((ref: any) => ref.target_type === 'knowledge'));
     });
   }, [blogId]);
@@ -62,14 +61,33 @@ export function BlogPreviewPage() {
 
   useEffect(() => {
     if (id && user)
-      window.api.blogGet(Number(id)).then((d: unknown) => {
-        const r = d as any;
-        if (r.success && r.data) setBlog(r.data);
+      window.api.blogGet(Number(id)).then((r) => {
+        if (r.success && r.data) {
+          setBlog(r.data);
+          // Restore saved scroll position
+          const saved = localStorage.getItem(`blog-progress-${id}`);
+          if (saved) {
+            const pct = Number(saved);
+            if (pct > 0) {
+              requestAnimationFrame(() => {
+                const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                window.scrollTo(0, (total * pct) / 100);
+              });
+            }
+          }
+        }
         setLoading(false);
       });
   }, [id, user]);
 
-  // Scroll progress
+  // Save progress on unmount via localStorage
+  useEffect(() => {
+    return () => {
+      if (id && progress > 0) {
+        localStorage.setItem(`blog-progress-${id}`, String(Math.round(progress)));
+      }
+    };
+  }, [id, progress]);
   const handleScroll = useCallback(() => {
     const h = document.documentElement;
     const total = h.scrollHeight - h.clientHeight;
@@ -217,8 +235,7 @@ export function BlogPreviewPage() {
           <button
             type="button"
             onClick={async () => {
-              const d = await window.api.blogExportPdf(Number(id));
-              const r = d as any;
+              const r = await window.api.blogExportPdf(Number(id));
               if (!r.success && r.error !== '已取消') alert(r.error || '导出失败');
             }}
             className="btn-primary inline-flex items-center gap-2"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth-store';
 
@@ -26,6 +26,9 @@ export function TagManagePage() {
   const [selectedTag, setSelectedTag] = useState<TagItem | null>(null);
   const [results, setResults] = useState<ResultItem[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [tagFilter, setTagFilter] = useState('');
+  const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedFilter, setDebouncedFilter] = useState('');
 
   const loadTags = useCallback(async () => {
     if (!user) return;
@@ -43,6 +46,17 @@ export function TagManagePage() {
   useEffect(() => {
     loadTags();
   }, [loadTags]);
+
+  // Debounced tag filter
+  const handleFilterChange = useCallback((val: string) => {
+    setTagFilter(val);
+    if (filterTimer.current) clearTimeout(filterTimer.current);
+    filterTimer.current = setTimeout(() => setDebouncedFilter(val), 200);
+  }, []);
+
+  const filteredTags = debouncedFilter
+    ? tags.filter((t) => t.name.toLowerCase().includes(debouncedFilter.toLowerCase()))
+    : tags;
 
   const handleCreate = async () => {
     if (!user || !newName.trim()) return;
@@ -149,6 +163,22 @@ export function TagManagePage() {
 
       {error && <div className="mb-4 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>}
 
+      {/* Tag filter */}
+      {!loading && tags.length > 0 && (
+        <input
+          type="text"
+          value={tagFilter}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          placeholder="搜索标签..."
+          className="mb-4 rounded-[6px] border px-3 py-1.5 text-[13px] outline-none w-full max-w-[300px]"
+          style={{
+            background: 'var(--bg-primary)',
+            borderColor: 'var(--border-default)',
+            color: 'var(--text-primary)',
+          }}
+        />
+      )}
+
       {/* Tag list */}
       {loading ? (
         <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">加载中...</div>
@@ -156,9 +186,13 @@ export function TagManagePage() {
         <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] p-12 text-center">
           <p className="text-sm text-[var(--color-text-muted)]">暂无标签，创建一个吧</p>
         </div>
+      ) : filteredTags.length === 0 ? (
+        <p className="py-8 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
+          没有匹配的标签
+        </p>
       ) : (
         <div className="flex flex-wrap gap-3">
-          {tags.map((tag) => (
+          {filteredTags.map((tag) => (
             <div
               key={tag.id}
               className="group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-all hover:shadow-md hover:border-[var(--color-primary-light)]"
@@ -208,20 +242,18 @@ export function TagManagePage() {
                               : Promise.resolve(null),
                           ]);
                           const items: ResultItem[] = [];
-                          const br = blogsRes as any;
-                          if (br?.success && br.data?.blogs)
+                          if (blogsRes?.success && blogsRes.data?.blogs)
                             items.push(
-                              ...br.data.blogs.map((b: any) => ({
+                              ...blogsRes.data.blogs.map((b) => ({
                                 id: b.id,
                                 title: b.title,
                                 type: 'blog' as const,
                                 updatedAt: b.updatedAt,
                               })),
                             );
-                          const kr = kbRes as any;
-                          if (kr?.success && kr.data?.files)
+                          if (kbRes?.success && kbRes.data?.files)
                             items.push(
-                              ...kr.data.files.map((f: any) => ({
+                              ...kbRes.data.files.map((f) => ({
                                 id: f.id,
                                 title: f.filename,
                                 type: 'knowledge' as const,

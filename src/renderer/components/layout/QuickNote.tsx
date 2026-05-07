@@ -17,8 +17,7 @@ export function QuickNote({ userId }: Props) {
     if (!trimmed || saving) return;
     setSaving(true);
     try {
-      const d = await window.api.blogQuickCreate({ userId, title: trimmed.substring(0, 50), content: trimmed });
-      const r = d as any;
+      const r = await window.api.blogQuickCreate({ userId, title: trimmed.substring(0, 50), content: trimmed });
       if (r.success && r.data) {
         setToast({ blogId: r.data.id });
         setText('');

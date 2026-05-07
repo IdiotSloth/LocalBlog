@@ -51,6 +51,13 @@
   --duration-slow: 0.8s;
   --easing-default: ease;
   --easing-out: ease-out;
+
+  /* Heatmap (dark theme) */
+  --heatmap-0: var(--bg-tertiary);
+  --heatmap-1: #0e4429;
+  --heatmap-2: #006d32;
+  --heatmap-3: #26a641;
+  --heatmap-4: #39d353;
 }
 
 /* Light mode override */
@@ -69,6 +76,11 @@
   --accent-amber: #9a6700;
   --accent-red: #cf222e;
   --text-on-accent: #ffffff;
+  --heatmap-0: var(--bg-tertiary);
+  --heatmap-1: #9be9a8;
+  --heatmap-2: #40c463;
+  --heatmap-3: #30a14e;
+  --heatmap-4: #216e39;
 }
 
 /* Tailwind theme mapping */
@@ -471,4 +483,11 @@ code {
 }
 .animate-in {
   animation: fadeUp 0.2s ease;
+}
+@keyframes edge-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(88, 166, 255, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.3); }
+}
+.edge-breathe {
+  animation: edge-breathe 1.2s ease-out;
 }

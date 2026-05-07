@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useToast } from '../../components/common/Toast';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 
@@ -15,6 +16,7 @@ interface Note {
 export function NoteListPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
@@ -49,6 +51,7 @@ export function NoteListPage() {
     await window.api.noteCreate({ userId: user.id, content: input.trim() });
     setInput('');
     loadNotes();
+    toast('便签已保存', 'success');
   };
 
   const handleTogglePin = async (noteId: number) => {

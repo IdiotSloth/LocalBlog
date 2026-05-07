@@ -733,3 +733,82 @@ Auditor 的 18 项 S 级发现评估如下：
 - T1207 快捷浮窗实现了 Phase 10 未完成的独立编辑器设计
 - E2E 从 0 到 11 tests，覆盖注册→登录→博客 CRUD→回收站核心链路
 - 图标/快捷键/Toast/使用指南补齐了品牌和交互细节
+
+---
+
+## Phase 13 — 程序轻量化 + 用户体验
+
+> 结项日期: 2026-05-07 | 工时: ~18h | 审计评分: 9.2/10
+
+### 主题
+
+核心命题: 轻量化是手段，用户心流是目的。零架构冒险，全用户可感知。
+
+### 任务列表
+
+| 任务 | 名称 | 类型 | 估算 | 优先级 | 状态 |
+|------|------|------|------|--------|------|
+| T1301 | 主窗口关闭改为隐藏 + 后台节流 — hide 替代 destroy，后台 pause 定时器/动画 | 轻量 | 3h | 🔴 P0 | ✅ |
+| T1302 | 桌面宠物拖拽优化 — setTimeout(dragLoop,16) 递归 + CSS transition .08s | 轻量 | 2h | 🟡 P1 | ✅ |
+| T1303 | 乐观更新 — DB 写入即时响应，fs 写临时文件→rename 原子替换，失败 Toast 回滚 | 体验 | 3h | 🟡 P1 | ✅ |
+| T1304 | 柔性关闭 — useBlocker + beforeunload 双保险，自动存草稿+Toast，边缘 box-shadow 脉动 | 体验 | 2h | 🟡 P2 | ✅ |
+| T1305 | 一键备份导出 + 本地优先宣言 — Settings 导出 .zip (零依赖 CRC32+STORE)，Guide/Settings 显性标注零云端 | 体验 | 3h | 🟡 P2 | ✅ |
+| T1306 | 侧边栏默认折叠为图标态 — hover 展开 + 0.2s transition + localStorage 持久化 | 体验 | 2h | 🟢 P3 | ✅ |
+| T1307 | 「续写与回顾」默认视图 — 三区：最近草稿(3)/上次停留(1)/素材(5)，max-width 780px 居中 | 体验 | 3h | 🟢 P3 | ✅ |
+
+### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `src/main/ipc/continue.ts` | ContinueService IPC handler 注册 |
+| `src/main/services/continue.service.ts` | 续写数据查询 (drafts/last-blog/recent-files) |
+| `src/renderer/features/dashboard/ContinueWritingPage.tsx` | 三区续写视图 |
+| `src/shared/ipc-channels.ts` | +4 通道: APP_VISIBILITY + 3x CONTINUE |
+
+### Boss 驳回记录
+
+| 提案 | 原因 |
+|------|------|
+| 意图目录重构 (write/capture/read/organize) | 架构重构不是轻量化。20h+，高风险，当前结构已够用 |
+| `src/kernel/` 独立内核层 | 过度工程。窗口生命周期放 main process 即可 |
+| Web Worker 迁移 markdown/PDF | markdown-it 毫秒级渲染，搬 Worker 收益为负 |
+| Zustand 意图切片 + useShallow | 独立任务，随 R78 状态机重构时一并处理 |
+| 手动分包 / 字体裁剪 | 纯构建优化，Dev 自行处理即可 |
+
+### 审查裁决
+
+| 编号 | 问题 | 裁决 |
+|------|------|------|
+| D10 | T1302 petWin.setPosition() 是 BrowserWindow API，CSS 不可达 | 修正为 rAF + CSS transition，2h 不变 |
+| D11 | T1304 spec 太模糊——哪些面板、什么行为、微光长啥样 | 已补具体 spec (5 场景 + edge-breathe keyframes) |
+
+### 审计发现 (R98-R100)
+
+| 编号 | 等级 | 问题 | Boss 裁决 |
+|------|------|------|-----------|
+| R98 | 🟢 | ContinueService 传输全文，UI 仅用 150 字符 | ⏭ 延后。与 R78 状态机重构时一并优化 |
+| R99 | 🟢 | `app:visibility` 4 处硬编码，未用 IPC.APP_VISIBILITY | ✅ 批准修复。5 分钟修 4 行 |
+| R100 | 🟢 | NOTE IPC 常量分散两处 | ❌ 关闭。排列顺序不影响功能 |
+
+### 架构趋势
+
+| 指标 | Phase 12 基线 | Phase 13 | 变化 |
+|------|---------------|----------|------|
+| IPC 通道数 | 86 | 90 | +4 |
+| Service 数 | 12 | 14 | +2 (note, continue) |
+| `as any` 密度 | ~40 处 | 无新增 | 0 |
+| 新依赖 | 0 | 0 | ✅ |
+| Schema 变更 | 0 | 0 | ✅ (T1105 冻结遵守) |
+
+### 结项评估
+
+- 7 项任务全部通过 Auditor 验证，审计评分 9.2/10
+- T1301 隐藏唤醒逻辑干净：hide → clearInterval，show → 重建，will-quit → 清理
+- T1302 递归 setTimeout + CSS transition 正确实现 spec 修订 (D10)
+- T1303 乐观更新 + 原子写形成完整的"乐观 → 回滚"链路
+- T1304 useBlocker + beforeunload 双保险覆盖导航离开和窗口关闭
+- T1305 零依赖 ZIP 实现：纯 Buffer CRC32 + STORE 模式
+- T1307 续写视图三区结构清晰，web stubs 含明确降级提示
+- 零 P0/P1/P2 发现，仅 3 项 P3 (2 延后 + 1 关闭)
+- 零新依赖、零 Schema 变更、零目录约束违规
+- Phase 1-13 全部完成，项目总计 ~315h

@@ -45,8 +45,7 @@ export function KnowledgeListPage() {
   const [kbFolders, setKbFolders] = useState<any[]>([]);
   const loadKbFolders = useCallback(async () => {
     if (!user) return;
-    const d = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
-    const r = d as any;
+    const r = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
     if (r.success && r.data) setKbFolders(r.data);
   }, [user]);
   useEffect(() => {
@@ -68,10 +67,9 @@ export function KnowledgeListPage() {
         offset: pagination.offset,
         limit: pagination.limit,
       });
-      const resp = r as any;
-      if (resp.success && resp.data) {
-        setFiles(resp.data.files);
-        setTotal(resp.data.total);
+      if (r.success && r.data) {
+        setFiles(r.data.files);
+        setTotal(r.data.total);
       }
     } catch (e) {
       console.error(e);
@@ -242,6 +240,8 @@ export function KnowledgeListPage() {
           <select
             value={fileType}
             onChange={(e) => setFileType(e.target.value)}
+            aria-label="筛选文件类型"
+            title="筛选文件类型"
             className="max-w-[130px] rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
             style={{
               background: 'var(--bg-primary)',
@@ -399,18 +399,23 @@ export function KnowledgeListPage() {
                               setPreviewFileType(f.fileType || '');
                               window.api
                                 .refGetTo({ targetType: 'knowledge', targetId: f.id })
-                                .then((d: unknown) => {
-                                  const r = d as any;
+                                .then((r) => {
                                   if (r.success && r.data)
                                     setBackRefs(r.data.filter((ref: any) => ref.source_type === 'blog'));
                                 })
                                 .catch(() => setBackRefs([]));
                               try {
-                                const r = await window.api.kbPreview(f.id);
-                                const resp = r as any;
-                                setPreviewHtml(resp.html || '<p style=color:var(--text-secondary)>无法预览</p>');
-                              } catch {
-                                setPreviewHtml('<p style=color:var(--text-secondary)>预览失败</p>');
+                                const timeout = new Promise<string>((_, reject) =>
+                                  setTimeout(() => reject(new Error('TIMEOUT')), 10000),
+                                );
+                                const preview = window.api.kbPreview(f.id).then((r) => r.html || '<p style=color:var(--text-secondary)>无法预览</p>');
+                                const html = await Promise.race([preview, timeout]);
+                                setPreviewHtml(html);
+                              } catch (e) {
+                                const msg = (e as Error).message === 'TIMEOUT'
+                                  ? '<p style=color:var(--text-secondary)>文件较大,解析超时。请使用外部打开查看。</p>'
+                                  : '<p style=color:var(--text-secondary)>预览失败</p>';
+                                setPreviewHtml(msg);
                               } finally {
                                 setPreviewing(false);
                               }
@@ -633,12 +638,12 @@ export function KnowledgeListPage() {
           </div>
           <div className="flex-1 overflow-auto">
             {previewing ? (
-              <p
-                className="flex h-full items-center justify-center text-[14px]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                加载预览...
-              </p>
+              <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
+                <div className="w-full max-w-[200px] rounded-full h-2 overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
+                  <div className="h-full rounded-full animate-pulse" style={{ background: 'var(--accent-blue)', width: '60%' }} />
+                </div>
+                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>正在解析文件...</p>
+              </div>
             ) : previewFileType === 'pdf' && previewFileId ? (
               <webview
                 src="about:blank"
@@ -648,8 +653,7 @@ export function KnowledgeListPage() {
                 ref={(el) => {
                   if (el && previewFileId) {
                     const kbId = previewFileId;
-                    window.api.kbGet(kbId).then((d: unknown) => {
-                      const r = d as any;
+                    window.api.kbGet(kbId).then((r) => {
                       if (r.success && r.data?.filePath)
                         el.setAttribute('src', `file:///${r.data.filePath.replace(/\\/g, '/')}`);
                     });

@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code、Codex、Cline 等 AI 工具读取。
-> 最后更新：2026-05-06 (Phase 11 P0+P1 完成, todo.md 拆分)
+> 最后更新：2026-05-07 (Phase 14 全部完成, redo.md 清零, ship)
 
 ---
 
@@ -12,7 +12,7 @@
 │                    Electron 41 桌面壳                  │
 │  ┌──────────┐   contextBridge    ┌──────────────────┐ │
 │  │ 主进程    │◄─────IPC───────►│ 渲染进程 (React 19) │ │
-│  │ Node.js  │  80 个通道      │ Vite 7 + Tailwind │ │
+│  │ Node.js  │  91 个通道      │ Vite 7 + Tailwind │ │
 │  └────┬─────┘                   └────────┬─────────┘ │
 │       │                                  │            │
 │       │  ┌────────────────────┐          │            │
@@ -248,13 +248,13 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 
 ---
 
-## 当前状态 (2026-05-06)
+## 当前状态 (2026-05-07)
 
-- **Phase 1-12**: ✅ 全部完成 (~297h)
-  - Phase 12 8/8 任务 + 3 审计修复 (R83-R85)：PDF 导出修复 / 代码块溢出修复 / 快捷写作浮窗 MVF / E2E 11 tests / 图标统一 / 快捷键 / Toast 组件 / 使用指南
-- **审查修复** (2026-04-30 ~ 05-06): 累计 85 项修复 (F01-F85), 97 个工单 (R01-R97) 全部关闭
-- **当前待修复**: 🔴0 🟡0 🟢0 — redo.md 清零 (含 R77/R78 ⏭)
-- **已知缺口**: 国际化、FTS5、Biome lint (64e/116w)、TypeScript strict
+- **Phase 1-14**: ✅ 全部完成 (~366.5h)
+  - Phase 14 11/11 任务 + R102-R105 全关闭，renderer `as any` 32→0，BlogEditorPage 30 useState→1 useReducer
+- **审查修复** (2026-04-30 ~ 05-07): 累计 85 项修复 (F01-F85), 105 个工单 (R01-R105)
+- **当前待修复**: 🔴0 🟡0 🟢0 — redo.md 全部清零
+- **已知缺口**: 国际化、FTS5、TypeScript strict 模式 (T1403 前置完成，开关未开)
 - **构建状态**: ✅ 测试 27/27 pass | E2E 11/11 pass
 
 ---
@@ -317,13 +317,13 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 |--------|------|--------|
 | P0 | `AGENTS.md` | 本文档 — 架构约束 + 常见陷阱 |
 | P0 | `src/shared/types.ts` | 所有数据结构的权威定义 |
-| P0 | `src/shared/ipc-channels.ts` | 80 个 IPC 通道签名 |
+| P0 | `src/shared/ipc-channels.ts` | 91 个 IPC 通道签名 |
 | P1 | `src/shared/constants.ts` | 目录名、扩展名白名单、限制值 |
 | P1 | `todo.md` | 当前待办与 Phase 完成状态 (详细任务规格已移至 docs/) |
 | P1 | `redo.md` | 技术债与修复清单 |
 | P1 | `STYLE.md` | 设计系统规范 (颜色/间距/字体) |
 | P1 | `prompts/*.md` | 角色切换时读取对应文件，获取完整工作规则 |
-| P2 | `docs/phase-archive.md` | Phase 1-12 完整任务规格 (历史档案) |
+| P2 | `docs/phase-archive.md` | Phase 1-13 完整任务规格 (历史档案) |
 | P2 | `docs/development-guide.md` | 测试策略、工作流程图、文件清单、依赖关系 |
 | P2 | `package.json` | 依赖版本、可执行脚本 |
 | P2 | `src/main/db/schema.ts` | SQLite DDL (sql.js 回退) |

@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 
+// ── Reusable Components ──
+
 function TipBox({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -34,37 +36,101 @@ function Kbd({ children }: { children: string }) {
   );
 }
 
-interface SectionProps {
+/** Horizontal flow diagram: cards connected by arrows */
+function FlowChart({ steps }: { steps: { icon: string; label: string; detail: string }[] }) {
+  return (
+    <div className="flex flex-wrap items-start gap-0 py-4">
+      {steps.map((s, i) => (
+        <div key={i} className="flex items-start">
+          <div
+            className="flex flex-col items-center rounded-[10px] p-4 text-center"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-default)',
+              minWidth: 140,
+              maxWidth: 180,
+            }}
+          >
+            <span className="text-[28px]">{s.icon}</span>
+            <span
+              className="mt-2 text-[14px] font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {s.label}
+            </span>
+            <span
+              className="mt-1 text-[11px] leading-relaxed"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {s.detail}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div className="flex items-center px-2 pt-8 shrink-0">
+              <span className="text-[18px]" style={{ color: 'var(--accent-amber)' }}>→</span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Vertical numbered step list */
+function StepList({ steps }: { steps: { num: number; label: string; detail: string }[] }) {
+  return (
+    <div className="space-y-1 rounded-[8px] p-5" style={{ background: 'var(--bg-secondary)' }}>
+      {steps.map((s) => (
+        <div key={s.num} className="flex gap-3 py-1.5">
+          <span
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+            style={{ background: 'var(--color-primary)', color: 'var(--text-on-accent)' }}
+          >
+            {s.num}
+          </span>
+          <div>
+            <span className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+              {s.label}
+            </span>
+            <span className="ml-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+              {s.detail}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Section wrapper with icon + heading */
+function Section({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
   icon: string;
   title: string;
   subtitle: string;
   children: React.ReactNode;
-}
-
-function Section({ icon, title, subtitle, children }: SectionProps) {
+}) {
   return (
     <section
-      className="rounded-[12px] border p-6 md:p-8"
+      className="mb-6 rounded-[14px] border p-6 md:p-8"
       style={{ background: 'var(--color-bg-card)', borderColor: 'var(--border-default)' }}
     >
       <div className="mb-5 flex items-start gap-4">
         <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-[20px]"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] text-[22px]"
           style={{ background: 'var(--bg-tertiary)' }}
         >
           {icon}
         </span>
         <div>
-          <h2
-            className="text-[18px] font-semibold leading-snug"
-            style={{ color: 'var(--text-primary)' }}
-          >
+          <h2 className="text-[18px] font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
             {title}
           </h2>
-          <p
-            className="mt-0.5 text-[13px] leading-relaxed"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {subtitle}
           </p>
         </div>
@@ -74,367 +140,595 @@ function Section({ icon, title, subtitle, children }: SectionProps) {
   );
 }
 
-function Step({ num, label, detail }: { num: number; label: string; detail: string }) {
+/** Feature card for grid layouts */
+function FeatureCard({
+  title,
+  icon,
+  items,
+}: {
+  title: string;
+  icon: string;
+  items: string[];
+}) {
   return (
-    <div className="flex gap-3 py-1.5">
-      <span
-        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-        style={{ background: 'var(--color-primary)' }}
-      >
-        {num}
-      </span>
-      <div>
-        <span className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
-          {label}
-        </span>
-        <span className="ml-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          {detail}
-        </span>
+    <div className="rounded-[10px] p-5" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-[18px]">{icon}</span>
+        <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {title}
+        </h4>
       </div>
+      <ul className="space-y-1.5" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
+        {items.map((item) => (
+          <li
+            key={item}
+            className="text-[13px] leading-relaxed"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            · {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
+// ══════════════════════════════════════════════
+// Main Page
+// ══════════════════════════════════════════════
+
 export function GuidePage() {
   return (
-    <div className="mx-auto max-w-3xl pb-16">
-      {/* ── Hero ── */}
+    <div className="mx-auto max-w-3xl pb-20">
+      {/* ═══ Hero ═══ */}
       <div
-        className="relative mb-10 overflow-hidden rounded-[16px] p-8 md:p-10"
+        className="relative mb-8 overflow-hidden rounded-[20px] p-10 md:p-12"
         style={{
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-default)',
         }}
       >
+        {/* Decorative gradient blobs */}
         <div
-          className="absolute right-0 top-0 h-full w-1/3"
-          style={{
-            background: 'linear-gradient(135deg, transparent 0%, var(--bg-tertiary) 100%)',
-            opacity: 0.6,
-          }}
+          className="absolute -right-12 -top-12 h-[200px] w-[200px] rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)' }}
         />
+        <div
+          className="absolute -bottom-8 -left-8 h-[160px] w-[160px] rounded-full opacity-15"
+          style={{ background: 'radial-gradient(circle, var(--accent-green) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute right-1/4 top-0 h-full w-px opacity-10"
+          style={{ background: 'linear-gradient(to bottom, transparent, var(--accent-blue), transparent)' }}
+        />
+
         <div className="relative">
-          <p
-            className="mb-2 text-[13px] font-medium tracking-wide uppercase"
-            style={{ color: 'var(--color-primary)' }}
-          >
-            使用指南
-          </p>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-medium" style={{ background: 'rgba(63,185,80,0.1)', color: 'var(--accent-green)' }}>
+            🔒 本地优先 · 零云端依赖
+          </div>
           <h1
-            className="mb-3 text-[28px] font-bold leading-tight"
+            className="mb-3 text-[36px] font-bold leading-tight tracking-tight"
             style={{ color: 'var(--text-primary)' }}
           >
             本地博客与知识库
           </h1>
           <p
-            className="max-w-lg text-[15px] leading-relaxed"
+            className="max-w-xl text-[16px] leading-relaxed"
             style={{ color: 'var(--text-secondary)' }}
           >
-            一款离线优先的个人桌面应用，集
-            <strong style={{ color: 'var(--text-primary)' }}>Markdown 写作</strong>、
-            <strong style={{ color: 'var(--text-primary)' }}>知识库管理</strong>、
-            <strong style={{ color: 'var(--text-primary)' }}>网页收藏</strong>于一体。
+            一款<strong style={{ color: 'var(--text-primary)' }}>离线优先</strong>的个人桌面应用。
+            集 <strong style={{ color: 'var(--accent-blue)' }}>Markdown 写作</strong>、
+            <strong style={{ color: 'var(--accent-green)' }}>知识库管理</strong>、
+            <strong style={{ color: 'var(--accent-amber)' }}>网页收藏</strong>于一体，
             数据完全由您掌控，无需网络连接。
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {['Electron 41', 'React 19', 'TypeScript', 'MySQL / SQLite', '离线可用', '免费开源'].map(
-              (t) => (
-                <span
-                  key={t}
-                  className="rounded-full px-3 py-0.5 text-[11px] font-medium"
-                  style={{
-                    background: 'var(--bg-tertiary)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  {t}
-                </span>
-              ),
-            )}
+          <div className="mt-6 flex flex-wrap gap-2">
+            {[
+              ['Electron 41', 'var(--accent-blue)'],
+              ['React 19', 'var(--accent-amber)'],
+              ['TypeScript', 'var(--color-primary)'],
+              ['MySQL / SQLite', 'var(--accent-green)'],
+              ['离线可用', 'var(--text-secondary)'],
+              ['免费开源', 'var(--text-secondary)'],
+            ].map(([t, c]) => (
+              <span
+                key={t}
+                className="rounded-full px-3 py-0.5 text-[11px] font-medium"
+                style={{ background: 'var(--bg-tertiary)', color: c }}
+              >
+                {t}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* ── 1. 快速开始 ── */}
+      {/* ═══ 核心工作流 ═══ */}
+      <div
+        className="mb-6 rounded-[16px] border p-6 md:p-8"
+        style={{ background: 'var(--color-bg-card)', borderColor: 'var(--border-default)' }}
+      >
+        <div className="mb-5 text-center">
+          <h2
+            className="text-[22px] font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            核心工作流
+          </h2>
+          <p className="mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            三条主线，覆盖从输入到输出的完整链路
+          </p>
+        </div>
+
+        {/* Flow 1: 写作流 */}
+        <div className="mb-6">
+          <div
+            className="mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--accent-blue)' }}
+          >
+            ✍️ 写作流 — 从灵感到发布
+          </div>
+          <FlowChart
+            steps={[
+              { icon: '💡', label: '灵感', detail: '桌面宠物快捷入口\n托盘菜单新建' },
+              { icon: '📝', label: '写作', detail: 'Markdown 编辑\nCtrl+S 保存' },
+              { icon: '🏷️', label: '整理', detail: '标签 + 系列\n文件夹分类' },
+              { icon: '📤', label: '发布', detail: '导出 PDF/Word\n预览分享' },
+            ]}
+          />
+        </div>
+
+        {/* Flow 2: 知识流 */}
+        <div className="mb-6">
+          <div
+            className="mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--accent-green)' }}
+          >
+            📚 知识流 — 从收集到检索
+          </div>
+          <FlowChart
+            steps={[
+              { icon: '📥', label: '收集', detail: '拖放导入文件\n网页收藏抓取' },
+              { icon: '📂', label: '组织', detail: '文件夹分类\n标签关联' },
+              { icon: '👁️', label: '预览', detail: 'PDF/Word/图片\nMarkdown 渲染' },
+              { icon: '🔍', label: '检索', detail: '全文搜索\n博客引用链接' },
+            ]}
+          />
+        </div>
+
+        {/* Flow 3: 桌面流 */}
+        <div>
+          <div
+            className="mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--accent-amber)' }}
+          >
+            🖥️ 桌面流 — 常驻后台，随手可用
+          </div>
+          <FlowChart
+            steps={[
+              { icon: '🖱️', label: '托盘', detail: '窗口关闭→隐藏\n右键弹出菜单' },
+              { icon: '🐱', label: '宠物', detail: '点击弹出菜单\n拖拽自由移动' },
+              { icon: '📋', label: '便签', detail: '剪贴板一键存\n24h 自动清理' },
+              { icon: '⌨️', label: '快捷键', detail: 'Ctrl+Shift+N\nMD 浮窗直达' },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* ═══ 1. 快速开始 ═══ */}
       <Section
         icon="🚀"
         title="快速开始"
-        subtitle="首次使用的 3 个步骤，3 分钟上手"
+        subtitle="首次使用只需 3 步，3 分钟上手"
       >
-        <div className="space-y-1 rounded-[8px] p-5" style={{ background: 'var(--bg-secondary)' }}>
-          <Step num={1} label="注册账号" detail="输入用户名、密码，选择一个本地目录作为工作区" />
-          <Step num={2} label="写作第一篇文章" detail="点击「新建博客」，用 Markdown 或所见即所得模式写作，Ctrl+S 保存" />
-          <Step num={3} label="探索更多功能" detail="导入文件到知识库、收藏网页、设置桌面宠物——从左侧栏开始探索" />
+        <div className="mb-5 overflow-hidden rounded-[12px] border" style={{ borderColor: 'var(--border-default)' }}>
+          {/* Visual 3-step flow with connecting lines */}
+          {[
+            { num: 1, title: '注册账号', desc: '输入用户名、密码，选择一个本地目录作为工作区。工作区是您的数据仓库，所有博客、文件、附件都存储在此。', icon: '👤' },
+            { num: 2, title: '写作第一篇文章', desc: '点击侧栏「博客」→「新建博客」，选择模板后开始写作。Markdown 或所见即所得模式自由切换，Ctrl+S 保存。', icon: '✍️' },
+            { num: 3, title: '探索更多功能', desc: '导入文件到知识库、收藏网页、设置桌面宠物——点击侧栏各个入口开始探索，或按 ? 查看所有快捷键。', icon: '🔍' },
+          ].map((s, i) => (
+            <div key={s.num} className="relative">
+              <div
+                className="flex items-start gap-4 p-5"
+                style={{
+                  background: i === 0 ? 'var(--bg-secondary)' : 'transparent',
+                  borderBottom: i < 2 ? '1px solid var(--border-default)' : 'none',
+                }}
+              >
+                <div className="relative">
+                  <span
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-[16px]"
+                    style={{ background: 'var(--color-primary)', color: 'var(--text-on-accent)' }}
+                  >
+                    {s.icon}
+                  </span>
+                  {i < 2 && (
+                    <div
+                      className="absolute bottom-0 left-1/2 h-8 w-0.5 -translate-x-1/2 translate-y-full"
+                      style={{ background: 'var(--border-default)' }}
+                    />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold" style={{ color: 'var(--color-primary)' }}>
+                      STEP {s.num}
+                    </span>
+                    <h4 className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {s.title}
+                    </h4>
+                  </div>
+                  <p className="mt-1 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    {s.desc}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
         <TipBox>
-          工作区目录是数据存储位置，请选择一个有足够空间且常驻的文件夹。所有博客、知识库文件、附件都保存在此。
+          工作区目录请选择一个有足够空间且常驻的文件夹。建议放在用户目录下（如 ~/Documents/LocalBlogKB），避免放在系统盘或移动硬盘。
         </TipBox>
       </Section>
 
-      {/* ── 2. 博客写作 ── */}
+      {/* ═══ 2. 博客写作 ═══ */}
       <Section
         icon="✍️"
         title="博客写作"
-        subtitle="Markdown 与所见即所得双模式，从草稿到发布的完整流程"
+        subtitle="从草稿到发布，完整的创作体验"
       >
-        <div
-          className="grid gap-5 md:grid-cols-2"
-          style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7 }}
-        >
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              编辑器功能
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· Markdown / 所见即所得双模式自由切换</li>
-              <li>· <Kbd>Ctrl+S</Kbd> 保存，自动草稿每 30 秒备份</li>
-              <li>· 专注模式（全屏无干扰写作）</li>
-              <li>· 模板系统：快速复用常用文章结构</li>
-              <li>· 历史版本回滚：随时回到之前的版本</li>
-              <li>· 阅读时间预估 + 目录自动生成</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              组织与发布
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 标签系统：为文章打标签，点击标签名查看关联内容</li>
-              <li>· 系列链：设置系列 ID，自动生成上一篇/下一篇导航</li>
-              <li>· 文件夹分类：拖放移动文章到文件夹</li>
-              <li>· 批量操作：多选 → 批量删除 / 批量打标签</li>
-              <li>· 导出 PDF（打印质量）</li>
-              <li>· 导出 Word (.docx)，兼容 Microsoft Office</li>
-            </ul>
-          </div>
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
+          <FeatureCard
+            icon="📝"
+            title="编辑器功能"
+            items={[
+              'Markdown / 所见即所得双模式切换',
+              'Ctrl+S 保存 + 30 秒自动草稿备份',
+              '专注模式 — 全屏无干扰沉浸写作',
+              '模板系统 — 复用常用文章结构',
+              '历史版本回滚 — 随时恢复到之前版本',
+              '阅读时间预估 + 自动目录生成',
+            ]}
+          />
+          <FeatureCard
+            icon="🏗️"
+            title="组织与发布"
+            items={[
+              '标签系统 — 多标签分类 + 点击标签名查看关联',
+              '系列链 — 设置系列 ID 自动生成上一篇/下一篇',
+              '文件夹拖放 — 将文章拖入文件夹分类管理',
+              '批量操作 — 多选删除 / 批量打标签',
+              '导出 PDF — 打印级质量排版',
+              '导出 Word (.docx) — 兼容 MS Office',
+            ]}
+          />
         </div>
-        <TipBox>
-          写作前选好模板可以大幅提升效率。模板支持自定义标题、格式和默认标签，新建博客时自动应用。
-        </TipBox>
-      </Section>
 
-      {/* ── 3. 知识库 ── */}
-      <Section
-        icon="📚"
-        title="知识库管理"
-        subtitle="导入、预览、搜索——打造您的第二大脑"
-      >
-        <div
-          className="grid gap-5 md:grid-cols-2"
-          style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7 }}
-        >
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              文件支持
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· PDF — 内嵌预览，支持翻页</li>
-              <li>· Word (.docx) — mammoth 渲染预览</li>
-              <li>· Excel (.xlsx) — 表格数据预览</li>
-              <li>· 纯文本 (.txt, .md) — 直接预览</li>
-              <li>· 图片 (.png, .jpg, .gif, .webp, .svg)</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              管理功能
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 拖放导入：直接拖文件到窗口</li>
-              <li>· 文件夹分类：创建多层文件夹组织文件</li>
-              <li>· 全文搜索：文件名 + 内容文本检索</li>
-              <li>· 标签关联：知识库文件也可以打标签</li>
-              <li>· 博客引用：博客正文中引用知识库文件</li>
-            </ul>
-          </div>
-        </div>
-        <TipBox>
-          大文件建议使用「系统程序打开」功能（双击文件），使用本地应用程序打开原始文件，比内嵌预览体验更好。
-        </TipBox>
-      </Section>
-
-      {/* ── 4. 网页收藏 ── */}
-      <Section
-        icon="🌐"
-        title="网页收藏"
-        subtitle="一键抓取网页正文，转为 Markdown 保存为博客"
-      >
-        <div className="rounded-[8px] p-5" style={{ background: 'var(--bg-secondary)' }}>
-          <Step num={1} label="点击「收藏网页」" detail="在博客列表页顶部操作栏找到按钮" />
-          <Step num={2} label="输入 URL" detail="粘贴网页链接，支持批量输入（每行一个）" />
-          <Step num={3} label="自动提取正文" detail="readability 算法自动识别文章主体，去掉广告和导航" />
-          <Step num={4} label="一键保存为博客" detail="抓取结果直接导入为 Markdown 博客，保留排版结构" />
-        </div>
-        <TipBox>
-          抓取的网页会保留标题、段落、链接等结构。图片不会被下载到本地——如果需要离线查看，建议手动保存图片到附件。
-        </TipBox>
-      </Section>
-
-      {/* ── 5. 桌面体验 ── */}
-      <Section
-        icon="🖥️"
-        title="桌面体验"
-        subtitle="托盘常驻、桌面宠物、快捷便签——不打开主窗口也能高效工作"
-      >
-        <div
-          className="grid gap-5 md:grid-cols-3"
-          style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7 }}
-        >
-          <div
-            className="rounded-[8px] p-4"
-            style={{ background: 'var(--bg-secondary)' }}
-          >
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              🖱️ 托盘菜单
-            </h4>
-            <p className="mb-2">关闭窗口 → 应用缩小到系统托盘。右键托盘图标：</p>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 快速便签 — 一行记录</li>
-              <li>· MD 写作浮窗 — 独立窗口</li>
-              <li>· 新建博客 — 独立编辑器</li>
-              <li>· 导入 MD / 文件</li>
-              <li>· 收藏网页</li>
-              <li>· 打开主窗口</li>
-            </ul>
-          </div>
-          <div
-            className="rounded-[8px] p-4"
-            style={{ background: 'var(--bg-secondary)' }}
-          >
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              🐱 桌面宠物
-            </h4>
-            <p className="mb-2">可拖拽的小精灵，悬浮在桌面最顶层：</p>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 拖拽移动位置</li>
-              <li>· 静息态上下微浮呼吸动画</li>
-              <li>· 拖拽时表情变化</li>
-              <li>· 点击弹出快捷菜单</li>
-              <li>· 右键菜单 = 托盘菜单</li>
-            </ul>
-          </div>
-          <div
-            className="rounded-[8px] p-4"
-            style={{ background: 'var(--bg-secondary)' }}
-          >
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              ⌨️ 快捷键
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li><Kbd>Ctrl+Shift+N</Kbd> · MD 写作浮窗</li>
-              <li><Kbd>Ctrl+S</Kbd> · 保存当前博客</li>
-              <li><Kbd>Esc</Kbd> · 关闭浮窗/便签</li>
-              <li><Kbd>?</Kbd> · 快捷键帮助面板</li>
-              <li><Kbd>Enter</Kbd> · 便签中保存</li>
-            </ul>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── 6. 搜索与回收站 ── */}
-      <Section
-        icon="🔍"
-        title="搜索与回收站"
-        subtitle="快速找到内容，误删也能找回"
-      >
-        <div
-          className="grid gap-5 md:grid-cols-2"
-          style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7 }}
-        >
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              全局搜索
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 顶部搜索栏 — 任意页面可用 <Kbd>Ctrl+K</Kbd></li>
-              <li>· 同时搜索博客标题/内容和知识库文件名</li>
-              <li>· SQL LIKE 中文全文检索</li>
-              <li>· 搜索结果区分博客/知识库两类</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="mb-2 text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              回收站
-            </h4>
-            <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-              <li>· 删除 → 移入回收站（非永久删除）</li>
-              <li>· 30 天内可恢复</li>
-              <li>· 支持批量恢复 / 批量删除</li>
-              <li>· 超过 30 天自动清理</li>
-              <li>· 清空回收站同步删除磁盘文件</li>
-            </ul>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── 7. 主题与个性化 ── */}
-      <Section
-        icon="🎨"
-        title="主题与个性化"
-        subtitle="让应用符合您的审美偏好"
-      >
-        <div
-          className="rounded-[8px] p-5"
-          style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7 }}
-        >
-          <div className="flex flex-wrap gap-3 mb-4">
-            {[
-              { name: '暗色模式', color: '#1a1a2e' },
-              { name: '亮色模式', color: '#faf9f6' },
-              { name: '跟随系统', color: 'var(--color-primary)' },
-            ].map((t) => (
-              <span
-                key={t.name}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-              >
-                <span
-                  className="inline-block h-3 w-3 rounded-full border"
-                  style={{ background: t.color, borderColor: 'var(--border-default)' }}
-                />
-                {t.name}
+        {/* Writing mini-flow */}
+        <div className="rounded-[10px] p-5" style={{ background: 'var(--bg-secondary)' }}>
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            写作流程
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            {['选择模板', '编辑内容', '添加标签', '设置系列', '预览', '导出'].map((s, i) => (
+              <span key={s} className="flex items-center gap-2">
+                <span className="rounded-[6px] px-3 py-1.5 font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>{s}</span>
+                {i < 5 && <span style={{ color: 'var(--accent-amber)' }}>→</span>}
               </span>
             ))}
           </div>
-          <ul className="space-y-1" style={{ listStyle: 'none', paddingInlineStart: 0 }}>
-            <li>· 三种主题模式：暗色 / 亮色 / 跟随系统自动切换</li>
-            <li>· 博客预览页支持 5 套阅读主题：默认 / 报纸 / 极简 / 护眼 / 夜间</li>
-            <li>· 写作热力图：仪表盘上展示 GitHub 风格贡献日历</li>
-            <li>· 成就系统：16 个成就徽章，覆盖写作、知识库、收藏、探索四类</li>
-            <li>· 200ms 平滑过渡动画，切换主题不刺眼</li>
-          </ul>
+        </div>
+        <TipBox>
+          写作前先选模板可以大幅提升效率。模板支持预设标题、格式和标签，新建博客时自动应用。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 3. 知识库 ═══ */}
+      <Section
+        icon="📚"
+        title="知识库管理"
+        subtitle="构建您的第二大脑——导入、预览、搜索、关联"
+      >
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
+          <FeatureCard
+            icon="📄"
+            title="文件格式支持"
+            items={[
+              'PDF — 内嵌文本预览，支持前 5 页',
+              'Word (.docx) — mammoth HTML 渲染',
+              'Excel (.xlsx) — 表格数据内嵌展示',
+              'Markdown (.md) — rich rendering 预览',
+              '图片 (png/jpg/gif/webp/svg/bmp) — 内嵌显示',
+              '视频/音频 (mp4/webm/mp3/wav) — 播放器预览',
+            ]}
+          />
+          <FeatureCard
+            icon="🗂️"
+            title="管理能力"
+            items={[
+              '拖放导入 — 直接拖文件到知识库页面',
+              '文件夹分类 — 创建多层文件夹组织',
+              '全文搜索 — 文件名 + 文本内容检索',
+              '标签关联 — 知识库文件也可打标签',
+              '博客引用 — 博客中引用知识库文件为参考',
+              '系统打开 — 使用本地应用打开原始文件',
+            ]}
+          />
+        </div>
+        <TipBox>
+          大文件（&gt;20MB）建议使用「系统程序打开」功能，用本地应用程序打开原始文件，比内嵌预览体验更好。预览超时（10s）会自动提示降级。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 4. 网页收藏 ═══ */}
+      <Section
+        icon="🌐"
+        title="网页收藏"
+        subtitle="URL → Markdown，一键将网页转为可编辑的博客"
+      >
+        <div className="rounded-[10px] p-5 mb-5" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            {[
+              { label: '复制 URL', icon: '🔗' },
+              { label: '收藏网页', icon: '🌐' },
+              { label: '自动提取正文', icon: '🤖' },
+              { label: '预览结果', icon: '👁️' },
+              { label: '导入为博客', icon: '✅' },
+            ].map((s, i) => (
+              <span key={s.label} className="flex items-center gap-2">
+                <span
+                  className="flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-medium"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                >
+                  <span>{s.icon}</span> {s.label}
+                </span>
+                {i < 4 && <span style={{ color: 'var(--accent-amber)' }}>→</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+        <StepList
+          steps={[
+            { num: 1, label: '打开「收藏网页」', detail: '点击博客列表页顶部工具栏的收藏按钮，或从托盘/桌面宠物菜单打开独立抓取窗口' },
+            { num: 2, label: '粘贴网页 URL', detail: '支持单个 URL 或批量输入（每行一个），抓取窗体会自动去重' },
+            { num: 3, label: '自动提取正文', detail: '基于 Mozilla Readability 算法，自动识别文章主体、跳过广告和导航栏' },
+            { num: 4, label: '导入为 Markdown 博客', detail: '抓取结果直接保存为博客草稿，保留原标题和段落结构，可立即编辑' },
+          ]}
+        />
+        <TipBox>
+          抓取的网页会保留标题、段落、链接等排版结构。图片不会被下载到本地——如需离线查看图片，建议手动保存到附件后再插入。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 5. 桌面功能 ═══ */}
+      <Section
+        icon="🖥️"
+        title="桌面功能"
+        subtitle="关闭窗口 ≠ 退出——托盘常驻 + 桌面宠物 + 快捷入口，随时待命"
+      >
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
+          <div
+            className="rounded-[10px] p-5"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[20px]">🖱️</span>
+              <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                系统托盘
+              </h4>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-green)' }}>
+                关闭即隐藏
+              </span>
+            </div>
+            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--text-secondary)', listStyle: 'none', paddingInlineStart: 0 }}>
+              <li>· 快速便签 · MD 浮窗 · 新建博客</li>
+              <li>· 导入 MD/文件 · 收藏网页 · 剪贴板→便签</li>
+              <li>· 打开主窗口 · 桌面宠物开关 · 退出</li>
+            </ul>
+          </div>
+          <div
+            className="rounded-[10px] p-5"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[20px]">🐱</span>
+              <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                桌面宠物
+              </h4>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-amber)' }}>
+                可拖拽
+              </span>
+            </div>
+            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--text-secondary)', listStyle: 'none', paddingInlineStart: 0 }}>
+              <li>· 悬浮在桌面最顶层 · 任意拖拽</li>
+              <li>· 静息态呼吸动画 · 拖拽时表情变化</li>
+              <li>· 点击弹出快捷菜单（同托盘）</li>
+              <li>· 位置自动记忆 · 支持多显示器</li>
+            </ul>
+          </div>
+          <div
+            className="rounded-[10px] p-5"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[20px]">📋</span>
+              <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                便签 + 浮窗
+              </h4>
+            </div>
+            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--text-secondary)', listStyle: 'none', paddingInlineStart: 0 }}>
+              <li>· 快捷便签 — Enter 保存 · 24h 自动清理</li>
+              <li>· MD 浮窗 — Ctrl+Shift+N · 独立写作窗口</li>
+              <li>· 剪贴板一键转入便签</li>
+              <li>· 浮窗关闭自动保存为博客草稿</li>
+            </ul>
+          </div>
+          <div
+            className="rounded-[10px] p-5"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[20px]">⌨️</span>
+              <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                全局快捷键
+              </h4>
+            </div>
+            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--text-secondary)', listStyle: 'none', paddingInlineStart: 0 }}>
+              <li><Kbd>Ctrl+Shift+N</Kbd> · MD 写作浮窗</li>
+              <li><Kbd>Ctrl+F</Kbd> · 全局搜索</li>
+              <li><Kbd>Ctrl+S</Kbd> · 保存当前博客</li>
+              <li><Kbd>?</Kbd> · 快捷键帮助面板</li>
+              <li><Kbd>Esc</Kbd> · 关闭弹窗/浮窗</li>
+            </ul>
+          </div>
+        </div>
+        <TipBox>
+          快捷键可在「设置 → 快捷键」中自定义。点击快捷键条目进入录制模式，按下新组合键即可替换。冲突会自动检测提示。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 6. 全局搜索 ═══ */}
+      <Section
+        icon="🔍"
+        title="全局搜索与回收站"
+        subtitle="快速检索所有内容 · 误删 30 天内可恢复"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <FeatureCard
+            icon="🔎"
+            title="全局搜索"
+            items={[
+              '顶部搜索栏 — 任意页面可用',
+              '同时搜索博客标题/内容 + 知识库文件名',
+              'SQL LIKE 中文全文检索',
+              '搜索结果显示博客/知识库分类',
+              '点击结果直接跳转目标页面',
+            ]}
+          />
+          <FeatureCard
+            icon="♻️"
+            title="回收站"
+            items={[
+              '删除 = 移入回收站（非永久删除）',
+              '30 天内可恢复 — 支持批量恢复',
+              '超过 30 天自动清理释放空间',
+              '清空回收站同时删除磁盘文件',
+              '删除账户时可选择保留或删除文件',
+            ]}
+          />
         </div>
       </Section>
 
-      {/* ── 页脚 ── */}
+      {/* ═══ 7. 个性化 ═══ */}
+      <Section
+        icon="🎨"
+        title="主题与个性化"
+        subtitle="打造属于你的写作环境"
+      >
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
+          <FeatureCard
+            icon="🎭"
+            title="主题系统"
+            items={[
+              '暗色模式 — 护眼深色界面',
+              '亮色模式 — 纸张质感暖色调',
+              '跟随系统 — 自动切换明暗',
+              '全局 200ms 平滑过渡动画',
+              'CSS 变量体系 — 全应用统一色调',
+            ]}
+          />
+          <FeatureCard
+            icon="📖"
+            title="阅读与成就"
+            items={[
+              '5 套博客阅读主题 (默认/报纸/极简/护眼/夜间)',
+              '6 枚核心成就徽章 (写作/连续/字数)',
+              '写作热力图 — GitHub 风格贡献日历',
+              '阅读进度记忆 — 自动恢复上次位置',
+              '仪表盘数据统计 (博客/知识库/标签/存储)',
+            ]}
+          />
+        </div>
+        <TipBox>
+          阅读主题在每个博客的预览页右上角切换，选择会自动记住。仪表盘「成就」标签页可查看所有已解锁和未解锁成就。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 8. 备份 ═══ */}
+      <Section
+        icon="💾"
+        title="数据安全与备份"
+        subtitle="多重保障，数据无忧"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <FeatureCard
+            icon="🔄"
+            title="自动备份"
+            items={[
+              '每 24 小时自动备份数据库',
+              '最多保留 7 个历史备份',
+              '旧备份自动循环清理',
+            ]}
+          />
+          <FeatureCard
+            icon="📦"
+            title="手动管理"
+            items={[
+              '设置页手动创建备份',
+              '一键导出工作区 .zip（博客+知识库+数据库）',
+              '从备份恢复 — 恢复后需重启应用',
+              '可手动删除旧的备份文件',
+            ]}
+          />
+        </div>
+      </Section>
+
+      {/* ═══ 页脚 ═══ */}
       <div
-        className="mt-10 rounded-[12px] border p-6 text-center text-[13px]"
+        className="mt-8 rounded-[16px] border p-8 text-center"
         style={{
           background: 'var(--bg-secondary)',
           borderColor: 'var(--border-default)',
-          color: 'var(--text-muted)',
         }}
       >
-        <p className="mb-1">
-          Local Blog KB v{import.meta.env.VITE_APP_VERSION || '0.3.0'}
+        {/* Local-first badge */}
+        <div
+          className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-medium"
+          style={{ background: 'rgba(63,185,80,0.1)', color: 'var(--accent-green)' }}
+        >
+          🔒 本地优先 · Local First
+        </div>
+
+        <blockquote
+          className="mx-auto mb-6 max-w-md text-[14px] leading-relaxed italic"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          "你的数据完全由你掌控。零云端依赖——所有博客、文件、便签均在你选择的本地目录中。
+          无需注册在线服务，数据永不离开你的设备。"
+        </blockquote>
+
+        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+          Local Blog KB · Electron 41 · React 19 · TypeScript · MySQL / SQLite 双后端
         </p>
-        <p>
-          Electron 41 · React 19 · TypeScript · 离线可用 · 数据完全由您掌控
+        <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+          免费开源 · 离线可用 · 零数据收集
         </p>
-        <div className="mt-4 flex justify-center gap-3">
+
+        <div className="mt-6 flex justify-center gap-3">
           <Link
-            to="/dashboard"
-            className="rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80"
-            style={{ background: 'var(--color-primary)', color: '#fff' }}
+            to="/blog/new"
+            className="inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85"
+            style={{ background: 'var(--color-primary)', color: 'var(--text-on-accent)' }}
           >
-            前往仪表盘
+            ✍️ 开始写作
           </Link>
           <Link
-            to="/blog"
-            className="rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80"
+            to="/dashboard"
+            className="inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
           >
-            开始写作
+            ⌂ 仪表盘
           </Link>
         </div>
       </div>

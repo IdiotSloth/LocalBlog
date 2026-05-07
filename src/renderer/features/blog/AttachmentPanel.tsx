@@ -22,8 +22,7 @@ export function AttachmentPanel({ blogId }: Props) {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const d = await window.api.blogListAttachments(blogId);
-    const r = d as any;
+    const r = await window.api.blogListAttachments(blogId);
     if (r.success && r.data) setAttachments(r.data);
     setLoading(false);
   }, [blogId]);

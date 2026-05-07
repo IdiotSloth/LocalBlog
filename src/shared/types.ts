@@ -150,3 +150,24 @@ export interface FolderTreeNode {
   itemCount: number;
   children: FolderTreeNode[];
 }
+
+// ==================== Continue Writing ====================
+export interface DraftItem {
+  id: number;
+  blogId: number;
+  blogTitle: string;
+  content: string;
+  savedAt: string;
+}
+
+export interface LastBlog {
+  id: number;
+  title: string;
+  updatedAt: string;
+}
+
+export interface RecentFile {
+  id: number;
+  filename: string;
+  createdAt: string;
+}

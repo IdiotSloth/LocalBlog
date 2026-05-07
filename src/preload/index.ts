@@ -59,6 +59,7 @@ const api: WindowApi = {
   searchKb: (data) => ipcRenderer.invoke(IPC.SEARCH_KB, data),
 
   // Workspace
+  workspaceExportZip: (userId) => ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_ZIP, userId),
   workspaceGetInfo: (userId) => ipcRenderer.invoke(IPC.WORKSPACE_GET_INFO, userId),
   workspaceSetPath: (data) => ipcRenderer.invoke(IPC.WORKSPACE_SET_PATH, data),
   workspaceMigrate: (data) => ipcRenderer.invoke(IPC.WORKSPACE_MIGRATE, data),
@@ -99,6 +100,11 @@ const api: WindowApi = {
   backupDelete: (filename) => ipcRenderer.invoke(IPC.BACKUP_DELETE, filename),
 
   // Events — Electron → Renderer
+  onAppVisibility: (cb) => {
+    const handler = (_event: any, state: string) => cb(state as 'hidden' | 'visible');
+    ipcRenderer.on(IPC.APP_VISIBILITY, handler);
+    return () => ipcRenderer.removeListener(IPC.APP_VISIBILITY, handler);
+  },
   onTrayAction: (cb) => {
     const handler = (_event: any, action: string) => cb(action);
     ipcRenderer.on('tray-action', handler);
@@ -127,9 +133,19 @@ const api: WindowApi = {
   notePin: (noteId) => ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
   noteClipboard: () => ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
 
+  // Continue Writing
+  continueGetDrafts: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
+  continueGetLastBlog: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
+  continueGetRecentFiles: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
+
   // File System Dialogs
   selectFiles: (exts) => ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),
+
+  // Shortcuts
+  shortcutGetAll: () => ipcRenderer.invoke(IPC.SHORTCUT_GET_ALL),
+  shortcutUpdate: (id, key) => ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, id, key),
+  shortcutReset: () => ipcRenderer.invoke(IPC.SHORTCUT_RESET),
 
   // App
   appGetVersion: () => ipcRenderer.invoke(IPC.APP_GET_VERSION),

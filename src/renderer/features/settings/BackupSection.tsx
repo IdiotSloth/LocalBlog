@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAuthStore } from '../../stores/auth-store';
 
 interface BackupInfo {
   name: string;
@@ -14,14 +15,14 @@ function fmtSize(bytes: number): string {
 }
 
 export function BackupSection() {
+  const user = useAuthStore((s) => s.user);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const d = await window.api.backupList();
-    const r = d as any;
+    const r = await window.api.backupList();
     if (r.success && r.data) setBackups(r.data);
     setLoading(false);
   }, []);
@@ -32,8 +33,7 @@ export function BackupSection() {
 
   const handleCreate = async () => {
     setMessage('');
-    const d = await window.api.backupCreate();
-    const r = d as any;
+    const r = await window.api.backupCreate();
     if (r.success) {
       setMessage('备份创建成功');
       load();
@@ -42,8 +42,7 @@ export function BackupSection() {
 
   const handleRestore = async (filename: string) => {
     if (!confirm(`恢复备份 ${filename}？\n当前数据将被覆盖。建议先手动创建备份。`)) return;
-    const d = await window.api.backupRestore(filename);
-    const r = d as any;
+    const r = await window.api.backupRestore(filename);
     if (r.success) {
       alert('备份已恢复，请重启应用以加载数据。');
     } else {
@@ -53,8 +52,7 @@ export function BackupSection() {
 
   const handleDelete = async (filename: string) => {
     if (!confirm(`永久删除备份 ${filename}？`)) return;
-    const d = await window.api.backupDelete(filename);
-    const r = d as any;
+    const r = await window.api.backupDelete(filename);
     if (r.success) {
       setMessage('备份已删除');
       load();
@@ -87,6 +85,19 @@ export function BackupSection() {
 
       <button type="button" onClick={handleCreate} className="btn-primary mb-4">
         + 手动创建备份
+      </button>
+
+      <button
+        type="button"
+        onClick={async () => {
+          if (!user) return;
+          const r = await window.api.workspaceExportZip(user.id);
+          if (r.success) setMessage('工作区已导出');
+          else setMessage(r.error || '导出失败');
+        }}
+        className="btn-primary mb-4 ml-2"
+      >
+        📦 导出工作区 (.zip)
       </button>
 
       {loading ? (

@@ -1,10 +1,12 @@
 import MarkdownIt from 'markdown-it';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import TurndownService from 'turndown';
+import type { DraftItem } from '../../../shared/types';
 import type { BlogTemplate } from '../../../shared/templates';
 import { ReferencePicker } from '../../components/common/ReferencePicker';
 import { TagSelector } from '../../components/common/TagSelector';
+import { useToast } from '../../components/common/Toast';
 import { FocusMode } from '../../components/editor/FocusMode';
 import { TiptapEditor } from '../../components/editor/TiptapEditor';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
@@ -15,55 +17,193 @@ import { TemplateSelector } from './TemplateSelector';
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', emDelimiter: '*' });
 
+// ── Editor state machine ──
+
+interface EditorState {
+  title: string;
+  content: string;
+  format: 'md' | 'html';
+  saving: boolean;
+  isDirty: boolean;
+  error: string;
+  showHistory: boolean;
+  drafts: DraftItem[];
+  selectedTagIds: number[];
+  pendingTagIds: number[] | null;
+  selectedTemplate: BlogTemplate | null;
+  focusMode: boolean;
+  seriesId: string | null;
+  seriesName: string;
+  seriesList: { seriesId: string; seriesName: string }[];
+  newSeries: string;
+}
+
+const initialState: EditorState = {
+  title: '',
+  content: '',
+  format: 'md',
+  saving: false,
+  isDirty: false,
+  error: '',
+  showHistory: false,
+  drafts: [],
+  selectedTagIds: [],
+  pendingTagIds: null,
+  selectedTemplate: null,
+  focusMode: false,
+  seriesId: null,
+  seriesName: '',
+  seriesList: [],
+  newSeries: '',
+};
+
+type EditorAction =
+  | { type: 'SET_TITLE'; payload: string }
+  | { type: 'SET_CONTENT'; payload: string }
+  | { type: 'SET_FORMAT'; payload: 'md' | 'html' }
+  | { type: 'SET_SAVING'; payload: boolean }
+  | { type: 'SET_DIRTY'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string }
+  | { type: 'TOGGLE_HISTORY' }
+  | { type: 'SET_DRAFTS'; payload: DraftItem[] }
+  | { type: 'SET_SELECTED_TAGS'; payload: number[] }
+  | { type: 'SET_PENDING_TAGS'; payload: number[] | null }
+  | { type: 'SET_TEMPLATE'; payload: BlogTemplate | null }
+  | { type: 'SET_FOCUS'; payload: boolean }
+  | { type: 'SET_SERIES_ID'; payload: string | null }
+  | { type: 'SET_SERIES_NAME'; payload: string }
+  | { type: 'SET_SERIES_LIST'; payload: { seriesId: string; seriesName: string }[] }
+  | { type: 'SET_NEW_SERIES'; payload: string }
+  | { type: 'LOAD_BLOG'; payload: Partial<EditorState> }
+  | { type: 'RESET_SAVE_STATE' };
+
+function editorReducer(state: EditorState, action: EditorAction): EditorState {
+  switch (action.type) {
+    case 'SET_TITLE':
+      return { ...state, title: action.payload };
+    case 'SET_CONTENT':
+      return { ...state, content: action.payload };
+    case 'SET_FORMAT':
+      return { ...state, format: action.payload };
+    case 'SET_SAVING':
+      return { ...state, saving: action.payload };
+    case 'SET_DIRTY':
+      return { ...state, isDirty: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+    case 'TOGGLE_HISTORY':
+      return { ...state, showHistory: !state.showHistory };
+    case 'SET_DRAFTS':
+      return { ...state, drafts: action.payload };
+    case 'SET_SELECTED_TAGS':
+      return { ...state, selectedTagIds: action.payload };
+    case 'SET_PENDING_TAGS':
+      return { ...state, pendingTagIds: action.payload };
+    case 'SET_TEMPLATE':
+      return { ...state, selectedTemplate: action.payload };
+    case 'SET_FOCUS':
+      return { ...state, focusMode: action.payload };
+    case 'SET_SERIES_ID':
+      return { ...state, seriesId: action.payload };
+    case 'SET_SERIES_NAME':
+      return { ...state, seriesName: action.payload };
+    case 'SET_SERIES_LIST':
+      return { ...state, seriesList: action.payload };
+    case 'SET_NEW_SERIES':
+      return { ...state, newSeries: action.payload };
+    case 'LOAD_BLOG':
+      return { ...state, ...action.payload };
+    case 'RESET_SAVE_STATE':
+      return { ...state, saving: false, isDirty: false, error: '' };
+    default:
+      return state;
+  }
+}
+
+export { editorReducer }; // exported for testing
+
+// ── Component ──
+
 export function BlogEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
   const isNew = !id;
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [format, setFormat] = useState<'md' | 'html'>('md');
-  const [saving, setSaving] = useState(false);
-  const [draftStatus, setDraftStatus] = useState('');
-  const [error, setError] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
-  const [drafts, setDrafts] = useState<any[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [pendingTagIds, setPendingTagIds] = useState<number[] | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<BlogTemplate | null>(null);
-  const [focusMode, setFocusMode] = useState(false);
-  const [seriesId, setSeriesId] = useState<string | null>(null);
-  const [seriesName, setSeriesName] = useState('');
-  const [seriesList, setSeriesList] = useState<{ seriesId: string; seriesName: string }[]>([]);
-  const [newSeries, setNewSeries] = useState('');
+  const [state, dispatch] = useReducer(editorReducer, initialState);
+
   const blogIdRef = useRef<number | null>(id ? Number(id) : null);
-  const contentRef = useRef(content);
-  contentRef.current = content;
+  const contentRef = useRef(state.content);
+  contentRef.current = state.content;
   const draftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      dispatch({ type: 'SET_TITLE', payload: e.target.value });
+      if (blogIdRef.current) dispatch({ type: 'SET_DIRTY', payload: true });
+    },
+    [],
+  );
+  const handleContentChange = useCallback((val: string) => {
+    dispatch({ type: 'SET_CONTENT', payload: val });
+    if (blogIdRef.current) dispatch({ type: 'SET_DIRTY', payload: true });
+  }, []);
+
+  // Gentle close: block navigation when dirty, auto-save draft
+  const blocker = useBlocker(state.isDirty);
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      if (blogIdRef.current && contentRef.current) {
+        window.api
+          .blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current })
+          .then(() => toast('草稿已保存', 'success'))
+          .catch(() => toast('草稿保存失败', 'error'))
+          .finally(() => blocker.proceed());
+      } else {
+        blocker.proceed();
+      }
+    }
+  }, [blocker, toast]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (state.isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [state.isDirty]);
 
   // Apply template on selection
   const handleTemplateSelect = useCallback((tpl: BlogTemplate) => {
-    setSelectedTemplate(tpl);
-    if (tpl.content) setContent(tpl.format === 'md' ? md.render(tpl.content) : tpl.content);
-    setFormat(tpl.format);
-    if (tpl.tags.length > 0) setPendingTagIds(null); // tags will be set after blog creation via pendingTagIds
+    dispatch({ type: 'SET_TEMPLATE', payload: tpl });
+    if (tpl.content) dispatch({ type: 'SET_CONTENT', payload: tpl.format === 'md' ? md.render(tpl.content) : tpl.content });
+    dispatch({ type: 'SET_FORMAT', payload: tpl.format });
+    if (tpl.tags.length > 0) dispatch({ type: 'SET_PENDING_TAGS', payload: null });
   }, []);
 
   useEffect(() => {
     if (id && user) {
       window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
-          setTitle(r.data.title);
-          setFormat(r.data.format);
           const c = r.data.content || '';
-          setContent(r.data.format === 'md' ? md.render(c) : c);
-          setSelectedTagIds((r.data.tags || []).map((t: any) => t.id));
-          setSeriesId(r.data.seriesId || null);
-          setSeriesName(r.data.seriesName || '');
+          dispatch({
+            type: 'LOAD_BLOG',
+            payload: {
+              title: r.data.title,
+              format: r.data.format,
+              content: r.data.format === 'md' ? md.render(c) : c,
+              selectedTagIds: (r.data.tags || []).map((t: any) => t.id),
+              seriesId: r.data.seriesId || null,
+              seriesName: r.data.seriesName || '',
+            },
+          });
         }
       });
       window.api.blogSeriesList(user.id).then((r) => {
-        if (r.success && r.data) setSeriesList(r.data);
+        if (r.success && r.data) dispatch({ type: 'SET_SERIES_LIST', payload: r.data });
       });
     }
   }, [id, user]);
@@ -78,11 +218,11 @@ export function BlogEditorPage() {
 
   const handleTagChange = useCallback(
     (tagIds: number[]) => {
-      setSelectedTagIds(tagIds);
+      dispatch({ type: 'SET_SELECTED_TAGS', payload: tagIds });
       if (blogIdRef.current) {
         saveTags(blogIdRef.current, tagIds);
       } else {
-        setPendingTagIds(tagIds);
+        dispatch({ type: 'SET_PENDING_TAGS', payload: tagIds });
       }
     },
     [saveTags],
@@ -100,43 +240,59 @@ export function BlogEditorPage() {
   const loadHistory = useCallback(async () => {
     if (!blogIdRef.current) return;
     const r = await window.api.blogGetHistory(blogIdRef.current);
-
-    if (r.success) setDrafts(r.data);
+    if (r.success) dispatch({ type: 'SET_DRAFTS', payload: r.data });
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!user || !title.trim()) {
-      setError('请输入标题');
+    if (!user || !state.title.trim()) {
+      dispatch({ type: 'SET_ERROR', payload: '请输入标题' });
       return;
     }
-    setSaving(true);
-    setError('');
-    const contentToSave = format === 'md' ? turndown.turndown(content) : content;
+    dispatch({ type: 'SET_SAVING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: '' });
+    const contentToSave = state.format === 'md' ? turndown.turndown(state.content) : state.content;
     try {
       if (isNew) {
-        const r = await window.api.blogCreate({ userId: user.id, title: title.trim(), format, content: contentToSave });
+        const r = await window.api.blogCreate({
+          userId: user.id,
+          title: state.title.trim(),
+          format: state.format,
+          content: contentToSave,
+        });
 
         if (r.success && r.data) {
           blogIdRef.current = r.data.id;
-          const pt = pendingTagIds;
-          setPendingTagIds(null);
+          const pt = state.pendingTagIds;
+          dispatch({ type: 'SET_PENDING_TAGS', payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
           navigate(`/blog/${r.data.id}/edit`, { replace: true });
-        } else setError(r.error || '创建失败');
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: r.error || '创建失败' });
+          toast(r.error || '创建失败', 'error');
+        }
       } else {
-        const r = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
+        toast('已保存', 'success');
+        const r = await window.api.blogUpdate({
+          blogId: Number(id),
+          title: state.title.trim(),
+          content: contentToSave,
+        });
 
-        if (r.success) {
-          setDraftStatus('已保存');
-          setTimeout(() => setDraftStatus(''), 2000);
-        } else setError(r.error || '保存失败');
+        if (!r.success) {
+          dispatch({ type: 'SET_ERROR', payload: r.error || '保存失败' });
+          toast(r.error || '保存失败', 'error');
+        } else {
+          dispatch({ type: 'SET_DIRTY', payload: false });
+        }
       }
-    } catch {
-      setError('保存失败');
+    } catch (e) {
+      const msg = (e as Error).message || '保存失败';
+      dispatch({ type: 'SET_ERROR', payload: msg });
+      toast(msg, 'error');
     } finally {
-      setSaving(false);
+      dispatch({ type: 'SET_SAVING', payload: false });
     }
-  }, [user, title, format, content, isNew, id, navigate, pendingTagIds, saveTags]);
+  }, [user, state.title, state.format, state.content, state.pendingTagIds, isNew, id, navigate, saveTags, toast]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -150,13 +306,13 @@ export function BlogEditorPage() {
   }, [handleSave]);
 
   // Show template selector for new blog
-  if (isNew && !selectedTemplate) {
+  if (isNew && !state.selectedTemplate) {
     return <TemplateSelector onSelect={handleTemplateSelect} />;
   }
 
   return (
     <div className="flex h-full gap-0" style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}>
-      <div className={`flex flex-1 flex-col min-w-0 ${showHistory ? 'mr-0' : ''}`}>
+      <div className={`flex flex-1 flex-col min-w-0 ${state.showHistory ? 'mr-0' : ''}`}>
         <div className="mb-4 flex items-center gap-4">
           <Link
             to="/blog"
@@ -167,8 +323,8 @@ export function BlogEditorPage() {
           </Link>
           <input
             type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={state.title}
+            onChange={handleTitleChange}
             placeholder="输入博客标题..."
             className="input-dark flex-1 !border-transparent !bg-transparent !text-xl !font-bold"
           />
@@ -176,18 +332,18 @@ export function BlogEditorPage() {
             <button
               type="button"
               onClick={() => {
-                setShowHistory(!showHistory);
-                if (!showHistory) loadHistory();
+                dispatch({ type: 'TOGGLE_HISTORY' });
+                if (!state.showHistory) loadHistory();
               }}
               className="text-[12px] rounded-[4px] px-3 py-1"
-              style={{ color: 'var(--text-secondary)', background: showHistory ? 'var(--bg-tertiary)' : 'transparent' }}
+              style={{ color: 'var(--text-secondary)', background: state.showHistory ? 'var(--bg-tertiary)' : 'transparent' }}
             >
               历史版本
             </button>
           )}
           <button
             type="button"
-            onClick={() => setFocusMode(true)}
+            onClick={() => dispatch({ type: 'SET_FOCUS', payload: true })}
             className="text-[12px] rounded-[4px] px-3 py-1"
             style={{ color: 'var(--text-secondary)' }}
             title="专注模式"
@@ -200,9 +356,9 @@ export function BlogEditorPage() {
                 type="button"
                 onClick={async () => {
                   try {
-                    const r = (await window.api.blogExportDocx(blogIdRef.current!)) as any;
-                    if (r?.success) alert('已导出为 Word');
-                    else if (r?.error !== '已取消') alert(`导出失败: ${r?.error || ''}`);
+                    const r = await window.api.blogExportDocx(blogIdRef.current!);
+                    if (r.success) alert('已导出为 Word');
+                    else if (r.error !== '已取消') alert(`导出失败: ${r.error || ''}`);
                   } catch {
                     alert('导出失败');
                   }
@@ -217,9 +373,9 @@ export function BlogEditorPage() {
                 type="button"
                 onClick={async () => {
                   try {
-                    const r = (await window.api.blogExportPdf(blogIdRef.current!)) as any;
-                    if (r?.success) alert('已导出为 PDF');
-                    else if (r?.error !== '已取消') alert(`导出失败: ${r?.error || ''}`);
+                    const r = await window.api.blogExportPdf(blogIdRef.current!);
+                    if (r.success) alert('已导出为 PDF');
+                    else if (r.error !== '已取消') alert(`导出失败: ${r.error || ''}`);
                   } catch {
                     alert('导出失败');
                   }
@@ -232,24 +388,24 @@ export function BlogEditorPage() {
               </button>
             </>
           )}
-          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary">
-            {saving ? '保存中...' : '保存'}
+          <button type="button" onClick={handleSave} disabled={state.saving} className="btn-primary">
+            {state.saving ? '保存中...' : '保存'}
           </button>
         </div>
-        {error && (
+        {state.error && (
           <div
             className="mb-3 rounded-[4px] px-3 py-2 text-[13px]"
             style={{ background: 'rgba(248,81,73,0.1)', color: 'var(--accent-red)' }}
           >
-            {error}
+            {state.error}
           </div>
         )}
         <div className="flex-1">
-          <TiptapEditor content={content} onChange={setContent} />
+          <TiptapEditor content={state.content} onChange={handleContentChange} />
         </div>
         {user && (
           <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
-            <TagSelector userId={user.id} selectedTagIds={selectedTagIds} onChange={handleTagChange} />
+            <TagSelector userId={user.id} selectedTagIds={state.selectedTagIds} onChange={handleTagChange} />
           </div>
         )}
         {blogIdRef.current && (
@@ -269,21 +425,21 @@ export function BlogEditorPage() {
                 系列:
               </span>
               <select
-                value={seriesId || ''}
+                value={state.seriesId || ''}
                 aria-label="选择系列"
                 onChange={async (e) => {
                   const val = e.target.value;
                   if (!val) {
-                    setSeriesId(null);
-                    setSeriesName('');
+                    dispatch({ type: 'SET_SERIES_ID', payload: null });
+                    dispatch({ type: 'SET_SERIES_NAME', payload: '' });
                     if (blogIdRef.current)
                       await window.api.blogSeriesSet({ blogId: blogIdRef.current, seriesId: null, seriesName: null });
                     return;
                   }
-                  const item = seriesList.find((s) => s.seriesId === val);
+                  const item = state.seriesList.find((s) => s.seriesId === val);
                   if (item) {
-                    setSeriesId(item.seriesId);
-                    setSeriesName(item.seriesName);
+                    dispatch({ type: 'SET_SERIES_ID', payload: item.seriesId });
+                    dispatch({ type: 'SET_SERIES_NAME', payload: item.seriesName });
                     if (blogIdRef.current)
                       await window.api.blogSeriesSet({
                         blogId: blogIdRef.current,
@@ -300,7 +456,7 @@ export function BlogEditorPage() {
                 }}
               >
                 <option value="">(无)</option>
-                {seriesList.map((s) => (
+                {state.seriesList.map((s) => (
                   <option key={s.seriesId} value={s.seriesId}>
                     {s.seriesName}
                   </option>
@@ -311,21 +467,24 @@ export function BlogEditorPage() {
               </span>
               <input
                 type="text"
-                value={newSeries}
-                onChange={(e) => setNewSeries(e.target.value)}
+                value={state.newSeries}
+                onChange={(e) => dispatch({ type: 'SET_NEW_SERIES', payload: e.target.value })}
                 placeholder="新建系列名..."
                 onKeyDown={async (e) => {
-                  if (e.key === 'Enter' && newSeries.trim() && blogIdRef.current) {
+                  if (e.key === 'Enter' && state.newSeries.trim() && blogIdRef.current) {
                     const uuid = crypto.randomUUID();
-                    setSeriesId(uuid);
-                    setSeriesName(newSeries.trim());
+                    dispatch({ type: 'SET_SERIES_ID', payload: uuid });
+                    dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
                     await window.api.blogSeriesSet({
                       blogId: blogIdRef.current,
                       seriesId: uuid,
-                      seriesName: newSeries.trim(),
+                      seriesName: state.newSeries.trim(),
                     });
-                    setNewSeries('');
-                    setSeriesList((prev) => [...prev, { seriesId: uuid, seriesName: newSeries.trim() }]);
+                    dispatch({ type: 'SET_NEW_SERIES', payload: '' });
+                    dispatch({
+                      type: 'SET_SERIES_LIST',
+                      payload: [...state.seriesList, { seriesId: uuid, seriesName: state.newSeries.trim() }],
+                    });
                   }
                 }}
                 className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
@@ -340,20 +499,20 @@ export function BlogEditorPage() {
           </div>
         )}
         <div className="mt-2 flex justify-between text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-          <span>{draftStatus || (isNew ? '新建博客' : '编辑模式')}</span>
+          <span>{isNew ? '新建博客' : '编辑模式'}</span>
           <span>Ctrl+S 保存</span>
         </div>
       </div>
-      {focusMode && (
+      {state.focusMode && (
         <FocusMode
-          content={content}
-          charCount={countChars(content)}
-          readingMinutes={estimateReadingTime(content)}
-          onExit={() => setFocusMode(false)}
+          content={state.content}
+          charCount={countChars(state.content)}
+          readingMinutes={estimateReadingTime(state.content)}
+          onExit={() => dispatch({ type: 'SET_FOCUS', payload: false })}
         />
       )}
 
-      {showHistory && (
+      {state.showHistory && (
         <div
           className="w-[300px] shrink-0 border-l overflow-y-auto"
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
@@ -367,23 +526,23 @@ export function BlogEditorPage() {
             </h3>
             <button
               type="button"
-              onClick={() => setShowHistory(false)}
+              onClick={() => dispatch({ type: 'TOGGLE_HISTORY' })}
               className="text-[13px]"
               style={{ color: 'var(--text-secondary)' }}
             >
               ✕
             </button>
           </div>
-          {drafts.length === 0 ? (
+          {state.drafts.length === 0 ? (
             <p className="p-4 text-center text-[13px]" style={{ color: 'var(--text-secondary)' }}>
               暂无历史版本
             </p>
           ) : (
-            drafts.map((d: any, i: number) => (
+            state.drafts.map((d, i) => (
               <div key={d.id} className="border-b px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
                 <div className="mb-1 flex items-center justify-between">
                   <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                    版本 {drafts.length - i} · {new Date(d.saved_at).toLocaleString('zh-CN')}
+                    版本 {state.drafts.length - i} · {new Date(d.saved_at).toLocaleString('zh-CN')}
                   </span>
                   <button
                     type="button"
@@ -391,10 +550,10 @@ export function BlogEditorPage() {
                       if (!blogIdRef.current || !confirm('恢复到该版本？')) return;
                       try {
                         await window.api.blogRollback({ blogId: blogIdRef.current, draftId: d.id });
-                        setContent(d.content);
-                        setShowHistory(false);
+                        dispatch({ type: 'SET_CONTENT', payload: d.content });
+                        dispatch({ type: 'TOGGLE_HISTORY' });
                       } catch {
-                        setError('回滚失败');
+                        dispatch({ type: 'SET_ERROR', payload: '回滚失败' });
                       }
                     }}
                     className="rounded-[3px] px-2 py-0.5 text-[10px] font-medium"

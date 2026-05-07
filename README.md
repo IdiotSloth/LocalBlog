@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-12 ✅
+构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-14 ✅ | renderer `as any`: 0
 
 ---
 
@@ -22,7 +22,9 @@
 | **便签** | 独立 notes 表，剪贴板读取，24h 自动清理，置顶永久保留 |
 | **桌面** | 托盘常驻，桌面宠物 (可拖拽 + 动画)，快捷写作浮窗，全局快捷键 (Ctrl+Shift+N) |
 | **主题** | 暗色/亮色/系统，5 套阅读主题，CSS Token 驱动的圆润 UI，统一 Toast/Progress 反馈 |
-| **质量** | 27 单元测试 + 11 E2E 核心链路，DOMPurify XSS 防护 |
+| **质量** | 27 单元测试 + 11 E2E 核心链路，DOMPurify XSS 防护，renderer `as any` 清零，30 useState→useReducer |
+| **自定义** | 快捷键录制+冲突检测，迷你窗口可拖拽+位置记忆，托盘剪贴板一键存入 |
+| **预览** | 知识库 Markdown/图片/视频/音频 内嵌预览，大文件 10s 超时降级，阅读进度跟踪 |
 | **Web 版** | Express 5 服务器 (端口 3456)，JWT 认证，MySQL 双模支持 |
 | **指南** | 内置使用指南 (`/guide`)，冷启动零门槛 |
 
@@ -64,10 +66,10 @@ npm run test       # 27 单元测试 + 11 E2E
 ```
 ┌──────────────────────────────────────────────┐
 │              Electron 41 桌面壳               │
-│  ┌──────────┐  IPC (80 ch)  ┌──────────────┐ │
+│  ┌──────────┐  IPC (91 ch)  ┌──────────────┐ │
 │  │ 主进程    │◄────────────►│ 渲染进程       │ │
 │  │ Node.js  │  contextBridge│ React 19      │ │
-│  │ 12 svc   │               │ 7 features    │ │
+│  │ 15 svc   │               │ 7 features    │ │
 │  └────┬─────┘               └──────┬────────┘ │
 │       │                            │          │
 │       │  sql.js WASM / MySQL 8.3   │          │
@@ -90,8 +92,8 @@ src/
 │   ├── index.ts       #   窗口创建、托盘、宠物
 │   ├── tray.ts        #   托盘菜单 + 桌面宠物
 │   ├── pet.ts         #   宠物窗口 + 独立小窗
-│   ├── ipc/           #   IPC handlers (12 文件)
-│   ├── services/      #   业务逻辑 (12 services)
+│   ├── ipc/           #   IPC handlers (15 文件)
+│   ├── services/      #   业务逻辑 (15 services)
 │   ├── db/            #   sql.js + MySQL 抽象层
 │   └── utils/         #   加密、路径工具
 ├── preload/           # contextBridge API
@@ -111,7 +113,7 @@ src/
 
 ---
 
-## 分阶段实施 (12 Phase, ~297h)
+## 分阶段实施 (14 Phase, ~366.5h)
 
 | Phase | 范围 | 工时 | 状态 |
 |-------|------|------|------|
@@ -127,6 +129,8 @@ src/
 | 10 | 托盘/桌面宠物/PDF修复/翻页/UI圆润 | 22h | ✅ |
 | 11 | 工程收敛 — 安全加固 + 架构收敛 + 质量基线 | 28h | ✅ |
 | 12 | 缺陷修复 + E2E 兜底 + 体验收尾 — PDF/编辑器/浮窗/E2E/图标/快捷键/Toast/指南/便签 | 22h | ✅ |
+| 13 | 程序轻量化 + 用户体验 — 隐藏唤醒/宠物rAF/乐观更新/柔性关闭/一键备份/侧栏折叠/续写视图 | 18h | ✅ |
+| 14 | 工程质量深化 + 体验交付 — 状态机/类型收敛/IPC文档/UI重组/快捷键/迷你窗/剪贴板/阅读进度/成就/文件预览 | 33.5h | ✅ |
 
 ---
 
@@ -150,7 +154,7 @@ src/
 - [STYLE.md](STYLE.md) — 设计系统规范
 - [todo.md](todo.md) — 当前待办与 Phase 状态
 - [redo.md](redo.md) — 技术债与修复清单
-- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-10 详细任务规格
+- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-14 详细任务规格
 - [docs/development-guide.md](docs/development-guide.md) — 测试策略、工作流程图
 
 ## License

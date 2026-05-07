@@ -24,6 +24,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "review": "node scripts/lint-arch.js && biome check src/ tests/ && npx tsc -p tsconfig.node.json --noEmit && npx tsc -p tsconfig.web.json --noEmit && npm run build",
+    "docs:ipc": "npx tsx scripts/generate-ipc-doc.ts",
     "ci": "node scripts/lint-arch.js && biome check src/ tests/ && npx tsc -p tsconfig.node.json --noEmit && npx tsc -p tsconfig.web.json --noEmit && npm run build && vitest run"
   },
   "dependencies": {

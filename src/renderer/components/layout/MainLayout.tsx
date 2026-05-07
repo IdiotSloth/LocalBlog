@@ -6,22 +6,52 @@ import { ShortcutHelpPanel } from '../common/ShortcutHelpPanel';
 import { GlobalSearch } from './GlobalSearch';
 import { QuickNote } from './QuickNote';
 
-const navItems = [
-  { to: '/dashboard', label: '仪表盘', icon: '⌂' },
-  { to: '/notes', label: '便签', icon: '📝' },
-  { to: '/blog', label: '博客', icon: '✎' },
-  { to: '/knowledge', label: '知识库', icon: '▤' },
-  { to: '/tags', label: '标签', icon: '#' },
-  { to: '/recycle', label: '回收站', icon: '↺' },
-  { to: '/guide', label: '指南', icon: '?' },
-  { to: '/settings', label: '设置', icon: '⚙' },
+const navGroups = [
+  {
+    label: '写作',
+    items: [
+      { to: '/notes', label: '便签', icon: '📝' },
+      { to: '/blog', label: '博客', icon: '✎' },
+    ],
+  },
+  {
+    label: '资料',
+    items: [
+      { to: '/knowledge', label: '知识库', icon: '▤' },
+      { to: '/tags', label: '标签', icon: '#' },
+    ],
+  },
+  {
+    label: '洞察',
+    items: [
+      { to: '/', label: '续写', icon: '⌂' },
+      { to: '/dashboard', label: '仪表盘', icon: '⌂' },
+    ],
+  },
+  {
+    label: '系统',
+    items: [
+      { to: '/recycle', label: '回收站', icon: '↺' },
+      { to: '/guide', label: '指南', icon: '?' },
+      { to: '/settings', label: '设置', icon: '⚙' },
+    ],
+  },
 ];
 
 export function MainLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('lbkb_sidebar_collapsed') !== 'false';
+  });
   useShortcuts();
+
+  useEffect(() => {
+    localStorage.setItem('lbkb_sidebar_collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  const sidebarWidth = sidebarCollapsed ? 64 : 220;
 
   // Pet action listener — only 'new-blog' opens main window (standalone editor)
   useEffect(() => {
@@ -45,10 +75,16 @@ export function MainLayout() {
 
   return (
     <div className="flex h-full select-none">
-      {/* Sidebar — STYLE.md: bg-secondary, right border, 220px */}
+      {/* Sidebar — STYLE.md: bg-secondary, right border, collapsible */}
       <aside
-        className="flex w-[220px] shrink-0 flex-col border-r border-[var(--border-default)]"
-        style={{ background: 'var(--bg-secondary)' }}
+        className="flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-hidden"
+        style={{
+          background: 'var(--bg-secondary)',
+          width: sidebarWidth,
+          transition: 'width 0.2s ease',
+        }}
+        onMouseEnter={() => setSidebarCollapsed(false)}
+        onMouseLeave={() => setSidebarCollapsed(true)}
       >
         {/* Logo */}
         <div
@@ -56,71 +92,89 @@ export function MainLayout() {
           style={{ height: 'var(--nav-height)' }}
         >
           <span
-            className="text-lg font-bold tracking-tight"
+            className="text-lg font-bold tracking-tight shrink-0"
             style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
           >
-            ~/kb
+            {sidebarCollapsed ? '~' : '~/kb'}
           </span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-0.5 px-3 py-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] ${
-                  isActive
-                    ? 'text-[var(--accent-blue)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`
-              }
-              style={({ isActive }) => (isActive ? { background: 'var(--bg-tertiary)' } : {})}
-            >
-              <span className="w-5 text-center font-mono text-sm">{item.icon}</span>
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 space-y-3 px-3 py-3 overflow-y-auto">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              {!sidebarCollapsed && (
+                <div
+                  className="text-[10px] font-semibold uppercase tracking-wider px-3 mb-0.5"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  {group.label}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    end={item.to === '/'}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${
+                        isActive
+                          ? 'text-[var(--accent-blue)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`
+                    }
+                    style={({ isActive }) => (isActive ? { background: 'var(--bg-tertiary)' } : {})}
+                  >
+                    <span className="w-5 text-center font-mono text-sm shrink-0">{item.icon}</span>
+                    {!sidebarCollapsed && item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
-        {/* Quick Note */}
-        {user && (
+        {/* Quick Note — hidden when collapsed */}
+        {user && !sidebarCollapsed && (
           <div className="px-3">
             <QuickNote userId={user.id} />
           </div>
         )}
 
         {/* User footer */}
-        <div className="border-t border-[var(--border-default)] p-3">
+        <div className="border-t border-[var(--border-default)] p-2">
           <div
-            className="flex items-center gap-2.5 rounded-[4px] px-3 py-2"
+            className="flex items-center justify-center gap-2.5 rounded-[4px] px-2 py-2"
             style={{ background: 'var(--bg-primary)' }}
           >
             <div
-              className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}
             >
               {(user?.username || '?')[0].toUpperCase()}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                {user?.username}
+            {!sidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {user?.username}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/login');
+                  }}
+                  className="text-[11px] transition-colors duration-[0.15s]"
+                  style={{ color: 'var(--text-secondary)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-red)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                >
+                  注销登录
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  await logout();
-                  navigate('/login');
-                }}
-                className="text-[11px] transition-colors duration-[0.15s]"
-                style={{ color: 'var(--text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-red)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-              >
-                注销登录
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </aside>

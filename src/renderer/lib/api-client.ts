@@ -77,6 +77,10 @@ const webApi = {
   searchKb: (data: { userId: number; query: string }) => request('POST', '/api/search/kb', data),
 
   // Workspace
+  shortcutGetAll: () => Promise.resolve({ success: false, error: '快捷键设置为桌面专属功能' }),
+  shortcutUpdate: () => Promise.resolve({ success: false, error: '快捷键设置为桌面专属功能' }),
+  shortcutReset: () => Promise.resolve({ success: false, error: '快捷键设置为桌面专属功能' }),
+  workspaceExportZip: () => Promise.resolve({ success: false, error: '导出工作区为桌面专属功能' }),
   workspaceGetInfo: () => request('GET', '/api/workspace/info'),
   workspaceSetPath: () => Promise.resolve({ success: true }),
   workspaceMigrate: () => Promise.resolve({ success: true }),
@@ -136,12 +140,16 @@ const webApi = {
   notePin: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   noteClipboard: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   onNoteRefresh: () => () => {},
+
+  // Continue Writing
+  continueGetDrafts: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
+  continueGetLastBlog: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
+  continueGetRecentFiles: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
 };
 
 /** Detect environment and return the appropriate API */
 export const api: WindowApi = (() => {
-  if (typeof window !== 'undefined' && (window as any).api) {
-    return (window as any).api as WindowApi;
-  }
-  return webApi as WindowApi;
+  const w = window as { api?: WindowApi | typeof webApi };
+  if (w.api) return w.api;
+  return webApi;
 })();

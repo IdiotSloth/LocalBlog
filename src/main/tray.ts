@@ -57,6 +57,7 @@ function buildMenu(): Menu {
     { label: '📥 导入 MD', click: () => petActions['import-md']?.() },
     { label: '📎 导入文件', click: () => petActions['import-file']?.() },
     { label: '🌐 收藏网页', click: () => petActions['scrape-web']?.() },
+    { label: '📋 剪贴板→便签', click: () => petActions['clipboard-note']?.() },
     { type: 'separator' },
     {
       label: '📂 打开主窗口',

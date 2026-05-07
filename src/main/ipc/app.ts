@@ -1,7 +1,7 @@
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, ipcMain } from 'electron';
+import { app, dialog, ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { BackupService } from '../services/backup.service';
 import { StatsService, getDailyStats } from '../services/stats.service';
@@ -179,6 +179,19 @@ export function registerAppHandlers(): void {
       const backupPath = path.join(backupDir, filename);
       if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
       return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle(IPC.WORKSPACE_EXPORT_ZIP, async (_event, userId: number) => {
+    try {
+      const { filePath } = await dialog.showSaveDialog({
+        defaultPath: `LocalBlogKB-export-${new Date().toISOString().substring(0, 10)}.zip`,
+        filters: [{ name: 'ZIP 档案', extensions: ['zip'] }],
+      });
+      if (!filePath) return { success: false, error: '已取消' };
+      const result = await BackupService.exportWorkspaceAsZip(userId, filePath);
+      return { success: true, data: { path: result } };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

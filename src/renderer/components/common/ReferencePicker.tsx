@@ -19,8 +19,7 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
   const [loading, setLoading] = useState(true);
 
   const loadRefs = useCallback(async () => {
-    const d = await window.api.refGetFrom({ sourceType, sourceId });
-    const r = d as any;
+    const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
       setRefs(
         r.data.map((ref: any) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id })),
@@ -35,12 +34,11 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
-    const d = await window.api.refSearch({
+    const r = await window.api.refSearch({
       userId,
       scope: sourceType === 'blog' ? 'knowledge' : 'all',
       query: query.trim(),
     });
-    const r = d as any;
     if (r.success) setResults(r.data);
   }, [userId, query, sourceType]);
 

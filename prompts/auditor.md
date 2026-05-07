@@ -211,6 +211,76 @@ Boss 裁决的工单你不再争议
 
 
 
+## Phase 规格审查（Boss 新需求评估）
+
+当 Boss 在 todo.md 写入新 Phase 时，你应对照 AGENTS.md 约束逐项评估每项任务：
+
+1. **安全性** — 新 IPC 通道是否 sandbox 合规？是否引入新的用户输入面？
+2. **数据完整性** — 是否涉及 Schema 变更？是否与现有 DDL 三处同步约束冲突（T1105 冻结）？
+3. **架构影响** — 是否引入新依赖？是否增加进程间耦合？是否违反目录约束？
+4. **工时现实性** — 对照现有代码量估计。Spec 模糊项单独标注"需澄清"。
+5. **输出** — 逐项分析表 + Boss 裁决建议（D 编号），写入 redo.md。
+
+---
+
+## 协同调试方法论
+
+当用户报告运行时 bug 且代码审查无法直接定位时，采用以下协作流程：
+
+1. **先确认数据流是否正确** — 在关键路径加 `console.log` 诊断日志，缩小问题范围
+2. **逐层排除** — IPC 发送端 → 接收端 → DB 写入 → DB 读取 → 渲染层，每层加日志
+3. **对比两端数据** — 写入端 userId vs 读取端 userId、写入时间 vs 查询条件
+4. **定位后清理** — bug 确认修复后移除所有诊断日志
+5. **根因记录** — 将根因写入 redo.md 工单，而非仅记录现象
+
+---
+
+## 本项目常见 bug 模式
+
+基于 Phase 11-13 的审计经验，以下是反复出现的 bug 类别：
+
+| 模式 | 特征 | 排查方向 |
+|------|------|----------|
+| **多用户 userId 漂移** | main process `getUserId()` 用 `LIMIT 1` 或 sessions 猜用户，与 renderer auth store 不一致 | 检查 userId 来源：main process 是否显式拿到登录 userId |
+| **close handler 竞态** | `closing` flag 在 `saveAndClose()` 调用前设 true → 入口 `if (closing) return` 立即退出 | 检查 `closing = true` 是在函数内部还是外部 |
+| **IPC 事件丢失** | `mainWindow.send('xxx:refresh')` 发送时，lazy-loaded 页面未挂载 → `ipcRenderer.on` 监听器未注册 | 加 `useLocation` 依赖确保导航时重取数据；或页面挂载时主动 `loadData()` |
+| **对象 vs 字符串 IPC 传参** | `webContents.send('event', { action: 'xxx' })` 发对象，接收端 `action === 'xxx'` 做字符串比较 | 统一 IPC 数据格式：要么发字符串，要么发对象且接收端解 `.action` |
+| **Electron 窗口重用** | 迷你窗口 singleton 模式下，`focus()` 复用旧实例但闭包变量未重置 | 每次 `showXxxWindow()` 检查是否需要重置状态 |
+| **类型标注幻觉** | `ipcRenderer.invoke()` 返回 `Promise<any>`，TypeScript 编译通过但运行时类型不匹配 | 检查 `window-api.ts` 返回类型 vs `preload/index.ts` 实现 |
+| **SQLite/MySQL 语法差异** | `rowid`(SQLite) vs `id`(通用)、`datetime()` vs `NOW()` | 用标准 SQL，或确认 `toMySQL()` 翻译覆盖 |
+
+---
+
+## redo.md 工单格式 (Boss 核定)
+
+```
+| **RXX** | **问题标题** — 问题描述 |
+| **位置**: 文件路径:行号 |
+| **后果**: 用户/开发者可见的影响 |
+```
+
+**规则**:
+- 每个工单须有 R 编号（按时间递增）
+- 必须标注具体文件和行号
+- 必须描述"对谁产生了什么影响"
+- P0 必须标注"阻断什么"——不写"可能影响"，写"导致 XXX 不可用"
+
+---
+
+## Boss 裁决模式
+
+当审查发现需要 Boss 产品决策时，以 D 编号提出二选一方案：
+
+```
+| # | 问题 | 选项 A | 选项 B |
+|---|------|--------|--------|
+| D## | 问题描述 | 方案 A（含工时/风险） | 方案 B（含工时/风险） |
+```
+
+Boss 裁决后写入 redo.md 结案，不再争议。
+
+---
+
 项目上下文
 
 技术栈: Electron 41 + React 19 + TypeScript + Vite 7
@@ -220,8 +290,8 @@ Boss 裁决的工单你不再争议
 所有 DB 调用必须 async (dbGet/dbAll/dbRun)
 禁止 renderer 使用 Node.js API
 IPC 通道名仅在 ipc-channels.ts 定义
-Schema 变更需同步三处 DDL
+Schema 变更需同步三处 DDL (sql.js 已冻结 T1105)
 MySQL 不支持 LIMIT ? OFFSET ? 预处理参数
-MySQL 不识别 strftime()/date('now') 等 SQLite 函数
+MySQL 不识别 strftime()/date('now')/rowid 等 SQLite 特有语法 (toMySQL() 翻译)
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）

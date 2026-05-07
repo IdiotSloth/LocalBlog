@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, app, globalShortcut, shell } from 'electron';
+import { IPC } from '../shared/ipc-channels';
 import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
 import { setNoteRefreshTarget } from './ipc/note';
@@ -17,6 +18,7 @@ app.commandLine.appendSwitch('disable-gpu');
 app.setPath('cache', path.join(app.getPath('userData'), 'cache'));
 
 let mainWindow: BrowserWindow | null = null;
+let noteCleanTimer: ReturnType<typeof setInterval> | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -49,6 +51,18 @@ function createWindow(): void {
     e.preventDefault();
     mainWindow?.hide();
   });
+  mainWindow.on('hide', () => {
+    if (noteCleanTimer) { clearInterval(noteCleanTimer); noteCleanTimer = null; }
+    mainWindow?.webContents.send(IPC.APP_VISIBILITY, 'hidden');
+  });
+  mainWindow.on('show', () => {
+    if (!noteCleanTimer) {
+      noteCleanTimer = setInterval(() => {
+        NoteService.cleanOldNotes().catch(() => { /* best-effort */ });
+      }, 5 * 60 * 1000);
+    }
+    mainWindow?.webContents.send(IPC.APP_VISIBILITY, 'visible');
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -72,7 +86,7 @@ app.whenReady().then(async () => {
   initPetActions(); // tray menu actions work even if pet never opened
 
   // T12S1: Auto-clean old unpinned notes every 5 minutes
-  const noteCleanTimer = setInterval(() => {
+  noteCleanTimer = setInterval(() => {
     NoteService.cleanOldNotes().catch(() => { /* best-effort */ });
   }, 5 * 60 * 1000);
 
@@ -110,7 +124,7 @@ app.whenReady().then(async () => {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
-    clearInterval(noteCleanTimer);
+    if (noteCleanTimer) { clearInterval(noteCleanTimer); noteCleanTimer = null; }
   });
 });
 

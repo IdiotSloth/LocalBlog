@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
@@ -29,6 +29,9 @@ const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then(
 const TagManagePage = lazy(() => import('./features/tags/TagManagePage').then((m) => ({ default: m.TagManagePage })));
 const GuidePage = lazy(() => import('./features/guide/GuidePage').then((m) => ({ default: m.GuidePage })));
 const NoteListPage = lazy(() => import('./features/notes/NoteListPage').then((m) => ({ default: m.NoteListPage })));
+const ContinueWritingPage = lazy(() =>
+  import('./features/dashboard/ContinueWritingPage').then((m) => ({ default: m.ContinueWritingPage })),
+);
 
 function PageSkeleton() {
   return (
@@ -40,7 +43,8 @@ function PageSkeleton() {
   );
 }
 
-function ProtectedRoute({ children }: { children?: React.ReactNode }) {
+/** Auth guard layout — redirects to /login if not authenticated */
+function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuthStore();
   if (isLoading) {
     return (
@@ -48,8 +52,56 @@ function ProtectedRoute({ children }: { children?: React.ReactNode }) {
     );
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return children ? <>{children}</> : <Outlet />;
+  return <Outlet />;
 }
+
+/** Wrap a lazy page component with ErrorBoundary + Suspense */
+function lazyPage(Page: React.LazyExoticComponent<React.ComponentType<any>>) {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageSkeleton />}>
+        <Page />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+const router = createHashRouter([
+  {
+    // Auth pages — no auth guard, centered layout
+    element: <AuthLayout />,
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      { path: '/register', element: <RegisterPage /> },
+    ],
+  },
+  {
+    // All authenticated routes
+    element: <ProtectedRoute />,
+    children: [
+      {
+        // Full layout: sidebar + header + main content
+        element: <MainLayout />,
+        children: [
+          { index: true, element: lazyPage(ContinueWritingPage) },
+          { path: '/dashboard', element: lazyPage(DashboardPage) },
+          { path: '/blog', element: lazyPage(BlogListPage) },
+          { path: '/blog/new', element: lazyPage(BlogEditorPage) },
+          { path: '/blog/:id', element: lazyPage(BlogPreviewPage) },
+          { path: '/blog/:id/edit', element: lazyPage(BlogEditorPage) },
+          { path: '/knowledge', element: lazyPage(KnowledgeListPage) },
+          { path: '/tags', element: lazyPage(TagManagePage) },
+          { path: '/recycle', element: lazyPage(RecycleBinPage) },
+          { path: '/settings', element: lazyPage(SettingsPage) },
+          { path: '/notes', element: lazyPage(NoteListPage) },
+          { path: '/guide', element: lazyPage(GuidePage) },
+        ],
+      },
+      // Standalone editor — bypasses MainLayout for pet/tray "新建博客" action
+      { path: '/standalone/editor', element: lazyPage(BlogEditorPage) },
+    ],
+  },
+]);
 
 export default function App() {
   const initSession = useAuthStore((s) => s.initSession);
@@ -60,46 +112,5 @@ export default function App() {
     initTheme();
   }, [initSession, initTheme]);
 
-  const lazyPage = (Page: React.LazyExoticComponent<React.ComponentType<any>>) => (
-    <ErrorBoundary>
-      <Suspense fallback={<PageSkeleton />}>
-        <Page />
-      </Suspense>
-    </ErrorBoundary>
-  );
-
-  return (
-    <HashRouter>
-      <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-        </Route>
-        <Route
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={lazyPage(DashboardPage)} />
-          <Route path="/blog" element={lazyPage(BlogListPage)} />
-          <Route path="/blog/new" element={lazyPage(BlogEditorPage)} />
-          <Route path="/blog/:id" element={lazyPage(BlogPreviewPage)} />
-          <Route path="/blog/:id/edit" element={lazyPage(BlogEditorPage)} />
-          <Route path="/knowledge" element={lazyPage(KnowledgeListPage)} />
-          <Route path="/tags" element={lazyPage(TagManagePage)} />
-          <Route path="/recycle" element={lazyPage(RecycleBinPage)} />
-          <Route path="/settings" element={lazyPage(SettingsPage)} />
-          <Route path="/notes" element={lazyPage(NoteListPage)} />
-          <Route path="/guide" element={lazyPage(GuidePage)} />
-        </Route>
-        {/* Standalone editor — bypasses MainLayout for pet/tray "新建博客" action */}
-        <Route element={<ProtectedRoute></ProtectedRoute>}>
-          <Route path="/standalone/editor" element={lazyPage(BlogEditorPage)} />
-        </Route>
-      </Routes>
-    </HashRouter>
-  );
+  return <RouterProvider router={router} />;
 }

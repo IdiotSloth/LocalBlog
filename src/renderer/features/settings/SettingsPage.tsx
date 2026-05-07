@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth-store';
 import { useThemeStore } from '../../stores/theme-store';
 import { BackupSection } from './BackupSection';
+import { ShortcutSettings } from './ShortcutSettings';
 
 export function SettingsPage() {
   const { user, deleteAccount } = useAuthStore();
@@ -117,6 +118,14 @@ export function SettingsPage() {
           <BackupSection />
         </section>
 
+        {/* Shortcuts */}
+        <section
+          className="rounded-[6px] border p-5"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+        >
+          <ShortcutSettings />
+        </section>
+
         {/* Startup */}
         <section
           className="rounded-[6px] border p-5"
@@ -216,9 +225,18 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
+          <div
+            className="mt-4 rounded-[6px] border p-3 text-[13px]"
+            style={{ borderColor: 'var(--accent-green)', background: 'rgba(63,185,80,0.06)' }}
+          >
+            <span className="font-semibold" style={{ color: 'var(--accent-green)' }}>
+              本地优先
+            </span>
+            <span className="ml-2" style={{ color: 'var(--text-secondary)' }}>
+              你的数据完全存储在本地。零云服务，零网络依赖，数据永不离开你的设备。
+            </span>
+          </div>
         </section>
-
-        {/* Danger */}
         <section
           className="rounded-[6px] border-2 p-5"
           style={{ borderColor: 'var(--accent-red)', background: 'rgba(248,81,73,0.05)' }}

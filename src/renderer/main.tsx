@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ToastProvider } from './components/common/Toast';
+import type { WindowApi } from '../shared/window-api';
 import { api } from './lib/api-client';
 import './assets/index.css';
 
 // Inject API for browser environment (Electron provides window.api via preload)
-if (typeof window !== 'undefined' && !(window as any).api) {
-  (window as any).api = api;
+const w = window as { api?: WindowApi };
+if (!w.api) {
+  w.api = api;
 }
 
 const container = document.getElementById('root');

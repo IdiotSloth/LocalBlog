@@ -104,7 +104,7 @@ export function BlogListPage() {
       if (files?.length) {
         setImporting(true);
         try {
-          const r = (await window.api.blogImportMd({ userId: user.id, filePaths: files })) as any;
+          const r = await window.api.blogImportMd({ userId: user.id, filePaths: files });
           if (r?.success === false) {
             alert(`导入失败: ${r.error || '未知错误'}`);
           } else loadBlogs();
@@ -129,7 +129,7 @@ export function BlogListPage() {
         const text = await file.text();
         contents.push({ title: file.name.replace(/\.(md|txt|html)$/i, ''), content: text });
       }
-      await window.api.blogImportMd({ userId: user.id, filePaths: [], contents } as any);
+      await window.api.blogImportMd({ userId: user.id, filePaths: [], contents });
       loadBlogs();
     } catch (e) {
       console.error(e);
@@ -144,8 +144,7 @@ export function BlogListPage() {
     setScrapeError('');
     setScrapeResult(null);
     try {
-      const d = await window.api.scrapeWebpage(scrapeUrl.trim());
-      const r = d as any;
+      const r = await window.api.scrapeWebpage(scrapeUrl.trim());
       if (r.success) setScrapeResult(r.data);
       else setScrapeError(r.error);
     } catch {

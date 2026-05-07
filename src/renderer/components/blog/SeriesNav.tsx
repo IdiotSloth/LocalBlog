@@ -17,8 +17,7 @@ export function SeriesNav({ userId, seriesId, seriesName, currentBlogId }: Props
   const [blogs, setBlogs] = useState<SeriesBlog[]>([]);
 
   useEffect(() => {
-    window.api.blogSeriesGet(seriesId).then((d: unknown) => {
-      const r = d as any;
+    window.api.blogSeriesGet(seriesId).then((r) => {
       if (r.success && r.data) setBlogs(r.data);
     });
   }, [seriesId]);

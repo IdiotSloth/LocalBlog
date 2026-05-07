@@ -32,6 +32,123 @@ const crypto = require("node:crypto");
 const ExcelJS = require("exceljs");
 const mammoth = require("mammoth");
 const TurndownService = require("turndown");
+const IPC = {
+  // Auth
+  AUTH_LOGIN: "auth:login",
+  AUTH_REGISTER: "auth:register",
+  AUTH_LOGOUT: "auth:logout",
+  AUTH_VERIFY_TOKEN: "auth:verify-token",
+  AUTH_DELETE_ACCOUNT: "auth:delete-account",
+  // Blog
+  BLOG_LIST: "blog:list",
+  BLOG_GET: "blog:get",
+  BLOG_CREATE: "blog:create",
+  BLOG_UPDATE: "blog:update",
+  BLOG_DELETE: "blog:delete",
+  BLOG_RESTORE: "blog:restore",
+  BLOG_EXPORT: "blog:export",
+  BLOG_IMPORT_MD: "blog:import-md",
+  BLOG_SAVE_DRAFT: "blog:save-draft",
+  BLOG_GET_HISTORY: "blog:get-history",
+  BLOG_ROLLBACK: "blog:rollback",
+  // Tag
+  TAG_LIST: "tag:list",
+  TAG_CREATE: "tag:create",
+  TAG_UPDATE: "tag:update",
+  TAG_DELETE: "tag:delete",
+  TAG_SET_BLOG: "tag:set-blog",
+  TAG_SET_FILE: "tag:set-file",
+  // Quick Note
+  BLOG_QUICK_CREATE: "blog:quickCreate",
+  // Series
+  BLOG_SERIES_LIST: "blog:seriesList",
+  BLOG_SERIES_GET: "blog:seriesGet",
+  BLOG_SERIES_SET: "blog:seriesSet",
+  // Batch operations
+  BLOG_BATCH_DELETE: "blog:batchDelete",
+  BLOG_BATCH_TAG: "blog:batchTag",
+  KB_BATCH_DELETE: "kb:batchDelete",
+  RECYCLE_BATCH_RESTORE: "recycle:batchRestore",
+  // Knowledge Base
+  KB_LIST: "kb:list",
+  KB_GET: "kb:get",
+  KB_IMPORT: "kb:import",
+  KB_DELETE: "kb:delete",
+  KB_RESTORE: "kb:restore",
+  KB_RENAME: "kb:rename",
+  KB_PREVIEW: "kb:preview",
+  KB_OPEN_EXTERNAL: "kb:open-external",
+  // Search
+  SEARCH_GLOBAL: "search:global",
+  SEARCH_BLOGS: "search:blogs",
+  SEARCH_KB: "search:kb",
+  REBUILD_FTS_INDEX: "search:rebuild-index",
+  // Workspace
+  WORKSPACE_EXPORT_ZIP: "workspace:export-zip",
+  WORKSPACE_GET_INFO: "workspace:get-info",
+  WORKSPACE_SET_PATH: "workspace:set-path",
+  WORKSPACE_MIGRATE: "workspace:migrate",
+  WORKSPACE_OPEN_IN_FOLDER: "workspace:open-in-folder",
+  // Recycle Bin
+  RECYCLE_LIST: "recycle:list",
+  RECYCLE_RESTORE: "recycle:restore",
+  RECYCLE_EMPTY: "recycle:empty",
+  RECYCLE_SET_AUTO_CLEAN: "recycle:set-auto-clean",
+  // Folder
+  FOLDER_TREE: "folder:tree",
+  FOLDER_CREATE: "folder:create",
+  FOLDER_RENAME: "folder:rename",
+  FOLDER_DELETE: "folder:delete",
+  FOLDER_MOVE_ITEM: "folder:move-item",
+  // Web Scraping
+  SCRAPE_WEBPAGE: "scrape:webpage",
+  // Attachments
+  BLOG_LIST_ATTACHMENTS: "blog:list-attachments",
+  BLOG_DELETE_ATTACHMENT: "blog:delete-attachment",
+  BLOG_CLEANUP_ATTACHMENTS: "blog:cleanup-attachments",
+  // Backup
+  BACKUP_LIST: "backup:list",
+  BACKUP_CREATE: "backup:create",
+  BACKUP_RESTORE: "backup:restore",
+  BACKUP_DELETE: "backup:delete",
+  // File System
+  FS_SELECT_DIR: "fs:select-dir",
+  FS_SELECT_FILES: "fs:select-files",
+  // Stats
+  STATS_GET: "stats:get",
+  STATS_DAILY: "stats:daily",
+  // References
+  REF_ADD: "ref:add",
+  REF_REMOVE: "ref:remove",
+  REF_GET_FROM: "ref:getFrom",
+  REF_GET_TO: "ref:getTo",
+  REF_SEARCH: "ref:search",
+  // PDF Export
+  BLOG_EXPORT_PDF: "blog:exportPdf",
+  BLOG_EXPORT_DOCX: "blog:exportDocx",
+  // Notes
+  NOTE_LIST: "note:list",
+  // Continue Writing
+  CONTINUE_GET_DRAFTS: "continue:get-drafts",
+  CONTINUE_GET_LAST_BLOG: "continue:get-last-blog",
+  CONTINUE_GET_RECENT_FILES: "continue:get-recent-files",
+  NOTE_CREATE: "note:create",
+  NOTE_DELETE: "note:delete",
+  NOTE_PIN: "note:pin",
+  NOTE_CLIPBOARD: "note:clipboard",
+  // Shortcuts
+  SHORTCUT_GET_ALL: "shortcut:get-all",
+  SHORTCUT_UPDATE: "shortcut:update",
+  SHORTCUT_RESET: "shortcut:reset",
+  // App
+  APP_VISIBILITY: "app:visibility",
+  APP_GET_VERSION: "app:get-version",
+  APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
+  APP_SET_AUTO_START: "app:set-auto-start",
+  APP_GET_AUTO_START: "app:get-auto-start",
+  APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
+  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut"
+};
 const MYSQL_DDL = [
   `CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE,
@@ -576,113 +693,60 @@ const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   initDatabase,
   run
 }, Symbol.toStringTag, { value: "Module" }));
-const IPC = {
-  // Auth
-  AUTH_LOGIN: "auth:login",
-  AUTH_REGISTER: "auth:register",
-  AUTH_LOGOUT: "auth:logout",
-  AUTH_VERIFY_TOKEN: "auth:verify-token",
-  AUTH_DELETE_ACCOUNT: "auth:delete-account",
-  // Blog
-  BLOG_LIST: "blog:list",
-  BLOG_GET: "blog:get",
-  BLOG_CREATE: "blog:create",
-  BLOG_UPDATE: "blog:update",
-  BLOG_DELETE: "blog:delete",
-  BLOG_RESTORE: "blog:restore",
-  BLOG_EXPORT: "blog:export",
-  BLOG_IMPORT_MD: "blog:import-md",
-  BLOG_SAVE_DRAFT: "blog:save-draft",
-  BLOG_GET_HISTORY: "blog:get-history",
-  BLOG_ROLLBACK: "blog:rollback",
-  // Tag
-  TAG_LIST: "tag:list",
-  TAG_CREATE: "tag:create",
-  TAG_UPDATE: "tag:update",
-  TAG_DELETE: "tag:delete",
-  TAG_SET_BLOG: "tag:set-blog",
-  TAG_SET_FILE: "tag:set-file",
-  // Quick Note
-  BLOG_QUICK_CREATE: "blog:quickCreate",
-  // Series
-  BLOG_SERIES_LIST: "blog:seriesList",
-  BLOG_SERIES_GET: "blog:seriesGet",
-  BLOG_SERIES_SET: "blog:seriesSet",
-  // Batch operations
-  BLOG_BATCH_DELETE: "blog:batchDelete",
-  BLOG_BATCH_TAG: "blog:batchTag",
-  KB_BATCH_DELETE: "kb:batchDelete",
-  RECYCLE_BATCH_RESTORE: "recycle:batchRestore",
-  // Knowledge Base
-  KB_LIST: "kb:list",
-  KB_GET: "kb:get",
-  KB_IMPORT: "kb:import",
-  KB_DELETE: "kb:delete",
-  KB_RESTORE: "kb:restore",
-  KB_RENAME: "kb:rename",
-  KB_PREVIEW: "kb:preview",
-  KB_OPEN_EXTERNAL: "kb:open-external",
-  // Search
-  SEARCH_GLOBAL: "search:global",
-  SEARCH_BLOGS: "search:blogs",
-  SEARCH_KB: "search:kb",
-  REBUILD_FTS_INDEX: "search:rebuild-index",
-  // Workspace
-  WORKSPACE_GET_INFO: "workspace:get-info",
-  WORKSPACE_SET_PATH: "workspace:set-path",
-  WORKSPACE_MIGRATE: "workspace:migrate",
-  WORKSPACE_OPEN_IN_FOLDER: "workspace:open-in-folder",
-  // Recycle Bin
-  RECYCLE_LIST: "recycle:list",
-  RECYCLE_RESTORE: "recycle:restore",
-  RECYCLE_EMPTY: "recycle:empty",
-  RECYCLE_SET_AUTO_CLEAN: "recycle:set-auto-clean",
-  // Folder
-  FOLDER_TREE: "folder:tree",
-  FOLDER_CREATE: "folder:create",
-  FOLDER_RENAME: "folder:rename",
-  FOLDER_DELETE: "folder:delete",
-  FOLDER_MOVE_ITEM: "folder:move-item",
-  // Web Scraping
-  SCRAPE_WEBPAGE: "scrape:webpage",
-  // Attachments
-  BLOG_LIST_ATTACHMENTS: "blog:list-attachments",
-  BLOG_DELETE_ATTACHMENT: "blog:delete-attachment",
-  BLOG_CLEANUP_ATTACHMENTS: "blog:cleanup-attachments",
-  // Backup
-  BACKUP_LIST: "backup:list",
-  BACKUP_CREATE: "backup:create",
-  BACKUP_RESTORE: "backup:restore",
-  BACKUP_DELETE: "backup:delete",
-  // File System
-  FS_SELECT_DIR: "fs:select-dir",
-  FS_SELECT_FILES: "fs:select-files",
-  // Stats
-  STATS_GET: "stats:get",
-  STATS_DAILY: "stats:daily",
-  // References
-  REF_ADD: "ref:add",
-  REF_REMOVE: "ref:remove",
-  REF_GET_FROM: "ref:getFrom",
-  REF_GET_TO: "ref:getTo",
-  REF_SEARCH: "ref:search",
-  // PDF Export
-  BLOG_EXPORT_PDF: "blog:exportPdf",
-  BLOG_EXPORT_DOCX: "blog:exportDocx",
-  // Notes
-  NOTE_LIST: "note:list",
-  NOTE_CREATE: "note:create",
-  NOTE_DELETE: "note:delete",
-  NOTE_PIN: "note:pin",
-  NOTE_CLIPBOARD: "note:clipboard",
-  // App
-  APP_GET_VERSION: "app:get-version",
-  APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
-  APP_SET_AUTO_START: "app:set-auto-start",
-  APP_GET_AUTO_START: "app:get-auto-start",
-  APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
-  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut"
-};
+const DIR_BLOGS = "Blogs";
+const DIR_KNOWLEDGE_BASE = "KnowledgeBase";
+const DIR_ASSETS = "Assets";
+const SUPPORTED_KB_EXTENSIONS = [
+  ".docx",
+  ".doc",
+  ".xlsx",
+  ".xls",
+  ".pptx",
+  ".ppt",
+  ".pdf",
+  ".txt",
+  ".md",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".svg"
+];
+const MAX_TITLE_LENGTH = 200;
+async function getWorkspacePath(userId) {
+  const user = await dbGet("SELECT workspace_path FROM users WHERE id = ?", [userId]);
+  if (!user) throw new Error(`User ${userId} not found`);
+  return user.workspace_path;
+}
+async function getBlogsDir(userId) {
+  return path.join(await getWorkspacePath(userId), DIR_BLOGS);
+}
+async function getKnowledgeBaseDir(userId) {
+  return path.join(await getWorkspacePath(userId), DIR_KNOWLEDGE_BASE);
+}
+async function getAssetsDir(userId) {
+  return path.join(await getWorkspacePath(userId), DIR_ASSETS);
+}
+async function getBlogPath(userId, blogId, format) {
+  const ext = format === "html" ? ".html" : ".md";
+  return path.join(await getBlogsDir(userId), `${blogId}${ext}`);
+}
+async function getBlogAssetsDir(userId, blogId) {
+  return path.join(await getAssetsDir(userId), `blog_${blogId}`);
+}
+function initWorkspaceDirectories(workspacePath) {
+  const dirs = [
+    path.join(workspacePath, DIR_BLOGS),
+    path.join(workspacePath, DIR_KNOWLEDGE_BASE),
+    path.join(workspacePath, DIR_ASSETS)
+  ];
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+}
 const MAX_BACKUPS = 7;
 const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1e3;
 class BackupService {
@@ -757,6 +821,93 @@ class BackupService {
       clearInterval(BackupService.timer);
       BackupService.timer = null;
     }
+  }
+  /** Export entire workspace as a ZIP file (STORE-only, zero dependencies) */
+  static async exportWorkspaceAsZip(userId, outputPath) {
+    const files = [];
+    const collectDir = (dir, prefix) => {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        const zipName = prefix + "/" + e.name;
+        if (e.isDirectory()) {
+          collectDir(full, zipName);
+        } else {
+          files.push({ name: zipName, data: fs.readFileSync(full) });
+        }
+      }
+    };
+    const blogsDir = await getBlogsDir(userId);
+    const kbDir = await getKnowledgeBaseDir(userId);
+    const assetsDir = await getAssetsDir(userId);
+    collectDir(blogsDir, "Blogs");
+    collectDir(kbDir, "KnowledgeBase");
+    collectDir(assetsDir, "Assets");
+    const dbPath = BackupService.getDbPath();
+    if (fs.existsSync(dbPath)) {
+      files.push({ name: "database.db", data: fs.readFileSync(dbPath) });
+    }
+    const crcTable = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+      crcTable[i] = c;
+    }
+    const crc32 = (buf) => {
+      let c = 4294967295;
+      for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 255] ^ c >>> 8;
+      return (c ^ 4294967295) >>> 0;
+    };
+    const chunks = [];
+    const centralEntries = [];
+    let offset = 0;
+    for (const file of files) {
+      const nameBuf = Buffer.from(file.name, "utf-8");
+      const crc = crc32(file.data);
+      const size = file.data.length;
+      const localHeader = Buffer.alloc(30);
+      localHeader.writeUInt32LE(67324752, 0);
+      localHeader.writeUInt16LE(20, 4);
+      localHeader.writeUInt16LE(0, 8);
+      localHeader.writeUInt16LE(0, 10);
+      localHeader.writeUInt32LE(crc, 14);
+      localHeader.writeUInt32LE(size, 18);
+      localHeader.writeUInt32LE(size, 22);
+      localHeader.writeUInt16LE(nameBuf.length, 26);
+      chunks.push(localHeader, nameBuf, file.data);
+      const central = Buffer.alloc(46);
+      central.writeUInt32LE(33639248, 0);
+      central.writeUInt16LE(20, 4);
+      central.writeUInt16LE(20, 6);
+      central.writeUInt16LE(0, 10);
+      central.writeUInt16LE(0, 12);
+      central.writeUInt32LE(crc, 16);
+      central.writeUInt32LE(size, 20);
+      central.writeUInt32LE(size, 24);
+      central.writeUInt16LE(nameBuf.length, 28);
+      central.writeUInt16LE(0, 32);
+      central.writeUInt16LE(0, 34);
+      central.writeUInt16LE(0, 36);
+      central.writeUInt32LE(0, 38);
+      central.writeUInt32LE(offset, 42);
+      centralEntries.push(central, nameBuf);
+      offset += 30 + nameBuf.length + size;
+    }
+    const centralOffset = chunks.reduce((a, b) => a + b.length, 0);
+    const centralSize = centralEntries.reduce((a, b) => a + b.length, 0);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(101010256, 0);
+    eocd.writeUInt16LE(0, 4);
+    eocd.writeUInt16LE(0, 6);
+    eocd.writeUInt16LE(files.length, 8);
+    eocd.writeUInt16LE(files.length, 10);
+    eocd.writeUInt32LE(centralSize, 12);
+    eocd.writeUInt32LE(centralOffset, 16);
+    eocd.writeUInt16LE(0, 20);
+    const zipBuf = Buffer.concat([...chunks, ...centralEntries, eocd]);
+    fs.writeFileSync(outputPath, zipBuf);
+    return outputPath;
   }
   /** List available backups */
   static listBackups() {
@@ -1044,6 +1195,19 @@ start "" npm run dev\r
       return { success: false, error: err.message };
     }
   });
+  electron.ipcMain.handle(IPC.WORKSPACE_EXPORT_ZIP, async (_event, userId) => {
+    try {
+      const { filePath } = await electron.dialog.showSaveDialog({
+        defaultPath: `LocalBlogKB-export-${(/* @__PURE__ */ new Date()).toISOString().substring(0, 10)}.zip`,
+        filters: [{ name: "ZIP 档案", extensions: ["zip"] }]
+      });
+      if (!filePath) return { success: false, error: "已取消" };
+      const result = await BackupService.exportWorkspaceAsZip(userId, filePath);
+      return { success: true, data: { path: result } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
   electron.ipcMain.handle(IPC.STATS_GET, async (_event, userId) => {
     try {
       const stats = await StatsService.getUserStats(userId);
@@ -1082,60 +1246,6 @@ function verifyPassword(password, storedHash) {
 }
 function generateToken() {
   return crypto.randomBytes(TOKEN_BYTES).toString("base64url");
-}
-const DIR_BLOGS = "Blogs";
-const DIR_KNOWLEDGE_BASE = "KnowledgeBase";
-const DIR_ASSETS = "Assets";
-const SUPPORTED_KB_EXTENSIONS = [
-  ".docx",
-  ".doc",
-  ".xlsx",
-  ".xls",
-  ".pptx",
-  ".ppt",
-  ".pdf",
-  ".txt",
-  ".md",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg"
-];
-const MAX_TITLE_LENGTH = 200;
-async function getWorkspacePath(userId) {
-  const user = await dbGet("SELECT workspace_path FROM users WHERE id = ?", [userId]);
-  if (!user) throw new Error(`User ${userId} not found`);
-  return user.workspace_path;
-}
-async function getBlogsDir(userId) {
-  return path.join(await getWorkspacePath(userId), DIR_BLOGS);
-}
-async function getKnowledgeBaseDir(userId) {
-  return path.join(await getWorkspacePath(userId), DIR_KNOWLEDGE_BASE);
-}
-async function getAssetsDir(userId) {
-  return path.join(await getWorkspacePath(userId), DIR_ASSETS);
-}
-async function getBlogPath(userId, blogId, format) {
-  const ext = format === "html" ? ".html" : ".md";
-  return path.join(await getBlogsDir(userId), `${blogId}${ext}`);
-}
-async function getBlogAssetsDir(userId, blogId) {
-  return path.join(await getAssetsDir(userId), `blog_${blogId}`);
-}
-function initWorkspaceDirectories(workspacePath) {
-  const dirs = [
-    path.join(workspacePath, DIR_BLOGS),
-    path.join(workspacePath, DIR_KNOWLEDGE_BASE),
-    path.join(workspacePath, DIR_ASSETS)
-  ];
-  for (const dir of dirs) {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  }
 }
 const TOKEN_EXPIRY_DAYS = 30;
 class AuthService {
@@ -1289,6 +1399,7 @@ function buildMenu() {
     { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
     { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
     { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
+    { label: "📋 剪贴板→便签", click: () => petActions["clipboard-note"]?.() },
     { type: "separator" },
     {
       label: "📂 打开主窗口",
@@ -1338,11 +1449,33 @@ function setupTray(win) {
 }
 let petWin = null;
 let mainWindow$1 = null;
-let dragInterval = null;
+let isDragging = false;
+let dragTimer = null;
 let dragOffset = { x: 0, y: 0 };
 let _posFile;
 function posFile() {
   return _posFile || (_posFile = path.join(electron.app.getPath("userData"), "pet-position.json"));
+}
+function isPosOnScreen(x, y, w, h) {
+  return electron.screen.getAllDisplays().some((d) => {
+    const wa = d.workArea;
+    return x >= wa.x - 20 && y >= wa.y - 20 && x <= wa.x + wa.width - 100 && y <= wa.y + wa.height - 100;
+  });
+}
+function loadMiniPos(name, dw, dh) {
+  const file = path.join(electron.app.getPath("userData"), `mini-${name}-pos.json`);
+  try {
+    if (fs.existsSync(file)) {
+      const pos = JSON.parse(fs.readFileSync(file, "utf-8"));
+      if (isPosOnScreen(pos.x, pos.y, dw, dh)) return pos;
+    }
+  } catch {
+  }
+  return { x: -1, y: -1 };
+}
+function saveMiniPos(name, x, y) {
+  const file = path.join(electron.app.getPath("userData"), `mini-${name}-pos.json`);
+  fs.writeFileSync(file, JSON.stringify({ x, y }));
 }
 let _petDir;
 function petDir() {
@@ -1408,17 +1541,20 @@ function showQuickNote() {
     width: 380,
     height: 60,
     frame: false,
+    movable: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
   });
-  win.center();
+  const qPos = loadMiniPos("note", 380, 60);
+  if (qPos.x >= 0) win.setPosition(qPos.x, qPos.y);
+  else win.center();
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s}
+    body{display:flex;align-items:center;height:60px;padding:0 12px;background:#1a1a2e;border-radius:8px;transition:background .2s;-webkit-app-region:drag}
     body.saved{background:#1a3a2e}
-    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif}
+    input{flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-size:15px;font-family:sans-serif;-webkit-app-region:no-drag}
     input::placeholder{color:#666}
     .hint{color:#555;font-size:11px;white-space:nowrap;margin-left:8px;transition:color .2s}
     body.saved .hint{color:#3fb950}
@@ -1430,6 +1566,10 @@ function showQuickNote() {
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   win.once("ready-to-show", () => win.show());
   win.on("closed", () => {
+    if (miniNoteWin && !miniNoteWin.isDestroyed()) {
+      const [x, y] = miniNoteWin.getPosition();
+      saveMiniPos("note", x, y);
+    }
     miniNoteWin = null;
   });
   const saveAndClose = async () => {
@@ -1606,18 +1746,22 @@ function showScrapeWindow() {
     width: 500,
     height: 420,
     frame: false,
+    movable: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: miniPreload }
   });
-  win.center();
+  const sPos = loadMiniPos("scrape", 500, 420);
+  if (sPos.x >= 0) win.setPosition(sPos.x, sPos.y);
+  else win.center();
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px}
+    body{padding:16px;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;border-radius:8px;-webkit-app-region:drag}
     h2{font-size:16px;margin-bottom:12px}
-    input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
+    input{-webkit-app-region:no-drag;width:100%;padding:10px 12px;border:1px solid #333;border-radius:6px;background:#0d1117;color:#e0e0e0;font-size:14px;outline:none;margin-bottom:12px}
     input:focus{border-color:#58a6ff}
+    .btn{-webkit-app-region:no-drag}
     .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
     .btn-primary{background:#58a6ff;color:#fff}
     .btn-primary:disabled{opacity:.4;cursor:default}
@@ -1639,6 +1783,10 @@ function showScrapeWindow() {
   miniScrapeWin = win;
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   win.on("closed", () => {
+    if (miniScrapeWin && !miniScrapeWin.isDestroyed()) {
+      const [x, y] = miniScrapeWin.getPosition();
+      saveMiniPos("scrape", x, y);
+    }
     miniScrapeWin = null;
   });
   win.webContents.once("did-finish-load", () => {
@@ -1739,6 +1887,24 @@ function showStandaloneEditor() {
     mainWindow$1.webContents.send("pet-action", "new-blog");
   }
 }
+async function handleClipboardNote() {
+  const text = electron.clipboard.readText();
+  if (!text.trim()) {
+    new electron.Notification({ title: "剪贴板为空", body: "无法读取剪贴板内容" }).show();
+    return;
+  }
+  try {
+    const { NoteService: NoteService2 } = await Promise.resolve().then(() => note_service);
+    const uid = await getUserId();
+    await NoteService2.createNote(uid, text.trim(), "clipboard");
+    new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
+    if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
+      mainWindow$1.webContents.send("note:refresh");
+    }
+  } catch (e) {
+    new electron.Notification({ title: "保存失败", body: e.message || "未知错误" }).show();
+  }
+}
 function petMenu() {
   return electron.Menu.buildFromTemplate([
     { label: "📝 快速便签", click: () => showQuickNote() },
@@ -1746,6 +1912,7 @@ function petMenu() {
     { label: "📥 导入 MD", click: () => handleImportMd() },
     { label: "📎 导入文件", click: () => handleImportFile() },
     { label: "🌐 收藏网页", click: () => showScrapeWindow() },
+    { label: "📋 剪贴板→便签", click: () => handleClipboardNote() },
     { type: "separator" },
     {
       label: "📂 打开主窗口",
@@ -1786,7 +1953,7 @@ function createPet(win) {
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{margin:0;overflow:hidden;background:transparent}
-#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .1s ease;cursor:grab;user-select:none;-webkit-user-drag:none}
+#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .08s linear;cursor:grab;user-select:none;-webkit-user-drag:none}
 #pet:active{cursor:grabbing}
 @keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 #pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
@@ -1839,7 +2006,8 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     "new-blog": showStandaloneEditor,
     "import-md": handleImportMd,
     "import-file": handleImportFile,
-    "scrape-web": showScrapeWindow
+    "scrape-web": showScrapeWindow,
+    "clipboard-note": handleClipboardNote
   });
 }
 function initPetActions() {
@@ -1850,7 +2018,8 @@ function initPetActions() {
     "new-blog": showStandaloneEditor,
     "import-md": handleImportMd,
     "import-file": handleImportFile,
-    "scrape-web": showScrapeWindow
+    "scrape-web": showScrapeWindow,
+    "clipboard-note": handleClipboardNote
   });
 }
 let _ipcRegistered = false;
@@ -1881,19 +2050,26 @@ function registerPetIpc() {
     const cursor = electron.screen.getCursorScreenPoint();
     const [wx, wy] = petWin.getPosition();
     dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
-    dragInterval = setInterval(() => {
-      if (!petWin || petWin.isDestroyed()) {
-        if (dragInterval) clearInterval(dragInterval);
+    isDragging = true;
+    const dragLoop = () => {
+      if (!isDragging || !petWin || petWin.isDestroyed()) {
+        if (dragTimer) {
+          clearTimeout(dragTimer);
+          dragTimer = null;
+        }
         return;
       }
       const c = electron.screen.getCursorScreenPoint();
       petWin.setPosition(c.x - dragOffset.x, c.y - dragOffset.y);
-    }, 16);
+      dragTimer = setTimeout(dragLoop, 16);
+    };
+    dragLoop();
   });
   electron.ipcMain.on("pet:stopDrag", () => {
-    if (dragInterval) {
-      clearInterval(dragInterval);
-      dragInterval = null;
+    isDragging = false;
+    if (dragTimer) {
+      clearTimeout(dragTimer);
+      dragTimer = null;
     }
   });
   electron.ipcMain.on("pet:savePosition", () => {
@@ -2107,7 +2283,9 @@ class BlogService {
     }
     if (update.content !== void 0) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format);
-      fs.writeFileSync(filePath, update.content, "utf-8");
+      const tmpPath = filePath + ".tmp." + Date.now();
+      fs.writeFileSync(tmpPath, update.content, "utf-8");
+      fs.renameSync(tmpPath, filePath);
       await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [update.content, nowMySQL(), blogId]);
     }
   }
@@ -2665,6 +2843,59 @@ function registerBlogHandlers() {
     }
   });
 }
+class ContinueService {
+  static async getRecentDrafts(userId) {
+    return dbAll(
+      `SELECT d.id, d.blog_id as blogId, b.title as blogTitle, d.content, d.saved_at as savedAt
+       FROM blog_drafts d JOIN blogs b ON d.blog_id = b.id
+       WHERE b.user_id = ? AND b.status = 'active'
+       ORDER BY d.saved_at DESC LIMIT 3`,
+      [userId]
+    );
+  }
+  static async getLastBlog(userId) {
+    return dbGet(
+      `SELECT id, title, updated_at as updatedAt
+       FROM blogs WHERE user_id = ? AND status = 'active'
+       ORDER BY updated_at DESC LIMIT 1`,
+      [userId]
+    );
+  }
+  static async getRecentFiles(userId) {
+    return dbAll(
+      `SELECT id, filename, created_at as createdAt
+       FROM knowledge_files WHERE user_id = ? AND status = 'active'
+       ORDER BY created_at DESC LIMIT 5`,
+      [userId]
+    );
+  }
+}
+function registerContinueHandlers() {
+  electron.ipcMain.handle(IPC.CONTINUE_GET_DRAFTS, async (_event, userId) => {
+    try {
+      const data = await ContinueService.getRecentDrafts(userId);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.CONTINUE_GET_LAST_BLOG, async (_event, userId) => {
+    try {
+      const data = await ContinueService.getLastBlog(userId);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.CONTINUE_GET_RECENT_FILES, async (_event, userId) => {
+    try {
+      const data = await ContinueService.getRecentFiles(userId);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
 class FolderService {
   static async getFolderTree(userId, type) {
     const folders = await dbAll(
@@ -2966,18 +3197,28 @@ class PreviewService {
         case ".pdf":
           return await PreviewService.previewPdf(filePath);
         case ".txt":
-        case ".md":
           return PreviewService.previewText(filePath);
+        case ".md":
+          return await PreviewService.previewMarkdown(filePath);
         case ".png":
         case ".jpg":
         case ".jpeg":
         case ".gif":
         case ".webp":
         case ".svg":
+        case ".bmp":
           return PreviewService.previewImage(filePath);
+        case ".mp4":
+        case ".webm":
+        case ".mov":
+          return PreviewService.previewMedia(filePath, "video");
+        case ".mp3":
+        case ".wav":
+        case ".ogg":
+          return PreviewService.previewMedia(filePath, "audio");
         case ".pptx":
         case ".ppt":
-          return { error: "PPT 预览暂不支持，请使用系统程序打开", fileType: ext };
+          return { error: 'PPT 预览暂不支持，请点击"外部打开"使用系统程序查看', fileType: ext };
         default:
           return { error: "不支持的文件格式", fileType: ext };
       }
@@ -3084,6 +3325,44 @@ class PreviewService {
         img { max-width: 100%; max-height: 100vh; object-fit: contain; }
       </style></head><body><img src="file:///${encodedPath}" onerror="this.parentElement.innerHTML='<p style=color:#999>图片加载失败</p>'" /></body></html>`
     };
+  }
+  static async previewMarkdown(filePath) {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const MarkdownIt = (await import("markdown-it")).default;
+    const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+    const bodyHtml = md.render(raw);
+    return {
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; line-height: 1.8; max-width: 800px; margin: 0 auto; color: #333; }
+        h1,h2,h3 { color: #1f4e79; }
+        pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 13px; }
+        code { font-family: "Consolas", "Courier New", monospace; font-size: 13px; }
+        table { border-collapse: collapse; width: 100%; }
+        td,th { border: 1px solid #ddd; padding: 8px; }
+        img { max-width: 100%; }
+        blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 16px; color: #666; }
+      </style></head><body>${bodyHtml}</body></html>`
+    };
+  }
+  static previewMedia(filePath, type) {
+    const encodedPath = filePath.replace(/\\/g, "/");
+    const tag = type === "video" ? "video" : "audio";
+    return {
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
+        ${tag} { max-width: 100%; max-height: 100vh; outline: none; }
+      </style></head><body><${tag} src="file:///${encodedPath}" controls autoplay style="max-width:100%;max-height:100vh">
+        您的浏览器不支持此媒体格式
+      </${tag}></body></html>`
+    };
+  }
+  /** Check if file is large — export for renderer to decide on loading UX */
+  static getFileSize(filePath) {
+    try {
+      return fs.statSync(filePath).size;
+    } catch {
+      return 0;
+    }
   }
 }
 function registerKnowledgeHandlers() {
@@ -3712,6 +3991,76 @@ function registerSearchHandlers() {
     return { success: true };
   });
 }
+const SHORTCUTS = [
+  { id: "new-blog", key: "Ctrl+N", label: "新建博客", description: "打开博客编辑器", group: "global" },
+  { id: "global-search", key: "Ctrl+F", label: "全局搜索", description: "聚焦全局搜索框", group: "global" },
+  { id: "dashboard", key: "Ctrl+H", label: "仪表盘", description: "打开仪表盘页面", group: "global" },
+  { id: "help", key: "?", label: "快捷键帮助", description: "显示快捷键列表", group: "global" },
+  { id: "escape", key: "Escape", label: "关闭弹窗", description: "关闭当前弹窗或面板", group: "global" },
+  { id: "save", key: "Ctrl+S", label: "保存", description: "保存当前内容", group: "editor" },
+  { id: "bold", key: "Ctrl+B", label: "加粗", description: "切换加粗格式", group: "editor" },
+  { id: "italic", key: "Ctrl+I", label: "斜体", description: "切换斜体格式", group: "editor" },
+  { id: "undo", key: "Ctrl+Z", label: "撤销", description: "撤销上一步操作", group: "editor" },
+  { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "重做已撤销操作", group: "editor" },
+  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" }
+];
+class ShortcutService {
+  static filePath() {
+    return path.join(electron.app.getPath("userData"), "shortcuts.json");
+  }
+  static load() {
+    try {
+      if (fs.existsSync(ShortcutService.filePath())) {
+        const custom = JSON.parse(fs.readFileSync(ShortcutService.filePath(), "utf-8"));
+        return SHORTCUTS.map((d) => {
+          const over = custom.find((c) => c.id === d.id);
+          return over ? { ...d, key: over.key } : d;
+        });
+      }
+    } catch {
+    }
+    return [...SHORTCUTS];
+  }
+  static update(id, key) {
+    const current = ShortcutService.load();
+    const entry = current.find((s) => s.id === id);
+    if (!entry) throw new Error(`Shortcut not found: ${id}`);
+    entry.key = key;
+    const overrides = current.filter((e) => SHORTCUTS.find((d) => d.id === e.id)?.key !== e.key);
+    fs.writeFileSync(ShortcutService.filePath(), JSON.stringify(overrides, null, 2));
+  }
+  static reset() {
+    try {
+      if (fs.existsSync(ShortcutService.filePath())) fs.unlinkSync(ShortcutService.filePath());
+    } catch {
+    }
+  }
+}
+function registerShortcutHandlers() {
+  electron.ipcMain.handle(IPC.SHORTCUT_GET_ALL, async () => {
+    try {
+      return { success: true, data: ShortcutService.load() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.SHORTCUT_UPDATE, async (_event, id, keys) => {
+    try {
+      ShortcutService.update(id, keys);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.SHORTCUT_RESET, async () => {
+    try {
+      ShortcutService.reset();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
 function registerTagHandlers() {
   electron.ipcMain.handle(IPC.TAG_LIST, async (_event, userId) => {
     try {
@@ -3815,13 +4164,16 @@ function registerAllIpcHandlers() {
   registerReferenceHandlers();
   registerScrapeHandler();
   registerAppHandlers();
+  registerShortcutHandlers();
   registerTagHandlers();
   registerNoteHandlers();
+  registerContinueHandlers();
 }
 electron.app.disableHardwareAcceleration();
 electron.app.commandLine.appendSwitch("disable-gpu");
 electron.app.setPath("cache", path.join(electron.app.getPath("userData"), "cache"));
 let mainWindow = null;
+let noteCleanTimer = null;
 function createWindow() {
   mainWindow = new electron.BrowserWindow({
     width: 1400,
@@ -3851,6 +4203,22 @@ function createWindow() {
     e.preventDefault();
     mainWindow?.hide();
   });
+  mainWindow.on("hide", () => {
+    if (noteCleanTimer) {
+      clearInterval(noteCleanTimer);
+      noteCleanTimer = null;
+    }
+    mainWindow?.webContents.send(IPC.APP_VISIBILITY, "hidden");
+  });
+  mainWindow.on("show", () => {
+    if (!noteCleanTimer) {
+      noteCleanTimer = setInterval(() => {
+        NoteService.cleanOldNotes().catch(() => {
+        });
+      }, 5 * 60 * 1e3);
+    }
+    mainWindow?.webContents.send(IPC.APP_VISIBILITY, "visible");
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     electron.shell.openExternal(url);
     return { action: "deny" };
@@ -3871,7 +4239,7 @@ electron.app.whenReady().then(async () => {
     setNoteRefreshTarget(mainWindow.webContents);
   }
   initPetActions();
-  const noteCleanTimer = setInterval(() => {
+  noteCleanTimer = setInterval(() => {
     NoteService.cleanOldNotes().catch(() => {
     });
   }, 5 * 60 * 1e3);
@@ -3911,7 +4279,10 @@ start "" npm run dev\r
   });
   electron.app.on("will-quit", () => {
     electron.globalShortcut.unregisterAll();
-    clearInterval(noteCleanTimer);
+    if (noteCleanTimer) {
+      clearInterval(noteCleanTimer);
+      noteCleanTimer = null;
+    }
   });
 });
 electron.app.on("window-all-closed", () => {

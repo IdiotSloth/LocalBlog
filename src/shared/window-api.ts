@@ -4,9 +4,12 @@ import type {
   AuthResponse,
   Blog,
   BlogWithTags,
+  DraftItem,
   FolderTreeNode,
   KnowledgeFileWithTags,
+  LastBlog,
   LoginRequest,
+  RecentFile,
   RecycleBinItem,
   RegisterRequest,
   ScrapeResult,
@@ -69,7 +72,7 @@ export interface WindowApi {
   kbDelete(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   kbRestore(fileId: number): Promise<ApiResponse<void>>;
   kbRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  kbPreview(fileId: number): Promise<ApiResponse<{ filename: string; fileType: string; content?: string }>>;
+  kbPreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }>;
   kbOpenExternal(fileId: number): Promise<ApiResponse<void>>;
   kbBatchDelete(fileIds: number[]): Promise<ApiResponse<{ deleted: number }>>;
 
@@ -79,6 +82,7 @@ export interface WindowApi {
   searchKb(data: Record<string, unknown>): Promise<ApiResponse<SearchResult[]>>;
 
   // Workspace
+  workspaceExportZip(userId: number): Promise<ApiResponse<{ path: string }>>;
   workspaceGetInfo(userId: number): Promise<WorkspaceInfo>;
   workspaceSetPath(data: Record<string, unknown>): Promise<void>;
   workspaceMigrate(data: Record<string, unknown>): Promise<void>;
@@ -119,6 +123,7 @@ export interface WindowApi {
   backupDelete(filename: string): Promise<ApiResponse<void>>;
 
   // Events
+  onAppVisibility(cb: (state: 'hidden' | 'visible') => void): () => void;
   onTrayAction(cb: (action: string) => void): () => void;
   onPetAction(cb: (action: string) => void): () => void;
   onBlogRefresh(cb: () => void): () => void;
@@ -131,9 +136,19 @@ export interface WindowApi {
   notePin(noteId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
   noteClipboard(): Promise<ApiResponse<string>>;
 
+  // Continue Writing
+  continueGetDrafts(userId: number): Promise<ApiResponse<DraftItem[]>>;
+  continueGetLastBlog(userId: number): Promise<ApiResponse<LastBlog | null>>;
+  continueGetRecentFiles(userId: number): Promise<ApiResponse<RecentFile[]>>;
+
   // File System
   selectFiles(exts: string[]): Promise<string[] | undefined>;
   selectDir(): Promise<string | undefined>;
+
+  // Shortcuts
+  shortcutGetAll(): Promise<ApiResponse<import('./shortcuts').ShortcutDef[]>>;
+  shortcutUpdate(id: string, key: string): Promise<ApiResponse<void>>;
+  shortcutReset(): Promise<ApiResponse<void>>;
 
   // App
   appGetVersion(): Promise<ApiResponse<string>>;

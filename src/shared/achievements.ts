@@ -10,7 +10,7 @@ export interface Achievement {
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
-  // Production
+  // Production milestones
   {
     id: 'first-blog',
     name: '初出茅庐',
@@ -35,15 +35,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: 'gold',
     condition: (s) => s.totalBlogs >= 50,
   },
-  // Word count
-  {
-    id: 'first-1k',
-    name: '千字文',
-    description: '单篇博客超 1000 字',
-    emoji: '📝',
-    tier: 'bronze',
-    condition: (s) => s.longestBlog >= 1000,
-  },
+  // Wordcount milestones
   {
     id: 'total-10k',
     name: '万字长城',
@@ -60,15 +52,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: 'gold',
     condition: (s) => s.totalWords >= 100000,
   },
-  // Streaks
-  {
-    id: 'streak-3',
-    name: '三天打鱼',
-    description: '连续 3 天写作',
-    emoji: '🔥',
-    tier: 'bronze',
-    condition: (s) => s.currentStreak >= 3,
-  },
+  // Streak milestone
   {
     id: 'streak-7',
     name: '一周战士',
@@ -76,56 +60,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: '🔥',
     tier: 'silver',
     condition: (s) => s.currentStreak >= 7,
-  },
-  {
-    id: 'streak-30',
-    name: '月度之星',
-    description: '连续 30 天写作',
-    emoji: '⭐',
-    tier: 'gold',
-    condition: (s) => s.currentStreak >= 30,
-  },
-  // KB
-  {
-    id: 'first-file',
-    name: '知识收集者',
-    description: '导入第一个知识库文件',
-    emoji: '📁',
-    tier: 'bronze',
-    condition: (s) => s.totalFiles >= 1,
-  },
-  {
-    id: 'ten-files',
-    name: '资料达人',
-    description: '知识库达到 10 个文件',
-    emoji: '🗄️',
-    tier: 'silver',
-    condition: (s) => s.totalFiles >= 10,
-  },
-  // Special
-  {
-    id: 'night-owl',
-    name: '夜猫子',
-    description: '在凌晨 0-5 点发布博客',
-    emoji: '🦉',
-    tier: 'bronze',
-    condition: (s) => s.hasNightBlog,
-  },
-  {
-    id: 'tag-master',
-    name: '分类大师',
-    description: '使用 10 个以上不同标签',
-    emoji: '🏷️',
-    tier: 'silver',
-    condition: (s) => s.uniqueTags >= 10,
-  },
-  {
-    id: 'multi-format',
-    name: '双栖写手',
-    description: '拥有 MD 和 HTML 博客',
-    emoji: '🔄',
-    tier: 'bronze',
-    condition: (s) => s.hasMdBlog && s.hasHtmlBlog,
   },
 ];
 

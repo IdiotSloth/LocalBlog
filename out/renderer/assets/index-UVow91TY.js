@@ -426,8 +426,8 @@ function requireReact_production() {
   react_production.use = function(usable) {
     return ReactSharedInternals.H.use(usable);
   };
-  react_production.useActionState = function(action, initialState, permalink) {
-    return ReactSharedInternals.H.useActionState(action, initialState, permalink);
+  react_production.useActionState = function(action, initialState2, permalink) {
+    return ReactSharedInternals.H.useActionState(action, initialState2, permalink);
   };
   react_production.useCallback = function(callback, deps) {
     return ReactSharedInternals.H.useCallback(callback, deps);
@@ -470,8 +470,8 @@ function requireReact_production() {
   react_production.useRef = function(initialValue) {
     return ReactSharedInternals.H.useRef(initialValue);
   };
-  react_production.useState = function(initialState) {
-    return ReactSharedInternals.H.useState(initialState);
+  react_production.useState = function(initialState2) {
+    return ReactSharedInternals.H.useState(initialState2);
   };
   react_production.useSyncExternalStore = function(subscribe, getSnapshot, getServerSnapshot) {
     return ReactSharedInternals.H.useSyncExternalStore(
@@ -909,8 +909,8 @@ function requireReactDom_production() {
   reactDom_production.unstable_batchedUpdates = function(fn, a) {
     return fn(a);
   };
-  reactDom_production.useFormState = function(action, initialState, permalink) {
-    return ReactSharedInternals.H.useFormState(action, initialState, permalink);
+  reactDom_production.useFormState = function(action, initialState2, permalink) {
+    return ReactSharedInternals.H.useFormState(action, initialState2, permalink);
   };
   reactDom_production.useFormStatus = function() {
     return ReactSharedInternals.H.useHostTransitionStatus();
@@ -4317,11 +4317,11 @@ function requireReactDomClient_production() {
     var root3 = enqueueConcurrentRenderForLane(fiber, 2);
     null !== root3 && scheduleUpdateOnFiber(root3, fiber, 2);
   }
-  function mountStateImpl(initialState) {
+  function mountStateImpl(initialState2) {
     var hook = mountWorkInProgressHook();
-    if ("function" === typeof initialState) {
-      var initialStateInitializer = initialState;
-      initialState = initialStateInitializer();
+    if ("function" === typeof initialState2) {
+      var initialStateInitializer = initialState2;
+      initialState2 = initialStateInitializer();
       if (shouldDoubleInvokeUserFnsInHooksDEV) {
         setIsStrictModeForDevtools(true);
         try {
@@ -4331,13 +4331,13 @@ function requireReactDomClient_production() {
         }
       }
     }
-    hook.memoizedState = hook.baseState = initialState;
+    hook.memoizedState = hook.baseState = initialState2;
     hook.queue = {
       pending: null,
       lanes: 0,
       dispatch: null,
       lastRenderedReducer: basicStateReducer,
-      lastRenderedState: initialState
+      lastRenderedState: initialState2
     };
     return hook;
   }
@@ -4964,7 +4964,7 @@ function requireReactDomClient_production() {
     useReducer: function(reducer, initialArg, init2) {
       var hook = mountWorkInProgressHook();
       if (void 0 !== init2) {
-        var initialState = init2(initialArg);
+        var initialState2 = init2(initialArg);
         if (shouldDoubleInvokeUserFnsInHooksDEV) {
           setIsStrictModeForDevtools(true);
           try {
@@ -4973,14 +4973,14 @@ function requireReactDomClient_production() {
             setIsStrictModeForDevtools(false);
           }
         }
-      } else initialState = initialArg;
-      hook.memoizedState = hook.baseState = initialState;
+      } else initialState2 = initialArg;
+      hook.memoizedState = hook.baseState = initialState2;
       reducer = {
         pending: null,
         lanes: 0,
         dispatch: null,
         lastRenderedReducer: reducer,
-        lastRenderedState: initialState
+        lastRenderedState: initialState2
       };
       hook.queue = reducer;
       reducer = reducer.dispatch = dispatchReducerAction.bind(
@@ -4995,11 +4995,11 @@ function requireReactDomClient_production() {
       initialValue = { current: initialValue };
       return hook.memoizedState = initialValue;
     },
-    useState: function(initialState) {
-      initialState = mountStateImpl(initialState);
-      var queue = initialState.queue, dispatch = dispatchSetState.bind(null, currentlyRenderingFiber, queue);
+    useState: function(initialState2) {
+      initialState2 = mountStateImpl(initialState2);
+      var queue = initialState2.queue, dispatch = dispatchSetState.bind(null, currentlyRenderingFiber, queue);
       queue.dispatch = dispatch;
-      return [initialState.memoizedState, dispatch];
+      return [initialState2.memoizedState, dispatch];
     },
     useDebugValue: mountDebugValue,
     useDeferredValue: function(value, initialValue) {
@@ -12539,6 +12539,10 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
 };
 var reactDomExports = requireReactDom();
 const ReactDOM = /* @__PURE__ */ getDefaultExportFromCjs(reactDomExports);
+const ReactDOM$1 = /* @__PURE__ */ _mergeNamespaces({
+  __proto__: null,
+  default: ReactDOM
+}, [reactDomExports]);
 function _extends$2() {
   _extends$2 = Object.assign ? Object.assign.bind() : function(target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -12799,11 +12803,46 @@ var ResultType;
   ResultType2["redirect"] = "redirect";
   ResultType2["error"] = "error";
 })(ResultType || (ResultType = {}));
+const immutableRouteKeys = /* @__PURE__ */ new Set(["lazy", "caseSensitive", "path", "id", "index", "children"]);
+function isIndexRoute(route) {
+  return route.index === true;
+}
+function convertRoutesToDataRoutes(routes, mapRouteProperties2, parentPath, manifest) {
+  if (parentPath === void 0) {
+    parentPath = [];
+  }
+  if (manifest === void 0) {
+    manifest = {};
+  }
+  return routes.map((route, index) => {
+    let treePath = [...parentPath, String(index)];
+    let id = typeof route.id === "string" ? route.id : treePath.join("-");
+    invariant(route.index !== true || !route.children, "Cannot specify children on an index route");
+    invariant(!manifest[id], 'Found a route id collision on id "' + id + `".  Route id's must be globally unique within Data Router usages`);
+    if (isIndexRoute(route)) {
+      let indexRoute = _extends$2({}, route, mapRouteProperties2(route), {
+        id
+      });
+      manifest[id] = indexRoute;
+      return indexRoute;
+    } else {
+      let pathOrLayoutRoute = _extends$2({}, route, mapRouteProperties2(route), {
+        id,
+        children: void 0
+      });
+      manifest[id] = pathOrLayoutRoute;
+      if (route.children) {
+        pathOrLayoutRoute.children = convertRoutesToDataRoutes(route.children, mapRouteProperties2, treePath, manifest);
+      }
+      return pathOrLayoutRoute;
+    }
+  });
+}
 function matchRoutes(routes, locationArg, basename) {
   if (basename === void 0) {
     basename = "/";
   }
-  return matchRoutesImpl(routes, locationArg, basename);
+  return matchRoutesImpl(routes, locationArg, basename, false);
 }
 function matchRoutesImpl(routes, locationArg, basename, allowPartial) {
   let location = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
@@ -12816,9 +12855,23 @@ function matchRoutesImpl(routes, locationArg, basename, allowPartial) {
   let matches2 = null;
   for (let i = 0; matches2 == null && i < branches.length; ++i) {
     let decoded = decodePath(pathname);
-    matches2 = matchRouteBranch(branches[i], decoded);
+    matches2 = matchRouteBranch(branches[i], decoded, allowPartial);
   }
   return matches2;
+}
+function convertRouteMatchToUiMatch(match2, loaderData) {
+  let {
+    route,
+    pathname,
+    params
+  } = match2;
+  return {
+    id: route.id,
+    pathname,
+    params,
+    data: loaderData[route.id],
+    handle: route.handle
+  };
 }
 function flattenRoutes(routes, branches, parentsMeta, parentPath) {
   if (branches === void 0) {
@@ -12926,6 +12979,9 @@ function compareIndexes(a, b) {
   );
 }
 function matchRouteBranch(branch, pathname, allowPartial) {
+  if (allowPartial === void 0) {
+    allowPartial = false;
+  }
   let {
     routesMeta
   } = branch;
@@ -12942,6 +12998,13 @@ function matchRouteBranch(branch, pathname, allowPartial) {
       end
     }, remainingPathname);
     let route = meta.route;
+    if (!match2 && end && allowPartial && !routesMeta[routesMeta.length - 1].route.index) {
+      match2 = matchPath({
+        path: meta.relativePath,
+        caseSensitive: meta.caseSensitive,
+        end: false
+      }, remainingPathname);
+    }
     if (!match2) {
       return null;
     }
@@ -13149,13 +13212,2754 @@ const joinPaths = (paths) => paths.join("/").replace(/\/\/+/g, "/");
 const normalizePathname = (pathname) => pathname.replace(/\/+$/, "").replace(/^\/*/, "/");
 const normalizeSearch = (search) => !search || search === "?" ? "" : search.startsWith("?") ? search : "?" + search;
 const normalizeHash = (hash) => !hash || hash === "#" ? "" : hash.startsWith("#") ? hash : "#" + hash;
+class ErrorResponseImpl {
+  constructor(status, statusText, data, internal) {
+    if (internal === void 0) {
+      internal = false;
+    }
+    this.status = status;
+    this.statusText = statusText || "";
+    this.internal = internal;
+    if (data instanceof Error) {
+      this.data = data.toString();
+      this.error = data;
+    } else {
+      this.data = data;
+    }
+  }
+}
 function isRouteErrorResponse(error2) {
   return error2 != null && typeof error2.status === "number" && typeof error2.statusText === "string" && typeof error2.internal === "boolean" && "data" in error2;
 }
 const validMutationMethodsArr = ["post", "put", "patch", "delete"];
-new Set(validMutationMethodsArr);
+const validMutationMethods = new Set(validMutationMethodsArr);
 const validRequestMethodsArr = ["get", ...validMutationMethodsArr];
-new Set(validRequestMethodsArr);
+const validRequestMethods = new Set(validRequestMethodsArr);
+const redirectStatusCodes = /* @__PURE__ */ new Set([301, 302, 303, 307, 308]);
+const redirectPreserveMethodStatusCodes = /* @__PURE__ */ new Set([307, 308]);
+const IDLE_NAVIGATION = {
+  state: "idle",
+  location: void 0,
+  formMethod: void 0,
+  formAction: void 0,
+  formEncType: void 0,
+  formData: void 0,
+  json: void 0,
+  text: void 0
+};
+const IDLE_FETCHER = {
+  state: "idle",
+  data: void 0,
+  formMethod: void 0,
+  formAction: void 0,
+  formEncType: void 0,
+  formData: void 0,
+  json: void 0,
+  text: void 0
+};
+const IDLE_BLOCKER = {
+  state: "unblocked",
+  proceed: void 0,
+  reset: void 0,
+  location: void 0
+};
+const ABSOLUTE_URL_REGEX$2 = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+const defaultMapRouteProperties = (route) => ({
+  hasErrorBoundary: Boolean(route.hasErrorBoundary)
+});
+const TRANSITIONS_STORAGE_KEY = "remix-router-transitions";
+function createRouter(init2) {
+  const routerWindow = init2.window ? init2.window : typeof window !== "undefined" ? window : void 0;
+  const isBrowser2 = typeof routerWindow !== "undefined" && typeof routerWindow.document !== "undefined" && typeof routerWindow.document.createElement !== "undefined";
+  const isServer = !isBrowser2;
+  invariant(init2.routes.length > 0, "You must provide a non-empty routes array to createRouter");
+  let mapRouteProperties2;
+  if (init2.mapRouteProperties) {
+    mapRouteProperties2 = init2.mapRouteProperties;
+  } else if (init2.detectErrorBoundary) {
+    let detectErrorBoundary = init2.detectErrorBoundary;
+    mapRouteProperties2 = (route) => ({
+      hasErrorBoundary: detectErrorBoundary(route)
+    });
+  } else {
+    mapRouteProperties2 = defaultMapRouteProperties;
+  }
+  let manifest = {};
+  let dataRoutes = convertRoutesToDataRoutes(init2.routes, mapRouteProperties2, void 0, manifest);
+  let inFlightDataRoutes;
+  let basename = init2.basename || "/";
+  let dataStrategyImpl = init2.dataStrategy || defaultDataStrategy;
+  let patchRoutesOnNavigationImpl = init2.patchRoutesOnNavigation;
+  let future = _extends$2({
+    v7_fetcherPersist: false,
+    v7_normalizeFormMethod: false,
+    v7_partialHydration: false,
+    v7_prependBasename: false,
+    v7_relativeSplatPath: false,
+    v7_skipActionErrorRevalidation: false
+  }, init2.future);
+  let unlistenHistory = null;
+  let subscribers = /* @__PURE__ */ new Set();
+  let savedScrollPositions = null;
+  let getScrollRestorationKey = null;
+  let getScrollPosition = null;
+  let initialScrollRestored = init2.hydrationData != null;
+  let initialMatches = matchRoutes(dataRoutes, init2.history.location, basename);
+  let initialMatchesIsFOW = false;
+  let initialErrors = null;
+  if (initialMatches == null && !patchRoutesOnNavigationImpl) {
+    let error2 = getInternalRouterError(404, {
+      pathname: init2.history.location.pathname
+    });
+    let {
+      matches: matches2,
+      route
+    } = getShortCircuitMatches(dataRoutes);
+    initialMatches = matches2;
+    initialErrors = {
+      [route.id]: error2
+    };
+  }
+  if (initialMatches && !init2.hydrationData) {
+    let fogOfWar = checkFogOfWar(initialMatches, dataRoutes, init2.history.location.pathname);
+    if (fogOfWar.active) {
+      initialMatches = null;
+    }
+  }
+  let initialized;
+  if (!initialMatches) {
+    initialized = false;
+    initialMatches = [];
+    if (future.v7_partialHydration) {
+      let fogOfWar = checkFogOfWar(null, dataRoutes, init2.history.location.pathname);
+      if (fogOfWar.active && fogOfWar.matches) {
+        initialMatchesIsFOW = true;
+        initialMatches = fogOfWar.matches;
+      }
+    }
+  } else if (initialMatches.some((m) => m.route.lazy)) {
+    initialized = false;
+  } else if (!initialMatches.some((m) => m.route.loader)) {
+    initialized = true;
+  } else if (future.v7_partialHydration) {
+    let loaderData = init2.hydrationData ? init2.hydrationData.loaderData : null;
+    let errors2 = init2.hydrationData ? init2.hydrationData.errors : null;
+    if (errors2) {
+      let idx = initialMatches.findIndex((m) => errors2[m.route.id] !== void 0);
+      initialized = initialMatches.slice(0, idx + 1).every((m) => !shouldLoadRouteOnHydration(m.route, loaderData, errors2));
+    } else {
+      initialized = initialMatches.every((m) => !shouldLoadRouteOnHydration(m.route, loaderData, errors2));
+    }
+  } else {
+    initialized = init2.hydrationData != null;
+  }
+  let router2;
+  let state = {
+    historyAction: init2.history.action,
+    location: init2.history.location,
+    matches: initialMatches,
+    initialized,
+    navigation: IDLE_NAVIGATION,
+    // Don't restore on initial updateState() if we were SSR'd
+    restoreScrollPosition: init2.hydrationData != null ? false : null,
+    preventScrollReset: false,
+    revalidation: "idle",
+    loaderData: init2.hydrationData && init2.hydrationData.loaderData || {},
+    actionData: init2.hydrationData && init2.hydrationData.actionData || null,
+    errors: init2.hydrationData && init2.hydrationData.errors || initialErrors,
+    fetchers: /* @__PURE__ */ new Map(),
+    blockers: /* @__PURE__ */ new Map()
+  };
+  let pendingAction = Action.Pop;
+  let pendingPreventScrollReset = false;
+  let pendingNavigationController;
+  let pendingViewTransitionEnabled = false;
+  let appliedViewTransitions = /* @__PURE__ */ new Map();
+  let removePageHideEventListener = null;
+  let isUninterruptedRevalidation = false;
+  let isRevalidationRequired = false;
+  let cancelledDeferredRoutes = [];
+  let cancelledFetcherLoads = /* @__PURE__ */ new Set();
+  let fetchControllers = /* @__PURE__ */ new Map();
+  let incrementingLoadId = 0;
+  let pendingNavigationLoadId = -1;
+  let fetchReloadIds = /* @__PURE__ */ new Map();
+  let fetchRedirectIds = /* @__PURE__ */ new Set();
+  let fetchLoadMatches = /* @__PURE__ */ new Map();
+  let activeFetchers = /* @__PURE__ */ new Map();
+  let deletedFetchers = /* @__PURE__ */ new Set();
+  let activeDeferreds = /* @__PURE__ */ new Map();
+  let blockerFunctions = /* @__PURE__ */ new Map();
+  let unblockBlockerHistoryUpdate = void 0;
+  function initialize() {
+    unlistenHistory = init2.history.listen((_ref) => {
+      let {
+        action: historyAction,
+        location,
+        delta
+      } = _ref;
+      if (unblockBlockerHistoryUpdate) {
+        unblockBlockerHistoryUpdate();
+        unblockBlockerHistoryUpdate = void 0;
+        return;
+      }
+      warning(blockerFunctions.size === 0 || delta != null, "You are trying to use a blocker on a POP navigation to a location that was not created by @remix-run/router. This will fail silently in production. This can happen if you are navigating outside the router via `window.history.pushState`/`window.location.hash` instead of using router navigation APIs.  This can also happen if you are using createHashRouter and the user manually changes the URL.");
+      let blockerKey = shouldBlockNavigation({
+        currentLocation: state.location,
+        nextLocation: location,
+        historyAction
+      });
+      if (blockerKey && delta != null) {
+        let nextHistoryUpdatePromise = new Promise((resolve) => {
+          unblockBlockerHistoryUpdate = resolve;
+        });
+        init2.history.go(delta * -1);
+        updateBlocker(blockerKey, {
+          state: "blocked",
+          location,
+          proceed() {
+            updateBlocker(blockerKey, {
+              state: "proceeding",
+              proceed: void 0,
+              reset: void 0,
+              location
+            });
+            nextHistoryUpdatePromise.then(() => init2.history.go(delta));
+          },
+          reset() {
+            let blockers = new Map(state.blockers);
+            blockers.set(blockerKey, IDLE_BLOCKER);
+            updateState({
+              blockers
+            });
+          }
+        });
+        return;
+      }
+      return startNavigation(historyAction, location);
+    });
+    if (isBrowser2) {
+      restoreAppliedTransitions(routerWindow, appliedViewTransitions);
+      let _saveAppliedTransitions = () => persistAppliedTransitions(routerWindow, appliedViewTransitions);
+      routerWindow.addEventListener("pagehide", _saveAppliedTransitions);
+      removePageHideEventListener = () => routerWindow.removeEventListener("pagehide", _saveAppliedTransitions);
+    }
+    if (!state.initialized) {
+      startNavigation(Action.Pop, state.location, {
+        initialHydration: true
+      });
+    }
+    return router2;
+  }
+  function dispose() {
+    if (unlistenHistory) {
+      unlistenHistory();
+    }
+    if (removePageHideEventListener) {
+      removePageHideEventListener();
+    }
+    subscribers.clear();
+    pendingNavigationController && pendingNavigationController.abort();
+    state.fetchers.forEach((_, key) => deleteFetcher(key));
+    state.blockers.forEach((_, key) => deleteBlocker(key));
+  }
+  function subscribe(fn) {
+    subscribers.add(fn);
+    return () => subscribers.delete(fn);
+  }
+  function updateState(newState, opts) {
+    if (opts === void 0) {
+      opts = {};
+    }
+    state = _extends$2({}, state, newState);
+    let completedFetchers = [];
+    let deletedFetchersKeys = [];
+    if (future.v7_fetcherPersist) {
+      state.fetchers.forEach((fetcher, key) => {
+        if (fetcher.state === "idle") {
+          if (deletedFetchers.has(key)) {
+            deletedFetchersKeys.push(key);
+          } else {
+            completedFetchers.push(key);
+          }
+        }
+      });
+    }
+    deletedFetchers.forEach((key) => {
+      if (!state.fetchers.has(key) && !fetchControllers.has(key)) {
+        deletedFetchersKeys.push(key);
+      }
+    });
+    [...subscribers].forEach((subscriber) => subscriber(state, {
+      deletedFetchers: deletedFetchersKeys,
+      viewTransitionOpts: opts.viewTransitionOpts,
+      flushSync: opts.flushSync === true
+    }));
+    if (future.v7_fetcherPersist) {
+      completedFetchers.forEach((key) => state.fetchers.delete(key));
+      deletedFetchersKeys.forEach((key) => deleteFetcher(key));
+    } else {
+      deletedFetchersKeys.forEach((key) => deletedFetchers.delete(key));
+    }
+  }
+  function completeNavigation(location, newState, _temp) {
+    var _location$state, _location$state2;
+    let {
+      flushSync
+    } = _temp === void 0 ? {} : _temp;
+    let isActionReload = state.actionData != null && state.navigation.formMethod != null && isMutationMethod(state.navigation.formMethod) && state.navigation.state === "loading" && ((_location$state = location.state) == null ? void 0 : _location$state._isRedirect) !== true;
+    let actionData;
+    if (newState.actionData) {
+      if (Object.keys(newState.actionData).length > 0) {
+        actionData = newState.actionData;
+      } else {
+        actionData = null;
+      }
+    } else if (isActionReload) {
+      actionData = state.actionData;
+    } else {
+      actionData = null;
+    }
+    let loaderData = newState.loaderData ? mergeLoaderData(state.loaderData, newState.loaderData, newState.matches || [], newState.errors) : state.loaderData;
+    let blockers = state.blockers;
+    if (blockers.size > 0) {
+      blockers = new Map(blockers);
+      blockers.forEach((_, k) => blockers.set(k, IDLE_BLOCKER));
+    }
+    let preventScrollReset = pendingPreventScrollReset === true || state.navigation.formMethod != null && isMutationMethod(state.navigation.formMethod) && ((_location$state2 = location.state) == null ? void 0 : _location$state2._isRedirect) !== true;
+    if (inFlightDataRoutes) {
+      dataRoutes = inFlightDataRoutes;
+      inFlightDataRoutes = void 0;
+    }
+    if (isUninterruptedRevalidation) ;
+    else if (pendingAction === Action.Pop) ;
+    else if (pendingAction === Action.Push) {
+      init2.history.push(location, location.state);
+    } else if (pendingAction === Action.Replace) {
+      init2.history.replace(location, location.state);
+    }
+    let viewTransitionOpts;
+    if (pendingAction === Action.Pop) {
+      let priorPaths = appliedViewTransitions.get(state.location.pathname);
+      if (priorPaths && priorPaths.has(location.pathname)) {
+        viewTransitionOpts = {
+          currentLocation: state.location,
+          nextLocation: location
+        };
+      } else if (appliedViewTransitions.has(location.pathname)) {
+        viewTransitionOpts = {
+          currentLocation: location,
+          nextLocation: state.location
+        };
+      }
+    } else if (pendingViewTransitionEnabled) {
+      let toPaths = appliedViewTransitions.get(state.location.pathname);
+      if (toPaths) {
+        toPaths.add(location.pathname);
+      } else {
+        toPaths = /* @__PURE__ */ new Set([location.pathname]);
+        appliedViewTransitions.set(state.location.pathname, toPaths);
+      }
+      viewTransitionOpts = {
+        currentLocation: state.location,
+        nextLocation: location
+      };
+    }
+    updateState(_extends$2({}, newState, {
+      actionData,
+      loaderData,
+      historyAction: pendingAction,
+      location,
+      initialized: true,
+      navigation: IDLE_NAVIGATION,
+      revalidation: "idle",
+      restoreScrollPosition: getSavedScrollPosition(location, newState.matches || state.matches),
+      preventScrollReset,
+      blockers
+    }), {
+      viewTransitionOpts,
+      flushSync: flushSync === true
+    });
+    pendingAction = Action.Pop;
+    pendingPreventScrollReset = false;
+    pendingViewTransitionEnabled = false;
+    isUninterruptedRevalidation = false;
+    isRevalidationRequired = false;
+    cancelledDeferredRoutes = [];
+  }
+  async function navigate(to, opts) {
+    if (typeof to === "number") {
+      init2.history.go(to);
+      return;
+    }
+    let normalizedPath = normalizeTo(state.location, state.matches, basename, future.v7_prependBasename, to, future.v7_relativeSplatPath, opts == null ? void 0 : opts.fromRouteId, opts == null ? void 0 : opts.relative);
+    let {
+      path,
+      submission,
+      error: error2
+    } = normalizeNavigateOptions(future.v7_normalizeFormMethod, false, normalizedPath, opts);
+    let currentLocation = state.location;
+    let nextLocation = createLocation(state.location, path, opts && opts.state);
+    nextLocation = _extends$2({}, nextLocation, init2.history.encodeLocation(nextLocation));
+    let userReplace = opts && opts.replace != null ? opts.replace : void 0;
+    let historyAction = Action.Push;
+    if (userReplace === true) {
+      historyAction = Action.Replace;
+    } else if (userReplace === false) ;
+    else if (submission != null && isMutationMethod(submission.formMethod) && submission.formAction === state.location.pathname + state.location.search) {
+      historyAction = Action.Replace;
+    }
+    let preventScrollReset = opts && "preventScrollReset" in opts ? opts.preventScrollReset === true : void 0;
+    let flushSync = (opts && opts.flushSync) === true;
+    let blockerKey = shouldBlockNavigation({
+      currentLocation,
+      nextLocation,
+      historyAction
+    });
+    if (blockerKey) {
+      updateBlocker(blockerKey, {
+        state: "blocked",
+        location: nextLocation,
+        proceed() {
+          updateBlocker(blockerKey, {
+            state: "proceeding",
+            proceed: void 0,
+            reset: void 0,
+            location: nextLocation
+          });
+          navigate(to, opts);
+        },
+        reset() {
+          let blockers = new Map(state.blockers);
+          blockers.set(blockerKey, IDLE_BLOCKER);
+          updateState({
+            blockers
+          });
+        }
+      });
+      return;
+    }
+    return await startNavigation(historyAction, nextLocation, {
+      submission,
+      // Send through the formData serialization error if we have one so we can
+      // render at the right error boundary after we match routes
+      pendingError: error2,
+      preventScrollReset,
+      replace: opts && opts.replace,
+      enableViewTransition: opts && opts.viewTransition,
+      flushSync
+    });
+  }
+  function revalidate() {
+    interruptActiveLoads();
+    updateState({
+      revalidation: "loading"
+    });
+    if (state.navigation.state === "submitting") {
+      return;
+    }
+    if (state.navigation.state === "idle") {
+      startNavigation(state.historyAction, state.location, {
+        startUninterruptedRevalidation: true
+      });
+      return;
+    }
+    startNavigation(pendingAction || state.historyAction, state.navigation.location, {
+      overrideNavigation: state.navigation,
+      // Proxy through any rending view transition
+      enableViewTransition: pendingViewTransitionEnabled === true
+    });
+  }
+  async function startNavigation(historyAction, location, opts) {
+    pendingNavigationController && pendingNavigationController.abort();
+    pendingNavigationController = null;
+    pendingAction = historyAction;
+    isUninterruptedRevalidation = (opts && opts.startUninterruptedRevalidation) === true;
+    saveScrollPosition(state.location, state.matches);
+    pendingPreventScrollReset = (opts && opts.preventScrollReset) === true;
+    pendingViewTransitionEnabled = (opts && opts.enableViewTransition) === true;
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    let loadingNavigation = opts && opts.overrideNavigation;
+    let matches2 = opts != null && opts.initialHydration && state.matches && state.matches.length > 0 && !initialMatchesIsFOW ? (
+      // `matchRoutes()` has already been called if we're in here via `router.initialize()`
+      state.matches
+    ) : matchRoutes(routesToUse, location, basename);
+    let flushSync = (opts && opts.flushSync) === true;
+    if (matches2 && state.initialized && !isRevalidationRequired && isHashChangeOnly(state.location, location) && !(opts && opts.submission && isMutationMethod(opts.submission.formMethod))) {
+      completeNavigation(location, {
+        matches: matches2
+      }, {
+        flushSync
+      });
+      return;
+    }
+    let fogOfWar = checkFogOfWar(matches2, routesToUse, location.pathname);
+    if (fogOfWar.active && fogOfWar.matches) {
+      matches2 = fogOfWar.matches;
+    }
+    if (!matches2) {
+      let {
+        error: error2,
+        notFoundMatches,
+        route
+      } = handleNavigational404(location.pathname);
+      completeNavigation(location, {
+        matches: notFoundMatches,
+        loaderData: {},
+        errors: {
+          [route.id]: error2
+        }
+      }, {
+        flushSync
+      });
+      return;
+    }
+    pendingNavigationController = new AbortController();
+    let request2 = createClientSideRequest(init2.history, location, pendingNavigationController.signal, opts && opts.submission);
+    let pendingActionResult;
+    if (opts && opts.pendingError) {
+      pendingActionResult = [findNearestBoundary(matches2).route.id, {
+        type: ResultType.error,
+        error: opts.pendingError
+      }];
+    } else if (opts && opts.submission && isMutationMethod(opts.submission.formMethod)) {
+      let actionResult = await handleAction(request2, location, opts.submission, matches2, fogOfWar.active, {
+        replace: opts.replace,
+        flushSync
+      });
+      if (actionResult.shortCircuited) {
+        return;
+      }
+      if (actionResult.pendingActionResult) {
+        let [routeId, result] = actionResult.pendingActionResult;
+        if (isErrorResult(result) && isRouteErrorResponse(result.error) && result.error.status === 404) {
+          pendingNavigationController = null;
+          completeNavigation(location, {
+            matches: actionResult.matches,
+            loaderData: {},
+            errors: {
+              [routeId]: result.error
+            }
+          });
+          return;
+        }
+      }
+      matches2 = actionResult.matches || matches2;
+      pendingActionResult = actionResult.pendingActionResult;
+      loadingNavigation = getLoadingNavigation(location, opts.submission);
+      flushSync = false;
+      fogOfWar.active = false;
+      request2 = createClientSideRequest(init2.history, request2.url, request2.signal);
+    }
+    let {
+      shortCircuited,
+      matches: updatedMatches,
+      loaderData,
+      errors: errors2
+    } = await handleLoaders(request2, location, matches2, fogOfWar.active, loadingNavigation, opts && opts.submission, opts && opts.fetcherSubmission, opts && opts.replace, opts && opts.initialHydration === true, flushSync, pendingActionResult);
+    if (shortCircuited) {
+      return;
+    }
+    pendingNavigationController = null;
+    completeNavigation(location, _extends$2({
+      matches: updatedMatches || matches2
+    }, getActionDataForCommit(pendingActionResult), {
+      loaderData,
+      errors: errors2
+    }));
+  }
+  async function handleAction(request2, location, submission, matches2, isFogOfWar, opts) {
+    if (opts === void 0) {
+      opts = {};
+    }
+    interruptActiveLoads();
+    let navigation2 = getSubmittingNavigation(location, submission);
+    updateState({
+      navigation: navigation2
+    }, {
+      flushSync: opts.flushSync === true
+    });
+    if (isFogOfWar) {
+      let discoverResult = await discoverRoutes(matches2, location.pathname, request2.signal);
+      if (discoverResult.type === "aborted") {
+        return {
+          shortCircuited: true
+        };
+      } else if (discoverResult.type === "error") {
+        let boundaryId = findNearestBoundary(discoverResult.partialMatches).route.id;
+        return {
+          matches: discoverResult.partialMatches,
+          pendingActionResult: [boundaryId, {
+            type: ResultType.error,
+            error: discoverResult.error
+          }]
+        };
+      } else if (!discoverResult.matches) {
+        let {
+          notFoundMatches,
+          error: error2,
+          route
+        } = handleNavigational404(location.pathname);
+        return {
+          matches: notFoundMatches,
+          pendingActionResult: [route.id, {
+            type: ResultType.error,
+            error: error2
+          }]
+        };
+      } else {
+        matches2 = discoverResult.matches;
+      }
+    }
+    let result;
+    let actionMatch = getTargetMatch(matches2, location);
+    if (!actionMatch.route.action && !actionMatch.route.lazy) {
+      result = {
+        type: ResultType.error,
+        error: getInternalRouterError(405, {
+          method: request2.method,
+          pathname: location.pathname,
+          routeId: actionMatch.route.id
+        })
+      };
+    } else {
+      let results = await callDataStrategy("action", state, request2, [actionMatch], matches2, null);
+      result = results[actionMatch.route.id];
+      if (request2.signal.aborted) {
+        return {
+          shortCircuited: true
+        };
+      }
+    }
+    if (isRedirectResult(result)) {
+      let replace2;
+      if (opts && opts.replace != null) {
+        replace2 = opts.replace;
+      } else {
+        let location2 = normalizeRedirectLocation(result.response.headers.get("Location"), new URL(request2.url), basename, init2.history);
+        replace2 = location2 === state.location.pathname + state.location.search;
+      }
+      await startRedirectNavigation(request2, result, true, {
+        submission,
+        replace: replace2
+      });
+      return {
+        shortCircuited: true
+      };
+    }
+    if (isDeferredResult(result)) {
+      throw getInternalRouterError(400, {
+        type: "defer-action"
+      });
+    }
+    if (isErrorResult(result)) {
+      let boundaryMatch = findNearestBoundary(matches2, actionMatch.route.id);
+      if ((opts && opts.replace) !== true) {
+        pendingAction = Action.Push;
+      }
+      return {
+        matches: matches2,
+        pendingActionResult: [boundaryMatch.route.id, result]
+      };
+    }
+    return {
+      matches: matches2,
+      pendingActionResult: [actionMatch.route.id, result]
+    };
+  }
+  async function handleLoaders(request2, location, matches2, isFogOfWar, overrideNavigation, submission, fetcherSubmission, replace2, initialHydration, flushSync, pendingActionResult) {
+    let loadingNavigation = overrideNavigation || getLoadingNavigation(location, submission);
+    let activeSubmission = submission || fetcherSubmission || getSubmissionFromNavigation(loadingNavigation);
+    let shouldUpdateNavigationState = !isUninterruptedRevalidation && (!future.v7_partialHydration || !initialHydration);
+    if (isFogOfWar) {
+      if (shouldUpdateNavigationState) {
+        let actionData = getUpdatedActionData(pendingActionResult);
+        updateState(_extends$2({
+          navigation: loadingNavigation
+        }, actionData !== void 0 ? {
+          actionData
+        } : {}), {
+          flushSync
+        });
+      }
+      let discoverResult = await discoverRoutes(matches2, location.pathname, request2.signal);
+      if (discoverResult.type === "aborted") {
+        return {
+          shortCircuited: true
+        };
+      } else if (discoverResult.type === "error") {
+        let boundaryId = findNearestBoundary(discoverResult.partialMatches).route.id;
+        return {
+          matches: discoverResult.partialMatches,
+          loaderData: {},
+          errors: {
+            [boundaryId]: discoverResult.error
+          }
+        };
+      } else if (!discoverResult.matches) {
+        let {
+          error: error2,
+          notFoundMatches,
+          route
+        } = handleNavigational404(location.pathname);
+        return {
+          matches: notFoundMatches,
+          loaderData: {},
+          errors: {
+            [route.id]: error2
+          }
+        };
+      } else {
+        matches2 = discoverResult.matches;
+      }
+    }
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    let [matchesToLoad, revalidatingFetchers] = getMatchesToLoad(init2.history, state, matches2, activeSubmission, location, future.v7_partialHydration && initialHydration === true, future.v7_skipActionErrorRevalidation, isRevalidationRequired, cancelledDeferredRoutes, cancelledFetcherLoads, deletedFetchers, fetchLoadMatches, fetchRedirectIds, routesToUse, basename, pendingActionResult);
+    cancelActiveDeferreds((routeId) => !(matches2 && matches2.some((m) => m.route.id === routeId)) || matchesToLoad && matchesToLoad.some((m) => m.route.id === routeId));
+    pendingNavigationLoadId = ++incrementingLoadId;
+    if (matchesToLoad.length === 0 && revalidatingFetchers.length === 0) {
+      let updatedFetchers2 = markFetchRedirectsDone();
+      completeNavigation(location, _extends$2({
+        matches: matches2,
+        loaderData: {},
+        // Commit pending error if we're short circuiting
+        errors: pendingActionResult && isErrorResult(pendingActionResult[1]) ? {
+          [pendingActionResult[0]]: pendingActionResult[1].error
+        } : null
+      }, getActionDataForCommit(pendingActionResult), updatedFetchers2 ? {
+        fetchers: new Map(state.fetchers)
+      } : {}), {
+        flushSync
+      });
+      return {
+        shortCircuited: true
+      };
+    }
+    if (shouldUpdateNavigationState) {
+      let updates = {};
+      if (!isFogOfWar) {
+        updates.navigation = loadingNavigation;
+        let actionData = getUpdatedActionData(pendingActionResult);
+        if (actionData !== void 0) {
+          updates.actionData = actionData;
+        }
+      }
+      if (revalidatingFetchers.length > 0) {
+        updates.fetchers = getUpdatedRevalidatingFetchers(revalidatingFetchers);
+      }
+      updateState(updates, {
+        flushSync
+      });
+    }
+    revalidatingFetchers.forEach((rf) => {
+      abortFetcher(rf.key);
+      if (rf.controller) {
+        fetchControllers.set(rf.key, rf.controller);
+      }
+    });
+    let abortPendingFetchRevalidations = () => revalidatingFetchers.forEach((f) => abortFetcher(f.key));
+    if (pendingNavigationController) {
+      pendingNavigationController.signal.addEventListener("abort", abortPendingFetchRevalidations);
+    }
+    let {
+      loaderResults,
+      fetcherResults
+    } = await callLoadersAndMaybeResolveData(state, matches2, matchesToLoad, revalidatingFetchers, request2);
+    if (request2.signal.aborted) {
+      return {
+        shortCircuited: true
+      };
+    }
+    if (pendingNavigationController) {
+      pendingNavigationController.signal.removeEventListener("abort", abortPendingFetchRevalidations);
+    }
+    revalidatingFetchers.forEach((rf) => fetchControllers.delete(rf.key));
+    let redirect = findRedirect(loaderResults);
+    if (redirect) {
+      await startRedirectNavigation(request2, redirect.result, true, {
+        replace: replace2
+      });
+      return {
+        shortCircuited: true
+      };
+    }
+    redirect = findRedirect(fetcherResults);
+    if (redirect) {
+      fetchRedirectIds.add(redirect.key);
+      await startRedirectNavigation(request2, redirect.result, true, {
+        replace: replace2
+      });
+      return {
+        shortCircuited: true
+      };
+    }
+    let {
+      loaderData,
+      errors: errors2
+    } = processLoaderData(state, matches2, loaderResults, pendingActionResult, revalidatingFetchers, fetcherResults, activeDeferreds);
+    activeDeferreds.forEach((deferredData, routeId) => {
+      deferredData.subscribe((aborted) => {
+        if (aborted || deferredData.done) {
+          activeDeferreds.delete(routeId);
+        }
+      });
+    });
+    if (future.v7_partialHydration && initialHydration && state.errors) {
+      errors2 = _extends$2({}, state.errors, errors2);
+    }
+    let updatedFetchers = markFetchRedirectsDone();
+    let didAbortFetchLoads = abortStaleFetchLoads(pendingNavigationLoadId);
+    let shouldUpdateFetchers = updatedFetchers || didAbortFetchLoads || revalidatingFetchers.length > 0;
+    return _extends$2({
+      matches: matches2,
+      loaderData,
+      errors: errors2
+    }, shouldUpdateFetchers ? {
+      fetchers: new Map(state.fetchers)
+    } : {});
+  }
+  function getUpdatedActionData(pendingActionResult) {
+    if (pendingActionResult && !isErrorResult(pendingActionResult[1])) {
+      return {
+        [pendingActionResult[0]]: pendingActionResult[1].data
+      };
+    } else if (state.actionData) {
+      if (Object.keys(state.actionData).length === 0) {
+        return null;
+      } else {
+        return state.actionData;
+      }
+    }
+  }
+  function getUpdatedRevalidatingFetchers(revalidatingFetchers) {
+    revalidatingFetchers.forEach((rf) => {
+      let fetcher = state.fetchers.get(rf.key);
+      let revalidatingFetcher = getLoadingFetcher(void 0, fetcher ? fetcher.data : void 0);
+      state.fetchers.set(rf.key, revalidatingFetcher);
+    });
+    return new Map(state.fetchers);
+  }
+  function fetch2(key, routeId, href, opts) {
+    if (isServer) {
+      throw new Error("router.fetch() was called during the server render, but it shouldn't be. You are likely calling a useFetcher() method in the body of your component. Try moving it to a useEffect or a callback.");
+    }
+    abortFetcher(key);
+    let flushSync = (opts && opts.flushSync) === true;
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    let normalizedPath = normalizeTo(state.location, state.matches, basename, future.v7_prependBasename, href, future.v7_relativeSplatPath, routeId, opts == null ? void 0 : opts.relative);
+    let matches2 = matchRoutes(routesToUse, normalizedPath, basename);
+    let fogOfWar = checkFogOfWar(matches2, routesToUse, normalizedPath);
+    if (fogOfWar.active && fogOfWar.matches) {
+      matches2 = fogOfWar.matches;
+    }
+    if (!matches2) {
+      setFetcherError(key, routeId, getInternalRouterError(404, {
+        pathname: normalizedPath
+      }), {
+        flushSync
+      });
+      return;
+    }
+    let {
+      path,
+      submission,
+      error: error2
+    } = normalizeNavigateOptions(future.v7_normalizeFormMethod, true, normalizedPath, opts);
+    if (error2) {
+      setFetcherError(key, routeId, error2, {
+        flushSync
+      });
+      return;
+    }
+    let match2 = getTargetMatch(matches2, path);
+    let preventScrollReset = (opts && opts.preventScrollReset) === true;
+    if (submission && isMutationMethod(submission.formMethod)) {
+      handleFetcherAction(key, routeId, path, match2, matches2, fogOfWar.active, flushSync, preventScrollReset, submission);
+      return;
+    }
+    fetchLoadMatches.set(key, {
+      routeId,
+      path
+    });
+    handleFetcherLoader(key, routeId, path, match2, matches2, fogOfWar.active, flushSync, preventScrollReset, submission);
+  }
+  async function handleFetcherAction(key, routeId, path, match2, requestMatches, isFogOfWar, flushSync, preventScrollReset, submission) {
+    interruptActiveLoads();
+    fetchLoadMatches.delete(key);
+    function detectAndHandle405Error(m) {
+      if (!m.route.action && !m.route.lazy) {
+        let error2 = getInternalRouterError(405, {
+          method: submission.formMethod,
+          pathname: path,
+          routeId
+        });
+        setFetcherError(key, routeId, error2, {
+          flushSync
+        });
+        return true;
+      }
+      return false;
+    }
+    if (!isFogOfWar && detectAndHandle405Error(match2)) {
+      return;
+    }
+    let existingFetcher = state.fetchers.get(key);
+    updateFetcherState(key, getSubmittingFetcher(submission, existingFetcher), {
+      flushSync
+    });
+    let abortController = new AbortController();
+    let fetchRequest = createClientSideRequest(init2.history, path, abortController.signal, submission);
+    if (isFogOfWar) {
+      let discoverResult = await discoverRoutes(requestMatches, new URL(fetchRequest.url).pathname, fetchRequest.signal, key);
+      if (discoverResult.type === "aborted") {
+        return;
+      } else if (discoverResult.type === "error") {
+        setFetcherError(key, routeId, discoverResult.error, {
+          flushSync
+        });
+        return;
+      } else if (!discoverResult.matches) {
+        setFetcherError(key, routeId, getInternalRouterError(404, {
+          pathname: path
+        }), {
+          flushSync
+        });
+        return;
+      } else {
+        requestMatches = discoverResult.matches;
+        match2 = getTargetMatch(requestMatches, path);
+        if (detectAndHandle405Error(match2)) {
+          return;
+        }
+      }
+    }
+    fetchControllers.set(key, abortController);
+    let originatingLoadId = incrementingLoadId;
+    let actionResults = await callDataStrategy("action", state, fetchRequest, [match2], requestMatches, key);
+    let actionResult = actionResults[match2.route.id];
+    if (fetchRequest.signal.aborted) {
+      if (fetchControllers.get(key) === abortController) {
+        fetchControllers.delete(key);
+      }
+      return;
+    }
+    if (future.v7_fetcherPersist && deletedFetchers.has(key)) {
+      if (isRedirectResult(actionResult) || isErrorResult(actionResult)) {
+        updateFetcherState(key, getDoneFetcher(void 0));
+        return;
+      }
+    } else {
+      if (isRedirectResult(actionResult)) {
+        fetchControllers.delete(key);
+        if (pendingNavigationLoadId > originatingLoadId) {
+          updateFetcherState(key, getDoneFetcher(void 0));
+          return;
+        } else {
+          fetchRedirectIds.add(key);
+          updateFetcherState(key, getLoadingFetcher(submission));
+          return startRedirectNavigation(fetchRequest, actionResult, false, {
+            fetcherSubmission: submission,
+            preventScrollReset
+          });
+        }
+      }
+      if (isErrorResult(actionResult)) {
+        setFetcherError(key, routeId, actionResult.error);
+        return;
+      }
+    }
+    if (isDeferredResult(actionResult)) {
+      throw getInternalRouterError(400, {
+        type: "defer-action"
+      });
+    }
+    let nextLocation = state.navigation.location || state.location;
+    let revalidationRequest = createClientSideRequest(init2.history, nextLocation, abortController.signal);
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    let matches2 = state.navigation.state !== "idle" ? matchRoutes(routesToUse, state.navigation.location, basename) : state.matches;
+    invariant(matches2, "Didn't find any matches after fetcher action");
+    let loadId = ++incrementingLoadId;
+    fetchReloadIds.set(key, loadId);
+    let loadFetcher = getLoadingFetcher(submission, actionResult.data);
+    state.fetchers.set(key, loadFetcher);
+    let [matchesToLoad, revalidatingFetchers] = getMatchesToLoad(init2.history, state, matches2, submission, nextLocation, false, future.v7_skipActionErrorRevalidation, isRevalidationRequired, cancelledDeferredRoutes, cancelledFetcherLoads, deletedFetchers, fetchLoadMatches, fetchRedirectIds, routesToUse, basename, [match2.route.id, actionResult]);
+    revalidatingFetchers.filter((rf) => rf.key !== key).forEach((rf) => {
+      let staleKey = rf.key;
+      let existingFetcher2 = state.fetchers.get(staleKey);
+      let revalidatingFetcher = getLoadingFetcher(void 0, existingFetcher2 ? existingFetcher2.data : void 0);
+      state.fetchers.set(staleKey, revalidatingFetcher);
+      abortFetcher(staleKey);
+      if (rf.controller) {
+        fetchControllers.set(staleKey, rf.controller);
+      }
+    });
+    updateState({
+      fetchers: new Map(state.fetchers)
+    });
+    let abortPendingFetchRevalidations = () => revalidatingFetchers.forEach((rf) => abortFetcher(rf.key));
+    abortController.signal.addEventListener("abort", abortPendingFetchRevalidations);
+    let {
+      loaderResults,
+      fetcherResults
+    } = await callLoadersAndMaybeResolveData(state, matches2, matchesToLoad, revalidatingFetchers, revalidationRequest);
+    if (abortController.signal.aborted) {
+      return;
+    }
+    abortController.signal.removeEventListener("abort", abortPendingFetchRevalidations);
+    fetchReloadIds.delete(key);
+    fetchControllers.delete(key);
+    revalidatingFetchers.forEach((r) => fetchControllers.delete(r.key));
+    let redirect = findRedirect(loaderResults);
+    if (redirect) {
+      return startRedirectNavigation(revalidationRequest, redirect.result, false, {
+        preventScrollReset
+      });
+    }
+    redirect = findRedirect(fetcherResults);
+    if (redirect) {
+      fetchRedirectIds.add(redirect.key);
+      return startRedirectNavigation(revalidationRequest, redirect.result, false, {
+        preventScrollReset
+      });
+    }
+    let {
+      loaderData,
+      errors: errors2
+    } = processLoaderData(state, matches2, loaderResults, void 0, revalidatingFetchers, fetcherResults, activeDeferreds);
+    if (state.fetchers.has(key)) {
+      let doneFetcher = getDoneFetcher(actionResult.data);
+      state.fetchers.set(key, doneFetcher);
+    }
+    abortStaleFetchLoads(loadId);
+    if (state.navigation.state === "loading" && loadId > pendingNavigationLoadId) {
+      invariant(pendingAction, "Expected pending action");
+      pendingNavigationController && pendingNavigationController.abort();
+      completeNavigation(state.navigation.location, {
+        matches: matches2,
+        loaderData,
+        errors: errors2,
+        fetchers: new Map(state.fetchers)
+      });
+    } else {
+      updateState({
+        errors: errors2,
+        loaderData: mergeLoaderData(state.loaderData, loaderData, matches2, errors2),
+        fetchers: new Map(state.fetchers)
+      });
+      isRevalidationRequired = false;
+    }
+  }
+  async function handleFetcherLoader(key, routeId, path, match2, matches2, isFogOfWar, flushSync, preventScrollReset, submission) {
+    let existingFetcher = state.fetchers.get(key);
+    updateFetcherState(key, getLoadingFetcher(submission, existingFetcher ? existingFetcher.data : void 0), {
+      flushSync
+    });
+    let abortController = new AbortController();
+    let fetchRequest = createClientSideRequest(init2.history, path, abortController.signal);
+    if (isFogOfWar) {
+      let discoverResult = await discoverRoutes(matches2, new URL(fetchRequest.url).pathname, fetchRequest.signal, key);
+      if (discoverResult.type === "aborted") {
+        return;
+      } else if (discoverResult.type === "error") {
+        setFetcherError(key, routeId, discoverResult.error, {
+          flushSync
+        });
+        return;
+      } else if (!discoverResult.matches) {
+        setFetcherError(key, routeId, getInternalRouterError(404, {
+          pathname: path
+        }), {
+          flushSync
+        });
+        return;
+      } else {
+        matches2 = discoverResult.matches;
+        match2 = getTargetMatch(matches2, path);
+      }
+    }
+    fetchControllers.set(key, abortController);
+    let originatingLoadId = incrementingLoadId;
+    let results = await callDataStrategy("loader", state, fetchRequest, [match2], matches2, key);
+    let result = results[match2.route.id];
+    if (isDeferredResult(result)) {
+      result = await resolveDeferredData(result, fetchRequest.signal, true) || result;
+    }
+    if (fetchControllers.get(key) === abortController) {
+      fetchControllers.delete(key);
+    }
+    if (fetchRequest.signal.aborted) {
+      return;
+    }
+    if (deletedFetchers.has(key)) {
+      updateFetcherState(key, getDoneFetcher(void 0));
+      return;
+    }
+    if (isRedirectResult(result)) {
+      if (pendingNavigationLoadId > originatingLoadId) {
+        updateFetcherState(key, getDoneFetcher(void 0));
+        return;
+      } else {
+        fetchRedirectIds.add(key);
+        await startRedirectNavigation(fetchRequest, result, false, {
+          preventScrollReset
+        });
+        return;
+      }
+    }
+    if (isErrorResult(result)) {
+      setFetcherError(key, routeId, result.error);
+      return;
+    }
+    invariant(!isDeferredResult(result), "Unhandled fetcher deferred data");
+    updateFetcherState(key, getDoneFetcher(result.data));
+  }
+  async function startRedirectNavigation(request2, redirect, isNavigation, _temp2) {
+    let {
+      submission,
+      fetcherSubmission,
+      preventScrollReset,
+      replace: replace2
+    } = _temp2 === void 0 ? {} : _temp2;
+    if (redirect.response.headers.has("X-Remix-Revalidate")) {
+      isRevalidationRequired = true;
+    }
+    let location = redirect.response.headers.get("Location");
+    invariant(location, "Expected a Location header on the redirect Response");
+    location = normalizeRedirectLocation(location, new URL(request2.url), basename, init2.history);
+    let redirectLocation = createLocation(state.location, location, {
+      _isRedirect: true
+    });
+    if (isBrowser2) {
+      let isDocumentReload = false;
+      if (redirect.response.headers.has("X-Remix-Reload-Document")) {
+        isDocumentReload = true;
+      } else if (ABSOLUTE_URL_REGEX$2.test(location)) {
+        const url = init2.history.createURL(location);
+        isDocumentReload = // Hard reload if it's an absolute URL to a new origin
+        url.origin !== routerWindow.location.origin || // Hard reload if it's an absolute URL that does not match our basename
+        stripBasename(url.pathname, basename) == null;
+      }
+      if (isDocumentReload) {
+        if (replace2) {
+          routerWindow.location.replace(location);
+        } else {
+          routerWindow.location.assign(location);
+        }
+        return;
+      }
+    }
+    pendingNavigationController = null;
+    let redirectHistoryAction = replace2 === true || redirect.response.headers.has("X-Remix-Replace") ? Action.Replace : Action.Push;
+    let {
+      formMethod,
+      formAction,
+      formEncType
+    } = state.navigation;
+    if (!submission && !fetcherSubmission && formMethod && formAction && formEncType) {
+      submission = getSubmissionFromNavigation(state.navigation);
+    }
+    let activeSubmission = submission || fetcherSubmission;
+    if (redirectPreserveMethodStatusCodes.has(redirect.response.status) && activeSubmission && isMutationMethod(activeSubmission.formMethod)) {
+      await startNavigation(redirectHistoryAction, redirectLocation, {
+        submission: _extends$2({}, activeSubmission, {
+          formAction: location
+        }),
+        // Preserve these flags across redirects
+        preventScrollReset: preventScrollReset || pendingPreventScrollReset,
+        enableViewTransition: isNavigation ? pendingViewTransitionEnabled : void 0
+      });
+    } else {
+      let overrideNavigation = getLoadingNavigation(redirectLocation, submission);
+      await startNavigation(redirectHistoryAction, redirectLocation, {
+        overrideNavigation,
+        // Send fetcher submissions through for shouldRevalidate
+        fetcherSubmission,
+        // Preserve these flags across redirects
+        preventScrollReset: preventScrollReset || pendingPreventScrollReset,
+        enableViewTransition: isNavigation ? pendingViewTransitionEnabled : void 0
+      });
+    }
+  }
+  async function callDataStrategy(type, state2, request2, matchesToLoad, matches2, fetcherKey) {
+    let results;
+    let dataResults = {};
+    try {
+      results = await callDataStrategyImpl(dataStrategyImpl, type, state2, request2, matchesToLoad, matches2, fetcherKey, manifest, mapRouteProperties2);
+    } catch (e) {
+      matchesToLoad.forEach((m) => {
+        dataResults[m.route.id] = {
+          type: ResultType.error,
+          error: e
+        };
+      });
+      return dataResults;
+    }
+    for (let [routeId, result] of Object.entries(results)) {
+      if (isRedirectDataStrategyResultResult(result)) {
+        let response = result.result;
+        dataResults[routeId] = {
+          type: ResultType.redirect,
+          response: normalizeRelativeRoutingRedirectResponse(response, request2, routeId, matches2, basename, future.v7_relativeSplatPath)
+        };
+      } else {
+        dataResults[routeId] = await convertDataStrategyResultToDataResult(result);
+      }
+    }
+    return dataResults;
+  }
+  async function callLoadersAndMaybeResolveData(state2, matches2, matchesToLoad, fetchersToLoad, request2) {
+    let currentMatches = state2.matches;
+    let loaderResultsPromise = callDataStrategy("loader", state2, request2, matchesToLoad, matches2, null);
+    let fetcherResultsPromise = Promise.all(fetchersToLoad.map(async (f) => {
+      if (f.matches && f.match && f.controller) {
+        let results = await callDataStrategy("loader", state2, createClientSideRequest(init2.history, f.path, f.controller.signal), [f.match], f.matches, f.key);
+        let result = results[f.match.route.id];
+        return {
+          [f.key]: result
+        };
+      } else {
+        return Promise.resolve({
+          [f.key]: {
+            type: ResultType.error,
+            error: getInternalRouterError(404, {
+              pathname: f.path
+            })
+          }
+        });
+      }
+    }));
+    let loaderResults = await loaderResultsPromise;
+    let fetcherResults = (await fetcherResultsPromise).reduce((acc, r) => Object.assign(acc, r), {});
+    await Promise.all([resolveNavigationDeferredResults(matches2, loaderResults, request2.signal, currentMatches, state2.loaderData), resolveFetcherDeferredResults(matches2, fetcherResults, fetchersToLoad)]);
+    return {
+      loaderResults,
+      fetcherResults
+    };
+  }
+  function interruptActiveLoads() {
+    isRevalidationRequired = true;
+    cancelledDeferredRoutes.push(...cancelActiveDeferreds());
+    fetchLoadMatches.forEach((_, key) => {
+      if (fetchControllers.has(key)) {
+        cancelledFetcherLoads.add(key);
+      }
+      abortFetcher(key);
+    });
+  }
+  function updateFetcherState(key, fetcher, opts) {
+    if (opts === void 0) {
+      opts = {};
+    }
+    state.fetchers.set(key, fetcher);
+    updateState({
+      fetchers: new Map(state.fetchers)
+    }, {
+      flushSync: (opts && opts.flushSync) === true
+    });
+  }
+  function setFetcherError(key, routeId, error2, opts) {
+    if (opts === void 0) {
+      opts = {};
+    }
+    let boundaryMatch = findNearestBoundary(state.matches, routeId);
+    deleteFetcher(key);
+    updateState({
+      errors: {
+        [boundaryMatch.route.id]: error2
+      },
+      fetchers: new Map(state.fetchers)
+    }, {
+      flushSync: (opts && opts.flushSync) === true
+    });
+  }
+  function getFetcher(key) {
+    activeFetchers.set(key, (activeFetchers.get(key) || 0) + 1);
+    if (deletedFetchers.has(key)) {
+      deletedFetchers.delete(key);
+    }
+    return state.fetchers.get(key) || IDLE_FETCHER;
+  }
+  function deleteFetcher(key) {
+    let fetcher = state.fetchers.get(key);
+    if (fetchControllers.has(key) && !(fetcher && fetcher.state === "loading" && fetchReloadIds.has(key))) {
+      abortFetcher(key);
+    }
+    fetchLoadMatches.delete(key);
+    fetchReloadIds.delete(key);
+    fetchRedirectIds.delete(key);
+    if (future.v7_fetcherPersist) {
+      deletedFetchers.delete(key);
+    }
+    cancelledFetcherLoads.delete(key);
+    state.fetchers.delete(key);
+  }
+  function deleteFetcherAndUpdateState(key) {
+    let count = (activeFetchers.get(key) || 0) - 1;
+    if (count <= 0) {
+      activeFetchers.delete(key);
+      deletedFetchers.add(key);
+      if (!future.v7_fetcherPersist) {
+        deleteFetcher(key);
+      }
+    } else {
+      activeFetchers.set(key, count);
+    }
+    updateState({
+      fetchers: new Map(state.fetchers)
+    });
+  }
+  function abortFetcher(key) {
+    let controller = fetchControllers.get(key);
+    if (controller) {
+      controller.abort();
+      fetchControllers.delete(key);
+    }
+  }
+  function markFetchersDone(keys2) {
+    for (let key of keys2) {
+      let fetcher = getFetcher(key);
+      let doneFetcher = getDoneFetcher(fetcher.data);
+      state.fetchers.set(key, doneFetcher);
+    }
+  }
+  function markFetchRedirectsDone() {
+    let doneKeys = [];
+    let updatedFetchers = false;
+    for (let key of fetchRedirectIds) {
+      let fetcher = state.fetchers.get(key);
+      invariant(fetcher, "Expected fetcher: " + key);
+      if (fetcher.state === "loading") {
+        fetchRedirectIds.delete(key);
+        doneKeys.push(key);
+        updatedFetchers = true;
+      }
+    }
+    markFetchersDone(doneKeys);
+    return updatedFetchers;
+  }
+  function abortStaleFetchLoads(landedId) {
+    let yeetedKeys = [];
+    for (let [key, id] of fetchReloadIds) {
+      if (id < landedId) {
+        let fetcher = state.fetchers.get(key);
+        invariant(fetcher, "Expected fetcher: " + key);
+        if (fetcher.state === "loading") {
+          abortFetcher(key);
+          fetchReloadIds.delete(key);
+          yeetedKeys.push(key);
+        }
+      }
+    }
+    markFetchersDone(yeetedKeys);
+    return yeetedKeys.length > 0;
+  }
+  function getBlocker(key, fn) {
+    let blocker = state.blockers.get(key) || IDLE_BLOCKER;
+    if (blockerFunctions.get(key) !== fn) {
+      blockerFunctions.set(key, fn);
+    }
+    return blocker;
+  }
+  function deleteBlocker(key) {
+    state.blockers.delete(key);
+    blockerFunctions.delete(key);
+  }
+  function updateBlocker(key, newBlocker) {
+    let blocker = state.blockers.get(key) || IDLE_BLOCKER;
+    invariant(blocker.state === "unblocked" && newBlocker.state === "blocked" || blocker.state === "blocked" && newBlocker.state === "blocked" || blocker.state === "blocked" && newBlocker.state === "proceeding" || blocker.state === "blocked" && newBlocker.state === "unblocked" || blocker.state === "proceeding" && newBlocker.state === "unblocked", "Invalid blocker state transition: " + blocker.state + " -> " + newBlocker.state);
+    let blockers = new Map(state.blockers);
+    blockers.set(key, newBlocker);
+    updateState({
+      blockers
+    });
+  }
+  function shouldBlockNavigation(_ref2) {
+    let {
+      currentLocation,
+      nextLocation,
+      historyAction
+    } = _ref2;
+    if (blockerFunctions.size === 0) {
+      return;
+    }
+    if (blockerFunctions.size > 1) {
+      warning(false, "A router only supports one blocker at a time");
+    }
+    let entries2 = Array.from(blockerFunctions.entries());
+    let [blockerKey, blockerFunction] = entries2[entries2.length - 1];
+    let blocker = state.blockers.get(blockerKey);
+    if (blocker && blocker.state === "proceeding") {
+      return;
+    }
+    if (blockerFunction({
+      currentLocation,
+      nextLocation,
+      historyAction
+    })) {
+      return blockerKey;
+    }
+  }
+  function handleNavigational404(pathname) {
+    let error2 = getInternalRouterError(404, {
+      pathname
+    });
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    let {
+      matches: matches2,
+      route
+    } = getShortCircuitMatches(routesToUse);
+    cancelActiveDeferreds();
+    return {
+      notFoundMatches: matches2,
+      route,
+      error: error2
+    };
+  }
+  function cancelActiveDeferreds(predicate) {
+    let cancelledRouteIds = [];
+    activeDeferreds.forEach((dfd, routeId) => {
+      if (!predicate || predicate(routeId)) {
+        dfd.cancel();
+        cancelledRouteIds.push(routeId);
+        activeDeferreds.delete(routeId);
+      }
+    });
+    return cancelledRouteIds;
+  }
+  function enableScrollRestoration(positions, getPosition, getKey) {
+    savedScrollPositions = positions;
+    getScrollPosition = getPosition;
+    getScrollRestorationKey = getKey || null;
+    if (!initialScrollRestored && state.navigation === IDLE_NAVIGATION) {
+      initialScrollRestored = true;
+      let y = getSavedScrollPosition(state.location, state.matches);
+      if (y != null) {
+        updateState({
+          restoreScrollPosition: y
+        });
+      }
+    }
+    return () => {
+      savedScrollPositions = null;
+      getScrollPosition = null;
+      getScrollRestorationKey = null;
+    };
+  }
+  function getScrollKey(location, matches2) {
+    if (getScrollRestorationKey) {
+      let key = getScrollRestorationKey(location, matches2.map((m) => convertRouteMatchToUiMatch(m, state.loaderData)));
+      return key || location.key;
+    }
+    return location.key;
+  }
+  function saveScrollPosition(location, matches2) {
+    if (savedScrollPositions && getScrollPosition) {
+      let key = getScrollKey(location, matches2);
+      savedScrollPositions[key] = getScrollPosition();
+    }
+  }
+  function getSavedScrollPosition(location, matches2) {
+    if (savedScrollPositions) {
+      let key = getScrollKey(location, matches2);
+      let y = savedScrollPositions[key];
+      if (typeof y === "number") {
+        return y;
+      }
+    }
+    return null;
+  }
+  function checkFogOfWar(matches2, routesToUse, pathname) {
+    if (patchRoutesOnNavigationImpl) {
+      if (!matches2) {
+        let fogMatches = matchRoutesImpl(routesToUse, pathname, basename, true);
+        return {
+          active: true,
+          matches: fogMatches || []
+        };
+      } else {
+        if (Object.keys(matches2[0].params).length > 0) {
+          let partialMatches = matchRoutesImpl(routesToUse, pathname, basename, true);
+          return {
+            active: true,
+            matches: partialMatches
+          };
+        }
+      }
+    }
+    return {
+      active: false,
+      matches: null
+    };
+  }
+  async function discoverRoutes(matches2, pathname, signal, fetcherKey) {
+    if (!patchRoutesOnNavigationImpl) {
+      return {
+        type: "success",
+        matches: matches2
+      };
+    }
+    let partialMatches = matches2;
+    while (true) {
+      let isNonHMR = inFlightDataRoutes == null;
+      let routesToUse = inFlightDataRoutes || dataRoutes;
+      let localManifest = manifest;
+      try {
+        await patchRoutesOnNavigationImpl({
+          signal,
+          path: pathname,
+          matches: partialMatches,
+          fetcherKey,
+          patch: (routeId, children) => {
+            if (signal.aborted) return;
+            patchRoutesImpl(routeId, children, routesToUse, localManifest, mapRouteProperties2);
+          }
+        });
+      } catch (e) {
+        return {
+          type: "error",
+          error: e,
+          partialMatches
+        };
+      } finally {
+        if (isNonHMR && !signal.aborted) {
+          dataRoutes = [...dataRoutes];
+        }
+      }
+      if (signal.aborted) {
+        return {
+          type: "aborted"
+        };
+      }
+      let newMatches = matchRoutes(routesToUse, pathname, basename);
+      if (newMatches) {
+        return {
+          type: "success",
+          matches: newMatches
+        };
+      }
+      let newPartialMatches = matchRoutesImpl(routesToUse, pathname, basename, true);
+      if (!newPartialMatches || partialMatches.length === newPartialMatches.length && partialMatches.every((m, i) => m.route.id === newPartialMatches[i].route.id)) {
+        return {
+          type: "success",
+          matches: null
+        };
+      }
+      partialMatches = newPartialMatches;
+    }
+  }
+  function _internalSetRoutes(newRoutes) {
+    manifest = {};
+    inFlightDataRoutes = convertRoutesToDataRoutes(newRoutes, mapRouteProperties2, void 0, manifest);
+  }
+  function patchRoutes(routeId, children) {
+    let isNonHMR = inFlightDataRoutes == null;
+    let routesToUse = inFlightDataRoutes || dataRoutes;
+    patchRoutesImpl(routeId, children, routesToUse, manifest, mapRouteProperties2);
+    if (isNonHMR) {
+      dataRoutes = [...dataRoutes];
+      updateState({});
+    }
+  }
+  router2 = {
+    get basename() {
+      return basename;
+    },
+    get future() {
+      return future;
+    },
+    get state() {
+      return state;
+    },
+    get routes() {
+      return dataRoutes;
+    },
+    get window() {
+      return routerWindow;
+    },
+    initialize,
+    subscribe,
+    enableScrollRestoration,
+    navigate,
+    fetch: fetch2,
+    revalidate,
+    // Passthrough to history-aware createHref used by useHref so we get proper
+    // hash-aware URLs in DOM paths
+    createHref: (to) => init2.history.createHref(to),
+    encodeLocation: (to) => init2.history.encodeLocation(to),
+    getFetcher,
+    deleteFetcher: deleteFetcherAndUpdateState,
+    dispose,
+    getBlocker,
+    deleteBlocker,
+    patchRoutes,
+    _internalFetchControllers: fetchControllers,
+    _internalActiveDeferreds: activeDeferreds,
+    // TODO: Remove setRoutes, it's temporary to avoid dealing with
+    // updating the tree while validating the update algorithm.
+    _internalSetRoutes
+  };
+  return router2;
+}
+function isSubmissionNavigation(opts) {
+  return opts != null && ("formData" in opts && opts.formData != null || "body" in opts && opts.body !== void 0);
+}
+function normalizeTo(location, matches2, basename, prependBasename, to, v7_relativeSplatPath, fromRouteId, relative) {
+  let contextualMatches;
+  let activeRouteMatch;
+  if (fromRouteId) {
+    contextualMatches = [];
+    for (let match2 of matches2) {
+      contextualMatches.push(match2);
+      if (match2.route.id === fromRouteId) {
+        activeRouteMatch = match2;
+        break;
+      }
+    }
+  } else {
+    contextualMatches = matches2;
+    activeRouteMatch = matches2[matches2.length - 1];
+  }
+  let path = resolveTo(to ? to : ".", getResolveToMatches(contextualMatches, v7_relativeSplatPath), stripBasename(location.pathname, basename) || location.pathname, relative === "path");
+  if (to == null) {
+    path.search = location.search;
+    path.hash = location.hash;
+  }
+  if ((to == null || to === "" || to === ".") && activeRouteMatch) {
+    let nakedIndex = hasNakedIndexQuery(path.search);
+    if (activeRouteMatch.route.index && !nakedIndex) {
+      path.search = path.search ? path.search.replace(/^\?/, "?index&") : "?index";
+    } else if (!activeRouteMatch.route.index && nakedIndex) {
+      let params = new URLSearchParams(path.search);
+      let indexValues = params.getAll("index");
+      params.delete("index");
+      indexValues.filter((v) => v).forEach((v) => params.append("index", v));
+      let qs = params.toString();
+      path.search = qs ? "?" + qs : "";
+    }
+  }
+  if (prependBasename && basename !== "/") {
+    path.pathname = path.pathname === "/" ? basename : joinPaths([basename, path.pathname]);
+  }
+  return createPath(path);
+}
+function normalizeNavigateOptions(normalizeFormMethod, isFetcher, path, opts) {
+  if (!opts || !isSubmissionNavigation(opts)) {
+    return {
+      path
+    };
+  }
+  if (opts.formMethod && !isValidMethod(opts.formMethod)) {
+    return {
+      path,
+      error: getInternalRouterError(405, {
+        method: opts.formMethod
+      })
+    };
+  }
+  let getInvalidBodyError = () => ({
+    path,
+    error: getInternalRouterError(400, {
+      type: "invalid-body"
+    })
+  });
+  let rawFormMethod = opts.formMethod || "get";
+  let formMethod = normalizeFormMethod ? rawFormMethod.toUpperCase() : rawFormMethod.toLowerCase();
+  let formAction = stripHashFromPath(path);
+  if (opts.body !== void 0) {
+    if (opts.formEncType === "text/plain") {
+      if (!isMutationMethod(formMethod)) {
+        return getInvalidBodyError();
+      }
+      let text2 = typeof opts.body === "string" ? opts.body : opts.body instanceof FormData || opts.body instanceof URLSearchParams ? (
+        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#plain-text-form-data
+        Array.from(opts.body.entries()).reduce((acc, _ref3) => {
+          let [name, value] = _ref3;
+          return "" + acc + name + "=" + value + "\n";
+        }, "")
+      ) : String(opts.body);
+      return {
+        path,
+        submission: {
+          formMethod,
+          formAction,
+          formEncType: opts.formEncType,
+          formData: void 0,
+          json: void 0,
+          text: text2
+        }
+      };
+    } else if (opts.formEncType === "application/json") {
+      if (!isMutationMethod(formMethod)) {
+        return getInvalidBodyError();
+      }
+      try {
+        let json = typeof opts.body === "string" ? JSON.parse(opts.body) : opts.body;
+        return {
+          path,
+          submission: {
+            formMethod,
+            formAction,
+            formEncType: opts.formEncType,
+            formData: void 0,
+            json,
+            text: void 0
+          }
+        };
+      } catch (e) {
+        return getInvalidBodyError();
+      }
+    }
+  }
+  invariant(typeof FormData === "function", "FormData is not available in this environment");
+  let searchParams;
+  let formData;
+  if (opts.formData) {
+    searchParams = convertFormDataToSearchParams(opts.formData);
+    formData = opts.formData;
+  } else if (opts.body instanceof FormData) {
+    searchParams = convertFormDataToSearchParams(opts.body);
+    formData = opts.body;
+  } else if (opts.body instanceof URLSearchParams) {
+    searchParams = opts.body;
+    formData = convertSearchParamsToFormData(searchParams);
+  } else if (opts.body == null) {
+    searchParams = new URLSearchParams();
+    formData = new FormData();
+  } else {
+    try {
+      searchParams = new URLSearchParams(opts.body);
+      formData = convertSearchParamsToFormData(searchParams);
+    } catch (e) {
+      return getInvalidBodyError();
+    }
+  }
+  let submission = {
+    formMethod,
+    formAction,
+    formEncType: opts && opts.formEncType || "application/x-www-form-urlencoded",
+    formData,
+    json: void 0,
+    text: void 0
+  };
+  if (isMutationMethod(submission.formMethod)) {
+    return {
+      path,
+      submission
+    };
+  }
+  let parsedPath = parsePath(path);
+  if (isFetcher && parsedPath.search && hasNakedIndexQuery(parsedPath.search)) {
+    searchParams.append("index", "");
+  }
+  parsedPath.search = "?" + searchParams;
+  return {
+    path: createPath(parsedPath),
+    submission
+  };
+}
+function getLoaderMatchesUntilBoundary(matches2, boundaryId, includeBoundary) {
+  if (includeBoundary === void 0) {
+    includeBoundary = false;
+  }
+  let index = matches2.findIndex((m) => m.route.id === boundaryId);
+  if (index >= 0) {
+    return matches2.slice(0, includeBoundary ? index + 1 : index);
+  }
+  return matches2;
+}
+function getMatchesToLoad(history2, state, matches2, submission, location, initialHydration, skipActionErrorRevalidation, isRevalidationRequired, cancelledDeferredRoutes, cancelledFetcherLoads, deletedFetchers, fetchLoadMatches, fetchRedirectIds, routesToUse, basename, pendingActionResult) {
+  let actionResult = pendingActionResult ? isErrorResult(pendingActionResult[1]) ? pendingActionResult[1].error : pendingActionResult[1].data : void 0;
+  let currentUrl = history2.createURL(state.location);
+  let nextUrl = history2.createURL(location);
+  let boundaryMatches = matches2;
+  if (initialHydration && state.errors) {
+    boundaryMatches = getLoaderMatchesUntilBoundary(matches2, Object.keys(state.errors)[0], true);
+  } else if (pendingActionResult && isErrorResult(pendingActionResult[1])) {
+    boundaryMatches = getLoaderMatchesUntilBoundary(matches2, pendingActionResult[0]);
+  }
+  let actionStatus = pendingActionResult ? pendingActionResult[1].statusCode : void 0;
+  let shouldSkipRevalidation = skipActionErrorRevalidation && actionStatus && actionStatus >= 400;
+  let navigationMatches = boundaryMatches.filter((match2, index) => {
+    let {
+      route
+    } = match2;
+    if (route.lazy) {
+      return true;
+    }
+    if (route.loader == null) {
+      return false;
+    }
+    if (initialHydration) {
+      return shouldLoadRouteOnHydration(route, state.loaderData, state.errors);
+    }
+    if (isNewLoader(state.loaderData, state.matches[index], match2) || cancelledDeferredRoutes.some((id) => id === match2.route.id)) {
+      return true;
+    }
+    let currentRouteMatch = state.matches[index];
+    let nextRouteMatch = match2;
+    return shouldRevalidateLoader(match2, _extends$2({
+      currentUrl,
+      currentParams: currentRouteMatch.params,
+      nextUrl,
+      nextParams: nextRouteMatch.params
+    }, submission, {
+      actionResult,
+      actionStatus,
+      defaultShouldRevalidate: shouldSkipRevalidation ? false : (
+        // Forced revalidation due to submission, useRevalidator, or X-Remix-Revalidate
+        isRevalidationRequired || currentUrl.pathname + currentUrl.search === nextUrl.pathname + nextUrl.search || // Search params affect all loaders
+        currentUrl.search !== nextUrl.search || isNewRouteInstance(currentRouteMatch, nextRouteMatch)
+      )
+    }));
+  });
+  let revalidatingFetchers = [];
+  fetchLoadMatches.forEach((f, key) => {
+    if (initialHydration || !matches2.some((m) => m.route.id === f.routeId) || deletedFetchers.has(key)) {
+      return;
+    }
+    let fetcherMatches = matchRoutes(routesToUse, f.path, basename);
+    if (!fetcherMatches) {
+      revalidatingFetchers.push({
+        key,
+        routeId: f.routeId,
+        path: f.path,
+        matches: null,
+        match: null,
+        controller: null
+      });
+      return;
+    }
+    let fetcher = state.fetchers.get(key);
+    let fetcherMatch = getTargetMatch(fetcherMatches, f.path);
+    let shouldRevalidate = false;
+    if (fetchRedirectIds.has(key)) {
+      shouldRevalidate = false;
+    } else if (cancelledFetcherLoads.has(key)) {
+      cancelledFetcherLoads.delete(key);
+      shouldRevalidate = true;
+    } else if (fetcher && fetcher.state !== "idle" && fetcher.data === void 0) {
+      shouldRevalidate = isRevalidationRequired;
+    } else {
+      shouldRevalidate = shouldRevalidateLoader(fetcherMatch, _extends$2({
+        currentUrl,
+        currentParams: state.matches[state.matches.length - 1].params,
+        nextUrl,
+        nextParams: matches2[matches2.length - 1].params
+      }, submission, {
+        actionResult,
+        actionStatus,
+        defaultShouldRevalidate: shouldSkipRevalidation ? false : isRevalidationRequired
+      }));
+    }
+    if (shouldRevalidate) {
+      revalidatingFetchers.push({
+        key,
+        routeId: f.routeId,
+        path: f.path,
+        matches: fetcherMatches,
+        match: fetcherMatch,
+        controller: new AbortController()
+      });
+    }
+  });
+  return [navigationMatches, revalidatingFetchers];
+}
+function shouldLoadRouteOnHydration(route, loaderData, errors2) {
+  if (route.lazy) {
+    return true;
+  }
+  if (!route.loader) {
+    return false;
+  }
+  let hasData = loaderData != null && loaderData[route.id] !== void 0;
+  let hasError = errors2 != null && errors2[route.id] !== void 0;
+  if (!hasData && hasError) {
+    return false;
+  }
+  if (typeof route.loader === "function" && route.loader.hydrate === true) {
+    return true;
+  }
+  return !hasData && !hasError;
+}
+function isNewLoader(currentLoaderData, currentMatch, match2) {
+  let isNew = (
+    // [a] -> [a, b]
+    !currentMatch || // [a, b] -> [a, c]
+    match2.route.id !== currentMatch.route.id
+  );
+  let isMissingData = currentLoaderData[match2.route.id] === void 0;
+  return isNew || isMissingData;
+}
+function isNewRouteInstance(currentMatch, match2) {
+  let currentPath = currentMatch.route.path;
+  return (
+    // param change for this match, /users/123 -> /users/456
+    currentMatch.pathname !== match2.pathname || // splat param changed, which is not present in match.path
+    // e.g. /files/images/avatar.jpg -> files/finances.xls
+    currentPath != null && currentPath.endsWith("*") && currentMatch.params["*"] !== match2.params["*"]
+  );
+}
+function shouldRevalidateLoader(loaderMatch, arg) {
+  if (loaderMatch.route.shouldRevalidate) {
+    let routeChoice = loaderMatch.route.shouldRevalidate(arg);
+    if (typeof routeChoice === "boolean") {
+      return routeChoice;
+    }
+  }
+  return arg.defaultShouldRevalidate;
+}
+function patchRoutesImpl(routeId, children, routesToUse, manifest, mapRouteProperties2) {
+  var _childrenToPatch;
+  let childrenToPatch;
+  if (routeId) {
+    let route = manifest[routeId];
+    invariant(route, "No route found to patch children into: routeId = " + routeId);
+    if (!route.children) {
+      route.children = [];
+    }
+    childrenToPatch = route.children;
+  } else {
+    childrenToPatch = routesToUse;
+  }
+  let uniqueChildren = children.filter((newRoute) => !childrenToPatch.some((existingRoute) => isSameRoute(newRoute, existingRoute)));
+  let newRoutes = convertRoutesToDataRoutes(uniqueChildren, mapRouteProperties2, [routeId || "_", "patch", String(((_childrenToPatch = childrenToPatch) == null ? void 0 : _childrenToPatch.length) || "0")], manifest);
+  childrenToPatch.push(...newRoutes);
+}
+function isSameRoute(newRoute, existingRoute) {
+  if ("id" in newRoute && "id" in existingRoute && newRoute.id === existingRoute.id) {
+    return true;
+  }
+  if (!(newRoute.index === existingRoute.index && newRoute.path === existingRoute.path && newRoute.caseSensitive === existingRoute.caseSensitive)) {
+    return false;
+  }
+  if ((!newRoute.children || newRoute.children.length === 0) && (!existingRoute.children || existingRoute.children.length === 0)) {
+    return true;
+  }
+  return newRoute.children.every((aChild, i) => {
+    var _existingRoute$childr;
+    return (_existingRoute$childr = existingRoute.children) == null ? void 0 : _existingRoute$childr.some((bChild) => isSameRoute(aChild, bChild));
+  });
+}
+async function loadLazyRouteModule(route, mapRouteProperties2, manifest) {
+  if (!route.lazy) {
+    return;
+  }
+  let lazyRoute = await route.lazy();
+  if (!route.lazy) {
+    return;
+  }
+  let routeToUpdate = manifest[route.id];
+  invariant(routeToUpdate, "No route found in manifest");
+  let routeUpdates = {};
+  for (let lazyRouteProperty in lazyRoute) {
+    let staticRouteValue = routeToUpdate[lazyRouteProperty];
+    let isPropertyStaticallyDefined = staticRouteValue !== void 0 && // This property isn't static since it should always be updated based
+    // on the route updates
+    lazyRouteProperty !== "hasErrorBoundary";
+    warning(!isPropertyStaticallyDefined, 'Route "' + routeToUpdate.id + '" has a static property "' + lazyRouteProperty + '" defined but its lazy function is also returning a value for this property. ' + ('The lazy route property "' + lazyRouteProperty + '" will be ignored.'));
+    if (!isPropertyStaticallyDefined && !immutableRouteKeys.has(lazyRouteProperty)) {
+      routeUpdates[lazyRouteProperty] = lazyRoute[lazyRouteProperty];
+    }
+  }
+  Object.assign(routeToUpdate, routeUpdates);
+  Object.assign(routeToUpdate, _extends$2({}, mapRouteProperties2(routeToUpdate), {
+    lazy: void 0
+  }));
+}
+async function defaultDataStrategy(_ref4) {
+  let {
+    matches: matches2
+  } = _ref4;
+  let matchesToLoad = matches2.filter((m) => m.shouldLoad);
+  let results = await Promise.all(matchesToLoad.map((m) => m.resolve()));
+  return results.reduce((acc, result, i) => Object.assign(acc, {
+    [matchesToLoad[i].route.id]: result
+  }), {});
+}
+async function callDataStrategyImpl(dataStrategyImpl, type, state, request2, matchesToLoad, matches2, fetcherKey, manifest, mapRouteProperties2, requestContext) {
+  let loadRouteDefinitionsPromises = matches2.map((m) => m.route.lazy ? loadLazyRouteModule(m.route, mapRouteProperties2, manifest) : void 0);
+  let dsMatches = matches2.map((match2, i) => {
+    let loadRoutePromise = loadRouteDefinitionsPromises[i];
+    let shouldLoad = matchesToLoad.some((m) => m.route.id === match2.route.id);
+    let resolve = async (handlerOverride) => {
+      if (handlerOverride && request2.method === "GET" && (match2.route.lazy || match2.route.loader)) {
+        shouldLoad = true;
+      }
+      return shouldLoad ? callLoaderOrAction(type, request2, match2, loadRoutePromise, handlerOverride, requestContext) : Promise.resolve({
+        type: ResultType.data,
+        result: void 0
+      });
+    };
+    return _extends$2({}, match2, {
+      shouldLoad,
+      resolve
+    });
+  });
+  let results = await dataStrategyImpl({
+    matches: dsMatches,
+    request: request2,
+    params: matches2[0].params,
+    fetcherKey,
+    context: requestContext
+  });
+  try {
+    await Promise.all(loadRouteDefinitionsPromises);
+  } catch (e) {
+  }
+  return results;
+}
+async function callLoaderOrAction(type, request2, match2, loadRoutePromise, handlerOverride, staticContext) {
+  let result;
+  let onReject;
+  let runHandler = (handler) => {
+    let reject;
+    let abortPromise = new Promise((_, r) => reject = r);
+    onReject = () => reject();
+    request2.signal.addEventListener("abort", onReject);
+    let actualHandler = (ctx) => {
+      if (typeof handler !== "function") {
+        return Promise.reject(new Error("You cannot call the handler for a route which defines a boolean " + ('"' + type + '" [routeId: ' + match2.route.id + "]")));
+      }
+      return handler({
+        request: request2,
+        params: match2.params,
+        context: staticContext
+      }, ...ctx !== void 0 ? [ctx] : []);
+    };
+    let handlerPromise = (async () => {
+      try {
+        let val = await (handlerOverride ? handlerOverride((ctx) => actualHandler(ctx)) : actualHandler());
+        return {
+          type: "data",
+          result: val
+        };
+      } catch (e) {
+        return {
+          type: "error",
+          result: e
+        };
+      }
+    })();
+    return Promise.race([handlerPromise, abortPromise]);
+  };
+  try {
+    let handler = match2.route[type];
+    if (loadRoutePromise) {
+      if (handler) {
+        let handlerError;
+        let [value] = await Promise.all([
+          // If the handler throws, don't let it immediately bubble out,
+          // since we need to let the lazy() execution finish so we know if this
+          // route has a boundary that can handle the error
+          runHandler(handler).catch((e) => {
+            handlerError = e;
+          }),
+          loadRoutePromise
+        ]);
+        if (handlerError !== void 0) {
+          throw handlerError;
+        }
+        result = value;
+      } else {
+        await loadRoutePromise;
+        handler = match2.route[type];
+        if (handler) {
+          result = await runHandler(handler);
+        } else if (type === "action") {
+          let url = new URL(request2.url);
+          let pathname = url.pathname + url.search;
+          throw getInternalRouterError(405, {
+            method: request2.method,
+            pathname,
+            routeId: match2.route.id
+          });
+        } else {
+          return {
+            type: ResultType.data,
+            result: void 0
+          };
+        }
+      }
+    } else if (!handler) {
+      let url = new URL(request2.url);
+      let pathname = url.pathname + url.search;
+      throw getInternalRouterError(404, {
+        pathname
+      });
+    } else {
+      result = await runHandler(handler);
+    }
+    invariant(result.result !== void 0, "You defined " + (type === "action" ? "an action" : "a loader") + " for route " + ('"' + match2.route.id + "\" but didn't return anything from your `" + type + "` ") + "function. Please return a value or `null`.");
+  } catch (e) {
+    return {
+      type: ResultType.error,
+      result: e
+    };
+  } finally {
+    if (onReject) {
+      request2.signal.removeEventListener("abort", onReject);
+    }
+  }
+  return result;
+}
+async function convertDataStrategyResultToDataResult(dataStrategyResult) {
+  let {
+    result,
+    type
+  } = dataStrategyResult;
+  if (isResponse(result)) {
+    let data;
+    try {
+      let contentType = result.headers.get("Content-Type");
+      if (contentType && /\bapplication\/json\b/.test(contentType)) {
+        if (result.body == null) {
+          data = null;
+        } else {
+          data = await result.json();
+        }
+      } else {
+        data = await result.text();
+      }
+    } catch (e) {
+      return {
+        type: ResultType.error,
+        error: e
+      };
+    }
+    if (type === ResultType.error) {
+      return {
+        type: ResultType.error,
+        error: new ErrorResponseImpl(result.status, result.statusText, data),
+        statusCode: result.status,
+        headers: result.headers
+      };
+    }
+    return {
+      type: ResultType.data,
+      data,
+      statusCode: result.status,
+      headers: result.headers
+    };
+  }
+  if (type === ResultType.error) {
+    if (isDataWithResponseInit(result)) {
+      var _result$init3, _result$init4;
+      if (result.data instanceof Error) {
+        var _result$init, _result$init2;
+        return {
+          type: ResultType.error,
+          error: result.data,
+          statusCode: (_result$init = result.init) == null ? void 0 : _result$init.status,
+          headers: (_result$init2 = result.init) != null && _result$init2.headers ? new Headers(result.init.headers) : void 0
+        };
+      }
+      return {
+        type: ResultType.error,
+        error: new ErrorResponseImpl(((_result$init3 = result.init) == null ? void 0 : _result$init3.status) || 500, void 0, result.data),
+        statusCode: isRouteErrorResponse(result) ? result.status : void 0,
+        headers: (_result$init4 = result.init) != null && _result$init4.headers ? new Headers(result.init.headers) : void 0
+      };
+    }
+    return {
+      type: ResultType.error,
+      error: result,
+      statusCode: isRouteErrorResponse(result) ? result.status : void 0
+    };
+  }
+  if (isDeferredData(result)) {
+    var _result$init5, _result$init6;
+    return {
+      type: ResultType.deferred,
+      deferredData: result,
+      statusCode: (_result$init5 = result.init) == null ? void 0 : _result$init5.status,
+      headers: ((_result$init6 = result.init) == null ? void 0 : _result$init6.headers) && new Headers(result.init.headers)
+    };
+  }
+  if (isDataWithResponseInit(result)) {
+    var _result$init7, _result$init8;
+    return {
+      type: ResultType.data,
+      data: result.data,
+      statusCode: (_result$init7 = result.init) == null ? void 0 : _result$init7.status,
+      headers: (_result$init8 = result.init) != null && _result$init8.headers ? new Headers(result.init.headers) : void 0
+    };
+  }
+  return {
+    type: ResultType.data,
+    data: result
+  };
+}
+function normalizeRelativeRoutingRedirectResponse(response, request2, routeId, matches2, basename, v7_relativeSplatPath) {
+  let location = response.headers.get("Location");
+  invariant(location, "Redirects returned/thrown from loaders/actions must have a Location header");
+  if (!ABSOLUTE_URL_REGEX$2.test(location)) {
+    let trimmedMatches = matches2.slice(0, matches2.findIndex((m) => m.route.id === routeId) + 1);
+    location = normalizeTo(new URL(request2.url), trimmedMatches, basename, true, location, v7_relativeSplatPath);
+    response.headers.set("Location", location);
+  }
+  return response;
+}
+function normalizeRedirectLocation(location, currentUrl, basename, historyInstance) {
+  let invalidProtocols = [
+    "about:",
+    "blob:",
+    "chrome:",
+    "chrome-untrusted:",
+    "content:",
+    "data:",
+    "devtools:",
+    "file:",
+    "filesystem:",
+    // eslint-disable-next-line no-script-url
+    "javascript:"
+  ];
+  if (ABSOLUTE_URL_REGEX$2.test(location)) {
+    let normalizedLocation = location;
+    let url = normalizedLocation.startsWith("//") ? new URL(currentUrl.protocol + normalizedLocation) : new URL(normalizedLocation);
+    if (invalidProtocols.includes(url.protocol)) {
+      throw new Error("Invalid redirect location");
+    }
+    let isSameBasename = stripBasename(url.pathname, basename) != null;
+    if (url.origin === currentUrl.origin && isSameBasename) {
+      return url.pathname + url.search + url.hash;
+    }
+  }
+  try {
+    let url = historyInstance.createURL(location);
+    if (invalidProtocols.includes(url.protocol)) {
+      throw new Error("Invalid redirect location");
+    }
+  } catch (e) {
+  }
+  return location;
+}
+function createClientSideRequest(history2, location, signal, submission) {
+  let url = history2.createURL(stripHashFromPath(location)).toString();
+  let init2 = {
+    signal
+  };
+  if (submission && isMutationMethod(submission.formMethod)) {
+    let {
+      formMethod,
+      formEncType
+    } = submission;
+    init2.method = formMethod.toUpperCase();
+    if (formEncType === "application/json") {
+      init2.headers = new Headers({
+        "Content-Type": formEncType
+      });
+      init2.body = JSON.stringify(submission.json);
+    } else if (formEncType === "text/plain") {
+      init2.body = submission.text;
+    } else if (formEncType === "application/x-www-form-urlencoded" && submission.formData) {
+      init2.body = convertFormDataToSearchParams(submission.formData);
+    } else {
+      init2.body = submission.formData;
+    }
+  }
+  return new Request(url, init2);
+}
+function convertFormDataToSearchParams(formData) {
+  let searchParams = new URLSearchParams();
+  for (let [key, value] of formData.entries()) {
+    searchParams.append(key, typeof value === "string" ? value : value.name);
+  }
+  return searchParams;
+}
+function convertSearchParamsToFormData(searchParams) {
+  let formData = new FormData();
+  for (let [key, value] of searchParams.entries()) {
+    formData.append(key, value);
+  }
+  return formData;
+}
+function processRouteLoaderData(matches2, results, pendingActionResult, activeDeferreds, skipLoaderErrorBubbling) {
+  let loaderData = {};
+  let errors2 = null;
+  let statusCode;
+  let foundError = false;
+  let loaderHeaders = {};
+  let pendingError = pendingActionResult && isErrorResult(pendingActionResult[1]) ? pendingActionResult[1].error : void 0;
+  matches2.forEach((match2) => {
+    if (!(match2.route.id in results)) {
+      return;
+    }
+    let id = match2.route.id;
+    let result = results[id];
+    invariant(!isRedirectResult(result), "Cannot handle redirect results in processLoaderData");
+    if (isErrorResult(result)) {
+      let error2 = result.error;
+      if (pendingError !== void 0) {
+        error2 = pendingError;
+        pendingError = void 0;
+      }
+      errors2 = errors2 || {};
+      {
+        let boundaryMatch = findNearestBoundary(matches2, id);
+        if (errors2[boundaryMatch.route.id] == null) {
+          errors2[boundaryMatch.route.id] = error2;
+        }
+      }
+      loaderData[id] = void 0;
+      if (!foundError) {
+        foundError = true;
+        statusCode = isRouteErrorResponse(result.error) ? result.error.status : 500;
+      }
+      if (result.headers) {
+        loaderHeaders[id] = result.headers;
+      }
+    } else {
+      if (isDeferredResult(result)) {
+        activeDeferreds.set(id, result.deferredData);
+        loaderData[id] = result.deferredData.data;
+        if (result.statusCode != null && result.statusCode !== 200 && !foundError) {
+          statusCode = result.statusCode;
+        }
+        if (result.headers) {
+          loaderHeaders[id] = result.headers;
+        }
+      } else {
+        loaderData[id] = result.data;
+        if (result.statusCode && result.statusCode !== 200 && !foundError) {
+          statusCode = result.statusCode;
+        }
+        if (result.headers) {
+          loaderHeaders[id] = result.headers;
+        }
+      }
+    }
+  });
+  if (pendingError !== void 0 && pendingActionResult) {
+    errors2 = {
+      [pendingActionResult[0]]: pendingError
+    };
+    loaderData[pendingActionResult[0]] = void 0;
+  }
+  return {
+    loaderData,
+    errors: errors2,
+    statusCode: statusCode || 200,
+    loaderHeaders
+  };
+}
+function processLoaderData(state, matches2, results, pendingActionResult, revalidatingFetchers, fetcherResults, activeDeferreds) {
+  let {
+    loaderData,
+    errors: errors2
+  } = processRouteLoaderData(matches2, results, pendingActionResult, activeDeferreds);
+  revalidatingFetchers.forEach((rf) => {
+    let {
+      key,
+      match: match2,
+      controller
+    } = rf;
+    let result = fetcherResults[key];
+    invariant(result, "Did not find corresponding fetcher result");
+    if (controller && controller.signal.aborted) {
+      return;
+    } else if (isErrorResult(result)) {
+      let boundaryMatch = findNearestBoundary(state.matches, match2 == null ? void 0 : match2.route.id);
+      if (!(errors2 && errors2[boundaryMatch.route.id])) {
+        errors2 = _extends$2({}, errors2, {
+          [boundaryMatch.route.id]: result.error
+        });
+      }
+      state.fetchers.delete(key);
+    } else if (isRedirectResult(result)) {
+      invariant(false, "Unhandled fetcher revalidation redirect");
+    } else if (isDeferredResult(result)) {
+      invariant(false, "Unhandled fetcher deferred data");
+    } else {
+      let doneFetcher = getDoneFetcher(result.data);
+      state.fetchers.set(key, doneFetcher);
+    }
+  });
+  return {
+    loaderData,
+    errors: errors2
+  };
+}
+function mergeLoaderData(loaderData, newLoaderData, matches2, errors2) {
+  let mergedLoaderData = _extends$2({}, newLoaderData);
+  for (let match2 of matches2) {
+    let id = match2.route.id;
+    if (newLoaderData.hasOwnProperty(id)) {
+      if (newLoaderData[id] !== void 0) {
+        mergedLoaderData[id] = newLoaderData[id];
+      }
+    } else if (loaderData[id] !== void 0 && match2.route.loader) {
+      mergedLoaderData[id] = loaderData[id];
+    }
+    if (errors2 && errors2.hasOwnProperty(id)) {
+      break;
+    }
+  }
+  return mergedLoaderData;
+}
+function getActionDataForCommit(pendingActionResult) {
+  if (!pendingActionResult) {
+    return {};
+  }
+  return isErrorResult(pendingActionResult[1]) ? {
+    // Clear out prior actionData on errors
+    actionData: {}
+  } : {
+    actionData: {
+      [pendingActionResult[0]]: pendingActionResult[1].data
+    }
+  };
+}
+function findNearestBoundary(matches2, routeId) {
+  let eligibleMatches = routeId ? matches2.slice(0, matches2.findIndex((m) => m.route.id === routeId) + 1) : [...matches2];
+  return eligibleMatches.reverse().find((m) => m.route.hasErrorBoundary === true) || matches2[0];
+}
+function getShortCircuitMatches(routes) {
+  let route = routes.length === 1 ? routes[0] : routes.find((r) => r.index || !r.path || r.path === "/") || {
+    id: "__shim-error-route__"
+  };
+  return {
+    matches: [{
+      params: {},
+      pathname: "",
+      pathnameBase: "",
+      route
+    }],
+    route
+  };
+}
+function getInternalRouterError(status, _temp5) {
+  let {
+    pathname,
+    routeId,
+    method,
+    type,
+    message
+  } = _temp5 === void 0 ? {} : _temp5;
+  let statusText = "Unknown Server Error";
+  let errorMessage = "Unknown @remix-run/router error";
+  if (status === 400) {
+    statusText = "Bad Request";
+    if (method && pathname && routeId) {
+      errorMessage = "You made a " + method + ' request to "' + pathname + '" but ' + ('did not provide a `loader` for route "' + routeId + '", ') + "so there is no way to handle the request.";
+    } else if (type === "defer-action") {
+      errorMessage = "defer() is not supported in actions";
+    } else if (type === "invalid-body") {
+      errorMessage = "Unable to encode submission body";
+    }
+  } else if (status === 403) {
+    statusText = "Forbidden";
+    errorMessage = 'Route "' + routeId + '" does not match URL "' + pathname + '"';
+  } else if (status === 404) {
+    statusText = "Not Found";
+    errorMessage = 'No route matches URL "' + pathname + '"';
+  } else if (status === 405) {
+    statusText = "Method Not Allowed";
+    if (method && pathname && routeId) {
+      errorMessage = "You made a " + method.toUpperCase() + ' request to "' + pathname + '" but ' + ('did not provide an `action` for route "' + routeId + '", ') + "so there is no way to handle the request.";
+    } else if (method) {
+      errorMessage = 'Invalid request method "' + method.toUpperCase() + '"';
+    }
+  }
+  return new ErrorResponseImpl(status || 500, statusText, new Error(errorMessage), true);
+}
+function findRedirect(results) {
+  let entries2 = Object.entries(results);
+  for (let i = entries2.length - 1; i >= 0; i--) {
+    let [key, result] = entries2[i];
+    if (isRedirectResult(result)) {
+      return {
+        key,
+        result
+      };
+    }
+  }
+}
+function stripHashFromPath(path) {
+  let parsedPath = typeof path === "string" ? parsePath(path) : path;
+  return createPath(_extends$2({}, parsedPath, {
+    hash: ""
+  }));
+}
+function isHashChangeOnly(a, b) {
+  if (a.pathname !== b.pathname || a.search !== b.search) {
+    return false;
+  }
+  if (a.hash === "") {
+    return b.hash !== "";
+  } else if (a.hash === b.hash) {
+    return true;
+  } else if (b.hash !== "") {
+    return true;
+  }
+  return false;
+}
+function isRedirectDataStrategyResultResult(result) {
+  return isResponse(result.result) && redirectStatusCodes.has(result.result.status);
+}
+function isDeferredResult(result) {
+  return result.type === ResultType.deferred;
+}
+function isErrorResult(result) {
+  return result.type === ResultType.error;
+}
+function isRedirectResult(result) {
+  return (result && result.type) === ResultType.redirect;
+}
+function isDataWithResponseInit(value) {
+  return typeof value === "object" && value != null && "type" in value && "data" in value && "init" in value && value.type === "DataWithResponseInit";
+}
+function isDeferredData(value) {
+  let deferred = value;
+  return deferred && typeof deferred === "object" && typeof deferred.data === "object" && typeof deferred.subscribe === "function" && typeof deferred.cancel === "function" && typeof deferred.resolveData === "function";
+}
+function isResponse(value) {
+  return value != null && typeof value.status === "number" && typeof value.statusText === "string" && typeof value.headers === "object" && typeof value.body !== "undefined";
+}
+function isValidMethod(method) {
+  return validRequestMethods.has(method.toLowerCase());
+}
+function isMutationMethod(method) {
+  return validMutationMethods.has(method.toLowerCase());
+}
+async function resolveNavigationDeferredResults(matches2, results, signal, currentMatches, currentLoaderData) {
+  let entries2 = Object.entries(results);
+  for (let index = 0; index < entries2.length; index++) {
+    let [routeId, result] = entries2[index];
+    let match2 = matches2.find((m) => (m == null ? void 0 : m.route.id) === routeId);
+    if (!match2) {
+      continue;
+    }
+    let currentMatch = currentMatches.find((m) => m.route.id === match2.route.id);
+    let isRevalidatingLoader = currentMatch != null && !isNewRouteInstance(currentMatch, match2) && (currentLoaderData && currentLoaderData[match2.route.id]) !== void 0;
+    if (isDeferredResult(result) && isRevalidatingLoader) {
+      await resolveDeferredData(result, signal, false).then((result2) => {
+        if (result2) {
+          results[routeId] = result2;
+        }
+      });
+    }
+  }
+}
+async function resolveFetcherDeferredResults(matches2, results, revalidatingFetchers) {
+  for (let index = 0; index < revalidatingFetchers.length; index++) {
+    let {
+      key,
+      routeId,
+      controller
+    } = revalidatingFetchers[index];
+    let result = results[key];
+    let match2 = matches2.find((m) => (m == null ? void 0 : m.route.id) === routeId);
+    if (!match2) {
+      continue;
+    }
+    if (isDeferredResult(result)) {
+      invariant(controller, "Expected an AbortController for revalidating fetcher deferred result");
+      await resolveDeferredData(result, controller.signal, true).then((result2) => {
+        if (result2) {
+          results[key] = result2;
+        }
+      });
+    }
+  }
+}
+async function resolveDeferredData(result, signal, unwrap) {
+  if (unwrap === void 0) {
+    unwrap = false;
+  }
+  let aborted = await result.deferredData.resolveData(signal);
+  if (aborted) {
+    return;
+  }
+  if (unwrap) {
+    try {
+      return {
+        type: ResultType.data,
+        data: result.deferredData.unwrappedData
+      };
+    } catch (e) {
+      return {
+        type: ResultType.error,
+        error: e
+      };
+    }
+  }
+  return {
+    type: ResultType.data,
+    data: result.deferredData.data
+  };
+}
+function hasNakedIndexQuery(search) {
+  return new URLSearchParams(search).getAll("index").some((v) => v === "");
+}
+function getTargetMatch(matches2, location) {
+  let search = typeof location === "string" ? parsePath(location).search : location.search;
+  if (matches2[matches2.length - 1].route.index && hasNakedIndexQuery(search || "")) {
+    return matches2[matches2.length - 1];
+  }
+  let pathMatches = getPathContributingMatches(matches2);
+  return pathMatches[pathMatches.length - 1];
+}
+function getSubmissionFromNavigation(navigation2) {
+  let {
+    formMethod,
+    formAction,
+    formEncType,
+    text: text2,
+    formData,
+    json
+  } = navigation2;
+  if (!formMethod || !formAction || !formEncType) {
+    return;
+  }
+  if (text2 != null) {
+    return {
+      formMethod,
+      formAction,
+      formEncType,
+      formData: void 0,
+      json: void 0,
+      text: text2
+    };
+  } else if (formData != null) {
+    return {
+      formMethod,
+      formAction,
+      formEncType,
+      formData,
+      json: void 0,
+      text: void 0
+    };
+  } else if (json !== void 0) {
+    return {
+      formMethod,
+      formAction,
+      formEncType,
+      formData: void 0,
+      json,
+      text: void 0
+    };
+  }
+}
+function getLoadingNavigation(location, submission) {
+  if (submission) {
+    let navigation2 = {
+      state: "loading",
+      location,
+      formMethod: submission.formMethod,
+      formAction: submission.formAction,
+      formEncType: submission.formEncType,
+      formData: submission.formData,
+      json: submission.json,
+      text: submission.text
+    };
+    return navigation2;
+  } else {
+    let navigation2 = {
+      state: "loading",
+      location,
+      formMethod: void 0,
+      formAction: void 0,
+      formEncType: void 0,
+      formData: void 0,
+      json: void 0,
+      text: void 0
+    };
+    return navigation2;
+  }
+}
+function getSubmittingNavigation(location, submission) {
+  let navigation2 = {
+    state: "submitting",
+    location,
+    formMethod: submission.formMethod,
+    formAction: submission.formAction,
+    formEncType: submission.formEncType,
+    formData: submission.formData,
+    json: submission.json,
+    text: submission.text
+  };
+  return navigation2;
+}
+function getLoadingFetcher(submission, data) {
+  if (submission) {
+    let fetcher = {
+      state: "loading",
+      formMethod: submission.formMethod,
+      formAction: submission.formAction,
+      formEncType: submission.formEncType,
+      formData: submission.formData,
+      json: submission.json,
+      text: submission.text,
+      data
+    };
+    return fetcher;
+  } else {
+    let fetcher = {
+      state: "loading",
+      formMethod: void 0,
+      formAction: void 0,
+      formEncType: void 0,
+      formData: void 0,
+      json: void 0,
+      text: void 0,
+      data
+    };
+    return fetcher;
+  }
+}
+function getSubmittingFetcher(submission, existingFetcher) {
+  let fetcher = {
+    state: "submitting",
+    formMethod: submission.formMethod,
+    formAction: submission.formAction,
+    formEncType: submission.formEncType,
+    formData: submission.formData,
+    json: submission.json,
+    text: submission.text,
+    data: existingFetcher ? existingFetcher.data : void 0
+  };
+  return fetcher;
+}
+function getDoneFetcher(data) {
+  let fetcher = {
+    state: "idle",
+    formMethod: void 0,
+    formAction: void 0,
+    formEncType: void 0,
+    formData: void 0,
+    json: void 0,
+    text: void 0,
+    data
+  };
+  return fetcher;
+}
+function restoreAppliedTransitions(_window, transitions) {
+  try {
+    let sessionPositions = _window.sessionStorage.getItem(TRANSITIONS_STORAGE_KEY);
+    if (sessionPositions) {
+      let json = JSON.parse(sessionPositions);
+      for (let [k, v] of Object.entries(json || {})) {
+        if (v && Array.isArray(v)) {
+          transitions.set(k, new Set(v || []));
+        }
+      }
+    }
+  } catch (e) {
+  }
+}
+function persistAppliedTransitions(_window, transitions) {
+  if (transitions.size > 0) {
+    let json = {};
+    for (let [k, v] of transitions) {
+      json[k] = [...v];
+    }
+    try {
+      _window.sessionStorage.setItem(TRANSITIONS_STORAGE_KEY, JSON.stringify(json));
+    } catch (error2) {
+      warning(false, "Failed to save applied view transitions in sessionStorage (" + error2 + ").");
+    }
+  }
+}
 function _extends$1() {
   _extends$1 = Object.assign ? Object.assign.bind() : function(target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -13294,9 +16098,6 @@ function useResolvedPath(to, _temp2) {
   let routePathnamesJson = JSON.stringify(getResolveToMatches(matches2, future.v7_relativeSplatPath));
   return reactExports.useMemo(() => resolveTo(to, JSON.parse(routePathnamesJson), locationPathname, relative === "path"), [to, routePathnamesJson, locationPathname, relative]);
 }
-function useRoutes(routes, locationArg) {
-  return useRoutesImpl(routes, locationArg);
-}
 function useRoutesImpl(routes, locationArg, dataRouterState, future) {
   !useInRouterContext() ? invariant(false) : void 0;
   let {
@@ -13312,12 +16113,7 @@ function useRoutesImpl(routes, locationArg, dataRouterState, future) {
   routeMatch && routeMatch.route;
   let locationFromContext = useLocation();
   let location;
-  if (locationArg) {
-    var _parsedLocationArg$pa;
-    let parsedLocationArg = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
-    !(parentPathnameBase === "/" || ((_parsedLocationArg$pa = parsedLocationArg.pathname) == null ? void 0 : _parsedLocationArg$pa.startsWith(parentPathnameBase))) ? invariant(false) : void 0;
-    location = parsedLocationArg;
-  } else {
+  {
     location = locationFromContext;
   }
   let pathname = location.pathname || "/";
@@ -13343,20 +16139,6 @@ function useRoutesImpl(routes, locationArg, dataRouterState, future) {
       navigator2.encodeLocation ? navigator2.encodeLocation(match2.pathnameBase).pathname : match2.pathnameBase
     ])
   })), parentMatches, dataRouterState, future);
-  if (locationArg && renderedMatches) {
-    return /* @__PURE__ */ reactExports.createElement(LocationContext.Provider, {
-      value: {
-        location: _extends$1({
-          pathname: "/",
-          search: "",
-          hash: "",
-          state: null,
-          key: "default"
-        }, location),
-        navigationType: Action.Pop
-      }
-    }, renderedMatches);
-  }
   return renderedMatches;
 }
 function DefaultErrorComponent() {
@@ -13596,11 +16378,53 @@ function useRouteError() {
   }
   return (_state$errors = state.errors) == null ? void 0 : _state$errors[routeId];
 }
+let blockerId = 0;
+function useBlocker(shouldBlock) {
+  let {
+    router: router2,
+    basename
+  } = useDataRouterContext$1(DataRouterHook$1.UseBlocker);
+  let state = useDataRouterState(DataRouterStateHook$1.UseBlocker);
+  let [blockerKey, setBlockerKey] = reactExports.useState("");
+  let blockerFunction = reactExports.useCallback((arg) => {
+    if (typeof shouldBlock !== "function") {
+      return !!shouldBlock;
+    }
+    if (basename === "/") {
+      return shouldBlock(arg);
+    }
+    let {
+      currentLocation,
+      nextLocation,
+      historyAction
+    } = arg;
+    return shouldBlock({
+      currentLocation: _extends$1({}, currentLocation, {
+        pathname: stripBasename(currentLocation.pathname, basename) || currentLocation.pathname
+      }),
+      nextLocation: _extends$1({}, nextLocation, {
+        pathname: stripBasename(nextLocation.pathname, basename) || nextLocation.pathname
+      }),
+      historyAction
+    });
+  }, [basename, shouldBlock]);
+  reactExports.useEffect(() => {
+    let key = String(++blockerId);
+    setBlockerKey(key);
+    return () => router2.deleteBlocker(key);
+  }, [router2]);
+  reactExports.useEffect(() => {
+    if (blockerKey !== "") {
+      router2.getBlocker(blockerKey, blockerFunction);
+    }
+  }, [router2, blockerKey, blockerFunction]);
+  return blockerKey && state.blockers.has(blockerKey) ? state.blockers.get(blockerKey) : IDLE_BLOCKER;
+}
 function useNavigateStable() {
   let {
-    router
-  } = useDataRouterContext$1(DataRouterHook$1.UseNavigateStable);
-  let id = useCurrentRouteId(DataRouterStateHook$1.UseNavigateStable);
+    router: router2
+  } = useDataRouterContext$1();
+  let id = useCurrentRouteId();
   let activeRef = reactExports.useRef(false);
   useIsomorphicLayoutEffect$1(() => {
     activeRef.current = true;
@@ -13611,13 +16435,13 @@ function useNavigateStable() {
     }
     if (!activeRef.current) return;
     if (typeof to === "number") {
-      router.navigate(to);
+      router2.navigate(to);
     } else {
-      router.navigate(to, _extends$1({
+      router2.navigate(to, _extends$1({
         fromRouteId: id
       }, options));
     }
-  }, [router, id]);
+  }, [router2, id]);
   return navigate;
 }
 const alreadyWarned$1 = {};
@@ -13628,7 +16452,13 @@ function warningOnce(key, cond, message) {
 }
 function logV6DeprecationWarnings(renderFuture, routerFuture) {
   if ((renderFuture == null ? void 0 : renderFuture.v7_startTransition) === void 0) ;
-  if ((renderFuture == null ? void 0 : renderFuture.v7_relativeSplatPath) === void 0 && true) ;
+  if ((renderFuture == null ? void 0 : renderFuture.v7_relativeSplatPath) === void 0 && (!routerFuture || routerFuture.v7_relativeSplatPath === void 0)) ;
+  if (routerFuture) {
+    if (routerFuture.v7_fetcherPersist === void 0) ;
+    if (routerFuture.v7_normalizeFormMethod === void 0) ;
+    if (routerFuture.v7_partialHydration === void 0) ;
+    if (routerFuture.v7_skipActionErrorRevalidation === void 0) ;
+  }
 }
 function Navigate(_ref4) {
   let {
@@ -13660,9 +16490,6 @@ function Navigate(_ref4) {
 }
 function Outlet(props) {
   return useOutlet(props.context);
-}
-function Route(_props) {
-  invariant(false);
 }
 function Router(_ref5) {
   let {
@@ -13720,53 +16547,33 @@ function Router(_ref5) {
     value: locationContext
   }));
 }
-function Routes(_ref6) {
-  let {
-    children,
-    location
-  } = _ref6;
-  return useRoutes(createRoutesFromChildren(children), location);
-}
 new Promise(() => {
 });
-function createRoutesFromChildren(children, parentPath) {
-  if (parentPath === void 0) {
-    parentPath = [];
+function mapRouteProperties(route) {
+  let updates = {
+    // Note: this check also occurs in createRoutesFromChildren so update
+    // there if you change this -- please and thank you!
+    hasErrorBoundary: route.ErrorBoundary != null || route.errorElement != null
+  };
+  if (route.Component) {
+    Object.assign(updates, {
+      element: /* @__PURE__ */ reactExports.createElement(route.Component),
+      Component: void 0
+    });
   }
-  let routes = [];
-  reactExports.Children.forEach(children, (element, index) => {
-    if (!/* @__PURE__ */ reactExports.isValidElement(element)) {
-      return;
-    }
-    let treePath = [...parentPath, index];
-    if (element.type === reactExports.Fragment) {
-      routes.push.apply(routes, createRoutesFromChildren(element.props.children, treePath));
-      return;
-    }
-    !(element.type === Route) ? invariant(false) : void 0;
-    !(!element.props.index || !element.props.children) ? invariant(false) : void 0;
-    let route = {
-      id: element.props.id || treePath.join("-"),
-      caseSensitive: element.props.caseSensitive,
-      element: element.props.element,
-      Component: element.props.Component,
-      index: element.props.index,
-      path: element.props.path,
-      loader: element.props.loader,
-      action: element.props.action,
-      errorElement: element.props.errorElement,
-      ErrorBoundary: element.props.ErrorBoundary,
-      hasErrorBoundary: element.props.ErrorBoundary != null || element.props.errorElement != null,
-      shouldRevalidate: element.props.shouldRevalidate,
-      handle: element.props.handle,
-      lazy: element.props.lazy
-    };
-    if (element.props.children) {
-      route.children = createRoutesFromChildren(element.props.children, treePath);
-    }
-    routes.push(route);
-  });
-  return routes;
+  if (route.HydrateFallback) {
+    Object.assign(updates, {
+      hydrateFallbackElement: /* @__PURE__ */ reactExports.createElement(route.HydrateFallback),
+      HydrateFallback: void 0
+    });
+  }
+  if (route.ErrorBoundary) {
+    Object.assign(updates, {
+      errorElement: /* @__PURE__ */ reactExports.createElement(route.ErrorBoundary),
+      ErrorBoundary: void 0
+    });
+  }
+  return updates;
 }
 function _extends() {
   _extends = Object.assign ? Object.assign.bind() : function(target) {
@@ -13830,46 +16637,296 @@ try {
   window.__reactRouterVersion = REACT_ROUTER_VERSION;
 } catch (e) {
 }
+function createHashRouter(routes, opts) {
+  return createRouter({
+    basename: void 0,
+    future: _extends({}, void 0, {
+      v7_prependBasename: true
+    }),
+    history: createHashHistory({
+      window: void 0
+    }),
+    hydrationData: parseHydrationData(),
+    routes,
+    mapRouteProperties,
+    dataStrategy: void 0,
+    patchRoutesOnNavigation: void 0,
+    window: void 0
+  }).initialize();
+}
+function parseHydrationData() {
+  var _window;
+  let state = (_window = window) == null ? void 0 : _window.__staticRouterHydrationData;
+  if (state && state.errors) {
+    state = _extends({}, state, {
+      errors: deserializeErrors(state.errors)
+    });
+  }
+  return state;
+}
+function deserializeErrors(errors2) {
+  if (!errors2) return null;
+  let entries2 = Object.entries(errors2);
+  let serialized = {};
+  for (let [key, val] of entries2) {
+    if (val && val.__type === "RouteErrorResponse") {
+      serialized[key] = new ErrorResponseImpl(val.status, val.statusText, val.data, val.internal === true);
+    } else if (val && val.__type === "Error") {
+      if (val.__subType) {
+        let ErrorConstructor = window[val.__subType];
+        if (typeof ErrorConstructor === "function") {
+          try {
+            let error2 = new ErrorConstructor(val.message);
+            error2.stack = "";
+            serialized[key] = error2;
+          } catch (e) {
+          }
+        }
+      }
+      if (serialized[key] == null) {
+        let error2 = new Error(val.message);
+        error2.stack = "";
+        serialized[key] = error2;
+      }
+    } else {
+      serialized[key] = val;
+    }
+  }
+  return serialized;
+}
 const ViewTransitionContext = /* @__PURE__ */ reactExports.createContext({
   isTransitioning: false
 });
+const FetchersContext = /* @__PURE__ */ reactExports.createContext(/* @__PURE__ */ new Map());
 const START_TRANSITION = "startTransition";
 const startTransitionImpl = React[START_TRANSITION];
-function HashRouter(_ref5) {
-  let {
-    basename,
-    children,
-    future,
-    window: window2
-  } = _ref5;
-  let historyRef = reactExports.useRef();
-  if (historyRef.current == null) {
-    historyRef.current = createHashHistory({
-      window: window2,
-      v5Compat: true
+const FLUSH_SYNC = "flushSync";
+const flushSyncImpl = ReactDOM$1[FLUSH_SYNC];
+function startTransitionSafe(cb) {
+  if (startTransitionImpl) {
+    startTransitionImpl(cb);
+  } else {
+    cb();
+  }
+}
+function flushSyncSafe(cb) {
+  if (flushSyncImpl) {
+    flushSyncImpl(cb);
+  } else {
+    cb();
+  }
+}
+class Deferred {
+  constructor() {
+    this.status = "pending";
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = (value) => {
+        if (this.status === "pending") {
+          this.status = "resolved";
+          resolve(value);
+        }
+      };
+      this.reject = (reason) => {
+        if (this.status === "pending") {
+          this.status = "rejected";
+          reject(reason);
+        }
+      };
     });
   }
-  let history2 = historyRef.current;
-  let [state, setStateImpl] = reactExports.useState({
-    action: history2.action,
-    location: history2.location
+}
+function RouterProvider(_ref) {
+  let {
+    fallbackElement,
+    router: router2,
+    future
+  } = _ref;
+  let [state, setStateImpl] = reactExports.useState(router2.state);
+  let [pendingState, setPendingState] = reactExports.useState();
+  let [vtContext, setVtContext] = reactExports.useState({
+    isTransitioning: false
   });
+  let [renderDfd, setRenderDfd] = reactExports.useState();
+  let [transition, setTransition] = reactExports.useState();
+  let [interruption, setInterruption] = reactExports.useState();
+  let fetcherData = reactExports.useRef(/* @__PURE__ */ new Map());
   let {
     v7_startTransition
   } = future || {};
-  let setState = reactExports.useCallback((newState) => {
-    v7_startTransition && startTransitionImpl ? startTransitionImpl(() => setStateImpl(newState)) : setStateImpl(newState);
-  }, [setStateImpl, v7_startTransition]);
-  reactExports.useLayoutEffect(() => history2.listen(setState), [history2, setState]);
-  reactExports.useEffect(() => logV6DeprecationWarnings(future), [future]);
-  return /* @__PURE__ */ reactExports.createElement(Router, {
+  let optInStartTransition = reactExports.useCallback((cb) => {
+    if (v7_startTransition) {
+      startTransitionSafe(cb);
+    } else {
+      cb();
+    }
+  }, [v7_startTransition]);
+  let setState = reactExports.useCallback((newState, _ref2) => {
+    let {
+      deletedFetchers,
+      flushSync,
+      viewTransitionOpts
+    } = _ref2;
+    newState.fetchers.forEach((fetcher, key) => {
+      if (fetcher.data !== void 0) {
+        fetcherData.current.set(key, fetcher.data);
+      }
+    });
+    deletedFetchers.forEach((key) => fetcherData.current.delete(key));
+    let isViewTransitionUnavailable = router2.window == null || router2.window.document == null || typeof router2.window.document.startViewTransition !== "function";
+    if (!viewTransitionOpts || isViewTransitionUnavailable) {
+      if (flushSync) {
+        flushSyncSafe(() => setStateImpl(newState));
+      } else {
+        optInStartTransition(() => setStateImpl(newState));
+      }
+      return;
+    }
+    if (flushSync) {
+      flushSyncSafe(() => {
+        if (transition) {
+          renderDfd && renderDfd.resolve();
+          transition.skipTransition();
+        }
+        setVtContext({
+          isTransitioning: true,
+          flushSync: true,
+          currentLocation: viewTransitionOpts.currentLocation,
+          nextLocation: viewTransitionOpts.nextLocation
+        });
+      });
+      let t = router2.window.document.startViewTransition(() => {
+        flushSyncSafe(() => setStateImpl(newState));
+      });
+      t.finished.finally(() => {
+        flushSyncSafe(() => {
+          setRenderDfd(void 0);
+          setTransition(void 0);
+          setPendingState(void 0);
+          setVtContext({
+            isTransitioning: false
+          });
+        });
+      });
+      flushSyncSafe(() => setTransition(t));
+      return;
+    }
+    if (transition) {
+      renderDfd && renderDfd.resolve();
+      transition.skipTransition();
+      setInterruption({
+        state: newState,
+        currentLocation: viewTransitionOpts.currentLocation,
+        nextLocation: viewTransitionOpts.nextLocation
+      });
+    } else {
+      setPendingState(newState);
+      setVtContext({
+        isTransitioning: true,
+        flushSync: false,
+        currentLocation: viewTransitionOpts.currentLocation,
+        nextLocation: viewTransitionOpts.nextLocation
+      });
+    }
+  }, [router2.window, transition, renderDfd, fetcherData, optInStartTransition]);
+  reactExports.useLayoutEffect(() => router2.subscribe(setState), [router2, setState]);
+  reactExports.useEffect(() => {
+    if (vtContext.isTransitioning && !vtContext.flushSync) {
+      setRenderDfd(new Deferred());
+    }
+  }, [vtContext]);
+  reactExports.useEffect(() => {
+    if (renderDfd && pendingState && router2.window) {
+      let newState = pendingState;
+      let renderPromise = renderDfd.promise;
+      let transition2 = router2.window.document.startViewTransition(async () => {
+        optInStartTransition(() => setStateImpl(newState));
+        await renderPromise;
+      });
+      transition2.finished.finally(() => {
+        setRenderDfd(void 0);
+        setTransition(void 0);
+        setPendingState(void 0);
+        setVtContext({
+          isTransitioning: false
+        });
+      });
+      setTransition(transition2);
+    }
+  }, [optInStartTransition, pendingState, renderDfd, router2.window]);
+  reactExports.useEffect(() => {
+    if (renderDfd && pendingState && state.location.key === pendingState.location.key) {
+      renderDfd.resolve();
+    }
+  }, [renderDfd, transition, state.location, pendingState]);
+  reactExports.useEffect(() => {
+    if (!vtContext.isTransitioning && interruption) {
+      setPendingState(interruption.state);
+      setVtContext({
+        isTransitioning: true,
+        flushSync: false,
+        currentLocation: interruption.currentLocation,
+        nextLocation: interruption.nextLocation
+      });
+      setInterruption(void 0);
+    }
+  }, [vtContext.isTransitioning, interruption]);
+  reactExports.useEffect(() => {
+  }, []);
+  let navigator2 = reactExports.useMemo(() => {
+    return {
+      createHref: router2.createHref,
+      encodeLocation: router2.encodeLocation,
+      go: (n) => router2.navigate(n),
+      push: (to, state2, opts) => router2.navigate(to, {
+        state: state2,
+        preventScrollReset: opts == null ? void 0 : opts.preventScrollReset
+      }),
+      replace: (to, state2, opts) => router2.navigate(to, {
+        replace: true,
+        state: state2,
+        preventScrollReset: opts == null ? void 0 : opts.preventScrollReset
+      })
+    };
+  }, [router2]);
+  let basename = router2.basename || "/";
+  let dataRouterContext = reactExports.useMemo(() => ({
+    router: router2,
+    navigator: navigator2,
+    static: false,
+    basename
+  }), [router2, navigator2, basename]);
+  let routerFuture = reactExports.useMemo(() => ({
+    v7_relativeSplatPath: router2.future.v7_relativeSplatPath
+  }), [router2.future.v7_relativeSplatPath]);
+  reactExports.useEffect(() => logV6DeprecationWarnings(future, router2.future), [future, router2.future]);
+  return /* @__PURE__ */ reactExports.createElement(reactExports.Fragment, null, /* @__PURE__ */ reactExports.createElement(DataRouterContext.Provider, {
+    value: dataRouterContext
+  }, /* @__PURE__ */ reactExports.createElement(DataRouterStateContext.Provider, {
+    value: state
+  }, /* @__PURE__ */ reactExports.createElement(FetchersContext.Provider, {
+    value: fetcherData.current
+  }, /* @__PURE__ */ reactExports.createElement(ViewTransitionContext.Provider, {
+    value: vtContext
+  }, /* @__PURE__ */ reactExports.createElement(Router, {
     basename,
-    children,
     location: state.location,
-    navigationType: state.action,
-    navigator: history2,
-    future
-  });
+    navigationType: state.historyAction,
+    navigator: navigator2,
+    future: routerFuture
+  }, state.initialized || router2.future.v7_partialHydration ? /* @__PURE__ */ reactExports.createElement(MemoizedDataRoutes, {
+    routes: router2.routes,
+    future: router2.future,
+    state
+  }) : fallbackElement))))), null);
+}
+const MemoizedDataRoutes = /* @__PURE__ */ reactExports.memo(DataRoutes);
+function DataRoutes(_ref3) {
+  let {
+    routes,
+    future,
+    state
+  } = _ref3;
+  return useRoutesImpl(routes, void 0, state, future);
 }
 const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined" && typeof window.document.createElement !== "undefined";
 const ABSOLUTE_URL_REGEX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
@@ -14185,13 +17242,13 @@ const createStoreImpl = (createState) => {
     }
   };
   const getState = () => state;
-  const getInitialState = () => initialState;
+  const getInitialState = () => initialState2;
   const subscribe = (listener) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
   };
   const api2 = { setState, getState, getInitialState, subscribe };
-  const initialState = state = createState(setState, getState, api2);
+  const initialState2 = state = createState(setState, getState, api2);
   return api2;
 };
 const createStore = ((createState) => createState ? createStoreImpl(createState) : createStoreImpl);
@@ -14301,16 +17358,17 @@ const useAuthStore = create$1((set2, get2) => ({
   }
 }));
 const SHORTCUTS = [
-  { key: "Ctrl+N", description: "新建博客", group: "global" },
-  { key: "Ctrl+F", description: "全局搜索", group: "global" },
-  { key: "Ctrl+H", description: "打开仪表盘", group: "global" },
-  { key: "?", description: "显示快捷键帮助", group: "global" },
-  { key: "Escape", description: "关闭弹窗/面板", group: "global" },
-  { key: "Ctrl+S", description: "保存当前内容", group: "editor" },
-  { key: "Ctrl+B", description: "加粗", group: "editor" },
-  { key: "Ctrl+I", description: "斜体", group: "editor" },
-  { key: "Ctrl+Z", description: "撤销", group: "editor" },
-  { key: "Ctrl+Shift+Z", description: "重做", group: "editor" }
+  { id: "new-blog", key: "Ctrl+N", label: "新建博客", description: "打开博客编辑器", group: "global" },
+  { id: "global-search", key: "Ctrl+F", label: "全局搜索", description: "聚焦全局搜索框", group: "global" },
+  { id: "dashboard", key: "Ctrl+H", label: "仪表盘", description: "打开仪表盘页面", group: "global" },
+  { id: "help", key: "?", label: "快捷键帮助", description: "显示快捷键列表", group: "global" },
+  { id: "escape", key: "Escape", label: "关闭弹窗", description: "关闭当前弹窗或面板", group: "global" },
+  { id: "save", key: "Ctrl+S", label: "保存", description: "保存当前内容", group: "editor" },
+  { id: "bold", key: "Ctrl+B", label: "加粗", description: "切换加粗格式", group: "editor" },
+  { id: "italic", key: "Ctrl+I", label: "斜体", description: "切换斜体格式", group: "editor" },
+  { id: "undo", key: "Ctrl+Z", label: "撤销", description: "撤销上一步操作", group: "editor" },
+  { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "重做已撤销操作", group: "editor" },
+  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" }
 ];
 function formatKey(key) {
   const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
@@ -14567,6 +17625,9 @@ function ToastProvider({ children }) {
       ` })
   ] });
 }
+function useToast() {
+  return reactExports.useContext(ToastContext);
+}
 function Toast({ message, actionLabel, onAction, onDismiss }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
@@ -14609,8 +17670,7 @@ function QuickNote({ userId }) {
     if (!trimmed || saving) return;
     setSaving(true);
     try {
-      const d = await window.api.blogQuickCreate({ userId, title: trimmed.substring(0, 50), content: trimmed });
-      const r = d;
+      const r = await window.api.blogQuickCreate({ userId, title: trimmed.substring(0, 50), content: trimmed });
       if (r.success && r.data) {
         setToast({ blogId: r.data.id });
         setText("");
@@ -14652,21 +17712,49 @@ function QuickNote({ userId }) {
     )
   ] });
 }
-const navItems = [
-  { to: "/dashboard", label: "仪表盘", icon: "⌂" },
-  { to: "/notes", label: "便签", icon: "📝" },
-  { to: "/blog", label: "博客", icon: "✎" },
-  { to: "/knowledge", label: "知识库", icon: "▤" },
-  { to: "/tags", label: "标签", icon: "#" },
-  { to: "/recycle", label: "回收站", icon: "↺" },
-  { to: "/guide", label: "指南", icon: "?" },
-  { to: "/settings", label: "设置", icon: "⚙" }
+const navGroups = [
+  {
+    label: "写作",
+    items: [
+      { to: "/notes", label: "便签", icon: "📝" },
+      { to: "/blog", label: "博客", icon: "✎" }
+    ]
+  },
+  {
+    label: "资料",
+    items: [
+      { to: "/knowledge", label: "知识库", icon: "▤" },
+      { to: "/tags", label: "标签", icon: "#" }
+    ]
+  },
+  {
+    label: "洞察",
+    items: [
+      { to: "/", label: "续写", icon: "⌂" },
+      { to: "/dashboard", label: "仪表盘", icon: "⌂" }
+    ]
+  },
+  {
+    label: "系统",
+    items: [
+      { to: "/recycle", label: "回收站", icon: "↺" },
+      { to: "/guide", label: "指南", icon: "?" },
+      { to: "/settings", label: "设置", icon: "⚙" }
+    ]
+  }
 ];
 function MainLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [showShortcuts, setShowShortcuts] = reactExports.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = reactExports.useState(() => {
+    return localStorage.getItem("lbkb_sidebar_collapsed") !== "false";
+  });
   useShortcuts();
+  reactExports.useEffect(() => {
+    localStorage.setItem("lbkb_sidebar_collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+  const sidebarWidth = sidebarCollapsed ? 64 : 220;
   reactExports.useEffect(() => {
     return window.api.onPetAction((action) => {
       if (action === "new-blog") navigate("/standalone/editor");
@@ -14687,8 +17775,14 @@ function MainLayout() {
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "aside",
       {
-        className: "flex w-[220px] shrink-0 flex-col border-r border-[var(--border-default)]",
-        style: { background: "var(--bg-secondary)" },
+        className: "flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-hidden",
+        style: {
+          background: "var(--bg-secondary)",
+          width: sidebarWidth,
+          transition: "width 0.2s ease"
+        },
+        onMouseEnter: () => setSidebarCollapsed(false),
+        onMouseLeave: () => setSidebarCollapsed(true),
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
@@ -14698,42 +17792,54 @@ function MainLayout() {
               children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "span",
                 {
-                  className: "text-lg font-bold tracking-tight",
+                  className: "text-lg font-bold tracking-tight shrink-0",
                   style: { color: "var(--text-primary)", fontFamily: "var(--font-mono)" },
-                  children: "~/kb"
+                  children: sidebarCollapsed ? "~" : "~/kb"
                 }
               )
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { className: "flex-1 space-y-0.5 px-3 py-3", children: navItems.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            NavLink,
-            {
-              to: item.to,
-              className: ({ isActive: isActive2 }) => `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] ${isActive2 ? "text-[var(--accent-blue)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`,
-              style: ({ isActive: isActive2 }) => isActive2 ? { background: "var(--bg-tertiary)" } : {},
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-5 text-center font-mono text-sm", children: item.icon }),
-                item.label
-              ]
-            },
-            item.to
-          )) }),
-          user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx(QuickNote, { userId: user.id }) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-[var(--border-default)] p-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { className: "flex-1 space-y-3 px-3 py-3 overflow-y-auto", children: navGroups.map((group) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            !sidebarCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "text-[10px] font-semibold uppercase tracking-wider px-3 mb-0.5",
+                style: { color: "var(--text-muted)" },
+                children: group.label
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-0.5", children: group.items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              NavLink,
+              {
+                to: item.to,
+                title: sidebarCollapsed ? item.label : void 0,
+                end: item.to === "/",
+                className: ({ isActive: isActive2 }) => `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${isActive2 ? "text-[var(--accent-blue)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`,
+                style: ({ isActive: isActive2 }) => isActive2 ? { background: "var(--bg-tertiary)" } : {},
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-5 text-center font-mono text-sm shrink-0", children: item.icon }),
+                  !sidebarCollapsed && item.label
+                ]
+              },
+              item.to
+            )) })
+          ] }, group.label)) }),
+          user && !sidebarCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx(QuickNote, { userId: user.id }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-[var(--border-default)] p-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
-              className: "flex items-center gap-2.5 rounded-[4px] px-3 py-2",
+              className: "flex items-center justify-center gap-2.5 rounded-[4px] px-2 py-2",
               style: { background: "var(--bg-primary)" },
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "div",
                   {
-                    className: "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
+                    className: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                     style: { background: "var(--bg-tertiary)", color: "var(--accent-blue)" },
                     children: (user?.username || "?")[0].toUpperCase()
                   }
                 ),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
+                !sidebarCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "truncate text-xs font-medium", style: { color: "var(--text-primary)" }, children: user?.username }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
@@ -15027,6 +18133,9 @@ const SettingsPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resol
 const TagManagePage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => TagManagePage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.TagManagePage })));
 const GuidePage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => GuidePage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.GuidePage })));
 const NoteListPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => NoteListPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.NoteListPage })));
+const ContinueWritingPage$2 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => ContinueWritingPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.ContinueWritingPage }))
+);
 function PageSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "animate-pulse space-y-4 p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-1/3 rounded", style: { background: "var(--bg-tertiary)" } }),
@@ -15034,14 +18143,53 @@ function PageSkeleton() {
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-64 rounded", style: { background: "var(--bg-tertiary)" } })
   ] });
 }
-function ProtectedRoute({ children }) {
+function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuthStore();
   if (isLoading) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-full items-center justify-center text-sm text-[var(--color-text-muted)]", children: "加载中..." });
   }
   if (!isAuthenticated) return /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/login", replace: true });
-  return children ? /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Outlet, {});
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Outlet, {});
 }
+function lazyPage(Page) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(PageSkeleton, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Page, {}) }) });
+}
+const router = createHashRouter([
+  {
+    // Auth pages — no auth guard, centered layout
+    element: /* @__PURE__ */ jsxRuntimeExports.jsx(AuthLayout, {}),
+    children: [
+      { path: "/login", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LoginPage, {}) },
+      { path: "/register", element: /* @__PURE__ */ jsxRuntimeExports.jsx(RegisterPage, {}) }
+    ]
+  },
+  {
+    // All authenticated routes
+    element: /* @__PURE__ */ jsxRuntimeExports.jsx(ProtectedRoute, {}),
+    children: [
+      {
+        // Full layout: sidebar + header + main content
+        element: /* @__PURE__ */ jsxRuntimeExports.jsx(MainLayout, {}),
+        children: [
+          { index: true, element: lazyPage(ContinueWritingPage$2) },
+          { path: "/dashboard", element: lazyPage(DashboardPage$2) },
+          { path: "/blog", element: lazyPage(BlogListPage$2) },
+          { path: "/blog/new", element: lazyPage(BlogEditorPage$2) },
+          { path: "/blog/:id", element: lazyPage(BlogPreviewPage$2) },
+          { path: "/blog/:id/edit", element: lazyPage(BlogEditorPage$2) },
+          { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) },
+          { path: "/tags", element: lazyPage(TagManagePage$2) },
+          { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
+          { path: "/settings", element: lazyPage(SettingsPage$2) },
+          { path: "/notes", element: lazyPage(NoteListPage$2) },
+          { path: "/guide", element: lazyPage(GuidePage$2) }
+        ]
+      },
+      // Standalone editor — bypasses MainLayout for pet/tray "新建博客" action
+      { path: "/standalone/editor", element: lazyPage(BlogEditorPage$2) }
+    ]
+  }
+]);
 function App() {
   const initSession = useAuthStore((s) => s.initSession);
   const initTheme = useThemeStore((s) => s.initTheme);
@@ -15049,34 +18197,7 @@ function App() {
     initSession();
     initTheme();
   }, [initSession, initTheme]);
-  const lazyPage = (Page) => /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(PageSkeleton, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Page, {}) }) });
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(HashRouter, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(Route, { element: /* @__PURE__ */ jsxRuntimeExports.jsx(AuthLayout, {}), children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/login", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LoginPage, {}) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/register", element: /* @__PURE__ */ jsxRuntimeExports.jsx(RegisterPage, {}) })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Route,
-      {
-        element: /* @__PURE__ */ jsxRuntimeExports.jsx(ProtectedRoute, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(MainLayout, {}) }),
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/dashboard", replace: true }) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/dashboard", element: lazyPage(DashboardPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/blog", element: lazyPage(BlogListPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/blog/new", element: lazyPage(BlogEditorPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/blog/:id", element: lazyPage(BlogPreviewPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/blog/:id/edit", element: lazyPage(BlogEditorPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/tags", element: lazyPage(TagManagePage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/recycle", element: lazyPage(RecycleBinPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: lazyPage(SettingsPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/notes", element: lazyPage(NoteListPage$2) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/guide", element: lazyPage(GuidePage$2) })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { element: /* @__PURE__ */ jsxRuntimeExports.jsx(ProtectedRoute, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/standalone/editor", element: lazyPage(BlogEditorPage$2) }) })
-  ] }) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(RouterProvider, { router });
 }
 const BASE = "http://localhost:3456";
 async function request(method, path, body) {
@@ -15137,6 +18258,10 @@ const webApi = {
   searchBlogs: (data) => request("POST", "/api/search/blogs", data),
   searchKb: (data) => request("POST", "/api/search/kb", data),
   // Workspace
+  shortcutGetAll: () => Promise.resolve({ success: false, error: "快捷键设置为桌面专属功能" }),
+  shortcutUpdate: () => Promise.resolve({ success: false, error: "快捷键设置为桌面专属功能" }),
+  shortcutReset: () => Promise.resolve({ success: false, error: "快捷键设置为桌面专属功能" }),
+  workspaceExportZip: () => Promise.resolve({ success: false, error: "导出工作区为桌面专属功能" }),
   workspaceGetInfo: () => request("GET", "/api/workspace/info"),
   workspaceSetPath: () => Promise.resolve({ success: true }),
   workspaceMigrate: () => Promise.resolve({ success: true }),
@@ -15189,16 +18314,20 @@ const webApi = {
   notePin: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   noteClipboard: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   onNoteRefresh: () => () => {
-  }
+  },
+  // Continue Writing
+  continueGetDrafts: () => Promise.resolve({ success: false, error: "续写视图为桌面专属功能" }),
+  continueGetLastBlog: () => Promise.resolve({ success: false, error: "续写视图为桌面专属功能" }),
+  continueGetRecentFiles: () => Promise.resolve({ success: false, error: "续写视图为桌面专属功能" })
 };
 const api = (() => {
-  if (typeof window !== "undefined" && window.api) {
-    return window.api;
-  }
+  const w2 = window;
+  if (w2.api) return w2.api;
   return webApi;
 })();
-if (typeof window !== "undefined" && !window.api) {
-  window.api = api;
+const w = window;
+if (!w.api) {
+  w.api = api;
 }
 const container = document.getElementById("root");
 if (!container) throw new Error("Root element not found");
@@ -15207,7 +18336,7 @@ root$1.render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(React4.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ToastProvider, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) }) }) })
 );
 const ACHIEVEMENTS = [
-  // Production
+  // Production milestones
   {
     id: "first-blog",
     name: "初出茅庐",
@@ -15232,15 +18361,7 @@ const ACHIEVEMENTS = [
     tier: "gold",
     condition: (s) => s.totalBlogs >= 50
   },
-  // Word count
-  {
-    id: "first-1k",
-    name: "千字文",
-    description: "单篇博客超 1000 字",
-    emoji: "📝",
-    tier: "bronze",
-    condition: (s) => s.longestBlog >= 1e3
-  },
+  // Wordcount milestones
   {
     id: "total-10k",
     name: "万字长城",
@@ -15257,15 +18378,7 @@ const ACHIEVEMENTS = [
     tier: "gold",
     condition: (s) => s.totalWords >= 1e5
   },
-  // Streaks
-  {
-    id: "streak-3",
-    name: "三天打鱼",
-    description: "连续 3 天写作",
-    emoji: "🔥",
-    tier: "bronze",
-    condition: (s) => s.currentStreak >= 3
-  },
+  // Streak milestone
   {
     id: "streak-7",
     name: "一周战士",
@@ -15273,217 +18386,34 @@ const ACHIEVEMENTS = [
     emoji: "🔥",
     tier: "silver",
     condition: (s) => s.currentStreak >= 7
-  },
-  {
-    id: "streak-30",
-    name: "月度之星",
-    description: "连续 30 天写作",
-    emoji: "⭐",
-    tier: "gold",
-    condition: (s) => s.currentStreak >= 30
-  },
-  // KB
-  {
-    id: "first-file",
-    name: "知识收集者",
-    description: "导入第一个知识库文件",
-    emoji: "📁",
-    tier: "bronze",
-    condition: (s) => s.totalFiles >= 1
-  },
-  {
-    id: "ten-files",
-    name: "资料达人",
-    description: "知识库达到 10 个文件",
-    emoji: "🗄️",
-    tier: "silver",
-    condition: (s) => s.totalFiles >= 10
-  },
-  // Special
-  {
-    id: "night-owl",
-    name: "夜猫子",
-    description: "在凌晨 0-5 点发布博客",
-    emoji: "🦉",
-    tier: "bronze",
-    condition: (s) => s.hasNightBlog
-  },
-  {
-    id: "tag-master",
-    name: "分类大师",
-    description: "使用 10 个以上不同标签",
-    emoji: "🏷️",
-    tier: "silver",
-    condition: (s) => s.uniqueTags >= 10
-  },
-  {
-    id: "multi-format",
-    name: "双栖写手",
-    description: "拥有 MD 和 HTML 博客",
-    emoji: "🔄",
-    tier: "bronze",
-    condition: (s) => s.hasMdBlog && s.hasHtmlBlog
   }
 ];
-const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-const DAY_LABELS = ["", "一", "", "三", "", "五", "日"];
-function getColor(count, words) {
-  const weight = count * 3 + Math.min(words / 500, 10);
-  if (weight <= 0) return "var(--bg-tertiary)";
-  if (weight <= 2) return "#9be9a8";
-  if (weight <= 5) return "#40c463";
-  if (weight <= 10) return "#30a14e";
-  return "#216e39";
-}
-function Heatmap({ userId }) {
-  const [data, setData] = reactExports.useState([]);
-  const [tooltip, setTooltip] = reactExports.useState(
-    null
-  );
-  reactExports.useEffect(() => {
-    window.api.statsDaily(userId).then((r) => {
-      if (r.success && r.data) setData(r.data);
-    }).catch((e) => {
-      console.error("[Heatmap] Failed to load daily stats:", e);
-    });
-  }, [userId]);
-  const today = /* @__PURE__ */ new Date();
-  const cells = [];
-  const dayMap = new Map(data.map((d) => [d.date, d]));
-  for (let i = 364; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().substring(0, 10);
-    const stat = dayMap.get(key);
-    cells.push({
-      date: key,
-      dayOfWeek: d.getDay() === 0 ? 6 : d.getDay() - 1,
-      // Mon=0..Sun=6
-      count: stat?.blogCount || 0,
-      words: stat?.wordCount || 0
-    });
-  }
-  const weeks = [];
-  let week = [];
-  for (const cell of cells) {
-    week.push(cell);
-    if (cell.dayOfWeek === 6 || cells.indexOf(cell) === cells.length - 1) {
-      weeks.push(week);
-      week = [];
-    }
-  }
-  const monthLabels = [];
-  let lastMonth = -1;
-  weeks.forEach((w, i) => {
-    if (w.length > 0) {
-      const m = new Date(w[0].date).getMonth();
-      if (m !== lastMonth) {
-        monthLabels.push({ label: MONTHS[m], col: i });
-        lastMonth = m;
-      }
-    }
-  });
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      className: "rounded-[6px] border p-4",
-      style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-medium", style: { color: "var(--text-primary)" }, children: "写作热力图" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "overflow-x-auto", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex mb-1 ml-7", children: monthLabels.map((m, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "text-[10px]",
-              style: {
-                color: "var(--text-secondary)",
-                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * 14}px`,
-                minWidth: 28,
-                textAlign: "left"
-              },
-              children: m.label
-            },
-            i
-          )) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col mr-1 gap-[2px]", children: DAY_LABELS.map((l, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[9px] leading-[12px] h-[12px]", style: { color: "var(--text-secondary)" }, children: l }, i)) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-[2px]", children: weeks.map((w, wi) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-[2px]", children: Array.from({ length: 7 }).map((_, di) => {
-              const cell = w.find((c) => c.dayOfWeek === di);
-              if (!cell) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-[12px] h-[12px]" }, di);
-              return /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "div",
-                {
-                  className: "w-[12px] h-[12px] rounded-[2px] cursor-pointer transition-opacity hover:opacity-70",
-                  style: { background: getColor(cell.count, cell.words) },
-                  onMouseEnter: (e) => {
-                    const rect = e.target.getBoundingClientRect();
-                    setTooltip({
-                      date: cell.date,
-                      count: cell.count,
-                      words: cell.words,
-                      x: rect.left,
-                      y: rect.top - 28
-                    });
-                  },
-                  onMouseLeave: () => setTooltip(null)
-                },
-                di
-              );
-            }) }, wi)) })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-1 text-[10px]", style: { color: "var(--text-secondary)" }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Less" }),
-            ["var(--bg-tertiary)", "#9be9a8", "#40c463", "#30a14e", "#216e39"].map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-[12px] h-[12px] rounded-[2px]", style: { background: c } }, c)),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "More" })
-          ] })
-        ] }),
-        tooltip && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "fixed z-50 rounded-[4px] border px-2 py-1 text-[11px] pointer-events-none whitespace-nowrap",
-            style: {
-              left: tooltip.x,
-              top: tooltip.y,
-              borderColor: "var(--border-default)",
-              background: "var(--bg-primary)",
-              color: "var(--text-primary)"
-            },
-            children: [
-              tooltip.date,
-              ": ",
-              tooltip.count,
-              " 篇博客, ",
-              tooltip.words.toLocaleString(),
-              " 字"
-            ]
-          }
-        )
-      ]
-    }
-  );
-}
+const Heatmap$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => Heatmap$1), true ? void 0 : void 0, import.meta.url));
+const TABS = [
+  { id: "overview", label: "概览" },
+  { id: "heatmap", label: "热力图" },
+  { id: "achievements", label: "成就" }
+];
 function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
   const [ws, setWs] = reactExports.useState(null);
   const [stats, setStats] = reactExports.useState(null);
   const [achievements, setAchievements] = reactExports.useState([]);
   reactExports.useEffect(() => {
     if (!user) return;
     let aborted = false;
-    window.api.workspaceGetInfo(user.id).then((d) => {
-      if (aborted) return;
-      const s = d;
-      if (s && typeof s.blogCount === "number") setWs(s);
+    window.api.workspaceGetInfo(user.id).then((info) => {
+      if (!aborted) setWs(info);
     }).catch((e) => {
       console.error("[Dashboard] Failed to get workspace info:", e);
     });
-    window.api.statsGet(user.id).then((d) => {
+    window.api.statsGet(user.id).then((r) => {
       if (aborted) return;
-      const r = d;
       if (r.success && r.data) {
         setStats(r.data);
-        const unlocked = ACHIEVEMENTS.filter((a) => a.condition(r.data)).map((a) => a.id);
-        setAchievements(unlocked);
+        setAchievements(ACHIEVEMENTS.filter((a) => a.condition(r.data)).map((a) => a.id));
       }
     }).catch((e) => {
       console.error("[Dashboard] Failed to get stats:", e);
@@ -15497,7 +18427,7 @@ function DashboardPage() {
     unlocked: achievements.includes(a.id)
   }));
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8", style: { fontFamily: "var(--font-mono)" }, children: [
+    activeTab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8", style: { fontFamily: "var(--font-mono)" }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "var(--text-secondary)", fontSize: 14 }, children: "> whoami" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mt-1 text-[40px] font-bold leading-tight", style: { color: "var(--text-primary)" }, children: user?.username || "..." }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[18px]", style: { color: "var(--text-secondary)" }, children: "本地博客与知识库" }),
@@ -15539,105 +18469,98 @@ function DashboardPage() {
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-4 gap-3", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 flex gap-1 border-b", style: { borderColor: "var(--border-default)" }, children: TABS.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
       {
-        label: "博客",
-        val: ws?.blogCount ?? "...",
-        sub: stats ? `本月 +${stats.monthlyCount}` : "",
-        c: "--accent-blue"
-      },
-      { label: "知识库", val: ws?.knowledgeCount ?? "...", c: "--accent-green" },
-      { label: "标签", val: ws?.tagCount ?? "...", c: "--accent-amber" },
-      { label: "存储占用", val: ws ? fmt(ws.storageSize || 0) : "...", c: "--text-secondary" }
-    ].map((card) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "rounded-[6px] border p-4",
-        style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[28px] font-bold", style: { color: `var(${card.c})` }, children: card.val }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1 flex items-center gap-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: [
-            card.label,
-            card.sub && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-green)" }, children: card.sub })
-          ] })
-        ]
-      },
-      card.label
-    )) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "h3",
-      {
-        className: "mb-3 text-[14px] font-semibold uppercase tracking-wider",
-        style: { color: "var(--text-secondary)" },
-        children: [
-          "成就 (",
-          achievements.length,
-          "/",
-          ACHIEVEMENTS.length,
-          ")"
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-7 gap-2", children: allAchievements.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "flex flex-col items-center rounded-[6px] border p-2 text-center transition-opacity",
+        type: "button",
+        onClick: () => setSearchParams({ tab: t.id }),
+        className: "px-4 py-2 text-[13px] font-medium transition-colors",
         style: {
-          background: a.unlocked ? "var(--bg-secondary)" : "var(--bg-primary)",
-          borderColor: a.unlocked ? "var(--accent-amber)" : "var(--border-default)",
-          opacity: a.unlocked ? 1 : 0.4
+          color: activeTab === t.id ? "var(--accent-blue)" : "var(--text-secondary)",
+          borderBottom: activeTab === t.id ? "2px solid var(--accent-blue)" : "2px solid transparent",
+          marginBottom: -1
         },
-        title: a.unlocked ? `${a.name}: ${a.description}` : "??? ",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: a.unlocked ? a.emoji : "🔒" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "mt-0.5 text-[10px] truncate w-full",
-              style: { color: a.unlocked ? "var(--text-primary)" : "var(--text-placeholder)" },
-              children: a.name
-            }
-          )
-        ]
+        children: t.label
       },
-      a.id
+      t.id
     )) }),
-    user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap, { userId: user.id }) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "h3",
-      {
-        className: "mb-3 text-[14px] font-semibold uppercase tracking-wider",
-        style: { color: "var(--text-secondary)" },
-        children: "快捷操作"
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-4 gap-3", children: [
-      { to: "/blog/new", label: "写博客", k: "✍", desc: "创建一篇新文章" },
-      { to: "/knowledge", label: "知识库", k: "📁", desc: "导入与管理文件" },
-      { to: "/tags", label: "标签", k: "#", desc: "整理分类标签" },
-      { to: "/blog", label: "看博客", k: "→", desc: "浏览全部文章" }
-    ].map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Link$1,
-      {
-        to: a.to,
-        className: "rounded-[6px] border p-4 transition-all duration-[0.2s]",
-        style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
-        onMouseEnter: (e) => {
-          e.currentTarget.style.borderColor = "var(--accent-blue)";
-          e.currentTarget.style.transform = "translateY(-2px)";
+    activeTab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-4 gap-3", children: [
+        { label: "博客", val: ws?.blogCount ?? "...", sub: stats ? `本月 +${stats.monthlyCount}` : "", c: "--accent-blue" },
+        { label: "知识库", val: ws?.knowledgeCount ?? "...", c: "--accent-green" },
+        { label: "标签", val: ws?.tagCount ?? "...", c: "--accent-amber" },
+        { label: "存储占用", val: ws ? fmt(ws.storageSize || 0) : "...", c: "--text-secondary" }
+      ].map((card) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "rounded-[6px] border p-4",
+          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[28px] font-bold", style: { color: `var(${card.c})` }, children: card.val }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1 flex items-center gap-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: [
+              card.label,
+              card.sub && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-green)" }, children: card.sub })
+            ] })
+          ]
         },
-        onMouseLeave: (e) => {
-          e.currentTarget.style.borderColor = "var(--border-default)";
-          e.currentTarget.style.transform = "";
+        card.label
+      )) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: "快捷操作" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-4 gap-3", children: [
+        { to: "/blog/new", label: "写博客", k: "✍", desc: "创建一篇新文章" },
+        { to: "/knowledge", label: "知识库", k: "📁", desc: "导入与管理文件" },
+        { to: "/tags", label: "标签", k: "#", desc: "整理分类标签" },
+        { to: "/blog", label: "看博客", k: "→", desc: "浏览全部文章" }
+      ].map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        Link$1,
+        {
+          to: a.to,
+          className: "rounded-[6px] border p-4 transition-all duration-[0.2s]",
+          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+          onMouseEnter: (e) => {
+            e.currentTarget.style.borderColor = "var(--accent-blue)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          },
+          onMouseLeave: (e) => {
+            e.currentTarget.style.borderColor = "var(--border-default)";
+            e.currentTarget.style.transform = "";
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xl", children: a.k }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-[15px] font-medium", style: { color: "var(--text-primary)" }, children: a.label }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[12px]", style: { color: "var(--text-secondary)" }, children: a.desc })
+          ]
         },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xl", children: a.k }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-[15px] font-medium", style: { color: "var(--text-primary)" }, children: a.label }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[12px]", style: { color: "var(--text-secondary)" }, children: a.desc })
-        ]
-      },
-      a.to
-    )) })
+        a.to
+      )) })
+    ] }),
+    activeTab === "achievements" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: [
+        "成就 (",
+        achievements.length,
+        "/",
+        ACHIEVEMENTS.length,
+        ")"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-3 gap-2", children: allAchievements.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "flex flex-col items-center rounded-[6px] border p-2 text-center transition-opacity",
+          style: {
+            background: a.unlocked ? "var(--bg-secondary)" : "var(--bg-primary)",
+            borderColor: a.unlocked ? "var(--accent-amber)" : "var(--border-default)",
+            opacity: a.unlocked ? 1 : 0.4
+          },
+          title: a.unlocked ? `${a.name}: ${a.description}` : "???",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: a.unlocked ? a.emoji : "🔒" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-0.5 text-[10px] truncate w-full", style: { color: a.unlocked ? "var(--text-primary)" : "var(--text-placeholder)" }, children: a.name })
+          ]
+        },
+        a.id
+      )) })
+    ] }),
+    activeTab === "heatmap" && user && /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-[140px] rounded-[6px]", style: { background: "var(--bg-secondary)" } }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap$2, { userId: user.id }) })
   ] });
 }
 function fmt(bytes) {
@@ -15659,8 +18582,7 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
   const [error2, setError] = reactExports.useState(false);
   const loadTree = reactExports.useCallback(async () => {
     try {
-      const d = await window.api.folderTree({ userId, type });
-      const r = d;
+      const r = await window.api.folderTree({ userId, type });
       if (r.success && r.data) {
         setTree(r.data);
         setError(false);
@@ -15685,8 +18607,7 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
     }
     setActionError("");
     try {
-      const d = await window.api.folderCreate({ userId, name: newName.trim(), type, parentId });
-      const r = d;
+      const r = await window.api.folderCreate({ userId, name: newName.trim(), type, parentId });
       if (r.success) {
         setNewName("");
         setShowNewInput(null);
@@ -15938,8 +18859,7 @@ function TimelineView({ userId }) {
   reactExports.useEffect(() => {
     if (!userId) return;
     setLoading(true);
-    window.api.blogList({ userId, sortBy: "created_at", sortOrder: "desc", limit: 200 }).then((d) => {
-      const r = d;
+    window.api.blogList({ userId, sortBy: "created_at", sortOrder: "desc", limit: 200 }).then((r) => {
       if (r.success && r.data) {
         setGroups(groupByMonth(r.data.blogs || []));
       }
@@ -16147,8 +19067,7 @@ function BlogListPage() {
     setScrapeError("");
     setScrapeResult(null);
     try {
-      const d = await window.api.scrapeWebpage(scrapeUrl.trim());
-      const r = d;
+      const r = await window.api.scrapeWebpage(scrapeUrl.trim());
       if (r.success) setScrapeResult(r.data);
       else setScrapeError(r.error);
     } catch {
@@ -21394,7 +24313,7 @@ const decode = function(input) {
   }
   for (let index = basic > 0 ? basic + 1 : 0; index < inputLength; ) {
     const oldi = i;
-    for (let w = 1, k = base$1; ; k += base$1) {
+    for (let w2 = 1, k = base$1; ; k += base$1) {
       if (index >= inputLength) {
         error("invalid-input");
       }
@@ -21402,19 +24321,19 @@ const decode = function(input) {
       if (digit >= base$1) {
         error("invalid-input");
       }
-      if (digit > floor((maxInt - i) / w)) {
+      if (digit > floor((maxInt - i) / w2)) {
         error("overflow");
       }
-      i += digit * w;
+      i += digit * w2;
       const t = k <= bias ? tMin : k >= bias + tMax ? tMax : k - bias;
       if (digit < t) {
         break;
       }
       const baseMinusT = base$1 - t;
-      if (w > floor(maxInt / baseMinusT)) {
+      if (w2 > floor(maxInt / baseMinusT)) {
         error("overflow");
       }
-      w *= baseMinusT;
+      w2 *= baseMinusT;
     }
     const out = output.length + 1;
     bias = adapt(i - oldi, out, oldi == 0);
@@ -22508,8 +25427,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
   const [results, setResults] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
   const loadRefs = reactExports.useCallback(async () => {
-    const d = await window.api.refGetFrom({ sourceType, sourceId });
-    const r = d;
+    const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
       setRefs(
         r.data.map((ref) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id }))
@@ -22522,12 +25440,11 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
   }, [loadRefs]);
   const handleSearch = reactExports.useCallback(async () => {
     if (!query.trim()) return;
-    const d = await window.api.refSearch({
+    const r = await window.api.refSearch({
       userId,
       scope: sourceType === "blog" ? "knowledge" : "all",
       query: query.trim()
     });
-    const r = d;
     if (r.success) setResults(r.data);
   }, [userId, query, sourceType]);
   const handleAdd = async (targetType, targetId) => {
@@ -27550,7 +30467,7 @@ class Mapping {
   }
 }
 const stepsByID = /* @__PURE__ */ Object.create(null);
-let Step$1 = class Step {
+class Step {
   /**
   Get the step map that represents the changes made by this step,
   and which can be used to transform between positions in the old
@@ -27592,7 +30509,7 @@ let Step$1 = class Step {
     stepClass.prototype.jsonID = id;
     return stepClass;
   }
-};
+}
 class StepResult {
   /**
   @internal
@@ -27640,7 +30557,7 @@ function mapFragment(fragment, f, parent) {
   }
   return Fragment.fromArray(mapped);
 }
-class AddMarkStep extends Step$1 {
+class AddMarkStep extends Step {
   /**
   Create a mark step.
   */
@@ -27691,8 +30608,8 @@ class AddMarkStep extends Step$1 {
     return new AddMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
   }
 }
-Step$1.jsonID("addMark", AddMarkStep);
-class RemoveMarkStep extends Step$1 {
+Step.jsonID("addMark", AddMarkStep);
+class RemoveMarkStep extends Step {
   /**
   Create a mark-removing step.
   */
@@ -27740,8 +30657,8 @@ class RemoveMarkStep extends Step$1 {
     return new RemoveMarkStep(json.from, json.to, schema.markFromJSON(json.mark));
   }
 }
-Step$1.jsonID("removeMark", RemoveMarkStep);
-class AddNodeMarkStep extends Step$1 {
+Step.jsonID("removeMark", RemoveMarkStep);
+class AddNodeMarkStep extends Step {
   /**
   Create a node mark step.
   */
@@ -27786,8 +30703,8 @@ class AddNodeMarkStep extends Step$1 {
     return new AddNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
   }
 }
-Step$1.jsonID("addNodeMark", AddNodeMarkStep);
-class RemoveNodeMarkStep extends Step$1 {
+Step.jsonID("addNodeMark", AddNodeMarkStep);
+class RemoveNodeMarkStep extends Step {
   /**
   Create a mark-removing step.
   */
@@ -27825,8 +30742,8 @@ class RemoveNodeMarkStep extends Step$1 {
     return new RemoveNodeMarkStep(json.pos, schema.markFromJSON(json.mark));
   }
 }
-Step$1.jsonID("removeNodeMark", RemoveNodeMarkStep);
-class ReplaceStep extends Step$1 {
+Step.jsonID("removeNodeMark", RemoveNodeMarkStep);
+class ReplaceStep extends Step {
   /**
   The given `slice` should fit the 'gap' between `from` and
   `to`—the depths must line up, and the surrounding nodes must be
@@ -27892,8 +30809,8 @@ class ReplaceStep extends Step$1 {
   }
 }
 ReplaceStep.MAP_BIAS = 1;
-Step$1.jsonID("replace", ReplaceStep);
-class ReplaceAroundStep extends Step$1 {
+Step.jsonID("replace", ReplaceStep);
+class ReplaceAroundStep extends Step {
   /**
   Create a replace-around step with the given range and gap.
   `insert` should be the point in the slice into which the content
@@ -27967,7 +30884,7 @@ class ReplaceAroundStep extends Step$1 {
     return new ReplaceAroundStep(json.from, json.to, json.gapFrom, json.gapTo, Slice.fromJSON(schema, json.slice), json.insert, !!json.structure);
   }
 }
-Step$1.jsonID("replaceAround", ReplaceAroundStep);
+Step.jsonID("replaceAround", ReplaceAroundStep);
 function contentBetween(doc2, from2, to) {
   let $from = doc2.resolve(from2), dist = to - from2, depth = $from.depth;
   while (dist > 0 && depth > 0 && $from.indexAfter(depth) == $from.node(depth).childCount) {
@@ -28763,7 +31680,7 @@ function coveredDepths($from, $to) {
   }
   return result;
 }
-class AttrStep extends Step$1 {
+class AttrStep extends Step {
   /**
   Construct an attribute step.
   */
@@ -28803,8 +31720,8 @@ class AttrStep extends Step$1 {
     return new AttrStep(json.pos, json.attr, json.value);
   }
 }
-Step$1.jsonID("attr", AttrStep);
-class DocAttrStep extends Step$1 {
+Step.jsonID("attr", AttrStep);
+class DocAttrStep extends Step {
   /**
   Construct an attribute step.
   */
@@ -28839,7 +31756,7 @@ class DocAttrStep extends Step$1 {
     return new DocAttrStep(json.attr, json.value);
   }
 }
-Step$1.jsonID("docAttr", DocAttrStep);
+Step.jsonID("docAttr", DocAttrStep);
 let TransformError = class extends Error {
 };
 TransformError = function TransformError2(message) {
@@ -48460,8 +51377,7 @@ function AttachmentPanel({ blogId }) {
   const [attachments, setAttachments] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
   const load = reactExports.useCallback(async () => {
-    const d = await window.api.blogListAttachments(blogId);
-    const r = d;
+    const r = await window.api.blogListAttachments(blogId);
     if (r.success && r.data) setAttachments(r.data);
     setLoading(false);
   }, [blogId]);
@@ -48704,52 +51620,134 @@ const iconMap = {
 };
 const md$1 = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", emDelimiter: "*" });
+const initialState = {
+  title: "",
+  content: "",
+  format: "md",
+  saving: false,
+  isDirty: false,
+  error: "",
+  showHistory: false,
+  drafts: [],
+  selectedTagIds: [],
+  pendingTagIds: null,
+  selectedTemplate: null,
+  focusMode: false,
+  seriesId: null,
+  seriesName: "",
+  seriesList: [],
+  newSeries: ""
+};
+function editorReducer(state, action) {
+  switch (action.type) {
+    case "SET_TITLE":
+      return { ...state, title: action.payload };
+    case "SET_CONTENT":
+      return { ...state, content: action.payload };
+    case "SET_FORMAT":
+      return { ...state, format: action.payload };
+    case "SET_SAVING":
+      return { ...state, saving: action.payload };
+    case "SET_DIRTY":
+      return { ...state, isDirty: action.payload };
+    case "SET_ERROR":
+      return { ...state, error: action.payload };
+    case "TOGGLE_HISTORY":
+      return { ...state, showHistory: !state.showHistory };
+    case "SET_DRAFTS":
+      return { ...state, drafts: action.payload };
+    case "SET_SELECTED_TAGS":
+      return { ...state, selectedTagIds: action.payload };
+    case "SET_PENDING_TAGS":
+      return { ...state, pendingTagIds: action.payload };
+    case "SET_TEMPLATE":
+      return { ...state, selectedTemplate: action.payload };
+    case "SET_FOCUS":
+      return { ...state, focusMode: action.payload };
+    case "SET_SERIES_ID":
+      return { ...state, seriesId: action.payload };
+    case "SET_SERIES_NAME":
+      return { ...state, seriesName: action.payload };
+    case "SET_SERIES_LIST":
+      return { ...state, seriesList: action.payload };
+    case "SET_NEW_SERIES":
+      return { ...state, newSeries: action.payload };
+    case "LOAD_BLOG":
+      return { ...state, ...action.payload };
+    case "RESET_SAVE_STATE":
+      return { ...state, saving: false, isDirty: false, error: "" };
+    default:
+      return state;
+  }
+}
 function BlogEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
   const isNew = !id;
-  const [title, setTitle] = reactExports.useState("");
-  const [content, setContent2] = reactExports.useState("");
-  const [format2, setFormat] = reactExports.useState("md");
-  const [saving, setSaving] = reactExports.useState(false);
-  const [draftStatus, setDraftStatus] = reactExports.useState("");
-  const [error2, setError] = reactExports.useState("");
-  const [showHistory, setShowHistory] = reactExports.useState(false);
-  const [drafts, setDrafts] = reactExports.useState([]);
-  const [selectedTagIds, setSelectedTagIds] = reactExports.useState([]);
-  const [pendingTagIds, setPendingTagIds] = reactExports.useState(null);
-  const [selectedTemplate, setSelectedTemplate] = reactExports.useState(null);
-  const [focusMode, setFocusMode] = reactExports.useState(false);
-  const [seriesId, setSeriesId] = reactExports.useState(null);
-  const [seriesName, setSeriesName] = reactExports.useState("");
-  const [seriesList, setSeriesList] = reactExports.useState([]);
-  const [newSeries, setNewSeries] = reactExports.useState("");
+  const [state, dispatch] = reactExports.useReducer(editorReducer, initialState);
   const blogIdRef = reactExports.useRef(id ? Number(id) : null);
-  const contentRef = reactExports.useRef(content);
-  contentRef.current = content;
+  const contentRef = reactExports.useRef(state.content);
+  contentRef.current = state.content;
   const draftTimerRef = reactExports.useRef(null);
+  const handleTitleChange = reactExports.useCallback(
+    (e) => {
+      dispatch({ type: "SET_TITLE", payload: e.target.value });
+      if (blogIdRef.current) dispatch({ type: "SET_DIRTY", payload: true });
+    },
+    []
+  );
+  const handleContentChange = reactExports.useCallback((val) => {
+    dispatch({ type: "SET_CONTENT", payload: val });
+    if (blogIdRef.current) dispatch({ type: "SET_DIRTY", payload: true });
+  }, []);
+  const blocker = useBlocker(state.isDirty);
+  reactExports.useEffect(() => {
+    if (blocker.state === "blocked") {
+      if (blogIdRef.current && contentRef.current) {
+        window.api.blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current }).then(() => toast("草稿已保存", "success")).catch(() => toast("草稿保存失败", "error")).finally(() => blocker.proceed());
+      } else {
+        blocker.proceed();
+      }
+    }
+  }, [blocker, toast]);
+  reactExports.useEffect(() => {
+    const handler = (e) => {
+      if (state.isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [state.isDirty]);
   const handleTemplateSelect = reactExports.useCallback((tpl) => {
-    setSelectedTemplate(tpl);
-    if (tpl.content) setContent2(tpl.format === "md" ? md$1.render(tpl.content) : tpl.content);
-    setFormat(tpl.format);
-    if (tpl.tags.length > 0) setPendingTagIds(null);
+    dispatch({ type: "SET_TEMPLATE", payload: tpl });
+    if (tpl.content) dispatch({ type: "SET_CONTENT", payload: tpl.format === "md" ? md$1.render(tpl.content) : tpl.content });
+    dispatch({ type: "SET_FORMAT", payload: tpl.format });
+    if (tpl.tags.length > 0) dispatch({ type: "SET_PENDING_TAGS", payload: null });
   }, []);
   reactExports.useEffect(() => {
     if (id && user) {
       window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
-          setTitle(r.data.title);
-          setFormat(r.data.format);
           const c = r.data.content || "";
-          setContent2(r.data.format === "md" ? md$1.render(c) : c);
-          setSelectedTagIds((r.data.tags || []).map((t) => t.id));
-          setSeriesId(r.data.seriesId || null);
-          setSeriesName(r.data.seriesName || "");
+          dispatch({
+            type: "LOAD_BLOG",
+            payload: {
+              title: r.data.title,
+              format: r.data.format,
+              content: r.data.format === "md" ? md$1.render(c) : c,
+              selectedTagIds: (r.data.tags || []).map((t) => t.id),
+              seriesId: r.data.seriesId || null,
+              seriesName: r.data.seriesName || ""
+            }
+          });
         }
       });
       window.api.blogSeriesList(user.id).then((r) => {
-        if (r.success && r.data) setSeriesList(r.data);
+        if (r.success && r.data) dispatch({ type: "SET_SERIES_LIST", payload: r.data });
       });
     }
   }, [id, user]);
@@ -48762,11 +51760,11 @@ function BlogEditorPage() {
   }, []);
   const handleTagChange = reactExports.useCallback(
     (tagIds) => {
-      setSelectedTagIds(tagIds);
+      dispatch({ type: "SET_SELECTED_TAGS", payload: tagIds });
       if (blogIdRef.current) {
         saveTags(blogIdRef.current, tagIds);
       } else {
-        setPendingTagIds(tagIds);
+        dispatch({ type: "SET_PENDING_TAGS", payload: tagIds });
       }
     },
     [saveTags]
@@ -48783,39 +51781,56 @@ function BlogEditorPage() {
   const loadHistory = reactExports.useCallback(async () => {
     if (!blogIdRef.current) return;
     const r = await window.api.blogGetHistory(blogIdRef.current);
-    if (r.success) setDrafts(r.data);
+    if (r.success) dispatch({ type: "SET_DRAFTS", payload: r.data });
   }, []);
   const handleSave = reactExports.useCallback(async () => {
-    if (!user || !title.trim()) {
-      setError("请输入标题");
+    if (!user || !state.title.trim()) {
+      dispatch({ type: "SET_ERROR", payload: "请输入标题" });
       return;
     }
-    setSaving(true);
-    setError("");
-    const contentToSave = format2 === "md" ? turndown.turndown(content) : content;
+    dispatch({ type: "SET_SAVING", payload: true });
+    dispatch({ type: "SET_ERROR", payload: "" });
+    const contentToSave = state.format === "md" ? turndown.turndown(state.content) : state.content;
     try {
       if (isNew) {
-        const r = await window.api.blogCreate({ userId: user.id, title: title.trim(), format: format2, content: contentToSave });
+        const r = await window.api.blogCreate({
+          userId: user.id,
+          title: state.title.trim(),
+          format: state.format,
+          content: contentToSave
+        });
         if (r.success && r.data) {
           blogIdRef.current = r.data.id;
-          const pt = pendingTagIds;
-          setPendingTagIds(null);
+          const pt = state.pendingTagIds;
+          dispatch({ type: "SET_PENDING_TAGS", payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
           navigate(`/blog/${r.data.id}/edit`, { replace: true });
-        } else setError(r.error || "创建失败");
+        } else {
+          dispatch({ type: "SET_ERROR", payload: r.error || "创建失败" });
+          toast(r.error || "创建失败", "error");
+        }
       } else {
-        const r = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content: contentToSave });
-        if (r.success) {
-          setDraftStatus("已保存");
-          setTimeout(() => setDraftStatus(""), 2e3);
-        } else setError(r.error || "保存失败");
+        toast("已保存", "success");
+        const r = await window.api.blogUpdate({
+          blogId: Number(id),
+          title: state.title.trim(),
+          content: contentToSave
+        });
+        if (!r.success) {
+          dispatch({ type: "SET_ERROR", payload: r.error || "保存失败" });
+          toast(r.error || "保存失败", "error");
+        } else {
+          dispatch({ type: "SET_DIRTY", payload: false });
+        }
       }
-    } catch {
-      setError("保存失败");
+    } catch (e) {
+      const msg = e.message || "保存失败";
+      dispatch({ type: "SET_ERROR", payload: msg });
+      toast(msg, "error");
     } finally {
-      setSaving(false);
+      dispatch({ type: "SET_SAVING", payload: false });
     }
-  }, [user, title, format2, content, isNew, id, navigate, pendingTagIds, saveTags]);
+  }, [user, state.title, state.format, state.content, state.pendingTagIds, isNew, id, navigate, saveTags, toast]);
   reactExports.useEffect(() => {
     const h2 = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -48826,11 +51841,11 @@ function BlogEditorPage() {
     window.addEventListener("keydown", h2);
     return () => window.removeEventListener("keydown", h2);
   }, [handleSave]);
-  if (isNew && !selectedTemplate) {
+  if (isNew && !state.selectedTemplate) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(TemplateSelector, { onSelect: handleTemplateSelect });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full gap-0", style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex flex-1 flex-col min-w-0 ${showHistory ? "mr-0" : ""}`, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex flex-1 flex-col min-w-0 ${state.showHistory ? "mr-0" : ""}`, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center gap-4", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           Link$1,
@@ -48845,8 +51860,8 @@ function BlogEditorPage() {
           "input",
           {
             type: "text",
-            value: title,
-            onChange: (e) => setTitle(e.target.value),
+            value: state.title,
+            onChange: handleTitleChange,
             placeholder: "输入博客标题...",
             className: "input-dark flex-1 !border-transparent !bg-transparent !text-xl !font-bold"
           }
@@ -48856,11 +51871,11 @@ function BlogEditorPage() {
           {
             type: "button",
             onClick: () => {
-              setShowHistory(!showHistory);
-              if (!showHistory) loadHistory();
+              dispatch({ type: "TOGGLE_HISTORY" });
+              if (!state.showHistory) loadHistory();
             },
             className: "text-[12px] rounded-[4px] px-3 py-1",
-            style: { color: "var(--text-secondary)", background: showHistory ? "var(--bg-tertiary)" : "transparent" },
+            style: { color: "var(--text-secondary)", background: state.showHistory ? "var(--bg-tertiary)" : "transparent" },
             children: "历史版本"
           }
         ),
@@ -48868,7 +51883,7 @@ function BlogEditorPage() {
           "button",
           {
             type: "button",
-            onClick: () => setFocusMode(true),
+            onClick: () => dispatch({ type: "SET_FOCUS", payload: true }),
             className: "text-[12px] rounded-[4px] px-3 py-1",
             style: { color: "var(--text-secondary)" },
             title: "专注模式",
@@ -48883,8 +51898,8 @@ function BlogEditorPage() {
               onClick: async () => {
                 try {
                   const r = await window.api.blogExportDocx(blogIdRef.current);
-                  if (r?.success) alert("已导出为 Word");
-                  else if (r?.error !== "已取消") alert(`导出失败: ${r?.error || ""}`);
+                  if (r.success) alert("已导出为 Word");
+                  else if (r.error !== "已取消") alert(`导出失败: ${r.error || ""}`);
                 } catch {
                   alert("导出失败");
                 }
@@ -48905,8 +51920,8 @@ function BlogEditorPage() {
               onClick: async () => {
                 try {
                   const r = await window.api.blogExportPdf(blogIdRef.current);
-                  if (r?.success) alert("已导出为 PDF");
-                  else if (r?.error !== "已取消") alert(`导出失败: ${r?.error || ""}`);
+                  if (r.success) alert("已导出为 PDF");
+                  else if (r.error !== "已取消") alert(`导出失败: ${r.error || ""}`);
                 } catch {
                   alert("导出失败");
                 }
@@ -48921,18 +51936,18 @@ function BlogEditorPage() {
             }
           )
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSave, disabled: saving, className: "btn-primary", children: saving ? "保存中..." : "保存" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSave, disabled: state.saving, className: "btn-primary", children: state.saving ? "保存中..." : "保存" })
       ] }),
-      error2 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      state.error && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
         {
           className: "mb-3 rounded-[4px] px-3 py-2 text-[13px]",
           style: { background: "rgba(248,81,73,0.1)", color: "var(--accent-red)" },
-          children: error2
+          children: state.error
         }
       ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TiptapEditor, { content, onChange: setContent2 }) }),
-      user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TagSelector, { userId: user.id, selectedTagIds, onChange: handleTagChange }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TiptapEditor, { content: state.content, onChange: handleContentChange }) }),
+      user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TagSelector, { userId: user.id, selectedTagIds: state.selectedTagIds, onChange: handleTagChange }) }),
       blogIdRef.current && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(AttachmentPanel, { blogId: blogIdRef.current }) }),
       user && blogIdRef.current && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ReferencePicker, { userId: user.id, sourceType: "blog", sourceId: blogIdRef.current }) }),
       !isNew && user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
@@ -48940,21 +51955,21 @@ function BlogEditorPage() {
         /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "select",
           {
-            value: seriesId || "",
+            value: state.seriesId || "",
             "aria-label": "选择系列",
             onChange: async (e) => {
               const val = e.target.value;
               if (!val) {
-                setSeriesId(null);
-                setSeriesName("");
+                dispatch({ type: "SET_SERIES_ID", payload: null });
+                dispatch({ type: "SET_SERIES_NAME", payload: "" });
                 if (blogIdRef.current)
                   await window.api.blogSeriesSet({ blogId: blogIdRef.current, seriesId: null, seriesName: null });
                 return;
               }
-              const item = seriesList.find((s) => s.seriesId === val);
+              const item = state.seriesList.find((s) => s.seriesId === val);
               if (item) {
-                setSeriesId(item.seriesId);
-                setSeriesName(item.seriesName);
+                dispatch({ type: "SET_SERIES_ID", payload: item.seriesId });
+                dispatch({ type: "SET_SERIES_NAME", payload: item.seriesName });
                 if (blogIdRef.current)
                   await window.api.blogSeriesSet({
                     blogId: blogIdRef.current,
@@ -48971,7 +51986,7 @@ function BlogEditorPage() {
             },
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "", children: "(无)" }),
-              seriesList.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: s.seriesId, children: s.seriesName }, s.seriesId))
+              state.seriesList.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: s.seriesId, children: s.seriesName }, s.seriesId))
             ]
           }
         ),
@@ -48980,21 +51995,24 @@ function BlogEditorPage() {
           "input",
           {
             type: "text",
-            value: newSeries,
-            onChange: (e) => setNewSeries(e.target.value),
+            value: state.newSeries,
+            onChange: (e) => dispatch({ type: "SET_NEW_SERIES", payload: e.target.value }),
             placeholder: "新建系列名...",
             onKeyDown: async (e) => {
-              if (e.key === "Enter" && newSeries.trim() && blogIdRef.current) {
+              if (e.key === "Enter" && state.newSeries.trim() && blogIdRef.current) {
                 const uuid = crypto.randomUUID();
-                setSeriesId(uuid);
-                setSeriesName(newSeries.trim());
+                dispatch({ type: "SET_SERIES_ID", payload: uuid });
+                dispatch({ type: "SET_SERIES_NAME", payload: state.newSeries.trim() });
                 await window.api.blogSeriesSet({
                   blogId: blogIdRef.current,
                   seriesId: uuid,
-                  seriesName: newSeries.trim()
+                  seriesName: state.newSeries.trim()
                 });
-                setNewSeries("");
-                setSeriesList((prev) => [...prev, { seriesId: uuid, seriesName: newSeries.trim() }]);
+                dispatch({ type: "SET_NEW_SERIES", payload: "" });
+                dispatch({
+                  type: "SET_SERIES_LIST",
+                  payload: [...state.seriesList, { seriesId: uuid, seriesName: state.newSeries.trim() }]
+                });
               }
             },
             className: "rounded-[4px] border px-2 py-1 text-[13px] outline-none",
@@ -49008,20 +52026,20 @@ function BlogEditorPage() {
         )
       ] }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex justify-between text-[12px]", style: { color: "var(--text-secondary)" }, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: draftStatus || (isNew ? "新建博客" : "编辑模式") }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isNew ? "新建博客" : "编辑模式" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Ctrl+S 保存" })
       ] })
     ] }),
-    focusMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
+    state.focusMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
       FocusMode,
       {
-        content,
-        charCount: countChars(content),
-        readingMinutes: estimateReadingTime(content),
-        onExit: () => setFocusMode(false)
+        content: state.content,
+        charCount: countChars(state.content),
+        readingMinutes: estimateReadingTime(state.content),
+        onExit: () => dispatch({ type: "SET_FOCUS", payload: false })
       }
     ),
-    showHistory && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    state.showHistory && /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "w-[300px] shrink-0 border-l overflow-y-auto",
@@ -49038,7 +52056,7 @@ function BlogEditorPage() {
                   "button",
                   {
                     type: "button",
-                    onClick: () => setShowHistory(false),
+                    onClick: () => dispatch({ type: "TOGGLE_HISTORY" }),
                     className: "text-[13px]",
                     style: { color: "var(--text-secondary)" },
                     children: "✕"
@@ -49047,11 +52065,11 @@ function BlogEditorPage() {
               ]
             }
           ),
-          drafts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "p-4 text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: "暂无历史版本" }) : drafts.map((d, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-b px-4 py-3", style: { borderColor: "var(--border-default)" }, children: [
+          state.drafts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "p-4 text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: "暂无历史版本" }) : state.drafts.map((d, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-b px-4 py-3", style: { borderColor: "var(--border-default)" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-1 flex items-center justify-between", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px]", style: { color: "var(--text-secondary)" }, children: [
                 "版本 ",
-                drafts.length - i,
+                state.drafts.length - i,
                 " · ",
                 new Date(d.saved_at).toLocaleString("zh-CN")
               ] }),
@@ -49063,10 +52081,10 @@ function BlogEditorPage() {
                     if (!blogIdRef.current || !confirm("恢复到该版本？")) return;
                     try {
                       await window.api.blogRollback({ blogId: blogIdRef.current, draftId: d.id });
-                      setContent2(d.content);
-                      setShowHistory(false);
+                      dispatch({ type: "SET_CONTENT", payload: d.content });
+                      dispatch({ type: "TOGGLE_HISTORY" });
                     } catch {
-                      setError("回滚失败");
+                      dispatch({ type: "SET_ERROR", payload: "回滚失败" });
                     }
                   },
                   className: "rounded-[3px] px-2 py-0.5 text-[10px] font-medium",
@@ -49091,7 +52109,8 @@ function BlogEditorPage() {
 }
 const BlogEditorPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  BlogEditorPage
+  BlogEditorPage,
+  editorReducer
 }, Symbol.toStringTag, { value: "Module" }));
 function ReadingTime({ minutes, charCount }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-2 text-[13px]", style: { color: "var(--text-secondary)" }, children: [
@@ -49110,8 +52129,7 @@ function ReadingTime({ minutes, charCount }) {
 function SeriesNav({ userId, seriesId, seriesName, currentBlogId }) {
   const [blogs, setBlogs] = reactExports.useState([]);
   reactExports.useEffect(() => {
-    window.api.blogSeriesGet(seriesId).then((d) => {
-      const r = d;
+    window.api.blogSeriesGet(seriesId).then((r) => {
       if (r.success && r.data) setBlogs(r.data);
     });
   }, [seriesId]);
@@ -49266,8 +52284,7 @@ function TableOfContents({ items }) {
 function RelatedResources({ blogId }) {
   const [refs, setRefs] = reactExports.useState([]);
   reactExports.useEffect(() => {
-    window.api.refGetFrom({ sourceType: "blog", sourceId: blogId }).then((d) => {
-      const r = d;
+    window.api.refGetFrom({ sourceType: "blog", sourceId: blogId }).then((r) => {
       if (r.success && r.data) setRefs(r.data.filter((ref) => ref.target_type === "knowledge"));
     });
   }, [blogId]);
@@ -49317,12 +52334,30 @@ function BlogPreviewPage() {
   const [readingTheme, setReadingTheme] = reactExports.useState(localStorage.getItem("reading-theme") || "paper");
   reactExports.useEffect(() => {
     if (id && user)
-      window.api.blogGet(Number(id)).then((d) => {
-        const r = d;
-        if (r.success && r.data) setBlog(r.data);
+      window.api.blogGet(Number(id)).then((r) => {
+        if (r.success && r.data) {
+          setBlog(r.data);
+          const saved = localStorage.getItem(`blog-progress-${id}`);
+          if (saved) {
+            const pct = Number(saved);
+            if (pct > 0) {
+              requestAnimationFrame(() => {
+                const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                window.scrollTo(0, total * pct / 100);
+              });
+            }
+          }
+        }
         setLoading(false);
       });
   }, [id, user]);
+  reactExports.useEffect(() => {
+    return () => {
+      if (id && progress > 0) {
+        localStorage.setItem(`blog-progress-${id}`, String(Math.round(progress)));
+      }
+    };
+  }, [id, progress]);
   const handleScroll = reactExports.useCallback(() => {
     const h2 = document.documentElement;
     const total = h2.scrollHeight - h2.clientHeight;
@@ -49444,8 +52479,7 @@ function BlogPreviewPage() {
           {
             type: "button",
             onClick: async () => {
-              const d = await window.api.blogExportPdf(Number(id));
-              const r = d;
+              const r = await window.api.blogExportPdf(Number(id));
               if (!r.success && r.error !== "已取消") alert(r.error || "导出失败");
             },
             className: "btn-primary inline-flex items-center gap-2",
@@ -49499,8 +52533,7 @@ function KnowledgeListPage() {
   const [kbFolders, setKbFolders] = reactExports.useState([]);
   const loadKbFolders = reactExports.useCallback(async () => {
     if (!user) return;
-    const d = await window.api.folderTree({ userId: user.id, type: "knowledge" });
-    const r = d;
+    const r = await window.api.folderTree({ userId: user.id, type: "knowledge" });
     if (r.success && r.data) setKbFolders(r.data);
   }, [user]);
   reactExports.useEffect(() => {
@@ -49521,10 +52554,9 @@ function KnowledgeListPage() {
         offset: pagination.offset,
         limit: pagination.limit
       });
-      const resp = r;
-      if (resp.success && resp.data) {
-        setFiles(resp.data.files);
-        setTotal(resp.data.total);
+      if (r.success && r.data) {
+        setFiles(r.data.files);
+        setTotal(r.data.total);
       }
     } catch (e) {
       console.error(e);
@@ -49704,6 +52736,8 @@ function KnowledgeListPage() {
               {
                 value: fileType,
                 onChange: (e) => setFileType(e.target.value),
+                "aria-label": "筛选文件类型",
+                title: "筛选文件类型",
                 className: "max-w-[130px] rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
                 style: {
                   background: "var(--bg-primary)",
@@ -49855,17 +52889,20 @@ function KnowledgeListPage() {
                               setPreviewTitle(f.filename);
                               setPreviewFileId(f.id);
                               setPreviewFileType(f.fileType || "");
-                              window.api.refGetTo({ targetType: "knowledge", targetId: f.id }).then((d) => {
-                                const r = d;
+                              window.api.refGetTo({ targetType: "knowledge", targetId: f.id }).then((r) => {
                                 if (r.success && r.data)
                                   setBackRefs(r.data.filter((ref) => ref.source_type === "blog"));
                               }).catch(() => setBackRefs([]));
                               try {
-                                const r = await window.api.kbPreview(f.id);
-                                const resp = r;
-                                setPreviewHtml(resp.html || "<p style=color:var(--text-secondary)>无法预览</p>");
-                              } catch {
-                                setPreviewHtml("<p style=color:var(--text-secondary)>预览失败</p>");
+                                const timeout = new Promise(
+                                  (_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 1e4)
+                                );
+                                const preview = window.api.kbPreview(f.id).then((r) => r.html || "<p style=color:var(--text-secondary)>无法预览</p>");
+                                const html2 = await Promise.race([preview, timeout]);
+                                setPreviewHtml(html2);
+                              } catch (e) {
+                                const msg = e.message === "TIMEOUT" ? "<p style=color:var(--text-secondary)>文件较大,解析超时。请使用外部打开查看。</p>" : "<p style=color:var(--text-secondary)>预览失败</p>";
+                                setPreviewHtml(msg);
                               } finally {
                                 setPreviewing(false);
                               }
@@ -50087,14 +53124,10 @@ function KnowledgeListPage() {
                   ]
                 }
               ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-auto", children: previewing ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "p",
-                {
-                  className: "flex h-full items-center justify-center text-[14px]",
-                  style: { color: "var(--text-secondary)" },
-                  children: "加载预览..."
-                }
-              ) : previewFileType === "pdf" && previewFileId ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 overflow-auto", children: previewing ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center h-full gap-3 p-8", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full max-w-[200px] rounded-full h-2 overflow-hidden", style: { background: "var(--bg-tertiary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-full rounded-full animate-pulse", style: { background: "var(--accent-blue)", width: "60%" } }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "正在解析文件..." })
+              ] }) : previewFileType === "pdf" && previewFileId ? /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "webview",
                 {
                   src: "about:blank",
@@ -50104,8 +53137,7 @@ function KnowledgeListPage() {
                   ref: (el) => {
                     if (el && previewFileId) {
                       const kbId = previewFileId;
-                      window.api.kbGet(kbId).then((d) => {
-                        const r = d;
+                      window.api.kbGet(kbId).then((r) => {
                         if (r.success && r.data?.filePath)
                           el.setAttribute("src", `file:///${r.data.filePath.replace(/\\/g, "/")}`);
                       });
@@ -50278,13 +53310,13 @@ function fmtSize(bytes) {
   return `${(bytes / 1024 ** i).toFixed(1)} ${u[i]}`;
 }
 function BackupSection() {
+  const user = useAuthStore((s) => s.user);
   const [backups, setBackups] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
   const [message, setMessage] = reactExports.useState("");
   const load = reactExports.useCallback(async () => {
     setLoading(true);
-    const d = await window.api.backupList();
-    const r = d;
+    const r = await window.api.backupList();
     if (r.success && r.data) setBackups(r.data);
     setLoading(false);
   }, []);
@@ -50293,8 +53325,7 @@ function BackupSection() {
   }, [load]);
   const handleCreate = async () => {
     setMessage("");
-    const d = await window.api.backupCreate();
-    const r = d;
+    const r = await window.api.backupCreate();
     if (r.success) {
       setMessage("备份创建成功");
       load();
@@ -50303,8 +53334,7 @@ function BackupSection() {
   const handleRestore = async (filename) => {
     if (!confirm(`恢复备份 ${filename}？
 当前数据将被覆盖。建议先手动创建备份。`)) return;
-    const d = await window.api.backupRestore(filename);
-    const r = d;
+    const r = await window.api.backupRestore(filename);
     if (r.success) {
       alert("备份已恢复，请重启应用以加载数据。");
     } else {
@@ -50313,8 +53343,7 @@ function BackupSection() {
   };
   const handleDelete2 = async (filename) => {
     if (!confirm(`永久删除备份 ${filename}？`)) return;
-    const d = await window.api.backupDelete(filename);
-    const r = d;
+    const r = await window.api.backupDelete(filename);
     if (r.success) {
       setMessage("备份已删除");
       load();
@@ -50339,6 +53368,20 @@ function BackupSection() {
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleCreate, className: "btn-primary mb-4", children: "+ 手动创建备份" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: async () => {
+          if (!user) return;
+          const r = await window.api.workspaceExportZip(user.id);
+          if (r.success) setMessage("工作区已导出");
+          else setMessage(r.error || "导出失败");
+        },
+        className: "btn-primary mb-4 ml-2",
+        children: "📦 导出工作区 (.zip)"
+      }
+    ),
     loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : backups.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "暂无备份" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: backups.map((b) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -50372,6 +53415,115 @@ function BackupSection() {
       },
       b.name
     )) })
+  ] });
+}
+const GROUP_LABELS = {
+  global: "全局",
+  editor: "编辑器"
+};
+function ShortcutSettings() {
+  const [shortcuts, setShortcuts] = reactExports.useState([]);
+  const [editingId, setEditingId] = reactExports.useState(null);
+  const [message, setMessage] = reactExports.useState("");
+  const recordCleanup = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    return () => {
+      if (recordCleanup.current) recordCleanup.current();
+    };
+  }, []);
+  const load = reactExports.useCallback(async () => {
+    const r = await window.api.shortcutGetAll();
+    if (r.success && r.data) setShortcuts(r.data);
+  }, []);
+  reactExports.useEffect(() => {
+    load();
+  }, [load]);
+  const handleRecord = reactExports.useCallback((id) => {
+    setEditingId(id);
+    const handler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const parts = [];
+      if (e.ctrlKey || e.metaKey) parts.push("Ctrl");
+      if (e.shiftKey) parts.push("Shift");
+      if (e.altKey) parts.push("Alt");
+      const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+      if (!["Control", "Shift", "Alt", "Meta"].includes(key)) parts.push(key);
+      const combo = parts.join("+");
+      const conflict = shortcuts.find((s) => s.id !== id && s.key === combo);
+      if (conflict) {
+        setMessage(`冲突: 已被"${conflict.label}"占用`);
+      } else {
+        window.api.shortcutUpdate(id, combo).then((r) => {
+          if (r.success) {
+            setMessage(`已更新为 ${combo}`);
+            load();
+          } else {
+            setMessage(r.error || "更新失败");
+          }
+        });
+      }
+      setEditingId(null);
+      window.removeEventListener("keydown", handler, true);
+      recordCleanup.current = null;
+    };
+    window.addEventListener("keydown", handler, true);
+    recordCleanup.current = () => {
+      window.removeEventListener("keydown", handler, true);
+    };
+    const timer = setTimeout(() => {
+      setEditingId(null);
+      setMessage("");
+      window.removeEventListener("keydown", handler, true);
+      recordCleanup.current = null;
+    }, 5e3);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handler, true);
+      recordCleanup.current = null;
+    };
+  }, [shortcuts, load]);
+  const handleReset = reactExports.useCallback(async () => {
+    await window.api.shortcutReset();
+    setMessage("已恢复默认");
+    load();
+  }, [load]);
+  const groups = [...new Set(shortcuts.map((s) => s.group))];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-4 text-[16px] font-semibold", style: { color: "var(--text-primary)" }, children: "快捷键" }),
+    message && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 rounded-[4px] px-3 py-2 text-[13px]", style: { background: "rgba(63,185,80,0.1)", color: "var(--accent-green)" }, children: message }),
+    groups.map((group) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: GROUP_LABELS[group] || group }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-[6px] border", style: { borderColor: "var(--border-default)" }, children: shortcuts.filter((s) => s.group === group).map((s, i, arr) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "flex items-center gap-3 px-4 py-2.5",
+          style: {
+            borderBottom: i < arr.length - 1 ? "1px solid var(--border-default)" : "none"
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1 text-[13px]", style: { color: "var(--text-primary)" }, children: s.label }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] w-[180px]", style: { color: "var(--text-secondary)" }, children: s.description }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleRecord(s.id),
+                className: "rounded-[4px] border px-3 py-1 text-[12px] font-mono min-w-[100px] text-center transition-colors",
+                style: {
+                  background: editingId === s.id ? "var(--accent-blue)" : "var(--bg-primary)",
+                  borderColor: editingId === s.id ? "var(--accent-blue)" : "var(--border-default)",
+                  color: editingId === s.id ? "#fff" : "var(--text-primary)"
+                },
+                children: editingId === s.id ? "按下新快捷键..." : s.key
+              }
+            )
+          ]
+        },
+        s.id
+      )) })
+    ] }, group)),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleReset, className: "text-[12px] hover:underline", style: { color: "var(--accent-red)" }, children: "恢复默认快捷键" })
   ] });
 }
 function SettingsPage() {
@@ -50476,6 +53628,14 @@ function SettingsPage() {
           children: /* @__PURE__ */ jsxRuntimeExports.jsx(BackupSection, {})
         }
       ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "section",
+        {
+          className: "rounded-[6px] border p-5",
+          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(ShortcutSettings, {})
+        }
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "section",
         {
@@ -50560,7 +53720,18 @@ function SettingsPage() {
             ].map(([k, v]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[4px] px-3 py-2", style: { background: "var(--bg-primary)" }, children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[11px] uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: k }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-primary)" }, children: v })
-            ] }, k)) })
+            ] }, k)) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "mt-4 rounded-[6px] border p-3 text-[13px]",
+                style: { borderColor: "var(--accent-green)", background: "rgba(63,185,80,0.06)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", style: { color: "var(--accent-green)" }, children: "本地优先" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2", style: { color: "var(--text-secondary)" }, children: "你的数据完全存储在本地。零云服务，零网络依赖，数据永不离开你的设备。" })
+                ]
+              }
+            )
           ]
         }
       ),
@@ -50625,6 +53796,9 @@ function TagManagePage() {
   const [selectedTag, setSelectedTag] = reactExports.useState(null);
   const [results, setResults] = reactExports.useState([]);
   const [resultsLoading, setResultsLoading] = reactExports.useState(false);
+  const [tagFilter, setTagFilter] = reactExports.useState("");
+  const filterTimer = reactExports.useRef(null);
+  const [debouncedFilter, setDebouncedFilter] = reactExports.useState("");
   const loadTags = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -50640,6 +53814,12 @@ function TagManagePage() {
   reactExports.useEffect(() => {
     loadTags();
   }, [loadTags]);
+  const handleFilterChange = reactExports.useCallback((val) => {
+    setTagFilter(val);
+    if (filterTimer.current) clearTimeout(filterTimer.current);
+    filterTimer.current = setTimeout(() => setDebouncedFilter(val), 200);
+  }, []);
+  const filteredTags = debouncedFilter ? tags.filter((t) => t.name.toLowerCase().includes(debouncedFilter.toLowerCase())) : tags;
   const handleCreate = async () => {
     if (!user || !newName.trim()) return;
     setError("");
@@ -50745,7 +53925,22 @@ function TagManagePage() {
       )
     ] }),
     error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-600", children: error2 }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-sm text-[var(--color-text-muted)]", children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] p-12 text-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-[var(--color-text-muted)]", children: "暂无标签，创建一个吧" }) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3", children: tags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    !loading && tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "input",
+      {
+        type: "text",
+        value: tagFilter,
+        onChange: (e) => handleFilterChange(e.target.value),
+        placeholder: "搜索标签...",
+        className: "mb-4 rounded-[6px] border px-3 py-1.5 text-[13px] outline-none w-full max-w-[300px]",
+        style: {
+          background: "var(--bg-primary)",
+          borderColor: "var(--border-default)",
+          color: "var(--text-primary)"
+        }
+      }
+    ),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-sm text-[var(--color-text-muted)]", children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] p-12 text-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-[var(--color-text-muted)]", children: "暂无标签，创建一个吧" }) }) : filteredTags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-8 text-center text-[13px]", style: { color: "var(--text-muted)" }, children: "没有匹配的标签" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3", children: filteredTags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
         className: "group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-all hover:shadow-md hover:border-[var(--color-primary-light)]",
@@ -50798,20 +53993,18 @@ function TagManagePage() {
                       user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null)
                     ]);
                     const items = [];
-                    const br = blogsRes;
-                    if (br?.success && br.data?.blogs)
+                    if (blogsRes?.success && blogsRes.data?.blogs)
                       items.push(
-                        ...br.data.blogs.map((b) => ({
+                        ...blogsRes.data.blogs.map((b) => ({
                           id: b.id,
                           title: b.title,
                           type: "blog",
                           updatedAt: b.updatedAt
                         }))
                       );
-                    const kr = kbRes;
-                    if (kr?.success && kr.data?.files)
+                    if (kbRes?.success && kbRes.data?.files)
                       items.push(
-                        ...kr.data.files.map((f) => ({
+                        ...kbRes.data.files.map((f) => ({
                           id: f.id,
                           title: f.filename,
                           type: "knowledge"
@@ -50954,39 +54147,82 @@ function Kbd({ children }) {
     }
   );
 }
-function Section({ icon, title, subtitle, children }) {
+function FlowChart({ steps }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-start gap-0 py-4", children: steps.map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "flex flex-col items-center rounded-[10px] p-4 text-center",
+        style: {
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--border-default)",
+          minWidth: 140,
+          maxWidth: 180
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[28px]", children: s.icon }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "mt-2 text-[14px] font-semibold",
+              style: { color: "var(--text-primary)" },
+              children: s.label
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "mt-1 text-[11px] leading-relaxed",
+              style: { color: "var(--text-muted)" },
+              children: s.detail
+            }
+          )
+        ]
+      }
+    ),
+    i < steps.length - 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center px-2 pt-8 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[18px]", style: { color: "var(--accent-amber)" }, children: "→" }) })
+  ] }, i)) });
+}
+function StepList({ steps }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1 rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: steps.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3 py-1.5", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "span",
+      {
+        className: "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+        style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
+        children: s.num
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] font-medium", style: { color: "var(--text-primary)" }, children: s.label }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-[13px]", style: { color: "var(--text-muted)" }, children: s.detail })
+    ] })
+  ] }, s.num)) });
+}
+function Section({
+  icon,
+  title,
+  subtitle,
+  children
+}) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "section",
     {
-      className: "rounded-[12px] border p-6 md:p-8",
+      className: "mb-6 rounded-[14px] border p-6 md:p-8",
       style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-start gap-4", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "span",
             {
-              className: "flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-[20px]",
+              className: "flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] text-[22px]",
               style: { background: "var(--bg-tertiary)" },
               children: icon
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "h2",
-              {
-                className: "text-[18px] font-semibold leading-snug",
-                style: { color: "var(--text-primary)" },
-                children: title
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "p",
-              {
-                className: "mt-0.5 text-[13px] leading-relaxed",
-                style: { color: "var(--text-secondary)" },
-                children: subtitle
-              }
-            )
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold leading-snug", style: { color: "var(--text-primary)" }, children: title }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-0.5 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: subtitle })
           ] })
         ] }),
         children
@@ -50994,28 +54230,36 @@ function Section({ icon, title, subtitle, children }) {
     }
   );
 }
-function Step2({ num, label, detail }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3 py-1.5", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "span",
+function FeatureCard({
+  title,
+  icon,
+  items
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-secondary)" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[18px]", children: icon }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: title })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "space-y-1.5", style: { listStyle: "none", paddingInlineStart: 0 }, children: items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "li",
       {
-        className: "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white",
-        style: { background: "var(--color-primary)" },
-        children: num
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] font-medium", style: { color: "var(--text-primary)" }, children: label }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-[13px]", style: { color: "var(--text-muted)" }, children: detail })
-    ] })
+        className: "text-[13px] leading-relaxed",
+        style: { color: "var(--text-secondary)" },
+        children: [
+          "· ",
+          item
+        ]
+      },
+      item
+    )) })
   ] });
 }
 function GuidePage() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-3xl pb-16", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-3xl pb-20", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        className: "relative mb-10 overflow-hidden rounded-[16px] p-8 md:p-10",
+        className: "relative mb-8 overflow-hidden rounded-[20px] p-10 md:p-12",
         style: {
           background: "var(--bg-secondary)",
           border: "1px solid var(--border-default)"
@@ -51024,26 +54268,30 @@ function GuidePage() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
-              className: "absolute right-0 top-0 h-full w-1/3",
-              style: {
-                background: "linear-gradient(135deg, transparent 0%, var(--bg-tertiary) 100%)",
-                opacity: 0.6
-              }
+              className: "absolute -right-12 -top-12 h-[200px] w-[200px] rounded-full opacity-20",
+              style: { background: "radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)" }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "absolute -bottom-8 -left-8 h-[160px] w-[160px] rounded-full opacity-15",
+              style: { background: "radial-gradient(circle, var(--accent-green) 0%, transparent 70%)" }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "absolute right-1/4 top-0 h-full w-px opacity-10",
+              style: { background: "linear-gradient(to bottom, transparent, var(--accent-blue), transparent)" }
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "p",
-              {
-                className: "mb-2 text-[13px] font-medium tracking-wide uppercase",
-                style: { color: "var(--color-primary)" },
-                children: "使用指南"
-              }
-            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-medium", style: { background: "rgba(63,185,80,0.1)", color: "var(--accent-green)" }, children: "🔒 本地优先 · 零云端依赖" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "h1",
               {
-                className: "mb-3 text-[28px] font-bold leading-tight",
+                className: "mb-3 text-[36px] font-bold leading-tight tracking-tight",
                 style: { color: "var(--text-primary)" },
                 children: "本地博客与知识库"
               }
@@ -51051,33 +54299,120 @@ function GuidePage() {
             /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "p",
               {
-                className: "max-w-lg text-[15px] leading-relaxed",
+                className: "max-w-xl text-[16px] leading-relaxed",
                 style: { color: "var(--text-secondary)" },
                 children: [
-                  "一款离线优先的个人桌面应用，集",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "Markdown 写作" }),
+                  "一款",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "离线优先" }),
+                  "的个人桌面应用。 集 ",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-blue)" }, children: "Markdown 写作" }),
                   "、",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "知识库管理" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-green)" }, children: "知识库管理" }),
                   "、",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "网页收藏" }),
-                  "于一体。 数据完全由您掌控，无需网络连接。"
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-amber)" }, children: "网页收藏" }),
+                  "于一体， 数据完全由您掌控，无需网络连接。"
                 ]
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-5 flex flex-wrap gap-2", children: ["Electron 41", "React 19", "TypeScript", "MySQL / SQLite", "离线可用", "免费开源"].map(
-              (t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "span",
-                {
-                  className: "rounded-full px-3 py-0.5 text-[11px] font-medium",
-                  style: {
-                    background: "var(--bg-tertiary)",
-                    color: "var(--text-secondary)"
-                  },
-                  children: t
-                },
-                t
-              )
-            ) })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-6 flex flex-wrap gap-2", children: [
+              ["Electron 41", "var(--accent-blue)"],
+              ["React 19", "var(--accent-amber)"],
+              ["TypeScript", "var(--color-primary)"],
+              ["MySQL / SQLite", "var(--accent-green)"],
+              ["离线可用", "var(--text-secondary)"],
+              ["免费开源", "var(--text-secondary)"]
+            ].map(([t, c]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: "rounded-full px-3 py-0.5 text-[11px] font-medium",
+                style: { background: "var(--bg-tertiary)", color: c },
+                children: t
+              },
+              t
+            )) })
+          ] })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "mb-6 rounded-[16px] border p-6 md:p-8",
+        style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 text-center", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "h2",
+              {
+                className: "text-[22px] font-bold",
+                style: { color: "var(--text-primary)" },
+                children: "核心工作流"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px]", style: { color: "var(--text-secondary)" }, children: "三条主线，覆盖从输入到输出的完整链路" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
+                style: { background: "var(--bg-secondary)", color: "var(--accent-blue)" },
+                children: "✍️ 写作流 — 从灵感到发布"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FlowChart,
+              {
+                steps: [
+                  { icon: "💡", label: "灵感", detail: "桌面宠物快捷入口\n托盘菜单新建" },
+                  { icon: "📝", label: "写作", detail: "Markdown 编辑\nCtrl+S 保存" },
+                  { icon: "🏷️", label: "整理", detail: "标签 + 系列\n文件夹分类" },
+                  { icon: "📤", label: "发布", detail: "导出 PDF/Word\n预览分享" }
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
+                style: { background: "var(--bg-secondary)", color: "var(--accent-green)" },
+                children: "📚 知识流 — 从收集到检索"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FlowChart,
+              {
+                steps: [
+                  { icon: "📥", label: "收集", detail: "拖放导入文件\n网页收藏抓取" },
+                  { icon: "📂", label: "组织", detail: "文件夹分类\n标签关联" },
+                  { icon: "👁️", label: "预览", detail: "PDF/Word/图片\nMarkdown 渲染" },
+                  { icon: "🔍", label: "检索", detail: "全文搜索\n博客引用链接" }
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
+                style: { background: "var(--bg-secondary)", color: "var(--accent-amber)" },
+                children: "🖥️ 桌面流 — 常驻后台，随手可用"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FlowChart,
+              {
+                steps: [
+                  { icon: "🖱️", label: "托盘", detail: "窗口关闭→隐藏\n右键弹出菜单" },
+                  { icon: "🐱", label: "宠物", detail: "点击弹出菜单\n拖拽自由移动" },
+                  { icon: "📋", label: "便签", detail: "剪贴板一键存\n24h 自动清理" },
+                  { icon: "⌨️", label: "快捷键", detail: "Ctrl+Shift+N\nMD 浮窗直达" }
+                ]
+              }
+            )
           ] })
         ]
       }
@@ -51087,14 +54422,52 @@ function GuidePage() {
       {
         icon: "🚀",
         title: "快速开始",
-        subtitle: "首次使用的 3 个步骤，3 分钟上手",
+        subtitle: "首次使用只需 3 步，3 分钟上手",
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1 rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 1, label: "注册账号", detail: "输入用户名、密码，选择一个本地目录作为工作区" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 2, label: "写作第一篇文章", detail: "点击「新建博客」，用 Markdown 或所见即所得模式写作，Ctrl+S 保存" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 3, label: "探索更多功能", detail: "导入文件到知识库、收藏网页、设置桌面宠物——从左侧栏开始探索" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "工作区目录是数据存储位置，请选择一个有足够空间且常驻的文件夹。所有博客、知识库文件、附件都保存在此。" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-5 overflow-hidden rounded-[12px] border", style: { borderColor: "var(--border-default)" }, children: [
+            { num: 1, title: "注册账号", desc: "输入用户名、密码，选择一个本地目录作为工作区。工作区是您的数据仓库，所有博客、文件、附件都存储在此。", icon: "👤" },
+            { num: 2, title: "写作第一篇文章", desc: "点击侧栏「博客」→「新建博客」，选择模板后开始写作。Markdown 或所见即所得模式自由切换，Ctrl+S 保存。", icon: "✍️" },
+            { num: 3, title: "探索更多功能", desc: "导入文件到知识库、收藏网页、设置桌面宠物——点击侧栏各个入口开始探索，或按 ? 查看所有快捷键。", icon: "🔍" }
+          ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "flex items-start gap-4 p-5",
+              style: {
+                background: i === 0 ? "var(--bg-secondary)" : "transparent",
+                borderBottom: i < 2 ? "1px solid var(--border-default)" : "none"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "flex h-10 w-10 items-center justify-center rounded-full text-[16px]",
+                      style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
+                      children: s.icon
+                    }
+                  ),
+                  i < 2 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "div",
+                    {
+                      className: "absolute bottom-0 left-1/2 h-8 w-0.5 -translate-x-1/2 translate-y-full",
+                      style: { background: "var(--border-default)" }
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px] font-bold", style: { color: "var(--color-primary)" }, children: [
+                      "STEP ",
+                      s.num
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: s.title })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: s.desc })
+                ] })
+              ]
+            }
+          ) }, s.num)) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "工作区目录请选择一个有足够空间且常驻的文件夹。建议放在用户目录下（如 ~/Documents/LocalBlogKB），避免放在系统盘或移动硬盘。" })
         ]
       }
     ),
@@ -51103,44 +54476,48 @@ function GuidePage() {
       {
         icon: "✍️",
         title: "博客写作",
-        subtitle: "Markdown 与所见即所得双模式，从草稿到发布的完整流程",
+        subtitle: "从草稿到发布，完整的创作体验",
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "div",
-            {
-              className: "grid gap-5 md:grid-cols-2",
-              style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "编辑器功能" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Markdown / 所见即所得双模式自由切换" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      "· ",
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
-                      " 保存，自动草稿每 30 秒备份"
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 专注模式（全屏无干扰写作）" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 模板系统：快速复用常用文章结构" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 历史版本回滚：随时回到之前的版本" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 阅读时间预估 + 目录自动生成" })
-                  ] })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "组织与发布" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 标签系统：为文章打标签，点击标签名查看关联内容" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 系列链：设置系列 ID，自动生成上一篇/下一篇导航" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 文件夹分类：拖放移动文章到文件夹" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 批量操作：多选 → 批量删除 / 批量打标签" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导出 PDF（打印质量）" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导出 Word (.docx)，兼容 Microsoft Office" })
-                  ] })
-                ] })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "写作前选好模板可以大幅提升效率。模板支持自定义标题、格式和默认标签，新建博客时自动应用。" })
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "📝",
+                title: "编辑器功能",
+                items: [
+                  "Markdown / 所见即所得双模式切换",
+                  "Ctrl+S 保存 + 30 秒自动草稿备份",
+                  "专注模式 — 全屏无干扰沉浸写作",
+                  "模板系统 — 复用常用文章结构",
+                  "历史版本回滚 — 随时恢复到之前版本",
+                  "阅读时间预估 + 自动目录生成"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "🏗️",
+                title: "组织与发布",
+                items: [
+                  "标签系统 — 多标签分类 + 点击标签名查看关联",
+                  "系列链 — 设置系列 ID 自动生成上一篇/下一篇",
+                  "文件夹拖放 — 将文章拖入文件夹分类管理",
+                  "批量操作 — 多选删除 / 批量打标签",
+                  "导出 PDF — 打印级质量排版",
+                  "导出 Word (.docx) — 兼容 MS Office"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-secondary)" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-3 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "写作流程" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: ["选择模板", "编辑内容", "添加标签", "设置系列", "预览", "导出"].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-[6px] px-3 py-1.5 font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" }, children: s }),
+              i < 5 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
+            ] }, s)) })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "写作前先选模板可以大幅提升效率。模板支持预设标题、格式和标签，新建博客时自动应用。" })
         ]
       }
     ),
@@ -51149,38 +54526,41 @@ function GuidePage() {
       {
         icon: "📚",
         title: "知识库管理",
-        subtitle: "导入、预览、搜索——打造您的第二大脑",
+        subtitle: "构建您的第二大脑——导入、预览、搜索、关联",
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "div",
-            {
-              className: "grid gap-5 md:grid-cols-2",
-              style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "文件支持" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· PDF — 内嵌预览，支持翻页" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Word (.docx) — mammoth 渲染预览" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Excel (.xlsx) — 表格数据预览" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 纯文本 (.txt, .md) — 直接预览" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 图片 (.png, .jpg, .gif, .webp, .svg)" })
-                  ] })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "管理功能" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖放导入：直接拖文件到窗口" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 文件夹分类：创建多层文件夹组织文件" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 全文搜索：文件名 + 内容文本检索" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 标签关联：知识库文件也可以打标签" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 博客引用：博客正文中引用知识库文件" })
-                  ] })
-                ] })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "大文件建议使用「系统程序打开」功能（双击文件），使用本地应用程序打开原始文件，比内嵌预览体验更好。" })
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "📄",
+                title: "文件格式支持",
+                items: [
+                  "PDF — 内嵌文本预览，支持前 5 页",
+                  "Word (.docx) — mammoth HTML 渲染",
+                  "Excel (.xlsx) — 表格数据内嵌展示",
+                  "Markdown (.md) — rich rendering 预览",
+                  "图片 (png/jpg/gif/webp/svg/bmp) — 内嵌显示",
+                  "视频/音频 (mp4/webm/mp3/wav) — 播放器预览"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "🗂️",
+                title: "管理能力",
+                items: [
+                  "拖放导入 — 直接拖文件到知识库页面",
+                  "文件夹分类 — 创建多层文件夹组织",
+                  "全文搜索 — 文件名 + 文本内容检索",
+                  "标签关联 — 知识库文件也可打标签",
+                  "博客引用 — 博客中引用知识库文件为参考",
+                  "系统打开 — 使用本地应用打开原始文件"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "大文件（>20MB）建议使用「系统程序打开」功能，用本地应用程序打开原始文件，比内嵌预览体验更好。预览超时（10s）会自动提示降级。" })
         ]
       }
     ),
@@ -51189,221 +54569,308 @@ function GuidePage() {
       {
         icon: "🌐",
         title: "网页收藏",
-        subtitle: "一键抓取网页正文，转为 Markdown 保存为博客",
+        subtitle: "URL → Markdown，一键将网页转为可编辑的博客",
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 1, label: "点击「收藏网页」", detail: "在博客列表页顶部操作栏找到按钮" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 2, label: "输入 URL", detail: "粘贴网页链接，支持批量输入（每行一个）" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 3, label: "自动提取正文", detail: "readability 算法自动识别文章主体，去掉广告和导航" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Step2, { num: 4, label: "一键保存为博客", detail: "抓取结果直接导入为 Markdown 博客，保留排版结构" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-[10px] p-5 mb-5", style: { background: "var(--bg-secondary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: [
+            { label: "复制 URL", icon: "🔗" },
+            { label: "收藏网页", icon: "🌐" },
+            { label: "自动提取正文", icon: "🤖" },
+            { label: "预览结果", icon: "👁️" },
+            { label: "导入为博客", icon: "✅" }
+          ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "span",
+              {
+                className: "flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-medium",
+                style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: s.icon }),
+                  " ",
+                  s.label
+                ]
+              }
+            ),
+            i < 4 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
+          ] }, s.label)) }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            StepList,
+            {
+              steps: [
+                { num: 1, label: "打开「收藏网页」", detail: "点击博客列表页顶部工具栏的收藏按钮，或从托盘/桌面宠物菜单打开独立抓取窗口" },
+                { num: 2, label: "粘贴网页 URL", detail: "支持单个 URL 或批量输入（每行一个），抓取窗体会自动去重" },
+                { num: 3, label: "自动提取正文", detail: "基于 Mozilla Readability 算法，自动识别文章主体、跳过广告和导航栏" },
+                { num: 4, label: "导入为 Markdown 博客", detail: "抓取结果直接保存为博客草稿，保留原标题和段落结构，可立即编辑" }
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "抓取的网页会保留标题、段落、链接等排版结构。图片不会被下载到本地——如需离线查看图片，建议手动保存到附件后再插入。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "🖥️",
+        title: "桌面功能",
+        subtitle: "关闭窗口 ≠ 退出——托盘常驻 + 桌面宠物 + 快捷入口，随时待命",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "rounded-[10px] p-5",
+                style: { background: "var(--bg-secondary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "🖱️" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "系统托盘" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-green)" }, children: "关闭即隐藏" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快速便签 · MD 浮窗 · 新建博客" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导入 MD/文件 · 收藏网页 · 剪贴板→便签" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 打开主窗口 · 桌面宠物开关 · 退出" })
+                  ] })
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "rounded-[10px] p-5",
+                style: { background: "var(--bg-secondary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "🐱" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "桌面宠物" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-amber)" }, children: "可拖拽" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 悬浮在桌面最顶层 · 任意拖拽" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 静息态呼吸动画 · 拖拽时表情变化" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击弹出快捷菜单（同托盘）" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 位置自动记忆 · 支持多显示器" })
+                  ] })
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "rounded-[10px] p-5",
+                style: { background: "var(--bg-secondary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "📋" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "便签 + 浮窗" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快捷便签 — Enter 保存 · 24h 自动清理" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· MD 浮窗 — Ctrl+Shift+N · 独立写作窗口" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 剪贴板一键转入便签" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 浮窗关闭自动保存为博客草稿" })
+                  ] })
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "rounded-[10px] p-5",
+                style: { background: "var(--bg-secondary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "⌨️" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "全局快捷键" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+Shift+N" }),
+                      " · MD 写作浮窗"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+F" }),
+                      " · 全局搜索"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
+                      " · 保存当前博客"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "?" }),
+                      " · 快捷键帮助面板"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Esc" }),
+                      " · 关闭弹窗/浮窗"
+                    ] })
+                  ] })
+                ]
+              }
+            )
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "抓取的网页会保留标题、段落、链接等结构。图片不会被下载到本地——如果需要离线查看，建议手动保存图片到附件。" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "快捷键可在「设置 → 快捷键」中自定义。点击快捷键条目进入录制模式，按下新组合键即可替换。冲突会自动检测提示。" })
         ]
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       Section,
       {
-        icon: "🖥️",
-        title: "桌面体验",
-        subtitle: "托盘常驻、桌面宠物、快捷便签——不打开主窗口也能高效工作",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "grid gap-5 md:grid-cols-3",
-            style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "rounded-[8px] p-4",
-                  style: { background: "var(--bg-secondary)" },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "🖱️ 托盘菜单" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2", children: "关闭窗口 → 应用缩小到系统托盘。右键托盘图标：" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快速便签 — 一行记录" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· MD 写作浮窗 — 独立窗口" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 新建博客 — 独立编辑器" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导入 MD / 文件" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 收藏网页" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 打开主窗口" })
-                    ] })
-                  ]
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "rounded-[8px] p-4",
-                  style: { background: "var(--bg-secondary)" },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "🐱 桌面宠物" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2", children: "可拖拽的小精灵，悬浮在桌面最顶层：" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖拽移动位置" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 静息态上下微浮呼吸动画" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 拖拽时表情变化" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击弹出快捷菜单" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 右键菜单 = 托盘菜单" })
-                    ] })
-                  ]
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "rounded-[8px] p-4",
-                  style: { background: "var(--bg-secondary)" },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "⌨️ 快捷键" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+Shift+N" }),
-                        " · MD 写作浮窗"
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
-                        " · 保存当前博客"
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Esc" }),
-                        " · 关闭浮窗/便签"
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "?" }),
-                        " · 快捷键帮助面板"
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Enter" }),
-                        " · 便签中保存"
-                      ] })
-                    ] })
-                  ]
-                }
-              )
-            ]
-          }
-        )
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Section,
-      {
         icon: "🔍",
-        title: "搜索与回收站",
-        subtitle: "快速找到内容，误删也能找回",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "grid gap-5 md:grid-cols-2",
-            style: { color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "全局搜索" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                    "· 顶部搜索栏 — 任意页面可用 ",
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+K" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 同时搜索博客标题/内容和知识库文件名" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· SQL LIKE 中文全文检索" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 搜索结果区分博客/知识库两类" })
-                ] })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "回收站" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 删除 → 移入回收站（非永久删除）" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 30 天内可恢复" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 支持批量恢复 / 批量删除" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 超过 30 天自动清理" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 清空回收站同步删除磁盘文件" })
-                ] })
-              ] })
-            ]
-          }
-        )
+        title: "全局搜索与回收站",
+        subtitle: "快速检索所有内容 · 误删 30 天内可恢复",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            FeatureCard,
+            {
+              icon: "🔎",
+              title: "全局搜索",
+              items: [
+                "顶部搜索栏 — 任意页面可用",
+                "同时搜索博客标题/内容 + 知识库文件名",
+                "SQL LIKE 中文全文检索",
+                "搜索结果显示博客/知识库分类",
+                "点击结果直接跳转目标页面"
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            FeatureCard,
+            {
+              icon: "♻️",
+              title: "回收站",
+              items: [
+                "删除 = 移入回收站（非永久删除）",
+                "30 天内可恢复 — 支持批量恢复",
+                "超过 30 天自动清理释放空间",
+                "清空回收站同时删除磁盘文件",
+                "删除账户时可选择保留或删除文件"
+              ]
+            }
+          )
+        ] })
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
       Section,
       {
         icon: "🎨",
         title: "主题与个性化",
-        subtitle: "让应用符合您的审美偏好",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "rounded-[8px] p-5",
-            style: { background: "var(--bg-secondary)", color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.7 },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3 mb-4", children: [
-                { name: "暗色模式", color: "#1a1a2e" },
-                { name: "亮色模式", color: "#faf9f6" },
-                { name: "跟随系统", color: "var(--color-primary)" }
-              ].map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "span",
-                {
-                  className: "inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]",
-                  style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "span",
-                      {
-                        className: "inline-block h-3 w-3 rounded-full border",
-                        style: { background: t.color, borderColor: "var(--border-default)" }
-                      }
-                    ),
-                    t.name
-                  ]
-                },
-                t.name
-              )) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1", style: { listStyle: "none", paddingInlineStart: 0 }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 三种主题模式：暗色 / 亮色 / 跟随系统自动切换" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 博客预览页支持 5 套阅读主题：默认 / 报纸 / 极简 / 护眼 / 夜间" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 写作热力图：仪表盘上展示 GitHub 风格贡献日历" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 成就系统：16 个成就徽章，覆盖写作、知识库、收藏、探索四类" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 200ms 平滑过渡动画，切换主题不刺眼" })
-              ] })
-            ]
-          }
-        )
+        subtitle: "打造属于你的写作环境",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "🎭",
+                title: "主题系统",
+                items: [
+                  "暗色模式 — 护眼深色界面",
+                  "亮色模式 — 纸张质感暖色调",
+                  "跟随系统 — 自动切换明暗",
+                  "全局 200ms 平滑过渡动画",
+                  "CSS 变量体系 — 全应用统一色调"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "📖",
+                title: "阅读与成就",
+                items: [
+                  "5 套博客阅读主题 (默认/报纸/极简/护眼/夜间)",
+                  "6 枚核心成就徽章 (写作/连续/字数)",
+                  "写作热力图 — GitHub 风格贡献日历",
+                  "阅读进度记忆 — 自动恢复上次位置",
+                  "仪表盘数据统计 (博客/知识库/标签/存储)"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "阅读主题在每个博客的预览页右上角切换，选择会自动记住。仪表盘「成就」标签页可查看所有已解锁和未解锁成就。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Section,
+      {
+        icon: "💾",
+        title: "数据安全与备份",
+        subtitle: "多重保障，数据无忧",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            FeatureCard,
+            {
+              icon: "🔄",
+              title: "自动备份",
+              items: [
+                "每 24 小时自动备份数据库",
+                "最多保留 7 个历史备份",
+                "旧备份自动循环清理"
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            FeatureCard,
+            {
+              icon: "📦",
+              title: "手动管理",
+              items: [
+                "设置页手动创建备份",
+                "一键导出工作区 .zip（博客+知识库+数据库）",
+                "从备份恢复 — 恢复后需重启应用",
+                "可手动删除旧的备份文件"
+              ]
+            }
+          )
+        ] })
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        className: "mt-10 rounded-[12px] border p-6 text-center text-[13px]",
+        className: "mt-8 rounded-[16px] border p-8 text-center",
         style: {
           background: "var(--bg-secondary)",
-          borderColor: "var(--border-default)",
-          color: "var(--text-muted)"
+          borderColor: "var(--border-default)"
         },
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mb-1", children: [
-            "Local Blog KB v",
-            "0.3.0"
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "Electron 41 · React 19 · TypeScript · 离线可用 · 数据完全由您掌控" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 flex justify-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "mx-auto mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-medium",
+              style: { background: "rgba(63,185,80,0.1)", color: "var(--accent-green)" },
+              children: "🔒 本地优先 · Local First"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "blockquote",
+            {
+              className: "mx-auto mb-6 max-w-md text-[14px] leading-relaxed italic",
+              style: { color: "var(--text-secondary)" },
+              children: '"你的数据完全由你掌控。零云端依赖——所有博客、文件、便签均在你选择的本地目录中。 无需注册在线服务，数据永不离开你的设备。"'
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: "Local Blog KB · Electron 41 · React 19 · TypeScript · MySQL / SQLite 双后端" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[12px]", style: { color: "var(--text-muted)" }, children: "免费开源 · 离线可用 · 零数据收集" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex justify-center gap-3", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               Link$1,
               {
-                to: "/dashboard",
-                className: "rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80",
-                style: { background: "var(--color-primary)", color: "#fff" },
-                children: "前往仪表盘"
+                to: "/blog/new",
+                className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85",
+                style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
+                children: "✍️ 开始写作"
               }
             ),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               Link$1,
               {
-                to: "/blog",
-                className: "rounded-[6px] px-4 py-1.5 text-[13px] font-medium no-underline transition-opacity hover:opacity-80",
+                to: "/dashboard",
+                className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85",
                 style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
-                children: "开始写作"
+                children: "⌂ 仪表盘"
               }
             )
           ] })
@@ -51419,6 +54886,7 @@ const GuidePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineP
 function NoteListPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
   const [notes, setNotes] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
   const [input, setInput] = reactExports.useState("");
@@ -51448,6 +54916,7 @@ function NoteListPage() {
     await window.api.noteCreate({ userId: user.id, content: input.trim() });
     setInput("");
     loadNotes();
+    toast("便签已保存", "success");
   };
   const handleTogglePin = async (noteId) => {
     await window.api.notePin(noteId);
@@ -51612,4 +55081,356 @@ function NoteListPage() {
 const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   NoteListPage
+}, Symbol.toStringTag, { value: "Module" }));
+function ContinueWritingPage() {
+  const user = useAuthStore((s) => s.user);
+  const [drafts, setDrafts] = reactExports.useState([]);
+  const [lastBlog, setLastBlog] = reactExports.useState(null);
+  const [recentFiles, setRecentFiles] = reactExports.useState([]);
+  reactExports.useEffect(() => {
+    if (!user) return;
+    window.api.continueGetDrafts(user.id).then((r) => {
+      if (r.success && r.data) setDrafts(r.data);
+    }).catch(() => {
+    });
+    window.api.continueGetLastBlog(user.id).then((r) => {
+      if (r.success && r.data) setLastBlog(r.data);
+    }).catch(() => {
+    });
+    window.api.continueGetRecentFiles(user.id).then((r) => {
+      if (r.success && r.data) setRecentFiles(r.data);
+    }).catch(() => {
+    });
+  }, [user]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "h1",
+      {
+        className: "mb-8 text-[24px] font-bold",
+        style: { color: "var(--text-primary)" },
+        children: "续写与回顾"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-8", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "h3",
+        {
+          className: "mb-3 text-[12px] font-semibold uppercase tracking-wider",
+          style: { color: "var(--text-secondary)" },
+          children: "最近草稿"
+        }
+      ),
+      drafts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "暂无草稿，新建博客后 30 秒自动保存草稿" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-3", children: drafts.slice(0, 3).map((d) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Link$1,
+        {
+          to: `/blog/${d.blogId}/edit`,
+          className: "no-underline rounded-[8px] border p-4 transition-shadow hover:shadow-md",
+          style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start gap-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "text-[14px] font-medium truncate",
+                style: { color: "var(--text-primary)" },
+                children: d.blogTitle
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "mt-1 text-[12px] line-clamp-2",
+                style: { color: "var(--text-secondary)" },
+                children: d.content?.substring(0, 150) || "(空)"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1.5 text-[11px]", style: { color: "var(--text-muted)" }, children: new Date(d.savedAt).toLocaleDateString("zh-CN") })
+          ] }) })
+        },
+        d.id
+      )) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-8", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "h3",
+        {
+          className: "mb-3 text-[12px] font-semibold uppercase tracking-wider",
+          style: { color: "var(--text-secondary)" },
+          children: "上次停留"
+        }
+      ),
+      lastBlog ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        Link$1,
+        {
+          to: `/blog/${lastBlog.id}`,
+          className: "no-underline flex items-center gap-4 rounded-[8px] border p-5 transition-shadow hover:shadow-md",
+          style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl shrink-0", children: "📖" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "text-[15px] font-medium truncate",
+                  style: { color: "var(--text-primary)" },
+                  children: lastBlog.title
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[12px]", style: { color: "var(--text-secondary)" }, children: new Date(lastBlog.updatedAt).toLocaleDateString("zh-CN") })
+            ] })
+          ]
+        }
+      ) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "还没有写过博客，去写第一篇吧" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-8", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "h3",
+        {
+          className: "mb-3 text-[12px] font-semibold uppercase tracking-wider",
+          style: { color: "var(--text-secondary)" },
+          children: "最近素材"
+        }
+      ),
+      recentFiles.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "知识库为空，导入文件后在此显示" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "flex gap-3 overflow-x-auto pb-2",
+          style: { scrollbarWidth: "thin" },
+          children: recentFiles.map((f) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            Link$1,
+            {
+              to: "/knowledge",
+              className: "no-underline shrink-0 rounded-[8px] border p-4 transition-shadow hover:shadow-md",
+              style: {
+                width: 180,
+                borderColor: "var(--border-default)",
+                background: "var(--color-bg-card)"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "div",
+                  {
+                    className: "text-[13px] font-medium truncate",
+                    style: { color: "var(--text-primary)" },
+                    children: f.filename
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-[11px]", style: { color: "var(--text-muted)" }, children: new Date(f.createdAt).toLocaleDateString("zh-CN") })
+              ]
+            },
+            f.id
+          ))
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-8 flex gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Link$1,
+        {
+          to: "/blog",
+          className: "no-underline rounded-[6px] px-5 py-2.5 text-[14px] font-medium text-white transition-opacity hover:opacity-85",
+          style: { background: "var(--color-primary)" },
+          children: "全部博客"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Link$1,
+        {
+          to: "/dashboard",
+          className: "no-underline rounded-[6px] px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-85",
+          style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+          children: "仪表盘"
+        }
+      )
+    ] })
+  ] });
+}
+const ContinueWritingPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  ContinueWritingPage
+}, Symbol.toStringTag, { value: "Module" }));
+const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+const DAY_LABELS = ["", "一", "", "三", "", "五", "日"];
+const CELL = 12;
+const GAP = 2;
+const CELL_STEP = CELL + GAP;
+function getColor(count, words) {
+  const weight = count * 3 + Math.min(words / 500, 10);
+  if (weight <= 0) return "var(--heatmap-0)";
+  if (weight <= 2) return "var(--heatmap-1)";
+  if (weight <= 5) return "var(--heatmap-2)";
+  if (weight <= 10) return "var(--heatmap-3)";
+  return "var(--heatmap-4)";
+}
+function resolveColor(c, style2) {
+  return c.startsWith("var(") ? style2.getPropertyValue(c.slice(4, -1)).trim() : c;
+}
+function Heatmap({ userId }) {
+  const [data, setData] = reactExports.useState([]);
+  const [tooltip, setTooltip] = reactExports.useState(null);
+  const canvasRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    window.api.statsDaily(userId).then((r) => {
+      if (r.success && r.data) setData(r.data);
+    }).catch((e) => {
+      console.error("[Heatmap] Failed to load daily stats:", e);
+    });
+  }, [userId]);
+  const today = /* @__PURE__ */ new Date();
+  const cells = [];
+  const dayMap = new Map(data.map((d) => [d.date, d]));
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().substring(0, 10);
+    const stat = dayMap.get(key);
+    cells.push({
+      date: key,
+      dayOfWeek: d.getDay() === 0 ? 6 : d.getDay() - 1,
+      count: stat?.blogCount || 0,
+      words: stat?.wordCount || 0
+    });
+  }
+  const weeks = [];
+  let week = [];
+  for (const cell of cells) {
+    week.push(cell);
+    if (cell.dayOfWeek === 6 || cells.indexOf(cell) === cells.length - 1) {
+      weeks.push(week);
+      week = [];
+    }
+  }
+  const monthLabels = [];
+  let lastMonth = -1;
+  weeks.forEach((w2, i) => {
+    if (w2.length > 0) {
+      const m = new Date(w2[0].date).getMonth();
+      if (m !== lastMonth) {
+        monthLabels.push({ label: MONTHS[m], col: i });
+        lastMonth = m;
+      }
+    }
+  });
+  const draw = reactExports.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const style2 = getComputedStyle(canvas);
+    const W = weeks.length * CELL_STEP;
+    const H = 7 * CELL_STEP;
+    canvas.width = W;
+    canvas.height = H;
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    ctx.clearRect(0, 0, W, H);
+    for (let wi = 0; wi < weeks.length; wi++) {
+      for (let di = 0; di < 7; di++) {
+        const cell = weeks[wi].find((c) => c.dayOfWeek === di);
+        if (!cell) continue;
+        const x = wi * CELL_STEP;
+        const y = di * CELL_STEP;
+        ctx.fillStyle = resolveColor(getColor(cell.count, cell.words), style2);
+        ctx.beginPath();
+        ctx.roundRect(x, y, CELL, CELL, 2);
+        ctx.fill();
+      }
+    }
+  }, [weeks]);
+  reactExports.useEffect(() => {
+    draw();
+  }, [draw]);
+  const handleMouseMove = reactExports.useCallback(
+    (e) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const wi = Math.floor(mx / CELL_STEP);
+      const di = Math.floor(my / CELL_STEP);
+      const cell = weeks[wi]?.find((c) => c.dayOfWeek === di);
+      if (cell) {
+        setTooltip({
+          date: cell.date,
+          count: cell.count,
+          words: cell.words,
+          x: e.clientX,
+          y: e.clientY - 36
+        });
+      } else {
+        setTooltip(null);
+      }
+    },
+    [weeks]
+  );
+  const handleMouseLeave = reactExports.useCallback(() => setTooltip(null), []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "rounded-[6px] border p-4",
+      style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-medium", style: { color: "var(--text-primary)" }, children: "写作热力图" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "overflow-x-auto", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex mb-1 ml-7", children: monthLabels.map((m, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "text-[10px]",
+              style: {
+                color: "var(--text-secondary)",
+                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * CELL_STEP}px`,
+                minWidth: 28,
+                textAlign: "left"
+              },
+              children: m.label
+            },
+            i
+          )) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col mr-1", style: { gap: GAP }, children: DAY_LABELS.map((l, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[9px] leading-[12px]", style: { color: "var(--text-secondary)", height: CELL, lineHeight: `${CELL}px` }, children: l }, i)) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "canvas",
+              {
+                ref: canvasRef,
+                onMouseMove: handleMouseMove,
+                onMouseLeave: handleMouseLeave,
+                style: { cursor: "pointer" }
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-1 text-[10px]", style: { color: "var(--text-secondary)" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Less" }),
+            ["var(--heatmap-0)", "var(--heatmap-1)", "var(--heatmap-2)", "var(--heatmap-3)", "var(--heatmap-4)"].map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-[12px] h-[12px] rounded-[2px]", style: { background: c } }, c)),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "More" })
+          ] })
+        ] }),
+        tooltip && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "fixed z-50 rounded-[4px] border px-2 py-1 text-[11px] pointer-events-none whitespace-nowrap",
+            style: {
+              left: tooltip.x,
+              top: tooltip.y,
+              borderColor: "var(--border-default)",
+              background: "var(--bg-primary)",
+              color: "var(--text-primary)"
+            },
+            children: [
+              tooltip.date,
+              ": ",
+              tooltip.count,
+              " 篇博客, ",
+              tooltip.words.toLocaleString(),
+              " 字"
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
+const Heatmap$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  Heatmap,
+  default: Heatmap
 }, Symbol.toStringTag, { value: "Module" }));
