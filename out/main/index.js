@@ -102,6 +102,8 @@ const IPC = {
   FOLDER_MOVE_ITEM: "folder:move-item",
   // Web Scraping
   SCRAPE_WEBPAGE: "scrape:webpage",
+  SCRAPE_EXTRACT_TOC: "scrape:extract-toc",
+  SCRAPE_COLLECT_MANUAL: "scrape:collect-manual",
   // Attachments
   BLOG_LIST_ATTACHMENTS: "blog:list-attachments",
   BLOG_DELETE_ATTACHMENT: "blog:delete-attachment",
@@ -147,7 +149,14 @@ const IPC = {
   APP_SET_AUTO_START: "app:set-auto-start",
   APP_GET_AUTO_START: "app:get-auto-start",
   APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
-  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut"
+  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut",
+  // Events (main → renderer via webContents.send)
+  EVT_TRAY_ACTION: "tray-action",
+  EVT_PET_ACTION: "pet-action",
+  EVT_NAVIGATE: "navigate",
+  EVT_BLOG_REFRESH: "blog:refresh",
+  EVT_NOTE_REFRESH: "note:refresh",
+  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress"
 };
 const MYSQL_DDL = [
   `CREATE TABLE IF NOT EXISTS users (
@@ -1406,6 +1415,7 @@ function buildMenu() {
     { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
     { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
     { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
+    { label: "📘 收藏在线手册", click: () => petActions["manual-collect"]?.() },
     { label: "📋 剪贴板→便签", click: () => petActions["clipboard-note"]?.() },
     { type: "separator" },
     {
@@ -1482,7 +1492,10 @@ function loadMiniPos(name, dw, dh) {
 }
 function saveMiniPos(name, x, y) {
   const file = path.join(electron.app.getPath("userData"), `mini-${name}-pos.json`);
-  fs.writeFileSync(file, JSON.stringify({ x, y }));
+  try {
+    fs.writeFileSync(file, JSON.stringify({ x, y }));
+  } catch {
+  }
 }
 let _petDir;
 function petDir() {
@@ -1528,10 +1541,13 @@ function ensureMiniPreload() {
   const p = path.join(electron.app.getPath("userData"), "mini-preload.js");
   if (!fs.existsSync(p)) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(
-      p,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`
-    );
+    try {
+      fs.writeFileSync(
+        p,
+        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`
+      );
+    } catch {
+    }
   }
   return p;
 }
@@ -1595,7 +1611,7 @@ function showQuickNote() {
         await new Promise((r) => setTimeout(r, 400));
         new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
         if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-          mainWindow$1.webContents.send("note:refresh");
+          mainWindow$1.webContents.send(IPC.EVT_NOTE_REFRESH);
         }
       } catch (e) {
         console.error("[QuickNote/MVF] Save failed:", e);
@@ -1718,7 +1734,7 @@ function showMdFloatWindow() {
         `);
         new electron.Notification({ title: "已保存", body: title }).show();
         if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-          mainWindow$1.webContents.send("blog:refresh");
+          mainWindow$1.webContents.send(IPC.EVT_BLOG_REFRESH);
         }
       } catch (e) {
         console.error("[QuickNote/MVF] Save failed:", e);
@@ -1891,7 +1907,7 @@ function showStandaloneEditor() {
   if (mainWindow$1) {
     if (!mainWindow$1.isVisible()) mainWindow$1.show();
     mainWindow$1.focus();
-    mainWindow$1.webContents.send("pet-action", "new-blog");
+    mainWindow$1.webContents.send(IPC.EVT_PET_ACTION, "new-blog");
   }
 }
 async function handleClipboardNote() {
@@ -1906,7 +1922,7 @@ async function handleClipboardNote() {
     await NoteService2.createNote(uid, text.trim(), "clipboard");
     new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
     if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-      mainWindow$1.webContents.send("note:refresh");
+      mainWindow$1.webContents.send(IPC.EVT_NOTE_REFRESH);
     }
   } catch (e) {
     new electron.Notification({ title: "保存失败", body: e.message || "未知错误" }).show();
@@ -1955,9 +1971,10 @@ function createPet(win) {
   const images = ensurePetImages();
   const preloadPath = path.join(electron.app.getPath("userData"), "pet-preload.js");
   const petHtmlPath = path.join(electron.app.getPath("userData"), "pet.html");
-  fs.writeFileSync(
-    petHtmlPath,
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  try {
+    fs.writeFileSync(
+      petHtmlPath,
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{margin:0;overflow:hidden;background:transparent}
 #pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .08s linear;cursor:grab;user-select:none;-webkit-user-drag:none}
@@ -1977,13 +1994,18 @@ pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasM
 window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
 window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
 <\/script></html>`
-  );
+    );
+  } catch {
+  }
   if (!fs.existsSync(preloadPath)) {
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
-    fs.writeFileSync(
-      preloadPath,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`
-    );
+    try {
+      fs.writeFileSync(
+        preloadPath,
+        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`
+      );
+    } catch {
+    }
   }
   petWin = new electron.BrowserWindow({
     width: 128,
@@ -2014,8 +2036,17 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     "import-md": handleImportMd,
     "import-file": handleImportFile,
     "scrape-web": showScrapeWindow,
-    "clipboard-note": handleClipboardNote
+    "clipboard-note": handleClipboardNote,
+    "manual-collect": showManualCollect
   });
+}
+function showManualCollect() {
+  if (mainWindow$1) {
+    if (mainWindow$1.isMinimized()) mainWindow$1.restore();
+    mainWindow$1.show();
+    mainWindow$1.focus();
+    mainWindow$1.webContents.send(IPC.EVT_NAVIGATE, "/blog?tab=manual");
+  }
 }
 function initPetActions() {
   registerPetIpc();
@@ -2026,7 +2057,8 @@ function initPetActions() {
     "import-md": handleImportMd,
     "import-file": handleImportFile,
     "scrape-web": showScrapeWindow,
-    "clipboard-note": handleClipboardNote
+    "clipboard-note": handleClipboardNote,
+    "manual-collect": showManualCollect
   });
 }
 let _ipcRegistered = false;
@@ -2036,7 +2068,7 @@ function registerPetIpc() {
   electron.ipcMain.handle("pet:scrape", async (_e, url) => {
     try {
       const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
-      return await WebScraperService2.scrapeWebpage(url);
+      return await WebScraperService2.scrape(url);
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -2711,11 +2743,15 @@ function registerBlogHandlers() {
       const win = new electron.BrowserWindow({ show: false, width: 800, height: 1200 });
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("PDF 渲染超时")), 1e4));
       await Promise.race([win.loadFile(tmpPath), timeout]);
-      const pdfBuffer = await win.webContents.printToPDF({
-        printBackground: true,
-        landscape: false,
-        margins: { top: 0, bottom: 0, left: 0, right: 0 }
-      });
+      const pdfTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("PDF 生成超时")), 3e4));
+      const pdfBuffer = await Promise.race([
+        win.webContents.printToPDF({
+          printBackground: true,
+          landscape: false,
+          margins: { top: 0, bottom: 0, left: 0, right: 0 }
+        }),
+        pdfTimeout
+      ]);
       fs.writeFileSync(filePath, pdfBuffer);
       win.close();
       return { success: true, data: { path: filePath } };
@@ -3541,7 +3577,7 @@ function registerNoteHandlers() {
   electron.ipcMain.handle(IPC.NOTE_CREATE, async (_event, data) => {
     try {
       const note = await NoteService.createNote(data.userId, data.content, data.source || "manual");
-      noteRefreshTarget?.send("note:refresh");
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return { success: true, data: note };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3550,7 +3586,7 @@ function registerNoteHandlers() {
   electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, noteId) => {
     try {
       await NoteService.deleteNote(noteId);
-      noteRefreshTarget?.send("note:refresh");
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3559,7 +3595,7 @@ function registerNoteHandlers() {
   electron.ipcMain.handle(IPC.NOTE_PIN, async (_event, noteId) => {
     try {
       const note = await NoteService.togglePin(noteId);
-      noteRefreshTarget?.send("note:refresh");
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return note ? { success: true, data: note } : { success: false, error: "便签不存在" };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3840,6 +3876,149 @@ function registerReferenceHandlers() {
     }
   });
 }
+const CONCURRENCY = 2;
+const DELAY_MS = 500;
+const TIMEOUT_MS = 15e3;
+const MAX_PAGES = 50;
+const TOC_SELECTORS = [
+  // mdBook
+  ".chapter-item a",
+  ".chapter li a",
+  // Docusaurus
+  ".menu__link",
+  ".menu__list-item a.menu__link",
+  // VuePress
+  ".sidebar-link",
+  ".sidebar a.sidebar-link",
+  // GitBook
+  ".summary li a",
+  ".book-summary li a",
+  // Generic sidebar nav
+  "nav.sidebar a",
+  "aside.sidebar a"
+];
+class ManualCollectorService {
+  static turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+  /** Extract TOC from a documentation/manual page using linkedom */
+  static async extractToc(url) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; LocalBlogKB/0.2)", Accept: "text/html" }
+      });
+    } finally {
+      clearTimeout(t);
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    const { parseHTML } = await import("linkedom");
+    const { document } = parseHTML(html);
+    const base = new URL(url);
+    let links = [];
+    for (const sel of TOC_SELECTORS) {
+      const nodes = document.querySelectorAll(sel);
+      if (nodes.length >= 2) {
+        links = Array.from(nodes).map((a) => {
+          const el = a;
+          const text = (el.textContent || "").trim();
+          let href = el.getAttribute?.("href") || "";
+          if (href && !href.startsWith("http")) {
+            try {
+              href = new URL(href, base).href;
+            } catch {
+            }
+          }
+          return { title: text, href };
+        }).filter((l) => l.title && l.href && l.href.startsWith("http"));
+        if (links.length >= 2) break;
+      }
+    }
+    if (links.length < 2) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const deduped = links.filter((l) => {
+      const key = l.href;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return deduped.slice(0, MAX_PAGES).map((l) => {
+      const pathSegments = new URL(l.href).pathname.replace(/\/$/, "").split("/").length - 1;
+      const level = Math.min(3, Math.max(1, pathSegments));
+      return { title: l.title, href: l.href, level };
+    });
+  }
+  /** Batch collect manual pages into a blog series */
+  static async batchCollect(targetWindow, userId, seriesName, entries) {
+    const limited = entries.slice(0, MAX_PAGES);
+    const results = [];
+    const sendProgress = (p) => {
+      if (targetWindow && !targetWindow.isDestroyed()) {
+        targetWindow.webContents.send(IPC.EVT_MANUAL_COLLECT_PROGRESS, p);
+      }
+    };
+    for (let i = 0; i < limited.length; i += CONCURRENCY) {
+      const batch = limited.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (entry, bi) => {
+          const idx = i + bi;
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
+          try {
+            const response = await fetch(entry.href, {
+              signal: controller.signal,
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; LocalBlogKB/0.2)", Accept: "text/html" }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const html = await response.text();
+            const { parseHTML } = await import("linkedom");
+            const { document } = parseHTML(html);
+            const { Readability } = await import("@mozilla/readability");
+            const reader = new Readability(document);
+            const article = reader.parse();
+            if (!article) throw new Error("无法提取正文");
+            const md = ManualCollectorService.turndown.turndown(article.content);
+            sendProgress({ done: idx + 1, total: limited.length, title: entry.title, status: "ok" });
+            return { title: article.title || entry.title, content: md, ok: true };
+          } catch {
+            sendProgress({ done: idx + 1, total: limited.length, title: entry.title, status: "fail" });
+            return { title: entry.title, content: "", ok: false };
+          } finally {
+            clearTimeout(t);
+          }
+        })
+      );
+      for (const r of batchResults) {
+        if (r.status === "fulfilled") results.push(r.value);
+        else results.push({ title: "unknown", ok: false });
+      }
+      if (i + CONCURRENCY < limited.length) {
+        await new Promise((r) => setTimeout(r, DELAY_MS));
+      }
+    }
+    const seriesId = `manual-${Date.now()}`;
+    let firstBlogId = null;
+    let succeeded = 0;
+    let failed = 0;
+    for (const r of results) {
+      if (!r.ok || !r.content) {
+        failed++;
+        continue;
+      }
+      try {
+        const blog = await BlogService.createBlog(userId, r.title, "md", r.content);
+        await BlogService.setBlogSeries(blog.id, seriesId, seriesName);
+        if (!firstBlogId) firstBlogId = blog.id;
+        succeeded++;
+      } catch {
+        failed++;
+      }
+    }
+    return { seriesId, seriesName, total: limited.length, succeeded, failed };
+  }
+}
 class WebScraperService {
   static turndown = new TurndownService({
     headingStyle: "atx",
@@ -3915,6 +4094,31 @@ function registerScrapeHandler() {
       return { success: false, error: err.message };
     }
   });
+  electron.ipcMain.handle(IPC.SCRAPE_EXTRACT_TOC, async (_event, url) => {
+    try {
+      const toc = await ManualCollectorService.extractToc(url);
+      return { success: true, data: toc };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(
+    IPC.SCRAPE_COLLECT_MANUAL,
+    async (_event, data) => {
+      try {
+        const win = electron.BrowserWindow.fromWebContents(_event.sender);
+        const result = await ManualCollectorService.batchCollect(
+          win,
+          data.userId,
+          data.seriesName,
+          data.entries
+        );
+        return { success: true, data: result };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
 }
 class SearchService {
   static async searchBlogs(userId, query) {
@@ -4017,7 +4221,8 @@ const SHORTCUTS = [
   { id: "italic", key: "Ctrl+I", label: "斜体", description: "切换斜体格式", group: "editor" },
   { id: "undo", key: "Ctrl+Z", label: "撤销", description: "撤销上一步操作", group: "editor" },
   { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "重做已撤销操作", group: "editor" },
-  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" }
+  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" },
+  { id: "clipboard-note", key: "Ctrl+Shift+M", label: "剪贴板→便签", description: "将剪贴板内容保存为便签", group: "global" }
 ];
 class ShortcutService {
   static filePath() {
@@ -4042,7 +4247,10 @@ class ShortcutService {
     if (!entry) throw new Error(`Shortcut not found: ${id}`);
     entry.key = key;
     const overrides = current.filter((e) => SHORTCUTS.find((d) => d.id === e.id)?.key !== e.key);
-    fs.writeFileSync(ShortcutService.filePath(), JSON.stringify(overrides, null, 2));
+    try {
+      fs.writeFileSync(ShortcutService.filePath(), JSON.stringify(overrides, null, 2));
+    } catch {
+    }
   }
   static reset() {
     try {

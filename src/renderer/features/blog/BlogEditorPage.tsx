@@ -265,7 +265,7 @@ export function BlogEditorPage() {
           const pt = state.pendingTagIds;
           dispatch({ type: 'SET_PENDING_TAGS', payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
-          navigate(`/blog/${r.data.id}/edit`, { replace: true });
+          navigate(`/blog/${r.data.id}`, { replace: true });
         } else {
           dispatch({ type: 'SET_ERROR', payload: r.error || '创建失败' });
           toast(r.error || '创建失败', 'error');

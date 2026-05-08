@@ -60,8 +60,8 @@ export class WebScraperService {
     const { parseHTML } = await import('linkedom');
     const { Readability } = await import('@mozilla/readability');
 
-    const { document } = parseHTML(html);
-    const reader = new Readability(document);
+    const { document } = parseHTML(html) as unknown as { document: Document };
+    const reader = new Readability(document as unknown as Document);
     const article = reader.parse();
 
     if (!article) {

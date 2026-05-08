@@ -6,6 +6,7 @@ import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import { ManualCollectTab } from './ManualCollectTab';
 import { TimelineView } from './TimelineView';
 
 export function BlogListPage() {
@@ -29,6 +30,9 @@ export function BlogListPage() {
   const [scrapeLoading, setScrapeLoading] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<any>(null);
   const [scrapeError, setScrapeError] = useState('');
+  const [activeTab, setActiveTab] = useState<'blogs' | 'manual'>(
+    searchParams.get('tab') === 'manual' ? 'manual' : 'blogs',
+  );
   const batch = useBatchSelect(blogs as { id: number }[]);
   const pagination = usePagination(20);
   const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
@@ -40,6 +44,14 @@ export function BlogListPage() {
   useEffect(() => {
     loadFolders();
   }, [loadFolders]);
+
+  // Listen for main-process navigate events (e.g., tray → manual collect)
+  useEffect(() => {
+    const unsub = window.api.onNavigate?.((path: string) => {
+      if (path.includes('tab=manual')) setActiveTab('manual');
+    });
+    return unsub?.();
+  }, []);
 
   const loadBlogs = useCallback(async () => {
     if (!user) return;
@@ -188,6 +200,37 @@ export function BlogListPage() {
       )}
 
       <div className="flex-1 min-w-0">
+        {/* Tabs: 博客 / 批量手册 */}
+        <div className="mb-4 flex gap-2 border-b" style={{ borderColor: 'var(--border-default)' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('blogs')}
+            className="px-3 py-2 text-[14px] font-medium border-b-2 transition-colors"
+            style={{
+              color: activeTab === 'blogs' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+              borderColor: activeTab === 'blogs' ? 'var(--accent-blue)' : 'transparent',
+              marginBottom: -1,
+            }}
+          >
+            博客
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('manual')}
+            className="px-3 py-2 text-[14px] font-medium border-b-2 transition-colors"
+            style={{
+              color: activeTab === 'manual' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+              borderColor: activeTab === 'manual' ? 'var(--accent-blue)' : 'transparent',
+              marginBottom: -1,
+            }}
+          >
+            📘 批量手册
+          </button>
+        </div>
+        {activeTab === 'manual' ? (
+          <ManualCollectTab />
+        ) : (
+        <div>
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-semibold text-primary">
@@ -624,6 +667,8 @@ export function BlogListPage() {
               )}
             </div>
           </div>
+        )}
+        </div>
         )}
       </div>
     </div>

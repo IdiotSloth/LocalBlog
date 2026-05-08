@@ -69,6 +69,8 @@ const IPC = {
   FOLDER_MOVE_ITEM: "folder:move-item",
   // Web Scraping
   SCRAPE_WEBPAGE: "scrape:webpage",
+  SCRAPE_EXTRACT_TOC: "scrape:extract-toc",
+  SCRAPE_COLLECT_MANUAL: "scrape:collect-manual",
   // Attachments
   BLOG_LIST_ATTACHMENTS: "blog:list-attachments",
   BLOG_DELETE_ATTACHMENT: "blog:delete-attachment",
@@ -114,7 +116,14 @@ const IPC = {
   APP_SET_AUTO_START: "app:set-auto-start",
   APP_GET_AUTO_START: "app:get-auto-start",
   APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
-  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut"
+  APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut",
+  // Events (main → renderer via webContents.send)
+  EVT_TRAY_ACTION: "tray-action",
+  EVT_PET_ACTION: "pet-action",
+  EVT_NAVIGATE: "navigate",
+  EVT_BLOG_REFRESH: "blog:refresh",
+  EVT_NOTE_REFRESH: "note:refresh",
+  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress"
 };
 const api = {
   // Auth
@@ -193,6 +202,8 @@ const api = {
   folderMoveItem: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_MOVE_ITEM, data),
   // Web Scraping
   scrapeWebpage: (url) => electron.ipcRenderer.invoke(IPC.SCRAPE_WEBPAGE, url),
+  scrapeExtractToc: (url) => electron.ipcRenderer.invoke(IPC.SCRAPE_EXTRACT_TOC, url),
+  scrapeCollectManual: (data) => electron.ipcRenderer.invoke(IPC.SCRAPE_COLLECT_MANUAL, data),
   // Stats
   statsGet: (userId) => electron.ipcRenderer.invoke(IPC.STATS_GET, userId),
   statsDaily: (userId) => electron.ipcRenderer.invoke(IPC.STATS_DAILY, userId),
@@ -209,23 +220,33 @@ const api = {
   },
   onTrayAction: (cb) => {
     const handler = (_event, action) => cb(action);
-    electron.ipcRenderer.on("tray-action", handler);
-    return () => electron.ipcRenderer.removeListener("tray-action", handler);
+    electron.ipcRenderer.on(IPC.EVT_TRAY_ACTION, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_TRAY_ACTION, handler);
   },
   onPetAction: (cb) => {
     const handler = (_event, action) => cb(action);
-    electron.ipcRenderer.on("pet-action", handler);
-    return () => electron.ipcRenderer.removeListener("pet-action", handler);
+    electron.ipcRenderer.on(IPC.EVT_PET_ACTION, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_PET_ACTION, handler);
+  },
+  onNavigate: (cb) => {
+    const handler = (_event, path) => cb(path);
+    electron.ipcRenderer.on(IPC.EVT_NAVIGATE, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_NAVIGATE, handler);
   },
   onBlogRefresh: (cb) => {
     const handler = () => cb();
-    electron.ipcRenderer.on("blog:refresh", handler);
-    return () => electron.ipcRenderer.removeListener("blog:refresh", handler);
+    electron.ipcRenderer.on(IPC.EVT_BLOG_REFRESH, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_BLOG_REFRESH, handler);
+  },
+  onManualCollectProgress: (cb) => {
+    const handler = (_e, data) => cb(data);
+    electron.ipcRenderer.on(IPC.EVT_MANUAL_COLLECT_PROGRESS, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_MANUAL_COLLECT_PROGRESS, handler);
   },
   onNoteRefresh: (cb) => {
     const handler = () => cb();
-    electron.ipcRenderer.on("note:refresh", handler);
-    return () => electron.ipcRenderer.removeListener("note:refresh", handler);
+    electron.ipcRenderer.on(IPC.EVT_NOTE_REFRESH, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_NOTE_REFRESH, handler);
   },
   // Notes
   noteList: (userId) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId),

@@ -21,7 +21,7 @@ export function registerNoteHandlers(): void {
   ipcMain.handle(IPC.NOTE_CREATE, async (_event, data: { userId: number; content: string; source?: string }) => {
     try {
       const note = await NoteService.createNote(data.userId, data.content, data.source || 'manual');
-      noteRefreshTarget?.send('note:refresh');
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return { success: true, data: note };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -31,7 +31,7 @@ export function registerNoteHandlers(): void {
   ipcMain.handle(IPC.NOTE_DELETE, async (_event, noteId: number) => {
     try {
       await NoteService.deleteNote(noteId);
-      noteRefreshTarget?.send('note:refresh');
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -41,7 +41,7 @@ export function registerNoteHandlers(): void {
   ipcMain.handle(IPC.NOTE_PIN, async (_event, noteId: number) => {
     try {
       const note = await NoteService.togglePin(noteId);
-      noteRefreshTarget?.send('note:refresh');
+      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return note ? { success: true, data: note } : { success: false, error: '便签不存在' };
     } catch (err) {
       return { success: false, error: (err as Error).message };

@@ -83,6 +83,8 @@ export const IPC = {
 
   // Web Scraping
   SCRAPE_WEBPAGE: 'scrape:webpage',
+  SCRAPE_EXTRACT_TOC: 'scrape:extract-toc',
+  SCRAPE_COLLECT_MANUAL: 'scrape:collect-manual',
 
   // Attachments
   BLOG_LIST_ATTACHMENTS: 'blog:list-attachments',
@@ -139,6 +141,14 @@ export const IPC = {
   APP_GET_AUTO_START: 'app:get-auto-start',
   APP_CREATE_START_MENU_SHORTCUT: 'app:create-start-menu-shortcut',
   APP_HAS_START_MENU_SHORTCUT: 'app:has-start-menu-shortcut',
+
+  // Events (main → renderer via webContents.send)
+  EVT_TRAY_ACTION: 'tray-action',
+  EVT_PET_ACTION: 'pet-action',
+  EVT_NAVIGATE: 'navigate',
+  EVT_BLOG_REFRESH: 'blog:refresh',
+  EVT_NOTE_REFRESH: 'note:refresh',
+  EVT_MANUAL_COLLECT_PROGRESS: 'manual:collect-progress',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

@@ -17368,7 +17368,8 @@ const SHORTCUTS = [
   { id: "italic", key: "Ctrl+I", label: "斜体", description: "切换斜体格式", group: "editor" },
   { id: "undo", key: "Ctrl+Z", label: "撤销", description: "撤销上一步操作", group: "editor" },
   { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "重做已撤销操作", group: "editor" },
-  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" }
+  { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" },
+  { id: "clipboard-note", key: "Ctrl+Shift+M", label: "剪贴板→便签", description: "将剪贴板内容保存为便签", group: "global" }
 ];
 function formatKey(key) {
   const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
@@ -18126,8 +18127,8 @@ const DashboardPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => DashboardPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.DashboardPage }))
 );
 const BlogListPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => BlogListPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogListPage })));
-const BlogEditorPage$2 = reactExports.lazy(
-  () => __vitePreload(() => Promise.resolve().then(() => BlogEditorPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogEditorPage }))
+const BlogEditorPage$3 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => BlogEditorPage$2), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogEditorPage }))
 );
 const BlogPreviewPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => BlogPreviewPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogPreviewPage }))
@@ -18189,9 +18190,8 @@ const router = createHashRouter([
           { index: true, element: lazyPage(ContinueWritingPage$2) },
           { path: "/dashboard", element: lazyPage(DashboardPage$2) },
           { path: "/blog", element: lazyPage(BlogListPage$2) },
-          { path: "/blog/new", element: lazyPage(BlogEditorPage$2) },
+          { path: "/blog/new", element: lazyPage(BlogEditorPage$3) },
           { path: "/blog/:id", element: lazyPage(BlogPreviewPage$2) },
-          { path: "/blog/:id/edit", element: lazyPage(BlogEditorPage$2) },
           { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) },
           { path: "/tags", element: lazyPage(TagManagePage$2) },
           { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
@@ -18203,7 +18203,7 @@ const router = createHashRouter([
         ]
       },
       // Standalone editor — bypasses MainLayout for pet/tray "新建博客" action
-      { path: "/standalone/editor", element: lazyPage(BlogEditorPage$2) }
+      { path: "/standalone/editor", element: lazyPage(BlogEditorPage$3) }
     ]
   }
 ]);
@@ -18293,6 +18293,10 @@ const webApi = {
   recycleSetAutoClean: (data) => request("POST", "/api/recycle/auto-clean", data),
   // Web scraping
   scrapeWebpage: (url) => request("POST", "/api/scrape/webpage", { url }),
+  scrapeExtractToc: () => Promise.resolve({ success: false, error: "网页版暂不支持批量采集" }),
+  scrapeCollectManual: () => Promise.resolve({ success: false, error: "网页版暂不支持批量采集" }),
+  onManualCollectProgress: () => () => {
+  },
   // File dialogs (not available in browser)
   selectDir: () => Promise.resolve(prompt("请输入工作区目录路径") || null),
   selectFiles: () => Promise.resolve([]),
@@ -18321,12 +18325,12 @@ const webApi = {
   refGetTo: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
   refSearch: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
   // App
-  getVersion: () => Promise.resolve("0.3.0-web"),
-  getSystemLanguage: () => Promise.resolve(navigator.language),
-  setAutoStart: () => Promise.resolve({ success: true }),
-  getAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
-  createStartMenuShortcut: () => Promise.resolve({ success: false, error: "网页版不支持" }),
-  hasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
+  appGetVersion: () => Promise.resolve({ success: true, data: "0.3.0-web" }),
+  appGetSystemLanguage: () => Promise.resolve({ success: true, data: navigator.language }),
+  appSetAutoStart: () => Promise.resolve({ success: true }),
+  appGetAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
+  appCreateStartMenuShortcut: () => Promise.resolve({ success: false, error: "网页版不支持" }),
+  appHasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
   // Notes (desktop-only)
   noteList: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   noteCreate: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
@@ -18872,6 +18876,175 @@ function formatDate(iso) {
     minute: "2-digit"
   });
 }
+function ManualCollectTab() {
+  const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
+  const [url, setUrl] = reactExports.useState("");
+  const [toc, setToc] = reactExports.useState([]);
+  const [extracting, setExtracting] = reactExports.useState(false);
+  const [collecting, setCollecting] = reactExports.useState(false);
+  const [progress, setProgress] = reactExports.useState(null);
+  const [result, setResult] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onManualCollectProgress((data) => {
+      setProgress(data);
+    });
+    return unsub;
+  }, []);
+  const handleExtract = async () => {
+    if (!url.trim()) return;
+    setExtracting(true);
+    setToc([]);
+    setResult(null);
+    try {
+      const r = await window.api.scrapeExtractToc(url.trim());
+      if (r.success && r.data) {
+        if (r.data.length === 0) {
+          toast("未检测到手册目录，将作为单页收藏", "info");
+        }
+        setToc(r.data);
+      } else {
+        toast(r.error || "目录提取失败", "error");
+      }
+    } catch {
+      toast("目录提取失败", "error");
+    } finally {
+      setExtracting(false);
+    }
+  };
+  const handleCollect = async () => {
+    if (!user || toc.length === 0) return;
+    setCollecting(true);
+    setProgress({ done: 0, total: toc.length, title: "", status: "ok" });
+    try {
+      let seriesName = "";
+      try {
+        seriesName = new URL(url).hostname;
+      } catch {
+        seriesName = url;
+      }
+      const r = await window.api.scrapeCollectManual({ userId: user.id, seriesName, entries: toc });
+      if (r.success && r.data) {
+        setResult(r.data);
+        if (r.data.total > toc.length) toast(`已截取前 ${toc.length} 页`, "info");
+      } else {
+        toast(r.error || "批量采集失败", "error");
+      }
+    } catch {
+      toast("批量采集失败", "error");
+    } finally {
+      setCollecting(false);
+    }
+  };
+  const progressPct = progress ? Math.round(progress.done / progress.total * 100) : 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mb-2 text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: "📘 批量手册" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-4 text-[13px]", style: { color: "var(--text-secondary)" }, children: "输入在线手册首页链接，自动提取目录并批量收藏为系列博客。限 50 页。" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex gap-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          type: "url",
+          value: url,
+          onChange: (e) => setUrl(e.target.value),
+          onKeyDown: (e) => e.key === "Enter" && handleExtract(),
+          placeholder: "https://example.com/docs/",
+          className: "flex-1 rounded-[4px] border px-3 py-2 text-[14px] outline-none",
+          style: { background: "var(--bg-primary)", borderColor: "var(--border-default)", color: "var(--text-primary)" }
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: handleExtract,
+          disabled: extracting || !url.trim(),
+          className: "btn-primary !text-[13px]",
+          children: extracting ? "提取中..." : "提取目录"
+        }
+      )
+    ] }),
+    collecting && progress && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "mb-4 rounded-[8px] border p-4",
+        style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 flex items-center justify-between text-[13px]", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-primary)" }, children: [
+              "采集进度: ",
+              progress.done,
+              "/",
+              progress.total
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-secondary)" }, children: [
+              progressPct,
+              "%"
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-1 h-2 rounded-full overflow-hidden", style: { background: "var(--bg-tertiary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "h-full transition-all duration-300",
+              style: { width: `${progressPct}%`, background: "var(--accent-blue)" }
+            }
+          ) }),
+          progress.title && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 truncate text-[12px]", style: { color: "var(--text-muted)" }, children: [
+            progress.status === "fail" ? "❌" : "✅",
+            " ",
+            progress.title
+          ] })
+        ]
+      }
+    ),
+    result && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "mb-4 rounded-[8px] border p-4",
+        style: { borderColor: "var(--accent-green)", background: "var(--bg-secondary)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] font-medium", style: { color: "var(--text-primary)" }, children: "✅ 采集完成" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: [
+            "系列「",
+            result.seriesName,
+            "」— 成功 ",
+            result.succeeded,
+            " 篇，失败 ",
+            result.failed,
+            " 篇"
+          ] })
+        ]
+      }
+    ),
+    toc.length > 0 && !collecting && !result && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px]", style: { color: "var(--text-secondary)" }, children: [
+          "已提取 ",
+          toc.length,
+          " 个章节"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleCollect, className: "btn-primary !text-[13px]", children: "开始收藏" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "max-h-[400px] overflow-y-auto rounded-[6px] border p-3",
+          style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
+          children: toc.map((entry, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "truncate py-1 text-[13px]",
+              style: { paddingLeft: 8 + entry.level * 16, color: "var(--text-secondary)" },
+              children: entry.title
+            },
+            i
+          ))
+        }
+      )
+    ] }),
+    !toc.length && !extracting && !collecting && !result && url.trim() && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: '输入链接后点击"提取目录"' })
+  ] });
+}
 function TimelineView({ userId }) {
   const [groups, setGroups] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
@@ -18976,6 +19149,9 @@ function BlogListPage() {
   const [scrapeLoading, setScrapeLoading] = reactExports.useState(false);
   const [scrapeResult, setScrapeResult] = reactExports.useState(null);
   const [scrapeError, setScrapeError] = reactExports.useState("");
+  const [activeTab, setActiveTab] = reactExports.useState(
+    searchParams.get("tab") === "manual" ? "manual" : "blogs"
+  );
   const batch = useBatchSelect(blogs);
   const pagination = usePagination(20);
   const [folderTree, setFolderTree] = reactExports.useState([]);
@@ -18987,6 +19163,12 @@ function BlogListPage() {
   reactExports.useEffect(() => {
     loadFolders();
   }, [loadFolders]);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onNavigate?.((path) => {
+      if (path.includes("tab=manual")) setActiveTab("manual");
+    });
+    return unsub?.();
+  }, []);
   const loadBlogs = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -19129,474 +19311,506 @@ function BlogListPage() {
       ) })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center justify-between", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold text-primary", children: [
-            "博客 ",
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal text-secondary", children: [
-              total,
-              " 篇"
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex gap-2 border-b", style: { borderColor: "var(--border-default)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setActiveTab("blogs"),
+            className: "px-3 py-2 text-[14px] font-medium border-b-2 transition-colors",
+            style: {
+              color: activeTab === "blogs" ? "var(--accent-blue)" : "var(--text-secondary)",
+              borderColor: activeTab === "blogs" ? "var(--accent-blue)" : "transparent",
+              marginBottom: -1
+            },
+            children: "博客"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setActiveTab("manual"),
+            className: "px-3 py-2 text-[14px] font-medium border-b-2 transition-colors",
+            style: {
+              color: activeTab === "manual" ? "var(--accent-blue)" : "var(--text-secondary)",
+              borderColor: activeTab === "manual" ? "var(--accent-blue)" : "transparent",
+              marginBottom: -1
+            },
+            children: "📘 批量手册"
+          }
+        )
+      ] }),
+      activeTab === "manual" ? /* @__PURE__ */ jsxRuntimeExports.jsx(ManualCollectTab, {}) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center justify-between", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold text-primary", children: [
+              "博客 ",
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal text-secondary", children: [
+                total,
+                " 篇"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-1 rounded-[4px] border p-0.5 section-border", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setViewMode("cards"),
+                  className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
+                  style: { background: viewMode === "cards" ? "var(--bg-tertiary)" : "transparent" },
+                  children: "卡片"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setViewMode("timeline"),
+                  className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
+                  style: { background: viewMode === "timeline" ? "var(--bg-tertiary)" : "transparent" },
+                  children: "时间线"
+                }
+              )
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-1 rounded-[4px] border p-0.5 section-border", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setScrapeOpen(true), className: "btn-primary !text-[13px]", children: "收藏网页" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
                 type: "button",
-                onClick: () => setViewMode("cards"),
-                className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
-                style: { background: viewMode === "cards" ? "var(--bg-tertiary)" : "transparent" },
-                children: "卡片"
+                onClick: handleImportMd,
+                disabled: importing,
+                className: "btn-primary !text-[13px]",
+                style: { opacity: importing ? 0.4 : 1 },
+                children: "导入 MD"
               }
             ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/blog/new", className: "btn-primary !text-[13px] no-underline inline-flex items-center", children: "新建博客" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
                 type: "button",
-                onClick: () => setViewMode("timeline"),
-                className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
-                style: { background: viewMode === "timeline" ? "var(--bg-tertiary)" : "transparent" },
-                children: "时间线"
+                onClick: () => {
+                  batch.setIsBatchMode(!batch.isBatchMode);
+                },
+                className: "rounded-[4px] border px-2 py-1 text-[12px] hover:opacity-80 transition-opacity",
+                style: {
+                  background: batch.isBatchMode ? "var(--accent-blue)" : "transparent",
+                  color: batch.isBatchMode ? "var(--text-on-accent)" : "var(--text-secondary)",
+                  borderColor: "var(--border-default)"
+                },
+                children: "批量"
               }
             )
           ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setScrapeOpen(true), className: "btn-primary !text-[13px]", children: "收藏网页" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex gap-3", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
+            "input",
             {
-              type: "button",
-              onClick: handleImportMd,
-              disabled: importing,
-              className: "btn-primary !text-[13px]",
-              style: { opacity: importing ? 0.4 : 1 },
-              children: "导入 MD"
+              type: "text",
+              value: query,
+              onChange: (e) => setQuery(e.target.value),
+              placeholder: "搜索博客标题...",
+              className: "max-w-xs surface-input px-3 py-1.5 text-[13px]"
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/blog/new", className: "btn-primary !text-[13px] no-underline inline-flex items-center", children: "新建博客" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "select",
             {
-              type: "button",
-              onClick: () => {
-                batch.setIsBatchMode(!batch.isBatchMode);
-              },
-              className: "rounded-[4px] border px-2 py-1 text-[12px] hover:opacity-80 transition-opacity",
-              style: {
-                background: batch.isBatchMode ? "var(--accent-blue)" : "transparent",
-                color: batch.isBatchMode ? "var(--text-on-accent)" : "var(--text-secondary)",
-                borderColor: "var(--border-default)"
-              },
-              children: "批量"
+              value: sortBy,
+              onChange: (e) => setSortBy(e.target.value),
+              title: "排序方式",
+              className: "max-w-[140px] surface-input px-3 py-1.5 text-[13px]",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "updated_at", children: "最近修改" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "created_at", children: "创建时间" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "title", children: "标题" })
+              ]
             }
           )
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "input",
-          {
-            type: "text",
-            value: query,
-            onChange: (e) => setQuery(e.target.value),
-            placeholder: "搜索博客标题...",
-            className: "max-w-xs surface-input px-3 py-1.5 text-[13px]"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "select",
-          {
-            value: sortBy,
-            onChange: (e) => setSortBy(e.target.value),
-            title: "排序方式",
-            className: "max-w-[140px] surface-input px-3 py-1.5 text-[13px]",
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "updated_at", children: "最近修改" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "created_at", children: "创建时间" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "title", children: "标题" })
-            ]
-          }
-        )
-      ] }),
-      viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "div",
-        {
-          className: "rounded-[6px] border border-dashed p-12 text-center",
-          style: { borderColor: "var(--border-default)" },
-          children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query ? "没有找到匹配的博客" : filterTagId ? "该标签下暂无博客" : "还没有博客" })
-        }
-      ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
-        batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        ] }),
+        viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
-            className: "flex items-center gap-3 rounded-[6px] border p-2.5",
-            style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[13px] text-primary", children: [
-                "已选 ",
-                batch.selectedCount,
-                " 篇"
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: batch.selectAll,
-                  className: "text-[12px] hover:underline",
-                  style: { color: "var(--accent-blue)" },
-                  children: "全选"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: async () => {
-                    if (!confirm(`将 ${batch.selectedCount} 篇博客移至回收站？`)) return;
-                    try {
-                      await window.api.blogBatchDelete([...batch.selectedIds]);
-                      batch.clearSelection();
-                      loadBlogs();
-                    } catch (e) {
-                      console.error(e);
-                    }
-                  },
-                  disabled: batch.selectedCount === 0,
-                  className: "text-[12px] hover:underline disabled:opacity-40",
-                  style: { color: "var(--accent-red)" },
-                  children: "移至回收站"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: batch.clearSelection,
-                  className: "ml-auto text-[12px] hover:underline text-secondary",
-                  children: "取消"
-                }
-              )
-            ]
+            className: "rounded-[6px] border border-dashed p-12 text-center",
+            style: { borderColor: "var(--border-default)" },
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query ? "没有找到匹配的博客" : filterTagId ? "该标签下暂无博客" : "还没有博客" })
           }
-        ),
-        filterTagId && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "flex items-center gap-2 rounded-[6px] border p-3",
-            style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-secondary", children: "筛选标签:" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: () => {
-                    setFilterTagId(null);
-                    setFilterTagName("");
-                  },
-                  className: "ml-auto text-[12px] hover:underline",
-                  style: { color: "var(--accent-red)" },
-                  children: "清除筛选"
-                }
-              )
-            ]
-          }
-        ),
-        blogs.map((blog) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "article",
-          {
-            className: "card cursor-pointer group relative",
-            title: blog.title || "",
-            onClick: () => {
-              if (batch.isBatchMode) {
-                batch.toggleSelect(blog.id);
-                return;
-              }
-              navigate(`/blog/${blog.id}`);
-            },
-            children: [
-              batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "input",
-                {
-                  type: "checkbox",
-                  checked: batch.selectedIds.has(blog.id),
-                  onChange: () => batch.toggleSelect(blog.id),
-                  className: "absolute top-3 left-3 z-10",
-                  "aria-label": `选择 ${blog.title || "无标题"}`,
-                  onClick: (e) => e.stopPropagation()
-                }
-              ),
-              batch.isBatchMode ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px] font-semibold ml-8 text-primary", children: blog.title || "无标题" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-                Link$1,
-                {
-                  to: `/blog/${blog.id}`,
-                  className: "text-[20px] font-semibold no-underline hover:underline text-primary",
-                  children: blog.title || "无标题"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-[15px] line-clamp-2 text-secondary", children: "点击查看全文" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex items-center gap-3 text-[13px] text-secondary", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "span",
-                  {
-                    className: "rounded-[3px] px-1.5 py-0.5 font-mono text-[11px] uppercase",
-                    style: { background: "var(--bg-tertiary)" },
-                    children: blog.format
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatDate(blog.updatedAt) }),
-                blog.tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "·" }),
-                blog.tags?.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    className: "tag cursor-pointer hover:opacity-80 transition-opacity",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setFilterTagId(t.id);
-                      setFilterTagName(t.name);
-                    },
-                    title: `筛选标签: ${t.name}`,
-                    children: t.name
-                  },
-                  t.id
-                )),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                  "select",
-                  {
-                    value: "",
-                    onChange: async (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      const fid = e.target.value ? Number(e.target.value) : null;
-                      try {
-                        await window.api.folderMoveItem({ itemType: "blog", itemId: blog.id, folderId: fid });
-                        loadBlogs();
-                      } catch (e2) {
-                        console.error(e2);
-                      }
-                    },
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    },
-                    className: "text-[10px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s] rounded-[3px] border px-1 py-0.5 outline-none",
-                    style: {
-                      borderColor: "var(--border-default)",
-                      background: "var(--bg-primary)",
-                      color: "var(--text-secondary)",
-                      maxWidth: 60
-                    },
-                    title: "移至文件夹",
-                    children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "", children: "移至" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "0", children: "根目录" }),
-                      folderTree.map((f) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: f.id, children: f.name }, f.id))
-                    ]
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      handleDelete2(blog.id);
-                    },
-                    className: "text-[12px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s]",
-                    style: { color: "var(--accent-red)" },
-                    children: "删除"
-                  }
-                )
-              ] })
-            ]
-          },
-          blog.id
-        ))
-      ] }),
-      total > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: pagination.prev,
-            disabled: pagination.page === 1,
-            className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
-            style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
-            children: "←"
-          }
-        ),
-        Array.from({ length: Math.min(5, Math.ceil(total / pagination.limit)) }, (_, i) => {
-          const totalPages = Math.ceil(total / pagination.limit);
-          let p;
-          if (totalPages <= 5) {
-            p = i + 1;
-          } else if (pagination.page <= 3) {
-            p = i + 1;
-          } else if (pagination.page >= totalPages - 2) {
-            p = totalPages - 4 + i;
-          } else {
-            p = pagination.page - 2 + i;
-          }
-          return /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => pagination.goTo(p),
-              className: "rounded-[4px] px-3 py-1.5 text-[13px]",
-              style: {
-                background: p === pagination.page ? "var(--accent-blue)" : "transparent",
-                color: p === pagination.page ? "var(--text-on-accent)" : "var(--text-secondary)"
-              },
-              children: p
-            },
-            p
-          );
-        }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: pagination.next,
-            disabled: pagination.page >= Math.ceil(total / pagination.limit),
-            className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
-            style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
-            children: "→"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
-        {
-          ref: fileInputRef,
-          type: "file",
-          accept: ".md,.txt,.html",
-          multiple: true,
-          style: { display: "none" },
-          onChange: handleWebFileImport,
-          "aria-label": "导入 Markdown 文件"
-        }
-      ),
-      scrapeOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "div",
-        {
-          className: "fixed inset-0 z-50 flex items-center justify-center",
-          style: { background: "rgba(0,0,0,0.5)" },
-          onClick: () => setScrapeOpen(false),
-          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+          batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
-              className: "w-full max-w-[560px] rounded-[8px] border p-6 shadow-2xl",
-              style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
-              onClick: (e) => e.stopPropagation(),
+              className: "flex items-center gap-3 rounded-[6px] border p-2.5",
+              style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-[16px] font-semibold text-primary", children: "收藏网页" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[13px] text-primary", children: [
+                  "已选 ",
+                  batch.selectedCount,
+                  " 篇"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: batch.selectAll,
+                    className: "text-[12px] hover:underline",
+                    style: { color: "var(--accent-blue)" },
+                    children: "全选"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: async () => {
+                      if (!confirm(`将 ${batch.selectedCount} 篇博客移至回收站？`)) return;
+                      try {
+                        await window.api.blogBatchDelete([...batch.selectedIds]);
+                        batch.clearSelection();
+                        loadBlogs();
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    },
+                    disabled: batch.selectedCount === 0,
+                    className: "text-[12px] hover:underline disabled:opacity-40",
+                    style: { color: "var(--accent-red)" },
+                    children: "移至回收站"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: batch.clearSelection,
+                    className: "ml-auto text-[12px] hover:underline text-secondary",
+                    children: "取消"
+                  }
+                )
+              ]
+            }
+          ),
+          filterTagId && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "flex items-center gap-2 rounded-[6px] border p-3",
+              style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-secondary", children: "筛选标签:" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => {
+                      setFilterTagId(null);
+                      setFilterTagName("");
+                    },
+                    className: "ml-auto text-[12px] hover:underline",
+                    style: { color: "var(--accent-red)" },
+                    children: "清除筛选"
+                  }
+                )
+              ]
+            }
+          ),
+          blogs.map((blog) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "article",
+            {
+              className: "card cursor-pointer group relative",
+              title: blog.title || "",
+              onClick: () => {
+                if (batch.isBatchMode) {
+                  batch.toggleSelect(blog.id);
+                  return;
+                }
+                navigate(`/blog/${blog.id}`);
+              },
+              children: [
+                batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "checkbox",
+                    checked: batch.selectedIds.has(blog.id),
+                    onChange: () => batch.toggleSelect(blog.id),
+                    className: "absolute top-3 left-3 z-10",
+                    "aria-label": `选择 ${blog.title || "无标题"}`,
+                    onClick: (e) => e.stopPropagation()
+                  }
+                ),
+                batch.isBatchMode ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px] font-semibold ml-8 text-primary", children: blog.title || "无标题" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  Link$1,
+                  {
+                    to: `/blog/${blog.id}`,
+                    className: "text-[20px] font-semibold no-underline hover:underline text-primary",
+                    children: blog.title || "无标题"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-[15px] line-clamp-2 text-secondary", children: "点击查看全文" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex items-center gap-3 text-[13px] text-secondary", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "rounded-[3px] px-1.5 py-0.5 font-mono text-[11px] uppercase",
+                      style: { background: "var(--bg-tertiary)" },
+                      children: blog.format
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatDate(blog.updatedAt) }),
+                  blog.tags?.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "·" }),
+                  blog.tags?.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       type: "button",
-                      onClick: () => {
-                        setScrapeOpen(false);
-                        setScrapeResult(null);
-                        setScrapeError("");
-                        setScrapeUrl("");
+                      className: "tag cursor-pointer hover:opacity-80 transition-opacity",
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setFilterTagId(t.id);
+                        setFilterTagName(t.name);
                       },
-                      className: "text-[14px] text-secondary",
-                      children: "✕"
-                    }
-                  )
-                ] }),
-                !scrapeResult ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "text",
-                        value: scrapeUrl,
-                        onChange: (e) => setScrapeUrl(e.target.value),
-                        onKeyDown: (e) => e.key === "Enter" && handleScrape(),
-                        placeholder: "粘贴网页 URL",
-                        className: "input-dark flex-1"
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleScrape, disabled: scrapeLoading, className: "btn-primary", children: scrapeLoading ? "抓取中..." : "抓取" })
-                  ] }),
-                  scrapeError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-[13px]", style: { color: "var(--accent-red)" }, children: scrapeError })
-                ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      title: `筛选标签: ${t.name}`,
+                      children: t.name
+                    },
+                    t.id
+                  )),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                    "div",
+                    "select",
                     {
-                      className: "rounded-[4px] border p-3 mb-3",
-                      style: { background: "rgba(63,185,80,0.1)", borderColor: "var(--accent-green)" },
+                      value: "",
+                      onChange: async (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const fid = e.target.value ? Number(e.target.value) : null;
+                        try {
+                          await window.api.folderMoveItem({ itemType: "blog", itemId: blog.id, folderId: fid });
+                          loadBlogs();
+                        } catch (e2) {
+                          console.error(e2);
+                        }
+                      },
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      },
+                      className: "text-[10px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s] rounded-[3px] border px-1 py-0.5 outline-none",
+                      style: {
+                        borderColor: "var(--border-default)",
+                        background: "var(--bg-primary)",
+                        color: "var(--text-secondary)",
+                        maxWidth: 60
+                      },
+                      title: "移至文件夹",
                       children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[15px] font-semibold", style: { color: "var(--accent-green)" }, children: [
-                          "✓ ",
-                          scrapeResult.title
-                        ] }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] mt-0.5 text-secondary", children: scrapeResult.siteName })
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "", children: "移至" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "0", children: "根目录" }),
+                        folderTree.map((f) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: f.id, children: f.name }, f.id))
                       ]
                     }
                   ),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "p",
+                    "button",
                     {
-                      className: "mb-4 line-clamp-4 rounded-[4px] p-3 text-[13px]",
-                      style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
-                      children: scrapeResult.excerpt
+                      type: "button",
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleDelete2(blog.id);
+                      },
+                      className: "text-[12px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s]",
+                      style: { color: "var(--accent-red)" },
+                      children: "删除"
                     }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        type: "button",
-                        onClick: async () => {
-                          if (!user) return;
-                          try {
-                            await window.api.blogCreate({
-                              userId: user.id,
-                              title: scrapeResult.title,
-                              format: "md",
-                              content: scrapeResult.content
-                            });
-                            loadBlogs();
-                            setScrapeOpen(false);
-                            setScrapeUrl("");
-                            setScrapeResult(null);
-                          } catch {
-                            setScrapeError("导入失败");
-                          }
-                        },
-                        className: "btn-primary",
-                        children: "导入为博客"
-                      }
-                    ),
+                  )
+                ] })
+              ]
+            },
+            blog.id
+          ))
+        ] }),
+        total > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: pagination.prev,
+              disabled: pagination.page === 1,
+              className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
+              style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
+              children: "←"
+            }
+          ),
+          Array.from({ length: Math.min(5, Math.ceil(total / pagination.limit)) }, (_, i) => {
+            const totalPages = Math.ceil(total / pagination.limit);
+            let p;
+            if (totalPages <= 5) {
+              p = i + 1;
+            } else if (pagination.page <= 3) {
+              p = i + 1;
+            } else if (pagination.page >= totalPages - 2) {
+              p = totalPages - 4 + i;
+            } else {
+              p = pagination.page - 2 + i;
+            }
+            return /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => pagination.goTo(p),
+                className: "rounded-[4px] px-3 py-1.5 text-[13px]",
+                style: {
+                  background: p === pagination.page ? "var(--accent-blue)" : "transparent",
+                  color: p === pagination.page ? "var(--text-on-accent)" : "var(--text-secondary)"
+                },
+                children: p
+              },
+              p
+            );
+          }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: pagination.next,
+              disabled: pagination.page >= Math.ceil(total / pagination.limit),
+              className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
+              style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
+              children: "→"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            ref: fileInputRef,
+            type: "file",
+            accept: ".md,.txt,.html",
+            multiple: true,
+            style: { display: "none" },
+            onChange: handleWebFileImport,
+            "aria-label": "导入 Markdown 文件"
+          }
+        ),
+        scrapeOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "fixed inset-0 z-50 flex items-center justify-center",
+            style: { background: "rgba(0,0,0,0.5)" },
+            onClick: () => setScrapeOpen(false),
+            children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "w-full max-w-[560px] rounded-[8px] border p-6 shadow-2xl",
+                style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+                onClick: (e) => e.stopPropagation(),
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-[16px] font-semibold text-primary", children: "收藏网页" }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         type: "button",
                         onClick: () => {
+                          setScrapeOpen(false);
                           setScrapeResult(null);
                           setScrapeError("");
+                          setScrapeUrl("");
                         },
-                        className: "btn-primary",
-                        style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-                        children: "取消"
+                        className: "text-[14px] text-secondary",
+                        children: "✕"
                       }
                     )
+                  ] }),
+                  !scrapeResult ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "input",
+                        {
+                          type: "text",
+                          value: scrapeUrl,
+                          onChange: (e) => setScrapeUrl(e.target.value),
+                          onKeyDown: (e) => e.key === "Enter" && handleScrape(),
+                          placeholder: "粘贴网页 URL",
+                          className: "input-dark flex-1"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleScrape, disabled: scrapeLoading, className: "btn-primary", children: scrapeLoading ? "抓取中..." : "抓取" })
+                    ] }),
+                    scrapeError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-[13px]", style: { color: "var(--accent-red)" }, children: scrapeError })
+                  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "div",
+                      {
+                        className: "rounded-[4px] border p-3 mb-3",
+                        style: { background: "rgba(63,185,80,0.1)", borderColor: "var(--accent-green)" },
+                        children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[15px] font-semibold", style: { color: "var(--accent-green)" }, children: [
+                            "✓ ",
+                            scrapeResult.title
+                          ] }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] mt-0.5 text-secondary", children: scrapeResult.siteName })
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "p",
+                      {
+                        className: "mb-4 line-clamp-4 rounded-[4px] p-3 text-[13px]",
+                        style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
+                        children: scrapeResult.excerpt
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: async () => {
+                            if (!user) return;
+                            try {
+                              await window.api.blogCreate({
+                                userId: user.id,
+                                title: scrapeResult.title,
+                                format: "md",
+                                content: scrapeResult.content
+                              });
+                              loadBlogs();
+                              setScrapeOpen(false);
+                              setScrapeUrl("");
+                              setScrapeResult(null);
+                            } catch {
+                              setScrapeError("导入失败");
+                            }
+                          },
+                          className: "btn-primary",
+                          children: "导入为博客"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: () => {
+                            setScrapeResult(null);
+                            setScrapeError("");
+                          },
+                          className: "btn-primary",
+                          style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+                          children: "取消"
+                        }
+                      )
+                    ] })
                   ] })
-                ] })
-              ]
-            }
-          )
-        }
-      )
+                ]
+              }
+            )
+          }
+        )
+      ] })
     ] })
   ] });
 }
@@ -51701,7 +51915,7 @@ function editorReducer(state, action) {
       return state;
   }
 }
-function BlogEditorPage() {
+function BlogEditorPage$1() {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -51825,7 +52039,7 @@ function BlogEditorPage() {
           const pt = state.pendingTagIds;
           dispatch({ type: "SET_PENDING_TAGS", payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
-          navigate(`/blog/${r.data.id}/edit`, { replace: true });
+          navigate(`/blog/${r.data.id}`, { replace: true });
         } else {
           dispatch({ type: "SET_ERROR", payload: r.error || "创建失败" });
           toast(r.error || "创建失败", "error");
@@ -52128,9 +52342,9 @@ function BlogEditorPage() {
     )
   ] });
 }
-const BlogEditorPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const BlogEditorPage$2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  BlogEditorPage,
+  BlogEditorPage: BlogEditorPage$1,
   editorReducer
 }, Symbol.toStringTag, { value: "Module" }));
 function ReadingTime({ minutes, charCount }) {
@@ -52302,6 +52516,7 @@ function TableOfContents({ items }) {
     )
   ] });
 }
+const BlogEditorPage = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => BlogEditorPage$2), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogEditorPage })));
 function RelatedResources({ blogId }) {
   const [refs, setRefs] = reactExports.useState([]);
   reactExports.useEffect(() => {
@@ -52338,6 +52553,14 @@ function RelatedResources({ blogId }) {
   );
 }
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+md.renderer.rules.heading_open = (tokens, idx) => {
+  const token = tokens[idx];
+  if (!token) return "";
+  const text2 = tokens[idx + 1]?.content || "";
+  const id = text2.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "-").replace(/^-+|-+$/g, "");
+  token.attrSet("id", id);
+  return `<${token.tag}${token.attrs ? " " + token.attrs.map(([k, v]) => `${k}="${v}"`).join(" ") : ""}>`;
+};
 const READING_THEMES = {
   paper: { name: "纸张", bg: "#f8f5ef", text: "#2c2c2c", accent: "#c0392b", font: '"Noto Serif SC", Georgia, serif' },
   midnight: { name: "午夜", bg: "#0d1117", text: "#c9d1d9", accent: "#58a6ff", font: '"JetBrains Mono", monospace' },
@@ -52348,11 +52571,22 @@ const READING_THEMES = {
 function BlogPreviewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [blog, setBlog] = reactExports.useState(null);
   const [loading, setLoading] = reactExports.useState(true);
   const [progress, setProgress] = reactExports.useState(0);
   const [readingTheme, setReadingTheme] = reactExports.useState(localStorage.getItem("reading-theme") || "paper");
+  const isEditMode = searchParams.get("mode") === "edit";
+  const scrollContainerRef = reactExports.useCallback((el) => {
+    if (!el || !id) return;
+    const savedPct = sessionStorage.getItem(`blog-scroll-ratio-${id}`);
+    if (savedPct) {
+      const pct = Number(savedPct);
+      if (pct > 0) el.scrollTop = pct * el.scrollHeight;
+      sessionStorage.removeItem(`blog-scroll-ratio-${id}`);
+    }
+  }, [id]);
   reactExports.useEffect(() => {
     if (id && user)
       window.api.blogGet(Number(id)).then((r) => {
@@ -52392,6 +52626,9 @@ function BlogPreviewPage() {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
   if (!blog)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--accent-red)" }, children: "博客不存在" });
+  if (isEditMode) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: scrollContainerRef, className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, {}) });
+  }
   const rendered = blog.format === "md" ? md.render(blog.content) : blog.content;
   const tocItems = parseToc(blog.content, blog.format);
   const readingMinutes = estimateReadingTime(blog.content);
@@ -52494,7 +52731,22 @@ function BlogPreviewPage() {
       user && blog.seriesId && /* @__PURE__ */ jsxRuntimeExports.jsx(SeriesNav, { userId: user.id, seriesId: blog.seriesId, seriesName: blog.seriesName, currentBlogId: blog.id }),
       user && /* @__PURE__ */ jsxRuntimeExports.jsx(RelatedResources, { blogId: blog.id }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-12 border-t pt-6 flex gap-3", style: { borderColor: "var(--border-default)" }, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: `/blog/${id}/edit`, className: "btn-primary inline-flex items-center gap-2 no-underline", children: "编辑此文章" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => {
+              const el = document.querySelector("main");
+              if (el) {
+                const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
+                sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
+              }
+              setSearchParams({ mode: "edit" }, { replace: true });
+            },
+            className: "btn-primary inline-flex items-center gap-2",
+            children: "编辑此文章"
+          }
+        ),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           "button",
           {

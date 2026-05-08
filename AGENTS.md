@@ -250,11 +250,11 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 
 ## 当前状态 (2026-05-08)
 
-- **Phase 1-15**: ✅ 全部完成 (~385.5h)
-  - Phase 15 6/7 核心完成 + T1504b Web Tiptap ~3.5h 延后 Phase 16。`noUncheckedIndexedAccess` 永久启用。
-- **审查修复** (2026-04-30 ~ 05-08): 累计 89 项修复 (F01-F89), 109 个工单 (R01-R109)
-- **当前待修复**: 🔴0 🟡0 🟢0 — redo.md 全部清零
-- **已知缺口**: FTS5 全文搜索 (延 Phase 16)、Web Tiptap 编辑器 (T1504b, ~3.5h)、国际化 (明确否决 D18=C)
+- **Phase 1-16**: ✅ 全部完成 (~400.5h)
+  - Phase 16 5/5 核心完成：阅读即编辑 (mode=edit 路由合并) + 手册收纳 (linkedom) + TOC 修复 + 剪贴板键补齐 + 图标更新。`noUncheckedIndexedAccess` 永久启用。
+- **审查修复**: 累计 ~93 项修复 (F01-F93+), ~125 个工单 (R01-R125)
+- **当前待修复**: Phase 16 新增类型错误全部清零
+- **已知缺口**: FTS5 全文搜索 (延 Phase 17)、Web Tiptap 编辑器 (T1504b, ~3.5h)、国际化 (明确否决 D18=C)
 - **构建状态**: ✅ 测试 27/27 pass | E2E 11/11 pass | `noUncheckedIndexedAccess` ✅
 
 ---

@@ -88,6 +88,8 @@ const api: WindowApi = {
 
   // Web Scraping
   scrapeWebpage: (url) => ipcRenderer.invoke(IPC.SCRAPE_WEBPAGE, url),
+  scrapeExtractToc: (url) => ipcRenderer.invoke(IPC.SCRAPE_EXTRACT_TOC, url),
+  scrapeCollectManual: (data) => ipcRenderer.invoke(IPC.SCRAPE_COLLECT_MANUAL, data),
 
   // Stats
   statsGet: (userId) => ipcRenderer.invoke(IPC.STATS_GET, userId),
@@ -107,23 +109,33 @@ const api: WindowApi = {
   },
   onTrayAction: (cb) => {
     const handler = (_event: any, action: string) => cb(action);
-    ipcRenderer.on('tray-action', handler);
-    return () => ipcRenderer.removeListener('tray-action', handler);
+    ipcRenderer.on(IPC.EVT_TRAY_ACTION, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_TRAY_ACTION, handler);
   },
   onPetAction: (cb) => {
     const handler = (_event: any, action: string) => cb(action);
-    ipcRenderer.on('pet-action', handler);
-    return () => ipcRenderer.removeListener('pet-action', handler);
+    ipcRenderer.on(IPC.EVT_PET_ACTION, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_PET_ACTION, handler);
+  },
+  onNavigate: (cb) => {
+    const handler = (_event: any, path: string) => cb(path);
+    ipcRenderer.on(IPC.EVT_NAVIGATE, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_NAVIGATE, handler);
   },
   onBlogRefresh: (cb) => {
     const handler = () => cb();
-    ipcRenderer.on('blog:refresh', handler);
-    return () => ipcRenderer.removeListener('blog:refresh', handler);
+    ipcRenderer.on(IPC.EVT_BLOG_REFRESH, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_BLOG_REFRESH, handler);
+  },
+  onManualCollectProgress: (cb) => {
+    const handler = (_e: unknown, data: { done: number; total: number; title: string; status: string }) => cb(data);
+    ipcRenderer.on(IPC.EVT_MANUAL_COLLECT_PROGRESS, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_MANUAL_COLLECT_PROGRESS, handler);
   },
   onNoteRefresh: (cb) => {
     const handler = () => cb();
-    ipcRenderer.on('note:refresh', handler);
-    return () => ipcRenderer.removeListener('note:refresh', handler);
+    ipcRenderer.on(IPC.EVT_NOTE_REFRESH, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_NOTE_REFRESH, handler);
   },
 
   // Notes

@@ -77,8 +77,11 @@
   --accent-green: #1a7f37;
   --accent-amber: #9a6700;
   --accent-red: #cf222e;
+  --accent-purple: #a855f7;
   --text-on-accent: #ffffff;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
   --heatmap-0: var(--bg-tertiary);
   --heatmap-1: #9be9a8;
   --heatmap-2: #40c463;

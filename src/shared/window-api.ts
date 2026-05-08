@@ -111,6 +111,10 @@ export interface WindowApi {
 
   // Web Scraping
   scrapeWebpage(url: string): Promise<ApiResponse<ScrapeResult>>;
+  scrapeExtractToc(url: string): Promise<ApiResponse<{ title: string; href: string; level: number }[]>>;
+  scrapeCollectManual(data: { userId: number; seriesName: string; entries: { title: string; href: string; level: number }[] }): Promise<ApiResponse<{ seriesId: string; seriesName: string; total: number; succeeded: number; failed: number }>>;
+  onNavigate?(cb: (path: string) => void): () => void;
+  onManualCollectProgress(cb: (data: { done: number; total: number; title: string; status: string }) => void): () => void;
 
   // Stats
   statsGet(userId: number): Promise<ApiResponse<UserStats>>;

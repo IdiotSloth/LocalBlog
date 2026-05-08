@@ -81,7 +81,7 @@ folderRouter.post('/:id/rename', async (req: AuthRequest, res) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return res.json({ success: false, error: '文件夹名不能为空' });
     const pool = getPool();
-    await pool.execute('UPDATE folders SET name = ? WHERE id = ?', [trimmed, req.params.id]);
+    await pool.execute('UPDATE folders SET name = ? WHERE id = ? AND user_id = ?', [trimmed, req.params.id, userId]);
     return res.json({ success: true });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });
@@ -93,7 +93,7 @@ folderRouter.post('/:id/delete', async (req: AuthRequest, res) => {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ success: false, error: '未登录' });
     const pool = getPool();
-    await pool.execute('DELETE FROM folders WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM folders WHERE id = ? AND user_id = ?', [req.params.id, userId]);
     return res.json({ success: true });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });
@@ -107,10 +107,11 @@ folderRouter.post('/move-item', async (req: AuthRequest, res) => {
     const { itemType, itemId, folderId } = req.body;
     const pool = getPool();
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';
-    await pool.execute(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [
+    await pool.execute(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [
       folderId ?? null,
       nowMySQL(),
       itemId,
+      userId,
     ]);
     return res.json({ success: true });
   } catch (err) {

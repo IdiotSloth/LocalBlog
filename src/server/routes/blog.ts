@@ -206,8 +206,13 @@ blogRouter.post('/import-md', async (req: AuthRequest, res) => {
 
 blogRouter.post('/save-draft', async (req: AuthRequest, res) => {
   try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
     const { blogId, content } = req.body;
     const pool = getPool();
+    // Verify blog ownership
+    const [blogs] = (await pool.execute('SELECT id FROM blogs WHERE id = ? AND user_id = ?', [blogId, userId])) as any[];
+    if (!blogs.length) return res.json({ success: false, error: '博客不存在' });
     await pool.execute('INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)', [
       blogId,
       content,

@@ -28,7 +28,7 @@ export class ShortcutService {
     if (!entry) throw new Error(`Shortcut not found: ${id}`);
     entry.key = key;
     const overrides = current.filter((e) => DEFAULTS.find((d) => d.id === e.id)?.key !== e.key);
-    fs.writeFileSync(ShortcutService.filePath(), JSON.stringify(overrides, null, 2));
+    try { fs.writeFileSync(ShortcutService.filePath(), JSON.stringify(overrides, null, 2)); } catch { /* best-effort */ }
   }
 
   static reset(): void {

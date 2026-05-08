@@ -98,6 +98,9 @@ const webApi = {
 
   // Web scraping
   scrapeWebpage: (url: string) => request('POST', '/api/scrape/webpage', { url }),
+  scrapeExtractToc: () => Promise.resolve({ success: false, error: '网页版暂不支持批量采集' }),
+  scrapeCollectManual: () => Promise.resolve({ success: false, error: '网页版暂不支持批量采集' }),
+  onManualCollectProgress: () => () => {},
 
   // File dialogs (not available in browser)
   selectDir: () => Promise.resolve(prompt('请输入工作区目录路径') || null),
@@ -129,12 +132,12 @@ const webApi = {
   refSearch: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),
 
   // App
-  getVersion: () => Promise.resolve('0.3.0-web'),
-  getSystemLanguage: () => Promise.resolve(navigator.language),
-  setAutoStart: () => Promise.resolve({ success: true }),
-  getAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
-  createStartMenuShortcut: () => Promise.resolve({ success: false, error: '网页版不支持' }),
-  hasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
+  appGetVersion: () => Promise.resolve({ success: true, data: '0.3.0-web' }),
+  appGetSystemLanguage: () => Promise.resolve({ success: true, data: navigator.language }),
+  appSetAutoStart: () => Promise.resolve({ success: true }),
+  appGetAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
+  appCreateStartMenuShortcut: () => Promise.resolve({ success: false, error: '网页版不支持' }),
+  appHasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
 
   // Notes (desktop-only)
   noteList: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),

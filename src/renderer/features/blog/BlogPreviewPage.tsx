@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { lazy, useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
 import { TableOfContents } from '../../components/blog/TableOfContents';
 import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+
+const BlogEditorPage = lazy(() => import('./BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })));
 
 function RelatedResources({ blogId }: { blogId: number }) {
   const [refs, setRefs] = useState<any[]>([]);
@@ -41,6 +43,15 @@ import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+// Generate heading ids for TOC scrollIntoView + IntersectionObserver
+md.renderer.rules.heading_open = (tokens, idx) => {
+  const token = tokens[idx];
+  if (!token) return '';
+  const text = tokens[idx + 1]?.content || '';
+  const id = text.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '-').replace(/^-+|-+$/g, '');
+  token.attrSet('id', id);
+  return `<${token.tag}${token.attrs ? ' ' + token.attrs.map(([k, v]) => `${k}="${v}"`).join(' ') : ''}>`;
+};
 
 const READING_THEMES: Record<string, { name: string; bg: string; text: string; accent: string; font: string }> = {
   paper: { name: '纸张', bg: '#f8f5ef', text: '#2c2c2c', accent: '#c0392b', font: '"Noto Serif SC", Georgia, serif' },
@@ -53,11 +64,22 @@ const READING_THEMES: Record<string, { name: string; bg: string; text: string; a
 export function BlogPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [blog, setBlog] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [readingTheme, setReadingTheme] = useState<string>(localStorage.getItem('reading-theme') || 'paper');
+  const isEditMode = searchParams.get('mode') === 'edit';
+  const scrollContainerRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el || !id) return;
+    const savedPct = sessionStorage.getItem(`blog-scroll-ratio-${id}`);
+    if (savedPct) {
+      const pct = Number(savedPct);
+      if (pct > 0) el.scrollTop = pct * el.scrollHeight;
+      sessionStorage.removeItem(`blog-scroll-ratio-${id}`);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (id && user)
@@ -111,6 +133,15 @@ export function BlogPreviewPage() {
         博客不存在
       </div>
     );
+
+  // T1601: Edit mode — render BlogEditorPage inline at same route
+  if (isEditMode) {
+    return (
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <BlogEditorPage />
+      </div>
+    );
+  }
 
   const rendered = blog.format === 'md' ? md.render(blog.content) : blog.content;
   const tocItems = parseToc(blog.content, blog.format);
@@ -229,9 +260,21 @@ export function BlogPreviewPage() {
         {user && <RelatedResources blogId={blog.id} />}
 
         <div className="mt-12 border-t pt-6 flex gap-3" style={{ borderColor: 'var(--border-default)' }}>
-          <Link to={`/blog/${id}/edit`} className="btn-primary inline-flex items-center gap-2 no-underline">
+          <button
+            type="button"
+            onClick={() => {
+              // Save scroll ratio before switching to edit mode
+              const el = document.querySelector('main');
+              if (el) {
+                const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
+                sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
+              }
+              setSearchParams({ mode: 'edit' }, { replace: true });
+            }}
+            className="btn-primary inline-flex items-center gap-2"
+          >
             编辑此文章
-          </Link>
+          </button>
           <button
             type="button"
             onClick={async () => {

@@ -898,5 +898,53 @@ Auditor 的 18 项 S 级发现评估如下：
 
 ### 遗留
 
-- T1504b: Web Tiptap 编辑器 + 图片粘贴 + 验收边界 (~3.5h) → Phase 16
-- FTS5: Worker 倒排索引 → Phase 16
+- T1504b: Web Tiptap 编辑器 + 图片粘贴 + 验收边界 (~3.5h) → Phase 17
+- FTS5: Worker 倒排索引 → Phase 17
+
+---
+
+## Phase 16 — 交互深化
+
+> 结项日期: 2026-05-08 | 5/5 核心完成 | ~15h
+
+### 主题
+
+打磨用户与内容交互的三个高频触点——阅读、编辑、采集。零新依赖、零 Schema 变更。
+
+### 任务总览
+
+| 任务 | 名称 | 工时 | 状态 |
+|------|------|------|------|
+| T1601 | 阅读即编辑 — mode=edit 路由合并 + scrollRatio + BlogEditorPage 内嵌 | 5h | ✅ |
+| T1602 | 在线手册收纳 — linkedom TOC 提取 + 批量抓取→系列生成 | 6h | ✅ |
+| T1603 | TOC 修复 — markdown-it heading id 生成 | 1h | ✅ |
+| T1604 | 剪贴板键补齐 — ShortcutService 注册 + 设置录制 UI | 2.5h | ✅ |
+| T1605 | 图标更新 — forge.config 路径修正 | 0.5h | ✅ |
+
+### Boss 裁决
+
+| 编号 | 决策 | 裁决 |
+|------|------|------|
+| D28 | cheerio vs linkedom | B — linkedom |
+| D29 | TOC spec 修正 | heading id 生成 |
+| D30 | T1601 风险缓冲 | A — scrollRatio 5h |
+
+### 架构趋势
+
+| 指标 | Phase 15 | Phase 16 | 变化 |
+|------|----------|----------|------|
+| IPC 通道 | 91 | 91 | 0 |
+| 新依赖 | 1 (multer) | 1 | 0 |
+| Schema 变更 | 1 | 1 | 0 |
+| 新路由 | 2 | 2 | 0 |
+
+### 关键成果
+
+1. **阅读即编辑** — 一键切换不跳页，scrollRatio 位置同步。BlogEditorPage 通过 useParams 自然支持双模式
+2. **手册一键收纳** — linkedom 目录提取 + 礼貌抓取，零新依赖
+3. **TOC 激活** — 一行自定义 renderer rule 修复已有交互代码的静默失效
+4. **剪贴板键补齐** — 设置页录制 UI + ShortcutService 完整闭环
+
+### 遗留
+
+- T1504b: Web Tiptap 编辑器 (~3.5h) → Phase 17

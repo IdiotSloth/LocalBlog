@@ -18,6 +18,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'undo', key: 'Ctrl+Z', label: '撤销', description: '撤销上一步操作', group: 'editor' },
   { id: 'redo', key: 'Ctrl+Shift+Z', label: '重做', description: '重做已撤销操作', group: 'editor' },
   { id: 'md-float', key: 'Ctrl+Shift+N', label: 'MD 浮窗', description: '打开 Markdown 快捷写作浮窗', group: 'global' },
+  { id: 'clipboard-note', key: 'Ctrl+Shift+M', label: '剪贴板→便签', description: '将剪贴板内容保存为便签', group: 'global' },
 ];
 
 export function formatKey(key: string): string {

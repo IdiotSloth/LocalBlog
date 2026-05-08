@@ -4,7 +4,7 @@ const config: ForgeConfig = {
   outDir: './release',
   packagerConfig: {
     name: 'Idiot',
-    icon: './resources/icon',
+    icon: './img/favicon',
     asar: true,
     ignore: [
       /^\/src$/,

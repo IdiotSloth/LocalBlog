@@ -94,7 +94,6 @@ const router = createHashRouter([
           { path: '/blog', element: lazyPage(BlogListPage) },
           { path: '/blog/new', element: lazyPage(BlogEditorPage) },
           { path: '/blog/:id', element: lazyPage(BlogPreviewPage) },
-          { path: '/blog/:id/edit', element: lazyPage(BlogEditorPage) },
           { path: '/knowledge', element: lazyPage(KnowledgeListPage) },
           { path: '/tags', element: lazyPage(TagManagePage) },
           { path: '/recycle', element: lazyPage(RecycleBinPage) },

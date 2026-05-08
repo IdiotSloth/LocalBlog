@@ -1,6 +1,6 @@
 # 本地博客与知识库存储系统 — 待办事项
 
-> 最后更新: 2026-05-08 03:12:51 | 自动同步
+> 最后更新: 2026-05-08 06:08:29 | 自动同步
 
 ---
 
@@ -22,7 +22,7 @@
 | 文档 | 用途 |
 |------|------|
 | [redo.md](redo.md) | 技术债与修复清单 |
-| [docs/phase-archive.md](docs/phase-archive.md) | Phase 1-14 完整任务规格（历史档案） |
+| [docs/phase-archive.md](docs/phase-archive.md) | Phase 1-16 完整任务规格（历史档案） |
 | [docs/development-guide.md](docs/development-guide.md) | 测试策略、工作流程图、文件清单 |
 
 ### 角色权限
@@ -54,8 +54,9 @@
 | Phase 13 | 程序轻量化 + 用户体验 — 隐藏唤醒/宠物CSS化/乐观更新/柔和服务/续写视图 | 18h | 2026-05-07 | ✅ |
 | Phase 14 | 工程质量深化 + 体验交付 — 状态机/类型收敛/IPC文档/UI重组/快捷键/迷你窗/剪贴板/阅读进度/成就/文件预览 | 33.5h | 2026-05-07 | ✅ |
 | Phase 15 | 产品成熟化 — i18n 否决 / FTS5 后移 / 7 项核心完成 (T1504b 延后 Phase 16) | ~19h | 2026-05-08 | ✅ |
+| Phase 16 | 交互深化 — 阅读即编辑/手册收纳/TOC修复/剪贴板键补齐/图标收尾 (T1504b 延后) | ~15h | 2026-05-08 | ✅ |
 
-**总计**: ~385.5h (Phase 1-15)
+**总计**: ~400.5h (Phase 1-16)
 
 > 详细任务规格 (T101-T1007, F601-F605) 见 [docs/phase-archive.md](docs/phase-archive.md)。
 
@@ -89,10 +90,10 @@
 
 | # | 方向 | 优先级 | 说明 |
 |---|------|--------|------|
-| 1 | FTS5 全文搜索 | 🟢 P3 | Phase 16 独立实施，Worker 倒排索引方案 |
-| 2 | 国际化 i18n | ❌ 否决 | D18=C — 中文写作者工具，不做 |
-| 3 | API 文档 | 🟢 P3 | IPC 通道文档持续迭代 (T1404 已生成) |
-| 4 | T1509 嵌套文件夹 + 标签关联面板 | 🟢 P3 | 组织系统深化，Phase 16 候选 |
+| 1 | FTS5 全文搜索 | 🟢 P3 | Worker 倒排索引方案，Phase 17 候选 |
+| 2 | Web Tiptap 编辑器 | 🟢 P3 | T1504b ~3.5h，Phase 17 候选 |
+| 3 | 国际化 i18n | ❌ 否决 | D18=C — 中文写作者工具，不做 |
+| 4 | T1509 嵌套文件夹 + 标签关联面板 | 🟢 P3 | 组织系统深化，Phase 17 候选 |
 
 ---
 
@@ -350,7 +351,7 @@ T1405 (设置页分区) → T1407 (快捷键 UI) → T1408 (剪贴板键注册)
 
 ---
 
-## 8. Phase 15 — 产品成熟化 📋
+## 8. Phase 15 — 产品成熟化 ✅
 
 > 来源: suggest.md (Boss 逐条评估)。核心命题: 从"能工巧匠的工具"到"成熟商业产品"。
 > i18n 明确否决 (D18=C)，FTS5 后移 Phase 16 (D19=B)，strict 缩容(已激活)。
@@ -489,7 +490,69 @@ ALTER TABLE tags ADD COLUMN description TEXT DEFAULT '';
 
 ---
 
-## 9. 代码质量基线
+## 9. Phase 16 — 交互深化 ✅
+
+> 来源: suggest.md (Boss 全数纳入)。核心命题: 打磨用户与内容交互的三个高频触点——阅读、编辑、采集。
+> 零新依赖、零 Schema 变更。T1604 因与 Phase 15 T1507 重复而移除。
+
+### 任务总览
+
+| 任务 | 名称 | 类型 | 估算 | 优先级 | 状态 |
+|------|------|------|------|--------|------|
+| T1601 | 博客阅读即编辑 — mode=edit 合并路由 + scrollRatio 位置同步 + BlogEditorPage 内嵌渲染 (D30=A) | 交互 | 5h | 🔴 P0 | ✅ |
+| T1602 | 在线手册一键收纳 — linkedom 目录提取 + 批量抓取→系列生成 + 进度卡片 + 50 页上限 (D28=B) | 采集 | 6h | 🟡 P1 | ✅ |
+| T1603 | TOC 修复 — markdown-it heading id 生成，激活已有 scrollIntoView + IntersectionObserver | 阅读 | 1h | 🟢 P2 | ✅ |
+| T1604 | 剪贴板→便签快捷键 — 补齐设置页录制 UI + ShortcutService 注册 + 托盘菜单同步 | 效率 | 2.5h | 🟡 P1 | ✅ |
+| T1605 | 应用图标更新 — favicon.ico → forge.config 路径修正 | 品牌 | 0.5h | 🟢 P3 | ✅ |
+| ~~T1504b~~ | Web Tiptap 编辑器 — Phase 15 遗留，本次未交付，继续延后 | — | — | — | ⏭ |
+
+**✅ 完成: 5/5 项 (T1504b 延后)**。Phase 16 验收通过。
+
+### T1604 补全说明
+
+Phase 15 T1507 交付了 `Ctrl+Shift+M` 核心 handler，但设置页录制 UI 未完成或未正确挂载。Phase 16 T1604 补齐：ShortcutService 注册 `clipboardNote` 键 + 设置页录制行 + 冲突检测 + 托盘菜单项显示当前快捷键。复用 T1507 已有的 `handleClipboardNote()` handler，不重写。
+
+### 实施顺序
+
+```
+T1603 (1h, 先做, 快速提升) → T1601 (4h, 重点交互) → T1602 (6h, 重点采集)
+T1604 (2.5h) + T1504b (3.5h) + T1605 (0.5h) 穿插完成
+```
+
+### T1601 实施约束
+
+1. **路由**: `/blog/:id/edit` 从 App.tsx 移除。BlogPreviewPage 的"编辑"按钮改为 `?mode=edit`。不留重定向——无外部链接依赖。
+2. **useBlocker**: 确认 T1304 `useBlocker(isDirty)` 在 query param 切换时行为不变。
+3. **scrollRatio 偏移补偿**: 编辑器工具栏 + Tiptap 边框占额外高度，scrollRatio 需做偏移补偿。公式: `editorScrollY = (contentHeight + toolbarOffset) * scrollRatio - toolbarOffset`。
+4. **浏览器前进/后退**: `mode=edit` ↔ 无 mode 切换不产生新的 history entry（用 `replaceSearchParams` 替代 `pushSearchParams`），避免死循环。
+
+### T1602 实施约束
+
+1. **入口收敛**: 仅 2 个入口——
+   - 主窗口「网页收藏」页新增「批量手册」Tab（主力入口）
+   - 托盘菜单一项「📘 收藏在线手册」（快捷入口）
+   - 桌宠菜单不重复加（避免拥挤）
+2. **进度展示**: **方案 B — 主窗口内进度卡片**。用户主动发起操作，留在页面看进度是自然行为。MVF 独立窗口过度工程。
+3. **系列命名**: 自动取首页 `<title>` 文本。用户可后续重命名。
+4. **页数上限**: 50 页。超限截断并 Toast 提示"已截取前 50 页"。
+5. **抓取约束**: 并发 2、500ms 延迟、超时 15s/页。失败页面跳过，抓取完毕给出摘要（成功/失败计数）。
+6. **目录提取**: **linkedom**（D28=B，已安装）解析。`querySelectorAll` 识别 mdBook/Docusaurus/VuePress/GitBook 常见选择器，无匹配时降级为单页收藏。零新依赖。
+
+### Boss 裁决 (D28-D30)
+
+| 编号 | 决策点 | 裁决 | 理由 |
+|------|--------|------|------|
+| **D28** | T1602 cheerio vs linkedom | **B — 复用 linkedom** | 已安装，`querySelectorAll` 覆盖 4 平台。加 cheerio 是 1MB 换链式调用语法糖，不值 |
+| **D29** | T1603 spec 描述偏差 | **修正 spec** | TOC 交互代码已存在，缺的是 heading id。改 markdown-it renderer rule ~20 行。1h 不变 |
+| **D30** | T1601 风险缓冲 | **A — 全量 scrollRatio, 4h→5h** | scrollRatio 是"阅读即编辑"的核心价值。不要就是改了个 query param，用户价值为零 |
+
+### Boss 驳回记录
+
+无。6 项全数纳入。
+
+---
+
+## 10. 代码质量基线
 
 | 子任务 | 内容 | 工时 |
 |--------|------|------|
@@ -502,13 +565,15 @@ ALTER TABLE tags ADD COLUMN description TEXT DEFAULT '';
 
 ---
 
-## 10. 代码质量基线
+## 11. 代码质量基线（项目级指标）
 
 | 指标 | 当前状态 | 目标 |
 |------|----------|------|
 | Biome lint errors | 55 (T1107 ⏭) | 维持不恶化 |
 | TypeScript 编译 | ✅ 通过 | — |
-| `strict` 模式 | ✅ 已激活 (node + web) | `noUncheckedIndexedAccess` (Phase 15) |
+| `strict` 模式 | ✅ `noUncheckedIndexedAccess` 已启用 (Phase 15) | 维持 |
+| `as any` renderer | 0 | 维持 |
+| `as any` shared+preload | 0 | 维持 |
 | 单元测试 | 27/27 pass (3 files) | 维持 |
 | `any` 类型 | renderer `as any`: 0 | 维持 |
 | Biome warnings | 117 | 评估后修复或 suppress |

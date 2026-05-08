@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, screen } from 'electron';
+import { IPC } from '../shared/ipc-channels';
 import { setPetActions } from './tray';
 
 let petWin: BrowserWindow | null = null;
@@ -35,7 +36,7 @@ function loadMiniPos(name: string, dw: number, dh: number): { x: number; y: numb
 
 function saveMiniPos(name: string, x: number, y: number): void {
   const file = path.join(app.getPath('userData'), `mini-${name}-pos.json`);
-  fs.writeFileSync(file, JSON.stringify({ x, y }));
+  try { fs.writeFileSync(file, JSON.stringify({ x, y })); } catch { /* best-effort */ }
 }
 let _petDir: string;
 function petDir(): string {
@@ -91,10 +92,10 @@ function ensureMiniPreload(): string {
   const p = path.join(app.getPath('userData'), 'mini-preload.js');
   if (!fs.existsSync(p)) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(
+    try { fs.writeFileSync(
       p,
       `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('miniApi',{invoke:(c,...a)=>ipcRenderer.invoke(c,...a),send:(c,...a)=>ipcRenderer.send(c,...a)});`,
-    );
+    ); } catch { /* best-effort */ }
   }
   return p;
 }
@@ -165,7 +166,7 @@ function showQuickNote(): void {
         await new Promise((r) => setTimeout(r, 400));
         new Notification({ title: '便签已保存', body: text.trim().substring(0, 60) }).show();
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('note:refresh');
+          mainWindow.webContents.send(IPC.EVT_NOTE_REFRESH);
         }
       } catch (e) {
         console.error('[QuickNote/MVF] Save failed:', e);
@@ -302,7 +303,7 @@ export function showMdFloatWindow(): void {
         new Notification({ title: '已保存', body: title }).show();
         // Notify main window to refresh blog list
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('blog:refresh');
+          mainWindow.webContents.send(IPC.EVT_BLOG_REFRESH);
         }
       } catch (e) {
         console.error('[QuickNote/MVF] Save failed:', e);
@@ -485,7 +486,7 @@ function showStandaloneEditor(): void {
   if (mainWindow) {
     if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
-    mainWindow.webContents.send('pet-action', 'new-blog');
+    mainWindow.webContents.send(IPC.EVT_PET_ACTION, 'new-blog');
   }
 }
 
@@ -503,7 +504,7 @@ export async function handleClipboardNote(): Promise<void> {
     await NoteService.createNote(uid, text.trim(), 'clipboard');
     new Notification({ title: '便签已保存', body: text.trim().substring(0, 60) }).show();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('note:refresh');
+      mainWindow.webContents.send(IPC.EVT_NOTE_REFRESH);
     }
   } catch (e) {
     new Notification({ title: '保存失败', body: (e as Error).message || '未知错误' }).show();
@@ -561,7 +562,7 @@ export function createPet(win: BrowserWindow): void {
 
   // Write pet HTML — always regenerate to pick up image path changes
   const petHtmlPath = path.join(app.getPath('userData'), 'pet.html');
-  fs.writeFileSync(
+  try { fs.writeFileSync(
     petHtmlPath,
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -583,15 +584,15 @@ pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasM
 window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
 window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
 </script></html>`,
-  );
+  ); } catch { /* best-effort */ }
 
   // Write preload if not built
   if (!fs.existsSync(preloadPath)) {
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
-    fs.writeFileSync(
+    try { fs.writeFileSync(
       preloadPath,
       `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`,
-    );
+    ); } catch { /* best-effort */ }
   }
 
   petWin = new BrowserWindow({
@@ -626,7 +627,17 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
     'clipboard-note': handleClipboardNote,
+    'manual-collect': showManualCollect,
   });
+}
+
+function showManualCollect(): void {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send(IPC.EVT_NAVIGATE, '/blog?tab=manual');
+  }
 }
 
 /** Initialize tray actions without requiring pet window to be open */
@@ -640,6 +651,7 @@ export function initPetActions(): void {
     'import-file': handleImportFile,
     'scrape-web': showScrapeWindow,
     'clipboard-note': handleClipboardNote,
+    'manual-collect': showManualCollect,
   });
 }
 
@@ -654,7 +666,7 @@ function registerPetIpc(): void {
   ipcMain.handle('pet:scrape', async (_e, url: string) => {
     try {
       const { WebScraperService } = await import('./services/web-scraper.service');
-      return await WebScraperService.scrapeWebpage(url);
+      return await WebScraperService.scrape(url);
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }

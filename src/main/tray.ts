@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { type BrowserWindow, Menu, Tray, app, nativeImage } from 'electron';
+import { IPC } from '../shared/ipc-channels';
 import { createPet, getPetWindow } from './pet';
 
 // Late-bound imports to avoid circular deps — these are set by pet.ts
@@ -26,13 +27,13 @@ function getFaviconPath(): string {
       /* not found */
     }
   }
-  return candidates[1]; // fallback to app path
+  return candidates[1]!; // fallback to app path
 }
 
 /** Generate tray icon — uses favicon.ico for brand consistency */
-function makeIcon(size: number): nativeImage {
+function makeIcon(size: number): Electron.NativeImage {
   const icoPath = getFaviconPath();
-  const img = nativeImage.createFromPath(icoPath);
+  const img = nativeImage.createFromPath(icoPath!);
   if (!img.isEmpty()) return img.resize({ width: size, height: size });
   // Fallback SVG if .ico not loadable
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">
@@ -47,7 +48,7 @@ function sendAction(action: string): void {
   if (!mainWindow) return;
   if (!mainWindow.isVisible()) mainWindow.show();
   mainWindow.focus();
-  mainWindow.webContents.send('tray-action', action);
+  mainWindow.webContents.send(IPC.EVT_TRAY_ACTION, action);
 }
 
 function buildMenu(): Menu {
@@ -57,6 +58,7 @@ function buildMenu(): Menu {
     { label: '📥 导入 MD', click: () => petActions['import-md']?.() },
     { label: '📎 导入文件', click: () => petActions['import-file']?.() },
     { label: '🌐 收藏网页', click: () => petActions['scrape-web']?.() },
+    { label: '📘 收藏在线手册', click: () => petActions['manual-collect']?.() },
     { label: '📋 剪贴板→便签', click: () => petActions['clipboard-note']?.() },
     { type: 'separator' },
     {

@@ -242,11 +242,15 @@ export function registerBlogHandlers(): void {
       const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('PDF 渲染超时')), 10000));
       await Promise.race([win.loadFile(tmpPath), timeout]);
 
-      const pdfBuffer = await win.webContents.printToPDF({
-        printBackground: true,
-        landscape: false,
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      });
+      const pdfTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('PDF 生成超时')), 30000));
+      const pdfBuffer = await Promise.race([
+        win.webContents.printToPDF({
+          printBackground: true,
+          landscape: false,
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        }),
+        pdfTimeout,
+      ]);
       fs.writeFileSync(filePath, pdfBuffer);
       win.close();
 
