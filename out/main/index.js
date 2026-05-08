@@ -3893,7 +3893,24 @@ const TOC_SELECTORS = [
   // GitBook
   ".summary li a",
   ".book-summary li a",
-  // Generic sidebar nav
+  // MkDocs / Material for MkDocs
+  ".md-nav__link",
+  ".md-nav__item a",
+  // Hugo (Docsy / Book / Learn themes)
+  ".td-sidebar-nav a",
+  ".book-menu a",
+  ".docs-menu a",
+  // Sphinx / Read the Docs
+  ".toctree-l1 a",
+  ".toctree-wrapper a",
+  ".wy-menu-vertical a",
+  // JupyterBook
+  ".bd-toc-item a",
+  ".toc-entry a",
+  // Antora / Asciidoctor
+  ".nav-list a",
+  ".doc a",
+  // Generic sidebar nav (last resort)
   "nav.sidebar a",
   "aside.sidebar a"
 ];

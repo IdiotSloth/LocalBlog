@@ -18297,6 +18297,13 @@ const webApi = {
   scrapeCollectManual: () => Promise.resolve({ success: false, error: "网页版暂不支持批量采集" }),
   onManualCollectProgress: () => () => {
   },
+  onNavigate: () => () => {
+  },
+  onAppVisibility: () => () => {
+  },
+  blogExportDocx: () => Promise.resolve({ success: false, error: "网页版暂不支持Word导出" }),
+  blogQuickCreate: () => Promise.resolve({ success: false, error: "网页版暂不支持快捷创建" }),
+  statsDaily: () => Promise.resolve({ success: false, error: "网页版暂不支持每日统计" }),
   // File dialogs (not available in browser)
   selectDir: () => Promise.resolve(prompt("请输入工作区目录路径") || null),
   selectFiles: () => Promise.resolve([]),
@@ -19164,10 +19171,11 @@ function BlogListPage() {
     loadFolders();
   }, [loadFolders]);
   reactExports.useEffect(() => {
-    const unsub = window.api.onNavigate?.((path) => {
+    if (!window.api.onNavigate) return;
+    const unsub = window.api.onNavigate((path) => {
       if (path.includes("tab=manual")) setActiveTab("manual");
     });
-    return unsub?.();
+    if (typeof unsub === "function") return unsub;
   }, []);
   const loadBlogs = reactExports.useCallback(async () => {
     if (!user) return;
@@ -52662,22 +52670,40 @@ function BlogPreviewPage() {
             children: "← 返回列表"
           }
         ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-1", children: Object.entries(READING_THEMES).map(([key, t]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: () => handleThemeChange(key),
-            className: "rounded-[3px] px-2 py-0.5 text-[11px] transition-opacity",
-            style: {
-              background: readingTheme === key ? "var(--bg-tertiary)" : "transparent",
-              color: "var(--text-secondary)",
-              opacity: readingTheme === key ? 1 : 0.6
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                const el = document.querySelector("main");
+                if (el) {
+                  const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
+                  sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
+                }
+                setSearchParams({ mode: "edit" }, { replace: true });
+              },
+              className: "btn-primary !text-[13px] !px-3 !py-1",
+              children: "编辑"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-1", children: Object.entries(READING_THEMES).map(([key, t]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => handleThemeChange(key),
+              className: "rounded-[3px] px-2 py-0.5 text-[11px] transition-opacity",
+              style: {
+                background: readingTheme === key ? "var(--bg-tertiary)" : "transparent",
+                color: "var(--text-secondary)",
+                opacity: readingTheme === key ? 1 : 0.6
+              },
+              title: t.name,
+              children: t.name === "纸张" ? "纸" : t.name === "午夜" ? "夜" : t.name === "复古" ? "古" : t.name === "森林" ? "森" : "樱"
             },
-            title: t.name,
-            children: t.name === "纸张" ? "纸" : t.name === "午夜" ? "夜" : t.name === "复古" ? "古" : t.name === "森林" ? "森" : "樱"
-          },
-          key
-        )) })
+            key
+          )) })
+        ] })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "article",

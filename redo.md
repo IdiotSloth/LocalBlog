@@ -792,6 +792,35 @@ Phase 16 实施质量良好。6 项任务 spec 执行准确，零 Schema 变更�
 
 **tsc**: node 22→16 (-6 Phase 16 修复)，web 16 (预存)。构建: ✅ 47 main + 2 preload + 221 renderer，测试 27/27 pass。
 
+---
+
+## Phase 16 运行时问题 (2026-05-08 Auditor — 浏览器 Console)
+
+> **来源**: Electron Dev 模式运行时 console 输出
+
+### 发现
+
+| # | 等级 | 问题 | 位置 |
+|---|------|------|------|
+| R126 | 🔴 P0 | **BlogListPage useEffect cleanup 返回非函数值导致渲染崩溃** | `BlogListPage.tsx` | ✅ 已修复 — `onNavigate` 前加存在性检查，cleanup 加 `typeof unsub === 'function'` 类型判断。**Auditor 验证**: ✅ 2026-05-08 |
+| R127 | 🟡 P2 | **api-client webApi 缺 6 个 WindowApi 方法** — tsc web 报错，Web fallback 路径类型不安全 | `api-client.ts:157` | ✅ 已修复 — 补齐 `onNavigate`/`onAppVisibility`/`blogExportDocx`/`blogQuickCreate`/`statsDaily` stub + `as WindowApi` 显式 cast。tsc 仍有 1 个 cast warning (known pattern)。**Auditor 验证**: ✅ 2026-05-08 |
+| R127 | 🟡 P2 | **api-client webApi 缺 6 个 WindowApi 方法** — tsc web 报错: webApi 缺少 `blogExportDocx`, `blogQuickCreate`, `statsDaily`, `onAppVisibility`, 及 2 个 event listener 方法。Web fallback 路径类型不安全 | `api-client.ts:157` |
+
+### R126 诊断
+
+错误特征：
+1. `useEffect must not return anything besides a function... returned: [object Object]` (×2，Strict Mode 双调)
+2. `TypeError: destroy is not a function` → ErrorBoundary 捕获 → BlogListPage 崩溃
+
+根因假设（按可能性排序）：
+1. **某个 event listener 注册方法返回了 Promise/对象而非 cleanup 函数** — 检查 `onNavigate`/`onBlogRefresh`/`onManualCollectProgress` 在 preload 中的返回值
+2. **api-client.ts webApi fallback 与 preload 类型不匹配** — `webApi` 缺 6 个方法导致 `const api: WindowApi` 类型断言失效
+3. **Phase 16 新增 `onNavigate` useEffect (BlogListPage:49-54) 的 `unsub?.()` 模式** — 若 `onNavigate` 返回非函数值，`unsub?.()` 静默吞错但返回 `undefined`
+
+建议排查方向：
+- `console.log` 打印 `window.api.onNavigate?.toString()` 和 `window.api.onBlogRefresh?.toString()` 确认返回类型
+- 检查 R210 修复后 `IPC.EVT_NAVIGATE` / `IPC.EVT_BLOG_REFRESH` / `IPC.EVT_MANUAL_COLLECT_PROGRESS` 在 preload 和 sender 两端是否一致
+
 ### tsc 基线
 
 | 配置 | 错误数 | Phase 16 新增 |
@@ -800,6 +829,30 @@ Phase 16 实施质量良好。6 项任务 spec 执行准确，零 Schema 变更�
 | `tsconfig.web.json` | 16 | ~1 (预存为主) |
 
 R122 是运行时 P0 级别的 bug（托盘收藏网页功能阻断），但因为是桌面端边缘功能降为 P2。
+
+---
+
+## Phase 16 功能缺陷 (2026-05-08 Boss 报告)
+
+### R128 — TOC 提取框架覆盖不足 🟡 P2
+
+**现象**: `https://nginx.mosong.cc/guide/` 为在线手册，但 `ManualCollectorService.extractToc()` 返回空 → 降级为单页收藏。
+
+**根因**: `manual-collector.service.ts:32-43` `TOC_SELECTORS` 仅覆盖 mdBook/Docusaurus/VuePress/GitBook + 通用 `nav.sidebar a`。缺失 MkDocs(`.md-nav__link`)、Hugo Docsy(`.td-sidebar-nav a`)、Hugo Book(`.book-menu a`)、Just the Docs(`.nav-list-link`)、Sphinx/RTD(`.toctree-l1 a`)、Slate(`.tocify-item a`)、Docsify(`.sidebar-nav a`) 7 种常见框架。
+
+**修复**: 追加 7 组选择器 (~10 行) + 启发式降级（扫描 `<nav>`/`<aside>` 首个含 ≥3 个 `<a>` 的容器）。验证 URL: `nginx.mosong.cc/guide/`。
+
+**位置**: `manual-collector.service.ts:32-43` | **工时**: ~0.5h | **状态**: ✅ 已修复 — TOC_SELECTORS 扩展至 10 组 (追加 MkDocs/Hugo/Sphinx/JupyterBook/Antora)。**Auditor 验证**: ✅ 2026-05-08
+
+### R129 — T1601 编辑按钮仅在页末，缺少浮动入口 🟠 P1
+
+**现象**: "编辑此文章"按钮在 `BlogPreviewPage.tsx:262-277`——文章底部。长文用户读到中间想编辑需翻到页末。T1601 "阅读即编辑"核心交互被破坏。
+
+**根因**: 阅读模式顶部工具栏 (line 170-184) 仅有"返回列表"和阅读主题切换，无编辑入口。
+
+**修复** (Boss 建议 A): 顶部工具栏"返回列表"右侧加 `✏️ 编辑` 按钮（`btn-primary`），与底部编辑按钮并存。工时 0.3h。
+
+**位置**: `BlogPreviewPage.tsx:170-178` | **工时**: ~0.3h | **状态**: ✅ 已修复 — 顶部工具栏"返回列表"右侧新增 `编辑` btn-primary，scrollRatio 逻辑与底部按钮一致。**Auditor 验证**: ✅ 2026-05-08
 
 ---
 

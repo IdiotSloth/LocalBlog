@@ -101,6 +101,11 @@ const webApi = {
   scrapeExtractToc: () => Promise.resolve({ success: false, error: '网页版暂不支持批量采集' }),
   scrapeCollectManual: () => Promise.resolve({ success: false, error: '网页版暂不支持批量采集' }),
   onManualCollectProgress: () => () => {},
+  onNavigate: () => () => {},
+  onAppVisibility: () => () => {},
+  blogExportDocx: () => Promise.resolve({ success: false, error: '网页版暂不支持Word导出' }),
+  blogQuickCreate: () => Promise.resolve({ success: false, error: '网页版暂不支持快捷创建' }),
+  statsDaily: () => Promise.resolve({ success: false, error: '网页版暂不支持每日统计' }),
 
   // File dialogs (not available in browser)
   selectDir: () => Promise.resolve(prompt('请输入工作区目录路径') || null),
@@ -155,7 +160,7 @@ const webApi = {
 
 /** Detect environment and return the appropriate API */
 export const api: WindowApi = (() => {
-  const w = window as { api?: WindowApi | typeof webApi };
+  const w = window as { api?: WindowApi };
   if (w.api) return w.api;
-  return webApi;
+  return webApi as WindowApi;
 })();

@@ -47,10 +47,11 @@ export function BlogListPage() {
 
   // Listen for main-process navigate events (e.g., tray → manual collect)
   useEffect(() => {
-    const unsub = window.api.onNavigate?.((path: string) => {
+    if (!window.api.onNavigate) return;
+    const unsub = window.api.onNavigate((path: string) => {
       if (path.includes('tab=manual')) setActiveTab('manual');
     });
-    return unsub?.();
+    if (typeof unsub === 'function') return unsub;
   }, []);
 
   const loadBlogs = useCallback(async () => {

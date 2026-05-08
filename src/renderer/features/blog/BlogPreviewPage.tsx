@@ -176,7 +176,22 @@ export function BlogPreviewPage() {
           >
             ← 返回列表
           </Link>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.querySelector('main');
+                if (el) {
+                  const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
+                  sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
+                }
+                setSearchParams({ mode: 'edit' }, { replace: true });
+              }}
+              className="btn-primary !text-[13px] !px-3 !py-1"
+            >
+              编辑
+            </button>
+            <div className="flex gap-1">
             {Object.entries(READING_THEMES).map(([key, t]) => (
               <button
                 key={key}
@@ -201,6 +216,7 @@ export function BlogPreviewPage() {
                         : '樱'}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
