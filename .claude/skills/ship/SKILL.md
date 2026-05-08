@@ -13,6 +13,7 @@ boss-only: true
 Before starting, quick sanity check:
 - `git status` — any unexpected files? (.env, credentials, node_modules, large binaries)
 - redo.md — any 🔴 P0? If yes, warn before shipping
+- `suggest.md` — should NOT exist. If it does, unprocessed proposals remain.
 
 ## Pipeline
 
@@ -27,6 +28,7 @@ Before starting, quick sanity check:
 - 更新 README.md Phase 表 + 构建状态行 + 架构图中计数
 - 更新 `docs/phase-archive.md` 归档最新完成的 Phase
 - 同步 todo.md 时间戳
+- 验证 `noUncheckedIndexedAccess` 仍在启用状态
 
 ### Step 2: Package
 
@@ -43,7 +45,9 @@ git add -A
 git commit -m "<message>"
 ```
 
-Commit message 格式：`Phase <N>: <scope> — <key deliverables>`
+Commit message 格式：
+- 完整 Phase: `Phase <N>: <scope> — <key deliverables>`
+- 修复提交: `Phase <N>: Rxxx/Rxxx 修复 — <what was fixed>`
 
 例：`Phase 14: 工程质量深化 + 体验交付 — 11/11 全部完成`
 
@@ -70,3 +74,4 @@ Push: ✅ main -> main
 - **Boss-only** — Developer 和 Auditor 不可调用
 - **Commit 前确认** — 如果工作区有未预期的文件（.env, 大二进制, node_modules），先报告
 - **不要在 redo.md 有 P0 时 ship** — P0 阻断应先修复
+- **Phase 结项 ship 确保归档完整** — AGENTS/README/phase-archive 三处 Phase 状态一致

@@ -39,8 +39,12 @@ Verify these claims with a quick check (grep / count files):
 | "当前状态" Phase list | `todo.md` Phase 完成状态 table |
 | redo.md P0/P1/P2 counts | `redo.md` 当前待修复 section |
 | `docs/phase-archive.md` coverage | Check if latest phases are included |
+| `noUncheckedIndexedAccess` in tsconfig | `grep "noUncheckedIndexedAccess" tsconfig.node.json tsconfig.web.json` |
+| `suggest.md` existence | Should NOT exist after Boss processes proposals |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
+
+Also check for **遗留跟踪**: if any todo.md tasks are marked ⏭, verify they have a stated target Phase.
 
 ## 3. Detect Drift: README.md vs Code
 
@@ -86,3 +90,5 @@ Keep it brief. Don't write a paragraph when a table row works.
 - **Don't invent counts** — if you can't verify a number, don't include it
 - **Boss-only edits** for AGENTS.md and README.md — when not Boss, report drift as a finding
 - **Check redo.md too** — if redo.md has pending P0 items, flag in report. Do not sync-docs over unrepaired bugs.
+- **Check suggest.md is gone** — suggest.md should not exist after Boss processes it. If it does, flag as unprocessed proposals.
+- **Verify legacy tracking** — any ⏭ tasks should have a target Phase stated
