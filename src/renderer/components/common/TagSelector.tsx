@@ -74,6 +74,7 @@ export function TagSelector({ userId, selectedTagIds, onChange }: Props) {
     if (!open || !triggerRef.current) return;
     const calc = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
       const panelH = 340;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;

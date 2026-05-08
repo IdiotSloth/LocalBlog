@@ -132,7 +132,7 @@ export function KnowledgeListPage() {
   return (
     <div
       className="flex h-full gap-4"
-      style={{ maxWidth: 1000, margin: '0 auto' }}
+      style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -188,6 +188,38 @@ export function KnowledgeListPage() {
         </div>
       )}
       <div className="flex-1 min-w-0">
+        {/* Folder breadcrumb */}
+        {filterFolderId !== null && kbFolders.length > 0 && (() => {
+          const findPath = (tree: { id: number; name: string; children?: { id: number; name: string; children?: unknown[] }[] }[], targetId: number, path: { id: number | null; name: string }[] = []): { id: number | null; name: string }[] | null => {
+            for (const node of tree) {
+              const newPath = [...path, { id: node.id, name: node.name }];
+              if (node.id === targetId) return newPath;
+              if (node.children?.length) {
+                const found = findPath(node.children, targetId, newPath);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const breadcrumb = [{ id: null as number | null, name: '全部' }, ...(findPath(kbFolders, filterFolderId!) || [])];
+          return (
+            <div className="mb-3 flex items-center gap-1 text-[13px]">
+              {breadcrumb.map((crumb, i) => (
+                <span key={crumb.id ?? 'all'} className="flex items-center gap-1">
+                  {i > 0 && <span style={{ color: 'var(--text-muted)' }}>›</span>}
+                  <button
+                    type="button"
+                    onClick={() => setFilterFolderId(crumb.id)}
+                    className="hover:underline transition-colors"
+                    style={{ color: i === breadcrumb.length - 1 ? 'var(--text-primary)' : 'var(--accent-blue)' }}
+                  >
+                    {crumb.name}
+                  </button>
+                </span>
+              ))}
+            </div>
+          );
+        })()}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
             知识库{' '}
@@ -466,9 +498,9 @@ export function KnowledgeListPage() {
                         <td className="px-4 py-2.5">
                           <span
                             className="rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase"
-                            style={{ color: t.color, background: 'var(--bg-tertiary)' }}
+                            style={{ color: t?.color, background: 'var(--bg-tertiary)' }}
                           >
-                            {t.label}
+                            {t?.label}
                           </span>
                         </td>
                         <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>

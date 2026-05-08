@@ -18,6 +18,7 @@ AGENTS.md and README.md are **Boss-owned**. Developer must NOT modify them. When
 - Refresh `最后更新` timestamp at top
 - Mark completed tasks ✅ (Developer can do this)
 - Update Phase table status when all tasks in a phase are done
+- Update total hours in phase summary
 
 ### What NOT to change
 - Task descriptions (Boss-owned)
@@ -31,9 +32,12 @@ Verify these claims with a quick check (grep / count files):
 | Claim in AGENTS.md | Verify against |
 |---------------------|----------------|
 | IPC channel count | `grep -c ":" src/shared/ipc-channels.ts` |
-| Service file count | `ls src/main/services/*.ts` |
-| Server route count | `ls src/server/routes/*.ts` |
+| Service file count | `ls src/main/services/*.ts \| wc -l` |
+| IPC handler count | `ls src/main/ipc/*.ts \| wc -l` |
+| Server route count | `ls src/server/routes/*.ts \| wc -l` |
+| renderer `as any` count | `grep -r "as any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
 | "当前状态" Phase list | `todo.md` Phase 完成状态 table |
+| redo.md P0/P1/P2 counts | `redo.md` 当前待修复 section |
 | `docs/phase-archive.md` coverage | Check if latest phases are included |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
@@ -48,24 +52,29 @@ If drift > 2 items or a stale claim exists, flag it for Boss review.
 | Tech stack versions | `package.json` dependencies |
 | `npm run test` count | actual test output |
 | Links to `docs/` files | Check files exist at those paths |
+| Features table completeness | Check for new modules not listed |
 
 ## 4. Cross-Reference Consistency
 
 Quick consistency checks across all three docs:
 
 - AGENTS.md "当前状态" ↔ todo.md Phase table ↔ README.md Phase table (same completion status)
+- IPC count: AGENTS.md architecture diagram ↔ README.md architecture diagram ↔ `grep` result
+- Service count: AGENTS.md mentions ↔ README.md mentions ↔ `ls` count
 - Biome error/warning counts match between AGENTS.md, todo.md, README.md
 - All cross-document relative links (e.g., `[redo.md](redo.md)`) point to existing files
-- Phase-archive description matches actual archive coverage (e.g., "Phase 1-10" vs actual content)
+- Phase-archive description matches actual archive coverage (e.g., "Phase 1-14" vs actual content)
+- All documents reference the same "当前活跃 Phase"
 
 ## 5. Output Format
 
 ```
-Sync-Docs Report:
-- Documents touched: [list]
-- Drift detected: [list of "doc claims X, code has Y"]
-- Cross-reference fixes: [N]
-- Items flagged for Boss: [list]
+Sync-Docs Report
+================
+Documents touched: [list of files edited]
+Drift detected: [each "doc claims X, actual is Y"]
+Cross-reference fixes: [N items aligned]
+Pending for Boss: [items needing decision]
 ```
 
 Keep it brief. Don't write a paragraph when a table row works.
@@ -76,3 +85,4 @@ Keep it brief. Don't write a paragraph when a table row works.
 - **Verify before writing** a number — if you claim "27 tests", run the test command or check recent output
 - **Don't invent counts** — if you can't verify a number, don't include it
 - **Boss-only edits** for AGENTS.md and README.md — when not Boss, report drift as a finding
+- **Check redo.md too** — if redo.md has pending P0 items, flag in report. Do not sync-docs over unrepaired bugs.

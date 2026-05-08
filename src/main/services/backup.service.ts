@@ -70,7 +70,7 @@ export class BackupService {
     let cleaned = 0;
     for (let i = MAX_BACKUPS; i < files.length; i++) {
       try {
-        fs.unlinkSync(files[i].path);
+        fs.unlinkSync(files[i]!.path);
         cleaned++;
       } catch {
         /* skip */
@@ -146,7 +146,7 @@ export class BackupService {
     }
     const crc32 = (buf: Buffer): number => {
       let c = 0xffffffff;
-      for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+      for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]!) & 0xff]! ^ (c >>> 8);
       return (c ^ 0xffffffff) >>> 0;
     };
 

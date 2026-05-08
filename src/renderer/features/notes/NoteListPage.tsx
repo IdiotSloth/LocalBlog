@@ -77,7 +77,7 @@ export function NoteListPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-[780px]">
       <h2
         className="mb-6 text-xl font-bold"
         style={{ color: 'var(--text-primary)' }}

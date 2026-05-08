@@ -179,7 +179,7 @@ function FeatureCard({
 
 export function GuidePage() {
   return (
-    <div className="mx-auto max-w-3xl pb-20">
+    <div className="mx-auto max-w-[780px] pb-20">
       {/* ═══ Hero ═══ */}
       <div
         className="relative mb-8 overflow-hidden rounded-[20px] p-10 md:p-12"

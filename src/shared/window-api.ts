@@ -51,7 +51,7 @@ export interface WindowApi {
   blogDeleteAttachment(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogCleanupAttachments(blogId: number): Promise<ApiResponse<{ deleted: number }>>;
   blogQuickCreate(data: Record<string, unknown>): Promise<ApiResponse<Blog>>;
-  blogSeriesList(userId: number): Promise<ApiResponse<Record<string, unknown>[]>>;
+  blogSeriesList(userId: number): Promise<ApiResponse<{ seriesId: string; seriesName: string; count: number }[]>>;
   blogSeriesGet(seriesId: string): Promise<ApiResponse<Record<string, unknown>>>;
   blogSeriesSet(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogBatchDelete(blogIds: number[]): Promise<ApiResponse<{ deleted: number }>>;

@@ -6,6 +6,7 @@ interface TagItem {
   id: number;
   userId: number;
   name: string;
+  description?: string;
   count: number;
 }
 interface ResultItem {
@@ -107,7 +108,7 @@ export function TagManagePage() {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-[780px]">
       <h2 className="mb-6 text-xl font-bold">标签管理</h2>
 
       {/* Zero-use cleanup */}
@@ -268,7 +269,7 @@ export function TagManagePage() {
                         setResults([]);
                       }
                     }}
-                    title={`查看标签"${tag.name}"关联的内容`}
+                    title={tag.description || `查看标签"${tag.name}"关联的内容`}
                   >
                     {tag.name}
                   </span>

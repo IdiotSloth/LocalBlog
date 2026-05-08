@@ -11,7 +11,7 @@ tagRouter.get('/list', async (req: AuthRequest, res) => {
     if (!userId) return res.status(401).json({ success: false, error: '未登录' });
     const pool = getPool();
     const [rows] = (await pool.execute(
-      `SELECT t.id, t.user_id as userId, t.name,
+      `SELECT t.id, t.user_id as userId, t.name, t.description,
         (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) +
         (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as count
        FROM tags t WHERE t.user_id = ? ORDER BY t.name`,
@@ -49,10 +49,14 @@ tagRouter.post('/:id/update', async (req: AuthRequest, res) => {
   try {
     const uid = req.userId;
     if (!uid) return res.status(401).json({ success: false, error: '未登录' });
-    const { name } = req.body;
+    const { name, description } = req.body;
     if (!name?.trim()) return res.json({ success: false, error: '标签名不能为空' });
     const pool = getPool();
-    await pool.execute('UPDATE tags SET name = ? WHERE id = ? AND user_id = ?', [name.trim(), req.params.id, uid]);
+    if (description !== undefined) {
+      await pool.execute('UPDATE tags SET name = ?, description = ? WHERE id = ? AND user_id = ?', [name.trim(), description, req.params.id, uid]);
+    } else {
+      await pool.execute('UPDATE tags SET name = ? WHERE id = ? AND user_id = ?', [name.trim(), req.params.id, uid]);
+    }
     return res.json({ success: true });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });

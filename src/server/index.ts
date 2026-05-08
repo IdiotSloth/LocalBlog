@@ -14,6 +14,7 @@ import { recycleRouter } from './routes/recycle';
 import { scrapeRouter } from './routes/scrape';
 import { searchRouter } from './routes/search';
 import { tagRouter } from './routes/tags';
+import { uploadRouter } from './routes/upload';
 import { workspaceRouter } from './routes/workspace';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +38,7 @@ app.use('/api/tags', tagRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/workspace', workspaceRouter);
 app.use('/api/recycle', recycleRouter);
+app.use('/api/upload', uploadRouter);
 app.use('/api/scrape', scrapeRouter);
 
 // Unified error handler (must be last middleware)

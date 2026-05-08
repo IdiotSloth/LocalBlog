@@ -4,7 +4,7 @@ import { dbAll, dbGet, dbRun } from '../db';
 export class TagService {
   static async listTags(userId: number): Promise<(Tag & { count: number })[]> {
     return dbAll<Tag & { count: number }>(
-      `SELECT t.id, t.user_id, t.name,
+      `SELECT t.id, t.user_id, t.name, t.description,
         (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) +
         (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as count
        FROM tags t WHERE t.user_id = ? ORDER BY t.name ASC`,
@@ -21,10 +21,14 @@ export class TagService {
     if (!row) throw new Error('创建标签失败');
     return row;
   }
-  static async updateTag(tagId: number, name: string): Promise<void> {
+  static async updateTag(tagId: number, name: string, description?: string): Promise<void> {
     const t = name.trim();
     if (!t) throw new Error('标签名不能为空');
-    await dbRun('UPDATE tags SET name = ? WHERE id = ?', [t, tagId]);
+    if (description !== undefined) {
+      await dbRun('UPDATE tags SET name = ?, description = ? WHERE id = ?', [t, description, tagId]);
+    } else {
+      await dbRun('UPDATE tags SET name = ? WHERE id = ?', [t, tagId]);
+    }
   }
   static async deleteTag(tagId: number): Promise<void> {
     await dbRun('DELETE FROM tags WHERE id = ?', [tagId]);

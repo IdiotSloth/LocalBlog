@@ -41,3 +41,42 @@
 - **Pagination**: use `sanitizePagination(offset, limit)` from `src/shared/pagination.ts`
 - **Type safety**: eliminate `as any` where WindowApi provides types; prefer `const r = await window.api.xxx()` without intermediate casts
 - **IPC events**: register listener in useEffect, return cleanup function
+- **Data router**: use `createHashRouter` + `RouterProvider` (NOT legacy `<HashRouter>`) — required for `useBlocker`
+- **File-based storage**: use `app.getPath('userData') + JSON` (posFile pattern) for new data — **never add DB tables** (T1105 Schema freeze)
+- **Atomic writes**: `fs.writeFileSync(tmpPath, data); fs.renameSync(tmpPath, realPath)` to prevent corruption
+- **Dead code cleanup**: removing a service requires cleaning ~7 reference points: IPC channel, WindowApi, preload, handler reg, service file, imports, api-client stub
+- **React.lazy named exports**: `.then(m => ({ default: m.NamedExport }))` — default exports work directly with `React.lazy`
+- **Dashboard tab state**: `useSearchParams` for URL-persistent state, not local useState
+- **Web Workers**: `inlineDynamicImports: true` blocks Worker chunk output → fall back to main-process `setTimeout` yield
+
+## New IPC Channel Checklist (7 files)
+1. `src/shared/ipc-channels.ts` — channel constant
+2. `src/shared/window-api.ts` — typed method signature
+3. `src/preload/index.ts` — `ipcRenderer.invoke` wiring
+4. `src/main/ipc/xxx.ts` — handler implementation (new or existing file)
+5. `src/main/ipc/index.ts` — `registerXxxHandlers()` call
+6. `src/main/services/xxx.service.ts` — business logic (if new)
+7. `src/renderer/lib/api-client.ts` — web stub (return `{ success: false, error: '...' }`)
+
+## CSS Tokens (complete list)
+| Token | Usage |
+|-------|-------|
+| `--text-primary` | Primary text color |
+| `--text-secondary` | Secondary/body text |
+| `--text-muted` | Muted/hint text |
+| `--text-placeholder` | Input placeholders |
+| `--bg-primary` | Page background |
+| `--bg-secondary` | Card/sidebar background |
+| `--bg-tertiary` | Subtle element background |
+| `--border-default` | Default borders |
+| `--color-primary` | Primary accent (brand color) |
+| `--accent-blue` | Blue accent (links, active) |
+| `--accent-green` | Green accent (success, local-first) |
+| `--accent-amber` | Amber accent (warnings, tips) |
+| `--accent-red` | Red accent (danger, delete) |
+| `--text-on-accent` | Text on accent-colored backgrounds |
+| `--font-mono` | Monospace font family |
+| `--color-bg-card` | Card background variant |
+| `--color-bg-base` | Base background variant |
+| `--heatmap-0` | Heatmap empty cell |
+| `--heatmap-1` ~ `--heatmap-4` | Heatmap intensity levels (theme-adaptive) |

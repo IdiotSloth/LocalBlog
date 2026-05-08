@@ -6,7 +6,7 @@ import { IPC } from '../shared/ipc-channels';
 import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
 import { setNoteRefreshTarget } from './ipc/note';
-import { initPetActions, showMdFloatWindow } from './pet';
+import { handleClipboardNote, initPetActions, showMdFloatWindow } from './pet';
 import { BackupService } from './services/backup.service';
 import { NoteService } from './services/note.service';
 import { setupTray } from './tray';
@@ -33,6 +33,7 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    autoHideMenuBar: true,
     webviewTag: true,
     show: false,
   });
@@ -93,6 +94,11 @@ app.whenReady().then(async () => {
   // T1209a: Global shortcut Ctrl+Shift+N → MD float window
   globalShortcut.register('CommandOrControl+Shift+N', () => {
     showMdFloatWindow();
+  });
+
+  // T1507: Global shortcut Ctrl+Shift+M → clipboard to note
+  globalShortcut.register('CommandOrControl+Shift+M', () => {
+    handleClipboardNote();
   });
 
   // Auto-create Start Menu shortcut on first launch (uses .bat launcher to avoid ELECTRON_RUN_AS_NODE)

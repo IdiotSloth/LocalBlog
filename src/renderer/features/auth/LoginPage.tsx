@@ -81,6 +81,14 @@ export function LoginPage() {
           立即注册
         </Link>
       </p>
+      {/* Web version feature notice */}
+      <div
+        className="mt-4 rounded-[6px] border p-3 text-center text-[11px]"
+        style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+      >
+        网页版暂不支持：便签 · 桌面宠物 · 托盘菜单 · 全局快捷键 · 独立浮窗 · PDF 导出 · 导入 Markdown 文件。
+        请使用桌面客户端获取完整体验。
+      </div>
     </form>
   );
 }

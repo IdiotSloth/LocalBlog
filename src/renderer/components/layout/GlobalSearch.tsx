@@ -67,9 +67,9 @@ export function GlobalSearch() {
     } else if (e.key === 'Enter' && selectedIdx >= 0) {
       e.preventDefault();
       if (selectedIdx < blogs.length) {
-        handleNavigate('blog', blogs[selectedIdx].id);
+        handleNavigate('blog', blogs[selectedIdx]!.id);
       } else {
-        handleNavigate('kb', kbs[selectedIdx - blogs.length].id);
+        handleNavigate('kb', kbs[selectedIdx - blogs.length]!.id);
       }
     } else if (e.key === 'Escape') {
       setOpen(false);

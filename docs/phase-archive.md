@@ -812,3 +812,91 @@ Auditor 的 18 项 S 级发现评估如下：
 - 零 P0/P1/P2 发现，仅 3 项 P3 (2 延后 + 1 关闭)
 - 零新依赖、零 Schema 变更、零目录约束违规
 - Phase 1-13 全部完成，项目总计 ~315h
+
+---
+
+## Phase 14 — 工程质量深化 + 体验交付
+
+> 结项日期: 2026-05-07 | 11/11 任务 ✅ | ~33.5h
+
+已在 Phase 14 ship 时归档。
+
+---
+
+## Phase 15 — 产品成熟化
+
+> 结项日期: 2026-05-08 | 6/7 核心完成 + T1504b 延后 | ~19h
+
+### 主题
+
+从"能工巧匠的工具"到"成熟商业产品"。核心三项交付：UI 减重与布局统一、TypeScript `noUncheckedIndexedAccess` 永久启用、组织系统（文件夹/标签/系列）差异化定位。
+
+### 任务总览
+
+| 任务 | 名称 | 工时 | 状态 |
+|------|------|------|------|
+| T1506 | UI 视觉减重 — CSS 变量暗色+亮色全量调整 | 2h | ✅ |
+| T1508 | 内容区布局统一 — 7 页面 max-w-[780px] mx-auto | 1.5h | ✅ |
+| T1502 | strict 收尾 — `noUncheckedIndexedAccess` 47 errors→0 | 4h | ✅ |
+| T1509a | 标签增强 — tags.description + 引用计数 + Tooltip | 1.5h | ✅ |
+| T1509b | 文件夹面包屑 — 全部 › 父 › 子 可点击路径 | 0.5h | ✅ |
+| T1509c | 系列总览 — /series 路由 + blog:getAllSeries IPC | 2.5h | ✅ |
+| T1509d | 系列详情 — /series/:seriesId 按序展示 | 1h | ✅ |
+| T1507 | 剪贴板快捷键 — Ctrl+Shift+M + 设置录制 UI | 2.5h | ✅ |
+| T1505 | 标题栏隐藏 — autoHideMenuBar: true | 1h | ✅ |
+| T1504 | Web 对等基础设施 — multer 上传 + server/uploads/ | 4.5h | ✅ |
+| T1504b | Web Tiptap 编辑器 — 延后 Phase 16 | 3.5h | 📋 |
+
+### Boss 裁决记录
+
+| 编号 | 决策 | 裁决 |
+|------|------|------|
+| D18 | i18n 启动 | C — 不做，中文写作者工具 |
+| D19 | FTS5 方案 | B — Phase 16 直接 Worker |
+| D20 | Web 编辑器边界 | A — 基础编辑 |
+| D21 | Windows 标题栏 | A — 仅隐藏菜单栏 |
+| D22 | tags.description 列 | A — 允许破例 (功能驱动) |
+| D23 | Web 上传存储 | A — server/uploads/{userId}/ |
+| D24 | multer 引入 | A — 引入 (Express 标准中间件) |
+| D25 | Series IPC 设计 | B — 复用 blog:list + 1 通道 |
+| D26 | T1502 影响面 | dry-run → 46 errors → 4h |
+| D27 | T1506 验收标准 | 补 6 条硬性数值标准 |
+
+### 驳回提案
+
+| 提案 | 原因 |
+|------|------|
+| T1501 国际化 8h | D18=C — 无国际化需求 |
+| T1503 FTS5 better-sqlite3 | D19=B — node-gyp 编译风险 |
+| D20=B Web 全功能编辑器 | 维护成本线性增长 |
+| D21=B Windows 无边框 | +3h + 跨平台风险 |
+
+### 架构趋势
+
+| 指标 | Phase 14 | Phase 15 | 变化 |
+|------|----------|----------|------|
+| IPC 通道 | 91 | 91 | 0 (去重后) |
+| renderer `as any` | 0 | 0 | 0 ✅ |
+| `noUncheckedIndexedAccess` | 未启用 | ✅ 启用 | 里程碑 |
+| 新依赖 | 0 | 1 (multer) | +1 |
+| Schema 列变更 | 0 | 1 (tags.description) | +1 |
+| 新路由 | 0 | 2 (/series, /series/:seriesId) | +2 |
+
+### 审计与修复
+
+- Auditor 审查: 六维度 9.2/10
+- R106 - IPC 通道重复 (P2) → 删除 BLOG_GET_ALL_SERIES，IPC 92→91
+- R107 - Web stub 缺口 (P3) → 3 个 series 方法补全 fallback
+- R108 - 非空断言 (P3) → 守卫模式替代 list[0]!
+- R109 - any[] 类型 (P3) → 具名递归接口
+
+### 关键成果
+
+1. **类型安全第二关口** — 继 Phase 14 `as any` 归零后，`noUncheckedIndexedAccess` 永久启用。tsc 零错误。
+2. **组织系统落地** — 文件夹(位置)、标签(主题)、系列(旅程)三者差异化定位清晰。
+3. **Web 平台上路** — multer 文件上传基础设施就位，T1504b Tiptap 编辑器延后 Phase 16 首个任务。
+
+### 遗留
+
+- T1504b: Web Tiptap 编辑器 + 图片粘贴 + 验收边界 (~3.5h) → Phase 16
+- FTS5: Worker 倒排索引 → Phase 16

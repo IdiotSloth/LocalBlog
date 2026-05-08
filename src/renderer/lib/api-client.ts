@@ -48,6 +48,9 @@ const webApi = {
   blogGetHistory: (blogId: number) => request('GET', `/api/blog/${blogId}/history`),
   blogRollback: (data: { blogId: number; draftId: number }) =>
     request('POST', `/api/blog/${data.blogId}/rollback`, data),
+  blogSeriesList: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
+  blogSeriesGet: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
+  blogSeriesSet: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
 
   // Tag
   tagList: () => request('GET', '/api/tags/list'),

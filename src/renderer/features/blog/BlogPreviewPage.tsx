@@ -116,7 +116,7 @@ export function BlogPreviewPage() {
   const tocItems = parseToc(blog.content, blog.format);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
-  const theme = READING_THEMES[readingTheme] || READING_THEMES.paper;
+  const theme = READING_THEMES[readingTheme as keyof typeof READING_THEMES]! ?? READING_THEMES.paper;
 
   const handleThemeChange = (key: string) => {
     setReadingTheme(key);

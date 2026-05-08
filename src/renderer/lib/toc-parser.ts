@@ -19,8 +19,8 @@ export function parseToc(content: string, format: 'md' | 'html'): TocItem[] {
     const headingRe = /^(#{1,3})\s+(.+)$/gm;
     let m: RegExpExecArray | null;
     while ((m = headingRe.exec(content)) !== null) {
-      const level = m[1].length;
-      const text = m[2].replace(/[`*_~\[\]]/g, '').trim();
+      const level = m[1]!.length;
+      const text = m[2]!.replace(/[`*_~\[\]]/g, '').trim();
       items.push({ id: slugify(text), text, level });
     }
   } else {
@@ -28,8 +28,8 @@ export function parseToc(content: string, format: 'md' | 'html'): TocItem[] {
     const headingRe = /<h([1-3])[^>]*>(.+?)<\/h\1>/gi;
     let m: RegExpExecArray | null;
     while ((m = headingRe.exec(content)) !== null) {
-      const level = Number(m[1]);
-      const text = m[2].replace(/<[^>]+>/g, '').trim();
+      const level = Number(m[1]!);
+      const text = m[2]!.replace(/<[^>]+>/g, '').trim();
       items.push({ id: slugify(text), text, level });
     }
   }

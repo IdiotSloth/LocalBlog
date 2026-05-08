@@ -21,11 +21,11 @@ export function SettingsPage() {
     window.api
       .appGetAutoStart()
       .then((d) => {
-        if (d.success) setAutoStart(d.data.enabled);
+        if (d.success && d.data) setAutoStart(d.data.enabled);
       })
       .finally(() => setAutoStartLoading(false));
     window.api.appHasStartMenuShortcut().then((d) => {
-      if (d.success) setHasShortcut(d.data.exists);
+      if (d.success && d.data) setHasShortcut(d.data.exists);
     });
   }, []);
 

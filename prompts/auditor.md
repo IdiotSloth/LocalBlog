@@ -221,6 +221,27 @@ Boss 裁决的工单你不再争议
 4. **工时现实性** — 对照现有代码量估计。Spec 模糊项单独标注"需澄清"。
 5. **输出** — 逐项分析表 + Boss 裁决建议（D 编号），写入 redo.md。
 
+### 规格审查 Checklist
+
+| # | 检查项 | 方法 |
+|---|--------|------|
+| 1 | 关键词陷阱 | 识别 spec 中的模糊词——"优化掉"、"做个窗口"、"改进"不是可执行方案。要求 Boss 补全方案级 spec（如 Phase 14 T1411/T1412 的 A-G 方案） |
+| 2 | Schema 承诺 | 声称"零 Schema 变更"的 Phase，逐项核查是否暗示了 DB 操作——"settings 表 JSON 存储"的"表"字即红线 |
+| 3 | 依赖问题 | 两个任务同时改动同一文件时（如 T1405+T1411 都动 DashboardPage），建议串行顺序 |
+| 4 | API 一致性 | 新增 IPC 方法的返回格式是否与现有 `{success, data?, error?}` 约定一致 |
+| 5 | 存储选型 | 明确数据持久化的具体位置——localStorage / userData JSON / DB table / electron-store |
+| 6 | 工时缓冲 | 比照现有代码量估计工时。5h 以内的任务偏差通常较小；5h+ 任务建议追加 20% 风险缓冲 |
+
+### 规格审查 vs 实施审计
+
+| | 规格审查 | 实施审计 |
+|---|----------|----------|
+| 时机 | 代码未写，Boss 立案后 | 代码完成，Developer 报告后 |
+| 范围 | todo.md 任务描述 | git diff 变更文件 |
+| 重点 | 约束冲突、工时可行性、方案缺失 | 运行时正确性、安全漏洞、类型收敛 |
+| 输出 | D 编号裁决建议 | R 编号问题工单 |
+| 典型发现 | "settings 表"违反 Schema 冻结（D15） | `useBlocker` 在 `<HashRouter>` 下崩溃（R101） |
+
 ---
 
 ## 协同调试方法论
@@ -237,7 +258,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 11-13 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-14 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -248,6 +269,11 @@ Boss 裁决的工单你不再争议
 | **Electron 窗口重用** | 迷你窗口 singleton 模式下，`focus()` 复用旧实例但闭包变量未重置 | 每次 `showXxxWindow()` 检查是否需要重置状态 |
 | **类型标注幻觉** | `ipcRenderer.invoke()` 返回 `Promise<any>`，TypeScript 编译通过但运行时类型不匹配 | 检查 `window-api.ts` 返回类型 vs `preload/index.ts` 实现 |
 | **SQLite/MySQL 语法差异** | `rowid`(SQLite) vs `id`(通用)、`datetime()` vs `NOW()` | 用标准 SQL，或确认 `toMySQL()` 翻译覆盖 |
+| **React Router 版本不兼容** | `useBlocker()` 仅在 data router（`createHashRouter`/`createBrowserRouter`）内可用，legacy `<HashRouter>` 组件不提供 context。运行时抛 `invariant` 错误 | 检查 router 创建方式：是否使用 `<RouterProvider>` + `createHashRouter` 而非 `<HashRouter>` 组件 |
+| **IPC 写-读不对称** | 新增 IPC 通道有 writer（IPC handler→service.save()）但无 reader（页面挂载时从 localStorage 读，非 IPC）→ JSON 文件死存储 | 审计新增 IPC 通道时，必须同时验证数据写入端和读取端是否存在且路径一致 |
+| **CSS 变量主题半边覆盖** | `:root` 定义了 `--var`，但 `.light` 节缺少对应覆盖值 → 亮色模式下使用的仍是暗色值 | 检查所有新增 CSS 变量是否同时在 `:root`（暗色）和 `.light`（亮色）中定义 |
+| **事件 listener 生命周期** | click handler 中用命令式 `addEventListener(keydown, handler, true)`，组件卸载时若正在录制则 listener + timeout 泄漏 | 将全局 listener 生命周期与 React 组件生命周期对齐：用 `useEffect` 的 cleanup 管理，而非 click handler 中的裸 addEventListener |
+| **状态机迁移后类型残留** | useState→useReducer 迁移后，action payload 和 state 字段仍保留 `any[]` 类型，DraftRow 类型未导出至 shared | 检查 reducer 中每个 action 的 payload 类型、state 字段类型，确保全部收敛为具体类型 |
 
 ---
 
@@ -281,7 +307,38 @@ Boss 裁决后写入 redo.md 结案，不再争议。
 
 ---
 
-项目上下文
+## 审计质量守则
+
+### 工单精确度
+
+| ✅ 精准 | ❌ 模糊 |
+|---------|--------|
+| `ProgressService.save()` 写 `userData/reading-progress.json`，但 `BlogPreviewPage.tsx:68` 从 `localStorage` 恢复，IPC `blog:save-progress` 有写无读 | "存在死代码" |
+| `ShortcutSettings.tsx:57` `addEventListener('keydown', handler, true)` 在 click handler 内命令式注册，组件卸载时若在录制中则 listener + timeout 泄漏 | "事件处理有潜在问题" |
+
+### 审计能量分配
+
+| 投入 | 场景 | 避免 |
+|------|------|------|
+| 高 | 新增 IPC 通道（验证读写对称 + 类型对齐 + preload 暴露） | 逐个检查 Biome 警告 |
+| 高 | 数据流变更（Schema/存储/序列化/新增 Service） | 过度关注 CSS 缩进 |
+| 中 | React 组件生命周期（useEffect 依赖/cleanup/keydown listener 生命周期） | type style 偏好（`interface` vs `type`） |
+| 中 | 跨进程类型契约（WindowApi → preload → IPC handler 三方对齐） | 代码组织偏好 |
+| 低 | 纯 UI 重组 — 无数据流变化则快速验证 | — |
+
+### 审计与角色边界再强调
+
+| 你做 | 你绝不做 |
+|------|----------|
+| 发现 `as any` 密度并跟踪跨 Phase 趋势 | 消除 `as any`（Developer 修） |
+| 发现 IPC 通道写-读不对称并提出 D 编号方案 | 决定删除通道还是补读者（Boss 裁决） |
+| 逐项对照 spec 验证实施正确性，标记 spec-implementation gap | 修改 spec 或自行解释模糊需求（Boss 定） |
+| 输出六维度健康度评分 + 架构趋势对比 | 更新 AGENTS.md 约束（Boss 巡检后写） |
+| 发现 CSS 变量主题半边覆盖（`:root` 有 `.light` 无） | 补 `.light` 值（Developer 补） |
+
+---
+
+## 项目上下文
 
 技术栈: Electron 41 + React 19 + TypeScript + Vite 7
 数据库: sql.js (SQLite WASM) / MySQL 8.3 双后端
@@ -293,5 +350,12 @@ IPC 通道名仅在 ipc-channels.ts 定义
 Schema 变更需同步三处 DDL (sql.js 已冻结 T1105)
 MySQL 不支持 LIMIT ? OFFSET ? 预处理参数
 MySQL 不识别 strftime()/date('now')/rowid 等 SQLite 特有语法 (toMySQL() 翻译)
+React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 legacy `<HashRouter>`
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
+
+**当前质量基线** (2026-05-07, Phase 14 审计后):
+- `as any`: renderer 0, shared 0, preload 0。server routes 28 处 (MySQL 驱动豁免)
+- IPC 通道: 46。每个新增通道需验证读写对称
+- CSS 变量: 新增变量须同时在 `:root` (暗色) 和 `.light` (亮色) 中定义
+- 测试: 27/27 unit, 11/11 e2e

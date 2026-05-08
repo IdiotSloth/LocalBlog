@@ -157,6 +157,7 @@ const MYSQL_DDL = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS tags (
     id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL,
+    description TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS folders (
@@ -235,6 +236,7 @@ const MYSQL_MIGRATIONS = [
   "ALTER TABLE knowledge_files ADD COLUMN folder_id INT DEFAULT NULL",
   "ALTER TABLE knowledge_files ADD COLUMN content_text LONGTEXT",
   "ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
+  "ALTER TABLE tags ADD COLUMN description TEXT",
   "ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL"
 ];
 let pool = null;
@@ -331,7 +333,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL
+  name TEXT NOT NULL,
+  description TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS blogs (
@@ -493,6 +496,10 @@ async function initDatabase() {
   }
   try {
     sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''");
   } catch {
   }
   try {
@@ -2048,7 +2055,7 @@ function registerPetIpc() {
   electron.ipcMain.on("pet:startDrag", () => {
     if (!petWin || petWin.isDestroyed()) return;
     const cursor = electron.screen.getCursorScreenPoint();
-    const [wx, wy] = petWin.getPosition();
+    const [wx = 0, wy = 0] = petWin.getPosition();
     dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
     isDragging = true;
     const dragLoop = () => {
@@ -2214,7 +2221,7 @@ async function getSharedBlogList(dbAll2, dbGet2, filters) {
 class TagService {
   static async listTags(userId) {
     return dbAll(
-      `SELECT t.id, t.user_id, t.name,
+      `SELECT t.id, t.user_id, t.name, t.description,
         (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) +
         (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as count
        FROM tags t WHERE t.user_id = ? ORDER BY t.name ASC`,
@@ -2231,10 +2238,14 @@ class TagService {
     if (!row) throw new Error("创建标签失败");
     return row;
   }
-  static async updateTag(tagId, name) {
+  static async updateTag(tagId, name, description) {
     const t = name.trim();
     if (!t) throw new Error("标签名不能为空");
-    await dbRun("UPDATE tags SET name = ? WHERE id = ?", [t, tagId]);
+    if (description !== void 0) {
+      await dbRun("UPDATE tags SET name = ?, description = ? WHERE id = ?", [t, description, tagId]);
+    } else {
+      await dbRun("UPDATE tags SET name = ? WHERE id = ?", [t, tagId]);
+    }
   }
   static async deleteTag(tagId) {
     await dbRun("DELETE FROM tags WHERE id = ?", [tagId]);
@@ -2365,10 +2376,10 @@ class BlogService {
       const filename = path.basename(filePath, ext);
       let title = filename;
       const fmMatch = content.match(/^---\s*\ntitle:\s*(.+)\s*\n---/);
-      if (fmMatch) title = fmMatch[1].trim();
+      if (fmMatch?.[1]) title = fmMatch[1].trim();
       else {
         const h1Match = content.match(/^#\s+(.+)/m);
-        if (h1Match) title = h1Match[1].trim();
+        if (h1Match?.[1]) title = h1Match[1].trim();
       }
       const format = ext === ".html" ? "html" : "md";
       const blog = await BlogService.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
@@ -2780,6 +2791,10 @@ function registerBlogHandlers() {
       let i = 0;
       while (i < lines.length) {
         const line = lines[i];
+        if (line === void 0) {
+          i++;
+          continue;
+        }
         if (line.startsWith("# ") && !line.startsWith("## ")) {
           children.push(
             new Paragraph({
@@ -2807,7 +2822,7 @@ function registerBlogHandlers() {
         } else if (line.startsWith("```")) {
           const codeLines = [];
           i++;
-          while (i < lines.length && !lines[i].startsWith("```")) {
+          while (i < lines.length && lines[i] && !lines[i].startsWith("```")) {
             codeLines.push(lines[i]);
             i++;
           }
@@ -4080,7 +4095,7 @@ function registerTagHandlers() {
   });
   electron.ipcMain.handle(IPC.TAG_UPDATE, async (_event, data) => {
     try {
-      await TagService.updateTag(data.tagId, data.name);
+      await TagService.updateTag(data.tagId, data.name, data.description);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -4187,6 +4202,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false
     },
+    autoHideMenuBar: true,
     webviewTag: true,
     show: false
   });
@@ -4245,6 +4261,9 @@ electron.app.whenReady().then(async () => {
   }, 5 * 60 * 1e3);
   electron.globalShortcut.register("CommandOrControl+Shift+N", () => {
     showMdFloatWindow();
+  });
+  electron.globalShortcut.register("CommandOrControl+Shift+M", () => {
+    handleClipboardNote();
   });
   const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
   const shortcutPath = path.join(shortcutDir, "Idiot.lnk");

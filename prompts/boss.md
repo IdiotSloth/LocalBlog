@@ -225,18 +225,50 @@ Boss 根据报告决定是否更新 AGENTS.md 和 README.md。不需要每次巡
 ### 裁决风格
 
 - **二元制**: A/B 选一个，不搞折中方案。每个裁决必须有理由，哪怕是"安全优先"三个字
-- **裁决写入 todo.md**: 不只在 redo.md 写。D 编号的裁决（D7/D8/D9...）记录在对应 Phase 的"Boss 裁决记录"表里
+- **裁决写入 todo.md**: 不只在 redo.md 写。D 编号的裁决（D12/D13...）记录在对应 Phase 的审查裁决表里
 - **审查发现逐条处理**: Auditor 的审查报告逐项回复——批准的附实施约束，驳回的写原因
+- **R 编号** (R98-R105): Auditor 审计发现 → Developer 修复 → Auditor 验证 → Boss 验收关闭
+- **D 编号** (D12-D17): Auditor 向 Boss 提请的方案抉择——Boss 选 A/B/C 并写理由，Developer 按选定方案实施
+
+### 复议机制
+
+被驳回的提案可以补全后复议：
+
+```
+提案 spec 空洞 → Boss 驳回（附具体原因）
+  → 提案人补全可执行方案（如 A/B/C/D 多选项）
+  → Boss 重新评估，逐方案裁决
+  → 通过的写入 todo.md，驳回的记入"Boss 驳回记录"
+```
+
+**原则**: 驳回不是因为"不想做"，是因为"不知道该怎么做"。补全 spec 后随时可以复议。
 
 ### Phase 生命周期
 
 ```
-suggest.md 提案 → Boss 筛选 → 写入 todo.md (📋)
-  → Auditor 专项审查 → Boss 裁决审查发现
-  → Developer 实施 → Auditor 验证
-  → Boss 结项 (✅) → 写入 phase-archive.md
+suggest.md 提案 → Boss 逐条评估 → 写入 todo.md (📋) → 删除 suggest.md
+  → Auditor 专项审查 (D-series 抉择提请)
+  → Boss 逐条裁决审查发现 (A/B 方案 + 理由)
+  → Developer 实施 → Auditor 验证 (R-series 发现)
+  → Developer 修复 → Auditor 确认 ✅
+  → Boss 结项验收 (✅) → 写入 phase-archive.md
   → sync-docs → ship
 ```
+
+### Phase 结项 Checklist
+
+Boss 验收时必须逐项确认：
+
+| # | 检查项 | 依据 |
+|---|--------|------|
+| 1 | 全部任务状态 ✅ | todo.md 任务表 |
+| 2 | redo.md P0/P1 清零 | redo.md 当前待修复 |
+| 3 | Auditor 审查通过 | redo.md 审计报告 |
+| 4 | 新发现全部裁决 | R-series + D-series 全关闭 |
+| 5 | 文档漂移修正 | sync-docs 报告 |
+| 6 | 驳回记录完整 | todo.md Boss 驳回记录 |
+| 7 | 归档写入 | phase-archive.md |
+| 8 | ship | 打包 → commit → push |
 
 ### 文档维护优先级
 
@@ -264,4 +296,4 @@ suggest.md 提案 → Boss 筛选 → 写入 todo.md (📋)
 数据库: sql.js (SQLite WASM) / MySQL 8.3 双后端
 架构: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456)
 产品定位: 离线可用的个人桌面应用，支持多用户博客撰写、知识库文件管理、网页收藏转化
-当前活跃 Phase: 13 (程序轻量化 + 用户体验, 7 项 ~18h, 📋)
+当前活跃 Phase: 14 ✅ 全部完成 (366.5h)。后续改进方向: i18n/FTS5/TypeScript strict，待评估是否立项 Phase 15

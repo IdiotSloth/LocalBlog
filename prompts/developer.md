@@ -116,8 +116,10 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | # | 问题 | 修复 | 文件 |
 |---|------|------|------|
 | Rxx | 一句话 | 一句话 | path:line |
-构建: ✅/❌ | 测试: 27/27 pass
+构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 27/27 pass
 ```
+
+Phase 级别任务完成后输出全量报告，带文件清单和模块统计。
 
 ---
 
@@ -173,3 +175,11 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - inline style 可以接受（项目约定），但颜色值必须走 CSS token
 - IPC handler 返回 Promise 时必须 `await`，否则 renderer 收到 Promise 对象
 - 修改 shared types 后两边 build 都需通过
+- `useBlocker` 必须在 data router 上下文中 → 用 `createHashRouter` 不能用 `<HashRouter>`
+- IPC 写路径必须有对应的读路径 → 避免 JSON 文件死存储
+- `React.lazy` 默认导入组件 → 命名导出需 `.then(m => ({ default: m.Xxx }))`
+- `inlineDynamicImports: true` 会阻止 Web Worker chunk 生成 → 用 setTimeout yield 替代
+- 存储新数据 → 优先 file-based JSON（`posFile()` 模式），**禁止**新增 DB 表（T1105 冻结）
+- 文件写入 → 先写 `.tmp` 再 `renameSync`，防止 crash 损坏原文件
+- Dashboard tab 状态 → 用 `useSearchParams`(URL 持久) 不用 local useState
+- 删除代码 → 同步清理所有引用点（IPC channel/WindowApi/preload/api-client），否则残留死代码

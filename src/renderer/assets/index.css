@@ -2,11 +2,12 @@
 
 /* ===== STYLE.md Color Tokens — Dark Mode (warm-tinted base) ===== */
 :root {
-  --bg-primary: #0f1317;
-  --bg-secondary: #181c22;
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-sidebar: #10141a;
   --bg-tertiary: #1e2433;
   --bg-code: #1a1f2b;
-  --border-default: #30363d;
+  --border-default: #2d333b;
   --border-emphasis: #484f58;
   --text-primary: #c9d1d9;
   --text-secondary: #8b949e;
@@ -41,9 +42,9 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.15);
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.3);
 
   /* Animation */
   --duration-fast: 0.15s;
@@ -63,10 +64,11 @@
 /* Light mode override */
 .light {
   --bg-primary: #fffcf8;
-  --bg-secondary: #f8f5f0;
+  --bg-secondary: #f6f2ec;
+  --bg-sidebar: #f5f2ed;
   --bg-tertiary: #edeae5;
   --bg-code: #f6f8fa;
-  --border-default: #d0d7de;
+  --border-default: #d4d9df;
   --border-emphasis: #8c959f;
   --text-primary: #24292f;
   --text-secondary: #57606a;
@@ -76,6 +78,7 @@
   --accent-amber: #9a6700;
   --accent-red: #cf222e;
   --text-on-accent: #ffffff;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
   --heatmap-0: var(--bg-tertiary);
   --heatmap-1: #9be9a8;
   --heatmap-2: #40c463;
@@ -90,7 +93,7 @@
   --color-primary-dark: #4090e0;
   --color-bg-base: var(--bg-primary);
   --color-bg-card: var(--bg-secondary);
-  --color-bg-sidebar: var(--bg-secondary);
+  --color-bg-sidebar: var(--bg-sidebar);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-placeholder);
@@ -165,9 +168,9 @@ h3 {
   color: var(--text-primary);
 }
 h4 {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.5;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
@@ -269,7 +272,7 @@ h4 {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: 13px;
-  padding: 4px 12px;
+  padding: 3px 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
   cursor: pointer;

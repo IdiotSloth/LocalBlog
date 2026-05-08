@@ -19,9 +19,9 @@ export function registerTagHandlers(): void {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.TAG_UPDATE, async (_event, data: { tagId: number; name: string }) => {
+  ipcMain.handle(IPC.TAG_UPDATE, async (_event, data: { tagId: number; name: string; description?: string }) => {
     try {
-      await TagService.updateTag(data.tagId, data.name);
+      await TagService.updateTag(data.tagId, data.name, data.description);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

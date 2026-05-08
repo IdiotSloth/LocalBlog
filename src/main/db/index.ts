@@ -97,6 +97,12 @@ export async function initDatabase(): Promise<void> {
   } catch {
     /* column already exists */
   }
+  // T1509a: tags.description column for tag descriptions (Phase 15)
+  try {
+    sqlJsDb.run("ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''");
+  } catch {
+    /* column already exists */
+  }
   // T12S1: notes table for standalone sticky notes (Phase 12 supplement)
   try {
     sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes (
@@ -357,8 +363,8 @@ function sqlJsQuery(db: SqlJsDatabase, sql: string): Record<string, unknown>[] {
 export function lastInsertRowId(): number {
   if (!sqlJsDb) return 0;
   const result = sqlJsDb.exec('SELECT last_insert_rowid() as id');
-  if (result.length > 0 && result[0].values.length > 0) {
-    return result[0].values[0][0] as number;
+  if (result.length > 0 && (result[0]?.values?.length ?? 0) > 0) {
+    return result[0]!.values![0]![0] as number;
   }
   return 0;
 }

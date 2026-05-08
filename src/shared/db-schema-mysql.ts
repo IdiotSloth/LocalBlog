@@ -8,6 +8,7 @@ export const MYSQL_DDL = [
 
   `CREATE TABLE IF NOT EXISTS tags (
     id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL,
+    description TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -98,5 +99,6 @@ export const MYSQL_MIGRATIONS = [
   'ALTER TABLE knowledge_files ADD COLUMN folder_id INT DEFAULT NULL',
   'ALTER TABLE knowledge_files ADD COLUMN content_text LONGTEXT',
   'ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
+  'ALTER TABLE tags ADD COLUMN description TEXT',
   'ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
 ];

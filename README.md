@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-14 ✅ | renderer `as any`: 0
+构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-15 ✅ | `as any`: 0 | strict ✅
 
 ---
 
@@ -113,7 +113,7 @@ src/
 
 ---
 
-## 分阶段实施 (14 Phase, ~366.5h)
+## 分阶段实施 (15 Phase, ~385.5h)
 
 | Phase | 范围 | 工时 | 状态 |
 |-------|------|------|------|
@@ -131,6 +131,7 @@ src/
 | 12 | 缺陷修复 + E2E 兜底 + 体验收尾 — PDF/编辑器/浮窗/E2E/图标/快捷键/Toast/指南/便签 | 22h | ✅ |
 | 13 | 程序轻量化 + 用户体验 — 隐藏唤醒/宠物rAF/乐观更新/柔性关闭/一键备份/侧栏折叠/续写视图 | 18h | ✅ |
 | 14 | 工程质量深化 + 体验交付 — 状态机/类型收敛/IPC文档/UI重组/快捷键/迷你窗/剪贴板/阅读进度/成就/文件预览 | 33.5h | ✅ |
+| 15 | 产品成熟化 — UI减重/布局统一/strict全覆盖/组织差异化/Web对等/剪贴板键/界面去杂 | ~19h | ✅ |
 
 ---
 
@@ -154,7 +155,7 @@ src/
 - [STYLE.md](STYLE.md) — 设计系统规范
 - [todo.md](todo.md) — 当前待办与 Phase 状态
 - [redo.md](redo.md) — 技术债与修复清单
-- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-14 详细任务规格
+- [docs/phase-archive.md](docs/phase-archive.md) — Phase 1-15 详细任务规格
 - [docs/development-guide.md](docs/development-guide.md) — 测试策略、工作流程图
 
 ## License

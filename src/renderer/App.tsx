@@ -32,6 +32,12 @@ const NoteListPage = lazy(() => import('./features/notes/NoteListPage').then((m)
 const ContinueWritingPage = lazy(() =>
   import('./features/dashboard/ContinueWritingPage').then((m) => ({ default: m.ContinueWritingPage })),
 );
+const SeriesListPage = lazy(() =>
+  import('./features/series/SeriesListPage').then((m) => ({ default: m.SeriesListPage })),
+);
+const SeriesDetailPage = lazy(() =>
+  import('./features/series/SeriesDetailPage').then((m) => ({ default: m.SeriesDetailPage })),
+);
 
 function PageSkeleton() {
   return (
@@ -94,6 +100,8 @@ const router = createHashRouter([
           { path: '/recycle', element: lazyPage(RecycleBinPage) },
           { path: '/settings', element: lazyPage(SettingsPage) },
           { path: '/notes', element: lazyPage(NoteListPage) },
+          { path: '/series', element: lazyPage(SeriesListPage) },
+          { path: '/series/:seriesId', element: lazyPage(SeriesDetailPage) },
           { path: '/guide', element: lazyPage(GuidePage) },
         ],
       },

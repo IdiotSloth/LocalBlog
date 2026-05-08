@@ -76,7 +76,7 @@ export function Heatmap({ userId }: Props) {
   let lastMonth = -1;
   weeks.forEach((w, i) => {
     if (w.length > 0) {
-      const m = new Date(w[0].date).getMonth();
+      const m = new Date(w[0]!.date).getMonth();
       if (m !== lastMonth) {
         monthLabels.push({ label: MONTHS[m], col: i });
         lastMonth = m;
@@ -103,7 +103,7 @@ export function Heatmap({ userId }: Props) {
 
     for (let wi = 0; wi < weeks.length; wi++) {
       for (let di = 0; di < 7; di++) {
-        const cell = weeks[wi].find((c) => c.dayOfWeek === di);
+        const cell = weeks[wi]?.find((c) => c.dayOfWeek === di);
         if (!cell) continue;
         const x = wi * CELL_STEP;
         const y = di * CELL_STEP;
@@ -163,7 +163,7 @@ export function Heatmap({ userId }: Props) {
               className="text-[10px]"
               style={{
                 color: 'var(--text-secondary)',
-                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * CELL_STEP}px`,
+                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1]!.col : weeks.length).length * CELL_STEP}px`,
                 minWidth: 28,
                 textAlign: 'left',
               }}

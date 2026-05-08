@@ -1,6 +1,6 @@
 # 本地博客与知识库存储系统 — 待办事项
 
-> 最后更新: 2026-05-07 04:48:23 | 自动同步
+> 最后更新: 2026-05-08 03:12:51 | 自动同步
 
 ---
 
@@ -22,7 +22,7 @@
 | 文档 | 用途 |
 |------|------|
 | [redo.md](redo.md) | 技术债与修复清单 |
-| [docs/phase-archive.md](docs/phase-archive.md) | Phase 1-12 完整任务规格（历史档案） |
+| [docs/phase-archive.md](docs/phase-archive.md) | Phase 1-14 完整任务规格（历史档案） |
 | [docs/development-guide.md](docs/development-guide.md) | 测试策略、工作流程图、文件清单 |
 
 ### 角色权限
@@ -53,8 +53,9 @@
 | Phase 12 | 缺陷修复 + E2E 兜底 + 体验收尾 | 22h | 2026-05-06 | ✅ |
 | Phase 13 | 程序轻量化 + 用户体验 — 隐藏唤醒/宠物CSS化/乐观更新/柔和服务/续写视图 | 18h | 2026-05-07 | ✅ |
 | Phase 14 | 工程质量深化 + 体验交付 — 状态机/类型收敛/IPC文档/UI重组/快捷键/迷你窗/剪贴板/阅读进度/成就/文件预览 | 33.5h | 2026-05-07 | ✅ |
+| Phase 15 | 产品成熟化 — i18n 否决 / FTS5 后移 / 7 项核心完成 (T1504b 延后 Phase 16) | ~19h | 2026-05-08 | ✅ |
 
-**总计**: ~366.5h (Phase 1-14)
+**总计**: ~385.5h (Phase 1-15)
 
 > 详细任务规格 (T101-T1007, F601-F605) 见 [docs/phase-archive.md](docs/phase-archive.md)。
 
@@ -86,14 +87,12 @@
 
 ## 4. 后续改进方向
 
-以下暂不立项，待 Phase 14 完成后评估：
-
 | # | 方向 | 优先级 | 说明 |
 |---|------|--------|------|
-| 1 | 国际化 i18n | 🟡 P2 | 中英文翻译，react-i18next |
-| 2 | FTS5 全文搜索 | 🟢 P3 | MySQL FULLTEXT (ngram)，sql.js 降级 LIKE |
-| 3 | TypeScript strict 模式 | 🟢 P3 | 需较大改动 |
-| 4 | API 文档 | 🟢 P3 | IPC 通道文档、DB Schema 文档 |
+| 1 | FTS5 全文搜索 | 🟢 P3 | Phase 16 独立实施，Worker 倒排索引方案 |
+| 2 | 国际化 i18n | ❌ 否决 | D18=C — 中文写作者工具，不做 |
+| 3 | API 文档 | 🟢 P3 | IPC 通道文档持续迭代 (T1404 已生成) |
+| 4 | T1509 嵌套文件夹 + 标签关联面板 | 🟢 P3 | 组织系统深化，Phase 16 候选 |
 
 ---
 
@@ -351,7 +350,146 @@ T1405 (设置页分区) → T1407 (快捷键 UI) → T1408 (剪贴板键注册)
 
 ---
 
-## 8. 代码质量基线
+## 8. Phase 15 — 产品成熟化 📋
+
+> 来源: suggest.md (Boss 逐条评估)。核心命题: 从"能工巧匠的工具"到"成熟商业产品"。
+> i18n 明确否决 (D18=C)，FTS5 后移 Phase 16 (D19=B)，strict 缩容(已激活)。
+
+### 任务总览
+
+| 任务 | 名称 | 类型 | 估算 | 优先级 | 状态 |
+|------|------|------|------|--------|------|
+| T1506 | UI 视觉减重 — 暗色/亮色 CSS 变量微调，侧栏图标/标签/卡片标题收紧 | UI | 2h | 🟡 P2 | ✅ |
+| T1508 | 内容区布局统一化 — 4 页面 max-w-[780px] mx-auto | UI | 1.5h | 🟡 P2 | ✅ |
+| T1502 | TypeScript strict 收尾 — `noUncheckedIndexedAccess` 47 errors→0，strict 全覆盖 | 工程 | 4h | 🟡 P2 | ✅ |
+| T1509 | 组织系统差异化 — a-d 全部完成，IPC 回稳 91，/series + /series/:id 路由 | 产品 | 5.5h | 🟡 P2 | ✅ |
+| T1504 | Web 版功能对等 — multer 上传 + server/uploads/{userId} + LoginPage 声明完成 | 平台 | 4.5h | 🟡 P2 | ✅ |
+| T1504b | Web Tiptap 编辑器 + 图片粘贴 + 验收 | 平台 | 3.5h | 🟡 P2 | 📋 |
+| T1507 | 剪贴板到便签全局快捷键 — Ctrl+Shift+M + handleClipboardNote (pet.ts) | 功能 | 2.5h | 🟢 P3 | ✅ |
+| T1505 | 标题栏与菜单栏移除 — autoHideMenuBar: true | UI | 1h | 🟢 P3 | ✅ |
+
+**✅ 完成 (6 项 + 1 半)**: T1506 / T1508 / T1502 / T1509a-d / T1507 / T1505 / T1504 (基础设施)
+**📋 延后**: T1504b — Web Tiptap 编辑器 ~3.5h → Phase 16
+**总计**: Phase 15 核心交付 ~19h，审计评分 9.2/10
+
+### 依赖链
+
+```
+T1506 (视觉基线) → T1508 (布局统一，在新视觉上调试)
+T1407 (ShortcutService, Phase 14 ✅) → T1507 (剪贴板快捷键)
+其余任务无硬依赖，可独立推进
+```
+
+### 建议实施顺序
+
+**Phase 15A** — 基础 (~5.5h): T1506 视觉减重 → T1508 布局统一 → T1502 strict 收尾（末尾串行执行，避免合并冲突）
+**Phase 15B** — 功能 (~17h): T1509 组织差异化 → T1504 Web 对等 → T1507 剪贴板键 → T1505 界面去杂
+
+先定视觉基线，再做文本/类型适配，最后功能交付。
+
+### Boss 裁决记录
+
+| 编号 | 决策点 | 裁决 | 理由 |
+|------|--------|------|------|
+| **D18** | 是否启动 i18n | **C — 不做，保持全中文** | 本地桌面工具，中文写作者主力用户。8h + 永久双语维护承诺，ROI 近零 |
+| **D19** | FTS5 方案选择 | **B — Phase 16 直接 Worker** | 规避 better-sqlite3 node-gyp 编译风险。当前数据量下 LIKE 足够 |
+| **D20** | Web 编辑器边界 | **A — 基础编辑** | 加粗/标题/列表/图片粘贴。Web 是补充不是替代，全功能对齐边际收益递减 |
+| **D21** | Windows 标题栏 | **A — 仅隐藏菜单栏** | `autoHideMenuBar:true` 零成本。`frame:false` 需自定义窗口控件 +3h，不做 |
+| **D22** | tags.description 列 | **A — 允许破例** | 功能驱动的合理单列变更。三处 DDL 同步 + ALTER TABLE 迁移。T1105 冻结不适用于此 |
+| **D23** | Web 文件上传存储位置 | **A — 服务器磁盘** | Base64 编码膨胀 33%，20MB→26MB DB 不可接受。`server/uploads/{userId}/` 子目录隔离多用户 |
+| **D24** | 是否引入 multer | **A — 引入 multer** | Express 生态事实标准，不是重量级 UI 库。Phase 15 原则明确"允许引入经评估的依赖" |
+| **D25** | Series 数据通道设计 | **B — 复用 blog:list + 1 新 IPC** | Series 非独立实体（无 series 表），不值得建 SeriesService + 2 IPC。`blog:getAllSeries` 1 个聚合通道覆盖列表+详情 |
+
+### T1502 前置条件 — noUncheckedIndexedAccess dry-run
+
+Developer 启动 T1502 前必须先执行影响面评估：
+
+```bash
+# 在两个 tsconfig 中临时加 "noUncheckedIndexedAccess": true，统计错误数
+npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep "error TS" | wc -l
+npx tsc -p tsconfig.web.json --noEmit 2>&1 | grep "error TS" | wc -l
+```
+
+| 错误数 | 工时 | 策略 |
+|--------|------|------|
+| <20 | 2h 保持 | 逐个修复 |
+| 20-50 | 4h | 纳入风险缓冲，Boss 确认后继续 |
+| 50+ | 拆分独立 Phase | 降级为仅加 `@ts-expect-error` suppressor，不逐个修复 |
+
+T1502 必须在 Phase 15A 末尾串行执行（T1506→T1508→T1502），避免触碰其他任务涉及的同批文件造成合并冲突。
+
+### T1506 验收标准 (D27)
+
+以下 6 条为硬性验收，Developer 完成后逐条自检：
+
+1. 暗色模式 `--shadow-card` 从 `0 2px 8px rgba(0,0,0,0.25)` → `0 1px 4px rgba(0,0,0,0.15)`
+2. 亮色模式 `--shadow-card` 从 `0 2px 8px rgba(0,0,0,0.25)` → `0 1px 3px rgba(0,0,0,0.06)`
+3. 侧栏导航图标 `font-size` 从 20px → 18px
+4. 卡片标题 `font-size` 从 16px → 15px，`font-weight` 从 600 → 500
+5. 标签/Tab padding 收紧：`4px 10px` → `3px 8px`
+6. 暗色/亮色 `--bg-secondary`、`--border-default`、`--bg-primary` 按 suggest.md §T1506 调整表执行；侧栏背景独立于 `--bg-primary` 设为 `#10141A`（暗）/ `#F5F2ED`（亮），形成微妙分区
+
+### T1504 实施细节 (D23/D24 裁决后补全)
+
+| 子任务 | 内容 | 工时 |
+|--------|------|------|
+| 编辑器移植 | Tiptap 轻量版（加粗/标题/列表/图片粘贴），localStorage 存草稿 | 2h |
+| 文件上传 | multer + `server/uploads/{userId}/` + 复用 knowledge 导入逻辑 | 2.5h |
+| 图片粘贴 | Tiptap 中 paste 图片 → base64 inline（与桌面端一致），不经过服务器 | 0.5h |
+| 功能裁剪声明 | Web `/guide` 页 + 登录页静态标注不支持的功能（便签/托盘/宠物/快捷键/MVF）。Server 不返回 capability 列表（过度工程） | 1h |
+| 路由与认证 | multer 路由 + CORS 调整 + JWT Cookie 验证 | 1h |
+| 验收与边界 | 大文件前端 10MB 限制 + 服务器磁盘空间告警 | 1h |
+
+**新依赖**: `multer`（Express 文件上传标准中间件，`npm install multer @types/multer`）
+
+### T1508 涉及页面清单
+
+以下页面统一 `max-width: 780px + mx-auto`：
+
+| 页面 | 文件 | 备注 |
+|------|------|------|
+| 博客列表 | BlogListPage | 当前左偏 |
+| 知识库列表 | KnowledgeListPage | 当前左偏 |
+| 便签列表 | NoteListPage | 当前右偏 |
+| 标签管理 | TagManagePage | 当前右偏 |
+| 使用指南 | GuidePage | 当前右偏 |
+| 系列总览 | `/series` (新建) | 新页面直接采用 |
+| 回收站 | RecycleBinPage | 当前左偏 |
+
+**不在此列**: 仪表盘（已居中✅）、设置页（已居中✅）、编辑器（全宽，blog 编辑页不适用）、登录/注册（居中✅）
+
+### T1509 子任务详情 (D25 裁决后更新)
+
+| 子任务 | 内容 | 工时 |
+|--------|------|------|
+| T1509a | **标签增强** — `tags` 表新增 `description TEXT`，管理页悬浮 Tooltip + 引用计数。**Server**: GET /api/tags 追加 `t.description`；POST /api/tags/:id/update 支持 description 更新 | 1.5h |
+| T1509b | **文件夹面包屑** — 知识库顶部 `全部 > 读书笔记 > 2024`，点击跳转 | 0.5h |
+| T1509c | **系列总览** — 新增 `/series` 路由 + 侧栏"洞察"组入口。`blog:getAllSeries` IPC（1 个新通道，聚合 GROUP BY seriesId）→ 卡片展示所有系列（标题/篇数/时间） | 2.5h |
+| T1509d | **系列详情** — `/series/:id`：复用 `blog:list({seriesId})` 按序展示系列内博客 | 1h |
+
+**IPC 变更**: 新增 1 个通道 `blog:getAllSeries`（D25=B，避免过度设计 SeriesService），IPC 总数 91→92。
+
+### Boss 驳回记录
+
+| 提案 | 原因 |
+|------|------|
+| T1501 国际化 (i18n) — 8h | D18=C: 中文写作者工具，无国际化需求。永久双语维护承诺不值得 |
+| T1501 pre-bury 方案 (D18=B) | 同样驳回——预埋框架也是成本（react-i18next 依赖 + 语言检测 + 文件结构），零用户收益 |
+| T1503 FTS5 better-sqlite3 方案 (D19=A) | node-gyp 在 Windows + Electron 41 编译风险过高。直接 Worker 方案 |
+| D20=B (Web 全功能编辑器) | 6h→9h，维护成本线性增长，Web 用户不需要 Tiptap 全部扩展 |
+| D21=B (Windows 无边框窗口) | +3h + 跨平台兼容风险 + 自定义窗口控件维护负担 |
+
+### T1509a Schema 变更
+
+```sql
+ALTER TABLE tags ADD COLUMN description TEXT DEFAULT '';
+```
+
+**约束**: 三处 DDL 必须同步 (`schema.ts` + `mysql.ts` + `db.ts`) + `migrateDatabase()` 中 ALTER TABLE 迁移。这是 Phase 15 唯一的 Schema 变更。
+
+---
+
+## 9. 代码质量基线
 
 | 子任务 | 内容 | 工时 |
 |--------|------|------|
@@ -364,13 +502,14 @@ T1405 (设置页分区) → T1407 (快捷键 UI) → T1408 (剪贴板键注册)
 
 ---
 
-## 8. 代码质量基线
+## 10. 代码质量基线
 
 | 指标 | 当前状态 | 目标 |
 |------|----------|------|
 | Biome lint errors | 55 (T1107 ⏭) | 维持不恶化 |
 | TypeScript 编译 | ✅ 通过 | — |
+| `strict` 模式 | ✅ 已激活 (node + web) | `noUncheckedIndexedAccess` (Phase 15) |
 | 单元测试 | 27/27 pass (3 files) | 维持 |
-| `any` 类型 | preload 已消除 | renderer 逐步收敛 |
+| `any` 类型 | renderer `as any`: 0 | 维持 |
 | Biome warnings | 117 | 评估后修复或 suppress |
 | E2E 测试 | 11/11 pass | ✅ Phase 12 建成 |

@@ -341,6 +341,7 @@ export function registerBlogHandlers(): void {
       let i = 0;
       while (i < lines.length) {
         const line = lines[i];
+        if (line === undefined) { i++; continue; }
         if (line.startsWith('# ') && !line.startsWith('## ')) {
           children.push(
             new Paragraph({
@@ -369,8 +370,8 @@ export function registerBlogHandlers(): void {
           // Code block
           const codeLines: string[] = [];
           i++;
-          while (i < lines.length && !lines[i].startsWith('```')) {
-            codeLines.push(lines[i]);
+          while (i < lines.length && lines[i] && !lines[i]!.startsWith('```')) {
+            codeLines.push(lines[i]!);
             i++;
           }
           children.push(

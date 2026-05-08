@@ -17731,7 +17731,8 @@ const navGroups = [
     label: "洞察",
     items: [
       { to: "/", label: "续写", icon: "⌂" },
-      { to: "/dashboard", label: "仪表盘", icon: "⌂" }
+      { to: "/dashboard", label: "仪表盘", icon: "⌂" },
+      { to: "/series", label: "系列", icon: "≡" }
     ]
   },
   {
@@ -17777,7 +17778,7 @@ function MainLayout() {
       {
         className: "flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-hidden",
         style: {
-          background: "var(--bg-secondary)",
+          background: "var(--bg-sidebar)",
           width: sidebarWidth,
           transition: "width 0.2s ease"
         },
@@ -17817,7 +17818,7 @@ function MainLayout() {
                 className: ({ isActive: isActive2 }) => `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${isActive2 ? "text-[var(--accent-blue)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`,
                 style: ({ isActive: isActive2 }) => isActive2 ? { background: "var(--bg-tertiary)" } : {},
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-5 text-center font-mono text-sm shrink-0", children: item.icon }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-5 text-center font-mono text-[18px] shrink-0", children: item.icon }),
                   !sidebarCollapsed && item.label
                 ]
               },
@@ -17836,7 +17837,7 @@ function MainLayout() {
                   {
                     className: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                     style: { background: "var(--bg-tertiary)", color: "var(--accent-blue)" },
-                    children: (user?.username || "?")[0].toUpperCase()
+                    children: (user?.username || "?").charAt(0).toUpperCase()
                   }
                 ),
                 !sidebarCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
@@ -17958,7 +17959,15 @@ function LoginPage() {
       "还没有账户？",
       " ",
       /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/register", style: { color: "var(--accent-blue)" }, className: "hover:underline", children: "立即注册" })
-    ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "mt-4 rounded-[6px] border p-3 text-center text-[11px]",
+        style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)", color: "var(--text-muted)" },
+        children: "网页版暂不支持：便签 · 桌面宠物 · 托盘菜单 · 全局快捷键 · 独立浮窗 · PDF 导出 · 导入 Markdown 文件。 请使用桌面客户端获取完整体验。"
+      }
+    )
   ] });
 }
 function RegisterPage() {
@@ -18136,6 +18145,12 @@ const NoteListPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resol
 const ContinueWritingPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => ContinueWritingPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.ContinueWritingPage }))
 );
+const SeriesListPage$2 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => SeriesListPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.SeriesListPage }))
+);
+const SeriesDetailPage$2 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => SeriesDetailPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.SeriesDetailPage }))
+);
 function PageSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "animate-pulse space-y-4 p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-1/3 rounded", style: { background: "var(--bg-tertiary)" } }),
@@ -18182,6 +18197,8 @@ const router = createHashRouter([
           { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
           { path: "/settings", element: lazyPage(SettingsPage$2) },
           { path: "/notes", element: lazyPage(NoteListPage$2) },
+          { path: "/series", element: lazyPage(SeriesListPage$2) },
+          { path: "/series/:seriesId", element: lazyPage(SeriesDetailPage$2) },
           { path: "/guide", element: lazyPage(GuidePage$2) }
         ]
       },
@@ -18237,6 +18254,9 @@ const webApi = {
   blogSaveDraft: (data) => request("POST", "/api/blog/save-draft", data),
   blogGetHistory: (blogId) => request("GET", `/api/blog/${blogId}/history`),
   blogRollback: (data) => request("POST", `/api/blog/${data.blogId}/rollback`, data),
+  blogSeriesList: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
+  blogSeriesGet: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
+  blogSeriesSet: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
   // Tag
   tagList: () => request("GET", "/api/tags/list"),
   tagCreate: (data) => request("POST", "/api/tags/create", data),
@@ -25604,6 +25624,7 @@ function TagSelector({ userId, selectedTagIds, onChange }) {
     if (!open || !triggerRef.current) return;
     const calc = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
       const panelH = 340;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
@@ -52375,7 +52396,7 @@ function BlogPreviewPage() {
   const tocItems = parseToc(blog.content, blog.format);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
-  const theme = READING_THEMES[readingTheme] || READING_THEMES.paper;
+  const theme = READING_THEMES[readingTheme] ?? READING_THEMES.paper;
   const handleThemeChange = (key) => {
     setReadingTheme(key);
     localStorage.setItem("reading-theme", key);
@@ -52616,7 +52637,7 @@ function KnowledgeListPage() {
     "div",
     {
       className: "flex h-full gap-4",
-      style: { maxWidth: 1e3, margin: "0 auto" },
+      style: { maxWidth: "var(--content-max)", margin: "0 auto" },
       onDragOver: (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -52674,6 +52695,33 @@ function KnowledgeListPage() {
           ) })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+          filterFolderId !== null && kbFolders.length > 0 && (() => {
+            const findPath = (tree, targetId, path = []) => {
+              for (const node of tree) {
+                const newPath = [...path, { id: node.id, name: node.name }];
+                if (node.id === targetId) return newPath;
+                if (node.children?.length) {
+                  const found2 = findPath(node.children, targetId, newPath);
+                  if (found2) return found2;
+                }
+              }
+              return null;
+            };
+            const breadcrumb = [{ id: null, name: "全部" }, ...findPath(kbFolders, filterFolderId) || []];
+            return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 flex items-center gap-1 text-[13px]", children: breadcrumb.map((crumb, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-1", children: [
+              i > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: "›" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setFilterFolderId(crumb.id),
+                  className: "hover:underline transition-colors",
+                  style: { color: i === breadcrumb.length - 1 ? "var(--text-primary)" : "var(--accent-blue)" },
+                  children: crumb.name
+                }
+              )
+            ] }, crumb.id ?? "all")) });
+          })(),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
               "知识库",
@@ -52949,8 +52997,8 @@ function KnowledgeListPage() {
                         "span",
                         {
                           className: "rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase",
-                          style: { color: t.color, background: "var(--bg-tertiary)" },
-                          children: t.label
+                          style: { color: t?.color, background: "var(--bg-tertiary)" },
+                          children: t?.label
                         }
                       ) }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2.5", style: { color: "var(--text-secondary)" }, children: formatFileSize(f.fileSize) }),
@@ -53539,10 +53587,10 @@ function SettingsPage() {
   const [shortcutMsg, setShortcutMsg] = reactExports.useState("");
   reactExports.useEffect(() => {
     window.api.appGetAutoStart().then((d) => {
-      if (d.success) setAutoStart(d.data.enabled);
+      if (d.success && d.data) setAutoStart(d.data.enabled);
     }).finally(() => setAutoStartLoading(false));
     window.api.appHasStartMenuShortcut().then((d) => {
-      if (d.success) setHasShortcut(d.data.exists);
+      if (d.success && d.data) setHasShortcut(d.data.exists);
     });
   }, []);
   const handleAutoStart = async (enabled) => {
@@ -53864,7 +53912,7 @@ function TagManagePage() {
     setEditingId(tag.id);
     setEditingName(tag.name);
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-2xl", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mb-6 text-xl font-bold", children: "标签管理" }),
     tags.some((t) => (t.count ?? 0) === 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
@@ -54019,7 +54067,7 @@ function TagManagePage() {
                   setResults([]);
                 }
               },
-              title: `查看标签"${tag.name}"关联的内容`,
+              title: tag.description || `查看标签"${tag.name}"关联的内容`,
               children: tag.name
             }
           ),
@@ -54255,7 +54303,7 @@ function FeatureCard({
   ] });
 }
 function GuidePage() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-3xl pb-20", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px] pb-20", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -54936,7 +54984,7 @@ function NoteListPage() {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-2xl", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       "h2",
       {
@@ -55248,6 +55296,157 @@ const ContinueWritingPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Obje
   __proto__: null,
   ContinueWritingPage
 }, Symbol.toStringTag, { value: "Module" }));
+function SeriesListPage() {
+  const user = useAuthStore((s) => s.user);
+  const [series, setSeries] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const loadSeries = reactExports.useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const r = await window.api.blogSeriesList(user.id);
+      if (r.success && r.data) setSeries(r.data);
+    } catch (e) {
+      console.error("[SeriesList]", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+  reactExports.useEffect(() => {
+    loadSeries();
+  }, [loadSeries]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "mb-6 text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
+      "系列",
+      " ",
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
+        series.length,
+        " 个系列"
+      ] })
+    ] }),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : series.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "rounded-[6px] border border-dashed p-12 text-center",
+        style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--text-secondary)" }, children: "暂无系列" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[12px]", style: { color: "var(--text-muted)" }, children: "在编辑器中为博客设置系列ID和系列名即可创建系列" })
+        ]
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2", children: series.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Link$1,
+      {
+        to: `/series/${encodeURIComponent(s.seriesId)}`,
+        className: "card !p-5 !no-underline",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "h3",
+            {
+              className: "mb-1 text-[15px] font-medium",
+              style: { color: "var(--text-primary)" },
+              children: s.seriesName || s.seriesId
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: [
+            s.count,
+            " 篇"
+          ] })
+        ]
+      },
+      s.seriesId
+    )) })
+  ] });
+}
+const SeriesListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  SeriesListPage
+}, Symbol.toStringTag, { value: "Module" }));
+function SeriesDetailPage() {
+  const { seriesId } = useParams();
+  useAuthStore((s) => s.user);
+  const [blogs, setBlogs] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [seriesName, setSeriesName] = reactExports.useState("");
+  const loadBlogs = reactExports.useCallback(async () => {
+    if (!seriesId) return;
+    setLoading(true);
+    try {
+      const r = await window.api.blogSeriesGet(seriesId);
+      if (r.success && r.data) {
+        const list2 = r.data;
+        setBlogs(list2);
+        if (list2.length > 0) {
+          const first2 = list2[0];
+          if (first2?.seriesName) setSeriesName(first2.seriesName);
+        }
+      }
+    } catch (e) {
+      console.error("[SeriesDetail]", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [seriesId]);
+  reactExports.useEffect(() => {
+    loadBlogs();
+  }, [loadBlogs]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 text-[13px]", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        Link$1,
+        {
+          to: "/series",
+          className: "hover:underline transition-colors",
+          style: { color: "var(--accent-blue)" },
+          children: "← 系列"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-1", style: { color: "var(--text-muted)" }, children: "›" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-primary)" }, children: seriesName || decodeURIComponent(seriesId || "") })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "mb-6 text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
+      seriesName || decodeURIComponent(seriesId || ""),
+      " ",
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
+        blogs.length,
+        " 篇"
+      ] })
+    ] }),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "rounded-[6px] border border-dashed p-12 text-center",
+        style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--text-secondary)" }, children: "该系列暂无文章" })
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: blogs.map((blog, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Link$1,
+      {
+        to: `/blog/${blog.id}`,
+        className: "card flex items-center justify-between !p-4 !no-underline",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: "text-[12px] font-mono shrink-0 w-6 text-right",
+                style: { color: "var(--text-muted)" },
+                children: i + 1
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[14px]", style: { color: "var(--text-primary)" }, children: blog.title })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[12px] shrink-0", style: { color: "var(--text-muted)" }, children: formatDate(blog.createdAt) })
+        ]
+      },
+      blog.id
+    )) })
+  ] });
+}
+const SeriesDetailPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  SeriesDetailPage
+}, Symbol.toStringTag, { value: "Module" }));
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 const DAY_LABELS = ["", "一", "", "三", "", "五", "日"];
 const CELL = 12;
@@ -55325,7 +55524,7 @@ function Heatmap({ userId }) {
     ctx.clearRect(0, 0, W, H);
     for (let wi = 0; wi < weeks.length; wi++) {
       for (let di = 0; di < 7; di++) {
-        const cell = weeks[wi].find((c) => c.dayOfWeek === di);
+        const cell = weeks[wi]?.find((c) => c.dayOfWeek === di);
         if (!cell) continue;
         const x = wi * CELL_STEP;
         const y = di * CELL_STEP;

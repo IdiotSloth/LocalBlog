@@ -183,10 +183,10 @@ export class BlogService {
       const filename = path.basename(filePath, ext);
       let title = filename;
       const fmMatch = content.match(/^---\s*\ntitle:\s*(.+)\s*\n---/);
-      if (fmMatch) title = fmMatch[1].trim();
+      if (fmMatch?.[1]) title = fmMatch[1].trim();
       else {
         const h1Match = content.match(/^#\s+(.+)/m);
-        if (h1Match) title = h1Match[1].trim();
+        if (h1Match?.[1]) title = h1Match[1].trim();
       }
       const format: BlogFormat = ext === '.html' ? 'html' : 'md';
       const blog = await BlogService.createBlog(userId, title.substring(0, MAX_TITLE_LENGTH), format, content);
@@ -313,7 +313,7 @@ export class BlogService {
     const tags = await TagService.listTags(userId);
     let quickTag = tags.find((t) => t.name === 'quick-note');
     if (!quickTag) quickTag = await TagService.createTag(userId, 'quick-note');
-    await BlogService.setBlogTags(blog.id, [quickTag.id]);
+    await BlogService.setBlogTags(blog.id, [quickTag!.id]);
     return blog;
   }
 

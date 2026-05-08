@@ -491,7 +491,7 @@ function showStandaloneEditor(): void {
 
 // ==================== Pet Menu ====================
 
-async function handleClipboardNote(): Promise<void> {
+export async function handleClipboardNote(): Promise<void> {
   const text = clipboard.readText();
   if (!text.trim()) {
     new Notification({ title: '剪贴板为空', body: '无法读取剪贴板内容' }).show();
@@ -676,7 +676,7 @@ function registerPetIpc(): void {
   ipcMain.on('pet:startDrag', () => {
     if (!petWin || petWin.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
-    const [wx, wy] = petWin.getPosition();
+    const [wx = 0, wy = 0] = petWin.getPosition();
     dragOffset = { x: cursor.x - wx, y: cursor.y - wy };
     isDragging = true;
     const dragLoop = () => {

@@ -1,6 +1,6 @@
 ---
 name: full-audit
-description: Perform a comprehensive, multi-dimensional code audit of a Node.js/Electron/React/TypeScript full-stack project. Covers security (XSS/CORS/CSRF/injection), data integrity (schema sync/timestamp/dialect isolation), type safety (WindowApi closure/as any density), redundancy (server-main duplication/mapping functions), maintainability (component complexity/coupling/error handling), and robustness (error boundaries/timeouts/race conditions). Use for full project health checks, pre-release audits, or when the user asks for a thorough code review, security review, or architecture assessment.
+description: Perform a comprehensive, multi-dimensional code audit of a Node.js/Electron/React/TypeScript full-stack project. Covers security (XSS/CORS/CSRF/injection), data integrity (schema sync/timestamp/dialect isolation), type safety (WindowApi closure/as any density), redundancy (server-main duplication/mapping functions), maintainability (component complexity/coupling/error handling), and robustness (error boundaries/timeouts/race conditions). Also handles Phase specification review (shift-left audit before implementation). Use for full project health checks, pre-release audits, new Phase spec evaluation, or when the user asks for a thorough code review, security review, or architecture assessment.
 ---
 
 # Full Audit Skill
@@ -88,7 +88,9 @@ Check each of these concrete patterns:
 | Cross-process type imports | Renderer code must never import from `src/main/`. All shared types must live in `src/shared/types.ts`. Check with `grep -r "from '.*main/" src/renderer/` | 🔴 P0 |
 | Pre-existing tsc errors | Run `npx tsc --noEmit` and count errors. Separate new errors from pre-existing ones. Pre-existing errors that accumulate indicate CI gap | 🟡 P2 |
 | IPC channel hardcoding | `ipcMain.handle('xxx', ...)` calls must use `IPC.XXX` constants, not raw strings. Check with `grep "ipcMain.handle('"` | 🟡 P2 |
+| IPC write-read symmetry | Every new IPC channel that writes persistent data must have a corresponding reader somewhere in the codebase. A channel with only a writer (IPC handler → service.save()) but no reader (page mount → service.get()) is dead storage. Audit each IPC channel by tracing both directions | 🟡 P2 |
 | camelCase vs snake_case | Frontend code must not access snake_case DB column names directly. Check for patterns like `row.user_id`, `row.created_at` in renderer files — these should be mapped to camelCase by the service/handler layer | 🟡 P2 |
+| React Router compatibility | `useBlocker`/`useBeforeUnload`/`usePrompt` require data router (`createHashRouter` + `<RouterProvider>`). Using these hooks inside legacy `<HashRouter>` throws `invariant` error at runtime. Check `App.tsx` router creation method | 🔴 P0 |
 
 ### 4. Redundancy
 
@@ -113,6 +115,7 @@ Check each of these concrete patterns:
 | console.log as only logging | Main process uses only `console.log` which is invisible in packaged app. Critical errors need a proper logging mechanism or IPC notification to renderer | 🟢 P3 |
 | IPC domain sprawl | Same domain's handlers split across multiple IPC files (e.g., tag:set-blog in blog.ts, tag:set-file in knowledge.ts). Related handlers should be co-located | 🟢 P3 |
 | Test coverage gaps | Service modules with 0 tests. Each service CRUD function should have at least basic test coverage | 🟢 P3 |
+| State machine type residuals | After useState→useReducer migration, check that all state fields, action payloads, and map/forEach callbacks use concrete types (not `any`). The DraftRow/DraftItem types should be exported to `shared/types.ts` for cross-component reuse | 🟢 P3 |
 
 ### 6. Robustness
 
@@ -124,8 +127,10 @@ Check each of these concrete patterns:
 | useEffect cleanup missing | useEffect with subscriptions, intervals, or async operations must return a cleanup function. Check for `setInterval` without corresponding `clearInterval` in cleanup | 🟡 P2 |
 | Graceful degradation | Web (browser) stubs in `api-client.ts` must return `{success: false, error: '网页版不支持XXX'}` — not undefined, not a thrown error, not a silently resolved Promise | 🟢 P3 |
 | File operation error handling | Every `fs.readFileSync`/`fs.writeFileSync`/`fs.unlinkSync` must be in try-catch or have explicit exists check. File operations fail for many reasons (permissions, locks, missing files) | 🟠 P1 |
-| Event listener cleanup | Every `ipcRenderer.on()` must have a corresponding `ipcRenderer.removeListener()` or return cleanup function. Check preload event handlers | 🟡 P2 |
+| Event listener cleanup | Every `ipcRenderer.on()` must have a corresponding `ipcRenderer.removeListener()` or return cleanup function. Check preload event handlers. Also check `addEventListener` in click handlers — if a listener is registered imperatively inside a click handler (not useEffect), component unmount during active listening leaks both the listener and any associated timeout | 🟡 P2 |
 | Debounce on frequent writes | sql.js `saveToDisk()` (which writes the entire DB to disk) must be debounced. Check `db/index.ts` for debounce timer logic | 🟡 P2 |
+| CSS variable theme coverage | Every new CSS variable defined in `:root` (dark theme) must have a corresponding override in `.light` (light theme). A variable defined only in `:root` leaves the light theme using dark-mode colors. Check `index.css` for variables present in `:root` but absent in `.light` | 🟢 P3 |
+| Spec-implementation gap | For tasks with explicit spec constraints (e.g., "不加载全文", "亮/暗色自适应"), verify the implementation matches. Flag mismatches even if they don't cause runtime errors — the gap between spec intent and implementation is itself a finding | 🟢 P3 |
 
 ---
 
@@ -178,13 +183,17 @@ Compare key metrics with previous audit (if data available):
 | Metric | Previous | Current | Trend |
 |--------|----------|---------|--------|
 | bare catch {} | N | M | ↑/↓/→ |
-| as any count | N | M | ↑/↓/→ |
+| as any count (renderer) | N | M | ↑/↓/→ |
+| as any count (shared+preload) | N | M | ↑/↓/→ |
 | Preload tsc errors | N | M | ↑/↓/→ |
 | Promise<unknown> in preload | N | M | ↑/↓/→ |
 | Duplicated domains | N | M | ↑/↓/→ |
 | DI shared handlers | N | M | ↑/↓/→ |
 | Pre-existing tsc errors | N | M | ↑/↓/→ |
 | Test coverage (modules) | N | M | ↑/↓/→ |
+| IPC channels (total) | N | M | ↑/↓/→ |
+| IPC write-read symmetry | N | M | — |
+| CSS variable theme coverage | N | M | — |
 ```
 
 ### 5. New Findings Summary
@@ -229,3 +238,39 @@ Format for redo.md entry:
 6. **Respect Boss scope** — if directed to audit a specific module, don't expand scope unless you find a P0 issue.
 7. **Focus on correctness, safety, and architecture compliance** — not code style preferences.
 8. **One ticket per distinct issue** — don't bundle unrelated problems into one ticket.
+
+---
+
+## Phase Spec Review (Shift-Left Audit)
+
+When the Boss has written a new Phase in `todo.md` but code has NOT been written yet, perform a specification review BEFORE implementation starts. This catches constraint violations at design time rather than after code is written.
+
+### Spec Review Workflow
+
+1. **Read the Phase spec** in `todo.md` — understand each task's scope, constraints, and dependencies
+2. **Check against AGENTS.md** — every keyword that implies architecture change:
+   - "表" / "table" → Schema change (T1105 freeze violation?)
+   - "settings JSON" / "store" → Where is data persisted? localStorage? userData file? DB table?
+   - "新依赖" → Zero-dependency promise still true?
+   - "新 IPC" → Channel added to ipc-channels.ts + preload + handler?
+3. **Identify spec gaps** — vague phrases that are not implementable:
+   - "优化掉" → What specifically?
+   - "做个窗口" → What window? What features?
+   - "改进" → What metric improves? How measured?
+4. **Cross-reference tasks** — do two tasks touch the same file? → Suggest serial ordering
+5. **Output D-numbered proposals** for each decision needed
+
+### D-Number Format
+
+```
+| D## | 问题描述 | 选项 A（含工时/风险） | 选项 B（含工时/风险） | 建议 |
+```
+
+### Spec Review vs Implementation Audit
+
+| | Spec Review | Implementation Audit |
+|---|-------------|---------------------|
+| When | Before code | After code |
+| Input | todo.md task descriptions | git diff files |
+| Output | D-numbered decisions | R-numbered tickets |
+| Typical catch | "settings 表" violates Schema freeze | `useBlocker` crashes in `<HashRouter>` |

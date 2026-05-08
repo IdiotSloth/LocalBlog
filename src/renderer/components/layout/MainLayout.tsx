@@ -26,6 +26,7 @@ const navGroups = [
     items: [
       { to: '/', label: '续写', icon: '⌂' },
       { to: '/dashboard', label: '仪表盘', icon: '⌂' },
+      { to: '/series', label: '系列', icon: '≡' },
     ],
   },
   {
@@ -79,7 +80,7 @@ export function MainLayout() {
       <aside
         className="flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-hidden"
         style={{
-          background: 'var(--bg-secondary)',
+          background: 'var(--bg-sidebar)',
           width: sidebarWidth,
           transition: 'width 0.2s ease',
         }}
@@ -127,7 +128,7 @@ export function MainLayout() {
                     }
                     style={({ isActive }) => (isActive ? { background: 'var(--bg-tertiary)' } : {})}
                   >
-                    <span className="w-5 text-center font-mono text-sm shrink-0">{item.icon}</span>
+                    <span className="w-5 text-center font-mono text-[18px] shrink-0">{item.icon}</span>
                     {!sidebarCollapsed && item.label}
                   </NavLink>
                 ))}
@@ -153,7 +154,7 @@ export function MainLayout() {
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}
             >
-              {(user?.username || '?')[0].toUpperCase()}
+              {(user?.username || '?').charAt(0).toUpperCase()}
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0 flex-1">
