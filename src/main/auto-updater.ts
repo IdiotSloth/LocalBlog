@@ -1,10 +1,20 @@
-import { autoUpdater } from 'electron-updater';
-import { BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc-channels';
 
 export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
+  const { app } = require('electron');
+
   // Only check for updates in packaged app
-  if (!require('electron').app.isPackaged) return;
+  if (!app.isPackaged) return;
+
+  // Dynamic require — electron-updater may not be resolvable in all packaging modes
+  let autoUpdater: typeof import('electron-updater').autoUpdater;
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+  } catch {
+    console.warn('[AutoUpdater] electron-updater not available — skipping update check');
+    return;
+  }
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
