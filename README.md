@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 | 测试: 27/27 pass | E2E: 11/11 pass | Phase 1-16 ✅ | `as any`: 0 | strict ✅
+构建: ✅ 通过 | 测试: 49/49 pass | E2E: 11/11 pass | Phase 1-18 ✅ | `as any`: 0 | strict ✅ | P0/P1/P2: 0
 
 ---
 
@@ -14,9 +14,9 @@
 | **博客** | Markdown/WYSIWYG 编辑 (Tiptap 3)，系列链 prev/next 导航，批量操作，历史版本回滚，附件管理 |
 | **知识库** | PDF/DOCX/XLSX/TXT 导入与预览，文件夹分类，拖放导入，全文搜索 |
 | **网页收藏** | URL → readability 正文提取 → turndown Markdown，一键保存为博客 |
-| **搜索** | 全局搜索 (博客+知识库)，SQL LIKE 中文全文检索 |
+| **搜索** | 全局搜索 (博客+知识库)，FTS5 Worker 倒排索引 + MySQL FULLTEXT，中文分词 |
 | **回收站** | 30 天自动清理，批量恢复/删除，磁盘文件同步清理 |
-| **仪表盘** | 统计数据，写作热力图 (GitHub 风格)，成就系统 (16 徽章) |
+| **仪表盘** | 统计数据，写作热力图 (GitHub 风格)，成就系统 (6 核心里程碑) |
 | **编辑器** | 专注写作模式，模板系统，阅读时间 + TOC，双向引用 (博客↔知识库) |
 | **导出** | PDF (Electron printToPDF)，Word (.docx) |
 | **便签** | 独立 notes 表，剪贴板读取，24h 自动清理，置顶永久保留 |
@@ -56,7 +56,7 @@ npm run test       # 27 单元测试 + 11 E2E
 | 数据库 | sql.js (SQLite WASM) / MySQL 8.3 双模 |
 | Web | Express 5, JWT Cookie, mysql2 |
 | 文档处理 | mammoth (DOCX), exceljs (XLSX), pdfjs-dist (PDF), markdown-it, turndown |
-| 测试 | Vitest (27 tests), Playwright (11 E2E) |
+| 测试 | Vitest (49 tests), Playwright (11 E2E) |
 | 质量 | Biome (lint + format), DOMPurify (XSS) |
 
 ---
@@ -66,7 +66,7 @@ npm run test       # 27 单元测试 + 11 E2E
 ```
 ┌──────────────────────────────────────────────┐
 │              Electron 41 桌面壳               │
-│  ┌──────────┐  IPC (91 ch)  ┌──────────────┐ │
+│  ┌──────────┐  IPC (99 ch)  ┌──────────────┐ │
 │  │ 主进程    │◄────────────►│ 渲染进程       │ │
 │  │ Node.js  │  contextBridge│ React 19      │ │
 │  │ 15 svc   │               │ 7 features    │ │

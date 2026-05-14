@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import type { BlogWithTags, FolderTreeNode } from '../../../shared/types';
+import type { BlogWithTags, FolderTreeNode, ScrapeResult, Tag } from '../../../shared/types';
 import { FolderTree } from '../../components/common/FolderTree';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
@@ -28,8 +28,9 @@ export function BlogListPage() {
   const [scrapeOpen, setScrapeOpen] = useState(false);
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [scrapeLoading, setScrapeLoading] = useState(false);
-  const [scrapeResult, setScrapeResult] = useState<any>(null);
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
   const [scrapeError, setScrapeError] = useState('');
+  const [excludeSeries, setExcludeSeries] = useState(() => localStorage.getItem('blog-list-tab') !== 'all');
   const [activeTab, setActiveTab] = useState<'blogs' | 'manual'>(
     searchParams.get('tab') === 'manual' ? 'manual' : 'blogs',
   );
@@ -67,6 +68,7 @@ export function BlogListPage() {
         sortOrder: 'desc',
         offset: pagination.offset,
         limit: pagination.limit,
+        excludeSeries: excludeSeries || undefined,
       });
       if (r.success && r.data) {
         setBlogs(r.data.blogs);
@@ -77,7 +79,7 @@ export function BlogListPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit]);
+  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
   useEffect(() => {
     const tagId = searchParams.get('tagId');
     const tagName = searchParams.get('tagName');
@@ -101,7 +103,7 @@ export function BlogListPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('移至回收站？')) return;
     try {
-      await window.api.blogDelete(id);
+      await window.api.blogDelete({ userId: user.id, blogId: id });
       loadBlogs();
     } catch (e) {
       console.error('delete blog failed', e);
@@ -232,6 +234,41 @@ export function BlogListPage() {
           <ManualCollectTab />
         ) : (
         <div>
+        <div className="mb-3 flex items-center gap-4">
+          <div
+            className="inline-flex rounded-[4px] border p-0.5"
+            style={{ borderColor: 'var(--border-default)' }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setExcludeSeries(true);
+                localStorage.setItem('blog-list-tab', 'independent');
+              }}
+              className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
+              style={{
+                background: excludeSeries ? 'var(--bg-tertiary)' : 'transparent',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              独立博客
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setExcludeSeries(false);
+                localStorage.setItem('blog-list-tab', 'all');
+              }}
+              className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
+              style={{
+                background: !excludeSeries ? 'var(--bg-tertiary)' : 'transparent',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              全部博客
+            </button>
+          </div>
+        </div>
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-semibold text-primary">
@@ -344,7 +381,7 @@ export function BlogListPage() {
                   onClick={async () => {
                     if (!confirm(`将 ${batch.selectedCount} 篇博客移至回收站？`)) return;
                     try {
-                      await window.api.blogBatchDelete([...batch.selectedIds]);
+                      await window.api.blogBatchDelete({ userId: user.id, blogIds: [...batch.selectedIds] });
                       batch.clearSelection();
                       loadBlogs();
                     } catch (e) {
@@ -389,7 +426,7 @@ export function BlogListPage() {
                 </button>
               </div>
             )}
-            {blogs.map((blog: any) => (
+            {blogs.map((blog: BlogWithTags) => (
               <article
                 key={blog.id}
                 className="card cursor-pointer group relative"
@@ -432,7 +469,7 @@ export function BlogListPage() {
                   </span>
                   <span>{formatDate(blog.updatedAt)}</span>
                   {blog.tags?.length > 0 && <span>·</span>}
-                  {blog.tags?.map((t: any) => (
+                  {blog.tags?.map((t: Tag) => (
                     <button
                       key={t.id}
                       type="button"
@@ -456,7 +493,7 @@ export function BlogListPage() {
                       e.preventDefault();
                       const fid = e.target.value ? Number(e.target.value) : null;
                       try {
-                        await window.api.folderMoveItem({ itemType: 'blog', itemId: blog.id, folderId: fid });
+                        await window.api.folderMoveItem({ userId: user.id, itemType: 'blog', itemId: blog.id, folderId: fid });
                         loadBlogs();
                       } catch (e) {
                         console.error(e);
@@ -477,7 +514,7 @@ export function BlogListPage() {
                   >
                     <option value="">移至</option>
                     <option value="0">根目录</option>
-                    {folderTree.map((f: any) => (
+                    {folderTree.map((f: FolderTreeNode) => (
                       <option key={f.id} value={f.id}>
                         {f.name}
                       </option>

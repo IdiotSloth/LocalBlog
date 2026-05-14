@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AuthLayout } from './components/layout/AuthLayout';
@@ -8,6 +8,15 @@ import { RegisterPage } from './features/auth/RegisterPage';
 import { useAuthStore } from './stores/auth-store';
 import { useThemeStore } from './stores/theme-store';
 
+// Web mode detection: Electron userAgent contains "Electron"; browser does not
+const isWeb = !navigator.userAgent.includes('Electron');
+
+// T1803: Simple error toast state
+interface ErrorToastState {
+  message: string;
+  visible: boolean;
+}
+
 // Lazy-loaded page components — reduces initial bundle parse time
 const DashboardPage = lazy(() =>
   import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
@@ -15,6 +24,9 @@ const DashboardPage = lazy(() =>
 const BlogListPage = lazy(() => import('./features/blog/BlogListPage').then((m) => ({ default: m.BlogListPage })));
 const BlogEditorPage = lazy(() =>
   import('./features/blog/BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })),
+);
+const WebEditorPage = lazy(() =>
+  import('./features/blog/WebEditorPage').then((m) => ({ default: m.WebEditorPage })),
 );
 const BlogPreviewPage = lazy(() =>
   import('./features/blog/BlogPreviewPage').then((m) => ({ default: m.BlogPreviewPage })),
@@ -92,8 +104,9 @@ const router = createHashRouter([
           { index: true, element: lazyPage(ContinueWritingPage) },
           { path: '/dashboard', element: lazyPage(DashboardPage) },
           { path: '/blog', element: lazyPage(BlogListPage) },
-          { path: '/blog/new', element: lazyPage(BlogEditorPage) },
+          { path: '/blog/new', element: lazyPage(isWeb ? WebEditorPage : BlogEditorPage) },
           { path: '/blog/:id', element: lazyPage(BlogPreviewPage) },
+          { path: '/blog/:id/edit', element: lazyPage(isWeb ? WebEditorPage : BlogEditorPage) },
           { path: '/knowledge', element: lazyPage(KnowledgeListPage) },
           { path: '/tags', element: lazyPage(TagManagePage) },
           { path: '/recycle', element: lazyPage(RecycleBinPage) },
@@ -113,11 +126,53 @@ const router = createHashRouter([
 export default function App() {
   const initSession = useAuthStore((s) => s.initSession);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const [errorToast, setErrorToast] = useState<ErrorToastState>({ message: '', visible: false });
 
   useEffect(() => {
     initSession();
     initTheme();
   }, [initSession, initTheme]);
 
-  return <RouterProvider router={router} />;
+  // T1803: Listen for app errors from main process, show a Toast
+  useEffect(() => {
+    return window.api.onAppError((error) => {
+      setErrorToast({ message: error.message, visible: true });
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setErrorToast((prev) => ({ ...prev, visible: false }));
+      }, 5000);
+    });
+  }, []);
+
+  return (
+    <>
+      <RouterProvider router={router} />
+      {/* T1803: Error Toast */}
+      <ErrorToastContent state={errorToast} onDismiss={() => setErrorToast((prev) => ({ ...prev, visible: false }))} />
+    </>
+  );
+}
+
+/** A simple red Toast at the top of the screen for error notifications */
+function ErrorToastContent({ state, onDismiss }: { state: ErrorToastState; onDismiss: () => void }) {
+  if (!state.visible) return null;
+
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 z-[9999] px-4 py-3 text-sm text-white text-center shadow-lg"
+      style={{ background: 'var(--accent-red)' }}
+      role="alert"
+    >
+      <span className="mr-2">&#x26A0;</span>
+      {state.message}
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+        aria-label="关闭"
+      >
+        &#x2715;
+      </button>
+    </div>
+  );
 }

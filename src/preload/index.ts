@@ -15,8 +15,8 @@ const api: WindowApi = {
   blogGet: (blogId) => ipcRenderer.invoke(IPC.BLOG_GET, blogId),
   blogCreate: (data) => ipcRenderer.invoke(IPC.BLOG_CREATE, data),
   blogUpdate: (data) => ipcRenderer.invoke(IPC.BLOG_UPDATE, data),
-  blogDelete: (blogId) => ipcRenderer.invoke(IPC.BLOG_DELETE, blogId),
-  blogRestore: (blogId) => ipcRenderer.invoke(IPC.BLOG_RESTORE, blogId),
+  blogDelete: (data) => ipcRenderer.invoke(IPC.BLOG_DELETE, data),
+  blogRestore: (data) => ipcRenderer.invoke(IPC.BLOG_RESTORE, data),
   blogExport: (data) => ipcRenderer.invoke(IPC.BLOG_EXPORT, data),
   blogExportPdf: (blogId) => ipcRenderer.invoke(IPC.BLOG_EXPORT_PDF, blogId),
   blogExportDocx: (blogId) => ipcRenderer.invoke(IPC.BLOG_EXPORT_DOCX, blogId),
@@ -31,14 +31,15 @@ const api: WindowApi = {
   blogSeriesList: (userId) => ipcRenderer.invoke(IPC.BLOG_SERIES_LIST, userId),
   blogSeriesGet: (seriesId) => ipcRenderer.invoke(IPC.BLOG_SERIES_GET, seriesId),
   blogSeriesSet: (data) => ipcRenderer.invoke(IPC.BLOG_SERIES_SET, data),
-  blogBatchDelete: (blogIds) => ipcRenderer.invoke(IPC.BLOG_BATCH_DELETE, blogIds),
+  blogSeriesRename: (data) => ipcRenderer.invoke(IPC.BLOG_SERIES_RENAME, data),
+  blogBatchDelete: (data) => ipcRenderer.invoke(IPC.BLOG_BATCH_DELETE, data),
   blogBatchTag: (data) => ipcRenderer.invoke(IPC.BLOG_BATCH_TAG, data),
 
   // Tag
   tagList: (userId) => ipcRenderer.invoke(IPC.TAG_LIST, userId),
   tagCreate: (data) => ipcRenderer.invoke(IPC.TAG_CREATE, data),
   tagUpdate: (data) => ipcRenderer.invoke(IPC.TAG_UPDATE, data),
-  tagDelete: (tagId) => ipcRenderer.invoke(IPC.TAG_DELETE, tagId),
+  tagDelete: (data) => ipcRenderer.invoke(IPC.TAG_DELETE, data),
   tagSetBlog: (data) => ipcRenderer.invoke(IPC.TAG_SET_BLOG, data),
   tagSetFile: (data) => ipcRenderer.invoke(IPC.TAG_SET_FILE, data),
 
@@ -47,16 +48,18 @@ const api: WindowApi = {
   kbGet: (fileId) => ipcRenderer.invoke(IPC.KB_GET, fileId),
   kbImport: (data) => ipcRenderer.invoke(IPC.KB_IMPORT, data),
   kbDelete: (data) => ipcRenderer.invoke(IPC.KB_DELETE, data),
-  kbRestore: (fileId) => ipcRenderer.invoke(IPC.KB_RESTORE, fileId),
+  kbRestore: (data) => ipcRenderer.invoke(IPC.KB_RESTORE, data),
   kbRename: (data) => ipcRenderer.invoke(IPC.KB_RENAME, data),
   kbPreview: (fileId) => ipcRenderer.invoke(IPC.KB_PREVIEW, fileId),
   kbOpenExternal: (fileId) => ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, fileId),
-  kbBatchDelete: (fileIds) => ipcRenderer.invoke(IPC.KB_BATCH_DELETE, fileIds),
+  kbBatchDelete: (data) => ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
 
   // Search
   searchGlobal: (data) => ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
   searchBlogs: (data) => ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
   searchKb: (data) => ipcRenderer.invoke(IPC.SEARCH_KB, data),
+  searchQuery: (data) => ipcRenderer.invoke(IPC.SEARCH_QUERY, data),
+  searchGetDocuments: (data) => ipcRenderer.invoke(IPC.SEARCH_GET_DOCUMENTS, data),
 
   // Workspace
   workspaceExportZip: (userId) => ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_ZIP, userId),
@@ -83,7 +86,7 @@ const api: WindowApi = {
   folderTree: (data) => ipcRenderer.invoke(IPC.FOLDER_TREE, data),
   folderCreate: (data) => ipcRenderer.invoke(IPC.FOLDER_CREATE, data),
   folderRename: (data) => ipcRenderer.invoke(IPC.FOLDER_RENAME, data),
-  folderDelete: (folderId) => ipcRenderer.invoke(IPC.FOLDER_DELETE, folderId),
+  folderDelete: (data) => ipcRenderer.invoke(IPC.FOLDER_DELETE, data),
   folderMoveItem: (data) => ipcRenderer.invoke(IPC.FOLDER_MOVE_ITEM, data),
 
   // Web Scraping
@@ -137,12 +140,27 @@ const api: WindowApi = {
     ipcRenderer.on(IPC.EVT_NOTE_REFRESH, handler);
     return () => ipcRenderer.removeListener(IPC.EVT_NOTE_REFRESH, handler);
   },
+  onAppError: (cb) => {
+    const handler = (_e: unknown, data: { message: string }) => cb(data);
+    ipcRenderer.on(IPC.EVT_APP_ERROR, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_APP_ERROR, handler);
+  },
+  onUpdateStatus: (cb: (data: { status: string; version?: string; percent?: number }) => void) => {
+    const handler = (_e: unknown, data: { status: string; version?: string; percent?: number }) => cb(data);
+    ipcRenderer.on(IPC.EVT_UPDATE_STATUS, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_UPDATE_STATUS, handler);
+  },
+  onKbRefresh: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on(IPC.EVT_KB_REFRESH, handler);
+    return () => ipcRenderer.removeListener(IPC.EVT_KB_REFRESH, handler);
+  },
 
   // Notes
   noteList: (userId) => ipcRenderer.invoke(IPC.NOTE_LIST, userId),
   noteCreate: (data) => ipcRenderer.invoke(IPC.NOTE_CREATE, data),
-  noteDelete: (noteId) => ipcRenderer.invoke(IPC.NOTE_DELETE, noteId),
-  notePin: (noteId) => ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
+  noteDelete: (data) => ipcRenderer.invoke(IPC.NOTE_DELETE, data),
+  notePin: (data) => ipcRenderer.invoke(IPC.NOTE_PIN, data),
   noteClipboard: () => ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
 
   // Continue Writing
@@ -160,6 +178,7 @@ const api: WindowApi = {
   shortcutReset: () => ipcRenderer.invoke(IPC.SHORTCUT_RESET),
 
   // App
+  shellOpenExternal: (url: string) => ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   appGetVersion: () => ipcRenderer.invoke(IPC.APP_GET_VERSION),
   appGetSystemLanguage: () => ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
   appSetAutoStart: (enable) => ipcRenderer.invoke(IPC.APP_SET_AUTO_START, enable),

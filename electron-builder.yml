@@ -1,0 +1,27 @@
+appId: com.localblogkb.app
+productName: LocalBlogKB
+directories:
+  output: dist
+  buildResources: img
+files:
+  - out/**/*
+  - scripts/launcher.bat
+  - node_modules/**/*
+  - package.json
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  license: LICENSE.txt
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: LocalBlogKB
+win:
+  target: nsis
+  icon: img/favicon.ico
+publish:
+  provider: github
+  owner: IdiotSloth
+  repo: web
+extraResources:
+  - from: scripts/launcher.bat
+    to: launcher.bat

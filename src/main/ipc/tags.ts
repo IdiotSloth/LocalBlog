@@ -19,17 +19,17 @@ export function registerTagHandlers(): void {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.TAG_UPDATE, async (_event, data: { tagId: number; name: string; description?: string }) => {
+  ipcMain.handle(IPC.TAG_UPDATE, async (_event, data: { userId: number; tagId: number; name: string; description?: string }) => {
     try {
-      await TagService.updateTag(data.tagId, data.name, data.description);
+      await TagService.updateTag(data.userId, data.tagId, data.name, data.description);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.TAG_DELETE, async (_event, tagId: number) => {
+  ipcMain.handle(IPC.TAG_DELETE, async (_event, data: { userId: number; tagId: number }) => {
     try {
-      await TagService.deleteTag(tagId);
+      await TagService.deleteTag(data.userId, data.tagId);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

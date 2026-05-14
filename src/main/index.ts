@@ -7,9 +7,25 @@ import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
 import { setNoteRefreshTarget } from './ipc/note';
 import { handleClipboardNote, initPetActions, showMdFloatWindow } from './pet';
+import { setBlogRefreshTarget } from './ipc/blog';
+import { setKbRefreshTarget } from './ipc/knowledge';
 import { BackupService } from './services/backup.service';
 import { NoteService } from './services/note.service';
 import { setupTray } from './tray';
+import { setupAutoUpdater } from './auto-updater';
+
+// T1803: Catch uncaught exceptions and notify renderer via IPC
+process.on('uncaughtException', (error) => {
+  console.error('[Main] Uncaught exception:', error);
+  try {
+    const wins = BrowserWindow.getAllWindows();
+    if (wins.length > 0 && !wins[0]!.isDestroyed()) {
+      wins[0]!.webContents.send(IPC.EVT_APP_ERROR, { message: error.message || '未知错误' });
+    }
+  } catch {
+    // Cannot notify renderer — best-effort
+  }
+});
 
 // Disable GPU hardware acceleration to prevent white screen on some Windows environments
 app.disableHardwareAcceleration();
@@ -17,8 +33,21 @@ app.commandLine.appendSwitch('disable-gpu');
 // Set custom cache directory to avoid ACCESS_DENIED errors with default cache path
 app.setPath('cache', path.join(app.getPath('userData'), 'cache'));
 
-let mainWindow: BrowserWindow | null = null;
-let noteCleanTimer: ReturnType<typeof setInterval> | null = null;
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.show();
+    }
+  });
+
+  let mainWindow: BrowserWindow | null = null;
+  let noteCleanTimer: ReturnType<typeof setInterval> | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -82,7 +111,10 @@ app.whenReady().then(async () => {
   createWindow();
   if (mainWindow) {
     setupTray(mainWindow);
+    setupAutoUpdater(() => mainWindow);
     setNoteRefreshTarget(mainWindow.webContents);
+    setBlogRefreshTarget(mainWindow.webContents);
+    setKbRefreshTarget(mainWindow.webContents);
   }
   initPetActions(); // tray menu actions work even if pet never opened
 
@@ -139,3 +171,4 @@ app.on('window-all-closed', () => {
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();
 });
+}

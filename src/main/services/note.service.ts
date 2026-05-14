@@ -47,14 +47,14 @@ export class NoteService {
     return rowToNote(row);
   }
 
-  static async deleteNote(noteId: number): Promise<void> {
-    await dbRun('DELETE FROM notes WHERE id = ?', [noteId]);
+  static async deleteNote(userId: number, noteId: number): Promise<void> {
+    await dbRun('DELETE FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
   }
 
-  static async togglePin(noteId: number): Promise<Note | null> {
+  static async togglePin(userId: number, noteId: number): Promise<Note | null> {
     const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ?', [noteId]);
     if (!row) return null;
-    await dbRun('UPDATE notes SET pinned = ? WHERE id = ?', [row.pinned ? 0 : 1, noteId]);
+    await dbRun('UPDATE notes SET pinned = ? WHERE id = ? AND user_id = ?', [row.pinned ? 0 : 1, noteId, userId]);
     const updated = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ?', [noteId]);
     return updated ? rowToNote(updated) : null;
   }

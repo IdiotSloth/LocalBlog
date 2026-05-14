@@ -17,12 +17,19 @@ export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
   const [ws, setWs] = useState<Record<string, number> | null>(null);
+  const [wsLoading, setWsLoading] = useState(true);
+  const [wsError, setWsError] = useState<string | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) return;
     let aborted = false;
+
+    setWsLoading(true);
+    setWsError(null);
     window.api
       .workspaceGetInfo(user.id)
       .then((info) => {
@@ -30,7 +37,14 @@ export function DashboardPage() {
       })
       .catch((e) => {
         console.error('[Dashboard] Failed to get workspace info:', e);
+        if (!aborted) setWsError('加载失败');
+      })
+      .finally(() => {
+        if (!aborted) setWsLoading(false);
       });
+
+    setStatsLoading(true);
+    setStatsError(null);
     window.api
       .statsGet(user.id)
       .then((r) => {
@@ -42,7 +56,12 @@ export function DashboardPage() {
       })
       .catch((e) => {
         console.error('[Dashboard] Failed to get stats:', e);
+        if (!aborted) setStatsError('加载失败');
+      })
+      .finally(() => {
+        if (!aborted) setStatsLoading(false);
       });
+
     return () => {
       aborted = true;
     };
@@ -65,7 +84,11 @@ export function DashboardPage() {
           <p className="mt-1 text-[18px]" style={{ color: 'var(--text-secondary)' }}>
             本地博客与知识库
           </p>
-          {stats && (stats.currentStreak > 0 || stats.totalWords > 0) && (
+          {statsLoading ? (
+            <div className="mt-3 text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+          ) : statsError ? (
+            <div className="mt-3 text-[13px]" style={{ color: 'var(--accent-red)' }}>加载失败</div>
+          ) : stats && (stats.currentStreak > 0 || stats.totalWords > 0) ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {stats.currentStreak > 0 && (
                 <span
@@ -92,7 +115,7 @@ export function DashboardPage() {
                 </span>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -118,30 +141,36 @@ export function DashboardPage() {
       {/* Tab: Overview */}
       {activeTab === 'overview' && (
         <>
-          <div className="mb-8 grid grid-cols-4 gap-3">
-            {[
-              { label: '博客', val: ws?.blogCount ?? '...', sub: stats ? `本月 +${stats.monthlyCount}` : '', c: '--accent-blue' },
-              { label: '知识库', val: ws?.knowledgeCount ?? '...', c: '--accent-green' },
-              { label: '标签', val: ws?.tagCount ?? '...', c: '--accent-amber' },
-              { label: '存储占用', val: ws ? fmt(ws.storageSize || 0) : '...', c: '--text-secondary' },
-            ].map((card) => (
-              <div
-                key={card.label}
-                className="rounded-[6px] border p-4"
-                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
-              >
-                <div className="text-[28px] font-bold" style={{ color: `var(${card.c})` }}>
-                  {card.val}
+          {wsLoading ? (
+            <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+          ) : wsError ? (
+            <div className="flex justify-center py-8" style={{ color: 'var(--accent-red)' }}>加载失败，请刷新重试</div>
+          ) : (
+            <div className="mb-8 grid grid-cols-4 gap-3">
+              {[
+                { label: '博客', val: ws?.blogCount ?? 0, sub: stats ? `本月 +${stats.monthlyCount}` : '', c: '--accent-blue' },
+                { label: '知识库', val: ws?.knowledgeCount ?? 0, c: '--accent-green' },
+                { label: '标签', val: ws?.tagCount ?? 0, c: '--accent-amber' },
+                { label: '存储占用', val: ws ? fmt(ws.storageSize || 0) : '0 B', c: '--text-secondary' },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-[6px] border p-4"
+                  style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+                >
+                  <div className="text-[28px] font-bold" style={{ color: `var(${card.c})` }}>
+                    {card.val}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                    {card.label}
+                    {card.sub && (
+                      <span className="text-[11px]" style={{ color: 'var(--accent-green)' }}>{card.sub}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                  {card.label}
-                  {card.sub && (
-                    <span className="text-[11px]" style={{ color: 'var(--accent-green)' }}>{card.sub}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <h3 className="mb-3 text-[14px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             快捷操作
           </h3>
@@ -178,28 +207,36 @@ export function DashboardPage() {
       {/* Tab: Achievements */}
       {activeTab === 'achievements' && (
         <>
-          <h3 className="mb-3 text-[14px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            成就 ({achievements.length}/{ACHIEVEMENTS.length})
-          </h3>
-          <div className="mb-8 grid grid-cols-3 gap-2">
-            {allAchievements.map((a) => (
-              <div
-                key={a.id}
-                className="flex flex-col items-center rounded-[6px] border p-2 text-center transition-opacity"
-                style={{
-                  background: a.unlocked ? 'var(--bg-secondary)' : 'var(--bg-primary)',
-                  borderColor: a.unlocked ? 'var(--accent-amber)' : 'var(--border-default)',
-                  opacity: a.unlocked ? 1 : 0.4,
-                }}
-                title={a.unlocked ? `${a.name}: ${a.description}` : '???'}
-              >
-                <span className="text-[20px]">{a.unlocked ? a.emoji : '🔒'}</span>
-                <span className="mt-0.5 text-[10px] truncate w-full" style={{ color: a.unlocked ? 'var(--text-primary)' : 'var(--text-placeholder)' }}>
-                  {a.name}
+          {statsLoading ? (
+            <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+          ) : statsError ? (
+            <div className="flex justify-center py-8" style={{ color: 'var(--accent-red)' }}>加载失败，请刷新重试</div>
+          ) : (
+            <>
+              <h3 className="mb-3 text-[14px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                成就 ({achievements.length}/{ACHIEVEMENTS.length})
+              </h3>
+              <div className="mb-8 grid grid-cols-3 gap-2">
+                {allAchievements.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex flex-col items-center rounded-[6px] border p-2 text-center transition-opacity"
+                    style={{
+                      background: a.unlocked ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                      borderColor: a.unlocked ? 'var(--accent-amber)' : 'var(--border-default)',
+                      opacity: a.unlocked ? 1 : 0.4,
+                    }}
+                    title={a.unlocked ? `${a.name}: ${a.description}` : '???'}
+                  >
+                    <span className="text-[20px]">{a.unlocked ? a.emoji : '🔒'}</span>
+                    <span className="mt-0.5 text-[10px] truncate w-full" style={{ color: a.unlocked ? 'var(--text-primary)' : 'var(--text-placeholder)' }}>
+                      {a.name}
                 </span>
               </div>
             ))}
           </div>
+            </>
+          )}
         </>
       )}
 

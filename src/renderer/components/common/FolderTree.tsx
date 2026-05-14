@@ -62,7 +62,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
   const handleRename = async (folderId: number, name: string) => {
     const newName2 = prompt('重命名文件夹:', name);
     if (newName2?.trim() && newName2.trim() !== name) {
-      await window.api.folderRename({ folderId, name: newName2.trim() });
+      await window.api.folderRename({ userId, folderId, name: newName2.trim() });
       loadTree();
     }
     setContextFolder(null);
@@ -70,7 +70,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
 
   const handleDelete = async (folderId: number) => {
     if (!confirm('删除文件夹？其中的内容将移至根目录。')) return;
-    await window.api.folderDelete(folderId);
+    await window.api.folderDelete({ userId, folderId });
     if (selectedFolderId === folderId) onSelectFolder(null);
     setContextFolder(null);
     loadTree();

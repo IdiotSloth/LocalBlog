@@ -21,16 +21,16 @@ export class TagService {
     if (!row) throw new Error('创建标签失败');
     return row;
   }
-  static async updateTag(tagId: number, name: string, description?: string): Promise<void> {
+  static async updateTag(userId: number, tagId: number, name: string, description?: string): Promise<void> {
     const t = name.trim();
     if (!t) throw new Error('标签名不能为空');
     if (description !== undefined) {
-      await dbRun('UPDATE tags SET name = ?, description = ? WHERE id = ?', [t, description, tagId]);
+      await dbRun('UPDATE tags SET name = ?, description = ? WHERE id = ? AND user_id = ?', [t, description, tagId, userId]);
     } else {
-      await dbRun('UPDATE tags SET name = ? WHERE id = ?', [t, tagId]);
+      await dbRun('UPDATE tags SET name = ? WHERE id = ? AND user_id = ?', [t, tagId, userId]);
     }
   }
-  static async deleteTag(tagId: number): Promise<void> {
-    await dbRun('DELETE FROM tags WHERE id = ?', [tagId]);
+  static async deleteTag(userId: number, tagId: number): Promise<void> {
+    await dbRun('DELETE FROM tags WHERE id = ? AND user_id = ?', [tagId, userId]);
   }
 }

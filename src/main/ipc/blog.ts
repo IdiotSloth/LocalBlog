@@ -1,10 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import { IPC } from '../../shared/ipc-channels';
 import { dbAll, dbGet } from '../db';
 import { BlogService } from '../services/blog.service';
+
+let blogRefreshTarget: WebContents | null = null;
+
+export function setBlogRefreshTarget(wc: WebContents | null): void {
+  blogRefreshTarget = wc;
+}
 
 export function registerBlogHandlers(): void {
   ipcMain.handle(
@@ -21,6 +27,7 @@ export function registerBlogHandlers(): void {
         sortOrder?: string;
         offset?: number;
         limit?: number;
+        excludeSeries?: boolean;
       },
     ) => {
       try {
@@ -51,6 +58,7 @@ export function registerBlogHandlers(): void {
     async (_event, data: { userId: number; title: string; format: 'md' | 'html'; content: string }) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
         return { success: false, error: (err as Error).message };
@@ -58,27 +66,30 @@ export function registerBlogHandlers(): void {
     },
   );
 
-  ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data: { blogId: number; title?: string; content?: string }) => {
+  ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data: { userId: number; blogId: number; title?: string; content?: string }) => {
     try {
-      await BlogService.updateBlog(data.blogId, { title: data.title, content: data.content });
+      await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
 
-  ipcMain.handle(IPC.BLOG_DELETE, async (_event, blogId: number) => {
+  ipcMain.handle(IPC.BLOG_DELETE, async (_event, data: { userId: number; blogId: number }) => {
     try {
-      await BlogService.deleteBlog(blogId);
+      await BlogService.deleteBlog(data.userId, data.blogId);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
 
-  ipcMain.handle(IPC.BLOG_RESTORE, async (_event, blogId: number) => {
+  ipcMain.handle(IPC.BLOG_RESTORE, async (_event, data: { userId: number; blogId: number }) => {
     try {
-      await BlogService.restoreBlog(blogId);
+      await BlogService.restoreBlog(data.userId, data.blogId);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -99,6 +110,7 @@ export function registerBlogHandlers(): void {
     async (_event, data: { userId: number; filePaths?: string[]; contents?: { title: string; content: string }[] }) => {
       try {
         const blogs = await BlogService.importMarkdownFiles(data.userId, data.filePaths || [], data.contents || []);
+        blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blogs };
       } catch (err) {
         return { success: false, error: (err as Error).message };
@@ -124,9 +136,9 @@ export function registerBlogHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPC.BLOG_ROLLBACK, async (_event, data: { blogId: number; draftId: number }) => {
+  ipcMain.handle(IPC.BLOG_ROLLBACK, async (_event, data: { userId: number; blogId: number; draftId: number }) => {
     try {
-      await BlogService.rollback(data.blogId, data.draftId);
+      await BlogService.rollback(data.userId, data.blogId, data.draftId);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -168,9 +180,10 @@ export function registerBlogHandlers(): void {
   });
 
   // Batch operations
-  ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, blogIds: number[]) => {
+  ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, data: { userId: number; blogIds: number[] }) => {
     try {
-      for (const id of blogIds) await BlogService.deleteBlog(id);
+      for (const id of data.blogIds) await BlogService.deleteBlog(data.userId, id);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: { deleted: blogIds.length } };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -270,6 +283,7 @@ export function registerBlogHandlers(): void {
   ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data: { userId: number; title: string; content: string }) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -295,9 +309,20 @@ export function registerBlogHandlers(): void {
   });
   ipcMain.handle(
     IPC.BLOG_SERIES_SET,
-    async (_event, data: { blogId: number; seriesId: string | null; seriesName: string | null }) => {
+    async (_event, data: { userId: number; blogId: number; seriesId: string | null; seriesName: string | null }) => {
       try {
-        await BlogService.setBlogSeries(data.blogId, data.seriesId, data.seriesName);
+        await BlogService.setBlogSeries(data.userId, data.blogId, data.seriesId, data.seriesName);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    },
+  );
+  ipcMain.handle(
+    IPC.BLOG_SERIES_RENAME,
+    async (_event, data: { seriesId: string; newName: string; userId: number }) => {
+      try {
+        await BlogService.renameSeries(data.seriesId, data.newName, data.userId);
         return { success: true };
       } catch (err) {
         return { success: false, error: (err as Error).message };

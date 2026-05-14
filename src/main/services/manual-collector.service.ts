@@ -182,7 +182,7 @@ export class ManualCollectorService {
       if (!r.ok || !r.content) { failed++; continue; }
       try {
         const blog = await BlogService.createBlog(userId, r.title, 'md', r.content);
-        await BlogService.setBlogSeries(blog.id, seriesId, seriesName);
+        await BlogService.setBlogSeries(userId, blog.id, seriesId, seriesName);
         if (!firstBlogId) firstBlogId = blog.id;
         succeeded++;
       } catch {

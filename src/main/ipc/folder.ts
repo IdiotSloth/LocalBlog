@@ -24,18 +24,18 @@ export function registerFolderHandlers(): void {
     },
   );
 
-  ipcMain.handle(IPC.FOLDER_RENAME, async (_event, data: { folderId: number; name: string }) => {
+  ipcMain.handle(IPC.FOLDER_RENAME, async (_event, data: { userId: number; folderId: number; name: string }) => {
     try {
-      await FolderService.renameFolder(data.folderId, data.name);
+      await FolderService.renameFolder(data.userId, data.folderId, data.name);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
 
-  ipcMain.handle(IPC.FOLDER_DELETE, async (_event, folderId: number) => {
+  ipcMain.handle(IPC.FOLDER_DELETE, async (_event, data: { userId: number; folderId: number }) => {
     try {
-      await FolderService.deleteFolder(folderId);
+      await FolderService.deleteFolder(data.userId, data.folderId);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -44,9 +44,9 @@ export function registerFolderHandlers(): void {
 
   ipcMain.handle(
     IPC.FOLDER_MOVE_ITEM,
-    async (_event, data: { itemType: string; itemId: number; folderId: number | null }) => {
+    async (_event, data: { userId: number; itemType: string; itemId: number; folderId: number | null }) => {
       try {
-        await FolderService.moveToFolder(data.itemType as 'blog' | 'knowledge_file', data.itemId, data.folderId);
+        await FolderService.moveToFolder(data.userId, data.itemType as 'blog' | 'knowledge_file', data.itemId, data.folderId);
         return { success: true };
       } catch (err) {
         return { success: false, error: (err as Error).message };

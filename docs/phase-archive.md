@@ -2,7 +2,7 @@
 
 > 本文档是从 [todo.md](../todo.md) 拆分出的历史档案，完整保留 Phase 1-7 的详细任务规格。
 > 所有任务均已完成 ✅。仅供查阅，不作为当前待办。
-> 最后更新: 2026-05-02
+> 最后更新: 2026-05-14 | Phase 17 归档
 
 ---
 
@@ -948,3 +948,115 @@ Auditor 的 18 项 S 级发现评估如下：
 ### 遗留
 
 - T1504b: Web Tiptap 编辑器 (~3.5h) → Phase 17
+
+---
+
+## Phase 17 — 体验收尾 + 分发就绪
+
+> 来源: Boss 使用者体验反馈 (6 项) + todo.md 遗留 (T1504b) + redo.md P2 择优 (R207/R118)
+> 核心命题: 修复剩余交互摩擦点，让应用达到可分发状态。
+> 结项日期: 2026-05-14 | 9/9 全部完成 | ~18.5h
+
+### 任务总览
+
+| 任务 | 名称 | 估算 | 优先级 | 状态 |
+|------|------|------|--------|------|
+| T1701 | Web Tiptap 编辑器 (WebEditorPage.tsx ~182行) | 3.5h | 🟡 P2 | ✅ |
+| T1702 | 系列页修改系列名 (内联编辑 + blog:seriesRename IPC) | 1h | 🟡 P2 | ✅ |
+| T1703 | 系列博客默认不出现在 BlogListPage (excludeSeries + 双Tab) | 0.5h | 🟡 P2 | ✅ |
+| T1704 | 博客超链接安全跳转 (shell:openExternal IPC + 事件委托) | 2h | 🟠 P1 | ✅ |
+| T1705 | 系列博客下一篇自动滚到顶部 (useEffect 监听 id) | 0.5h | 🟡 P2 | ✅ |
+| T1706 | 单实例应用锁定 (requestSingleInstanceLock) | 1h | 🟠 P1 | ✅ |
+| T1707 | Windows 安装包 (electron-builder NSIS) | 4h | 🟠 P1 | ✅ |
+| T1708 | 主进程 Service user_id 隔离 (R207) | 4h | 🟠 P1 | ✅ |
+| T1709 | 组件 `: any` 类型收敛 (R118, 14→5) | 2h | 🟡 P2 | ✅ |
+
+### 裁决记录 (D36-D38)
+
+| 编号 | 决策点 | 裁决 | 理由 |
+|------|--------|------|------|
+| D36 | T1702 IPC 通道 | A — 新建 blog:seriesRename | blogSeriesSet 是单 blog，系列改名需批量 |
+| D37 | T1704 IPC 桥 | A — 新增 shell:openExternal | IPC 层协议白名单校验 |
+| D38 | T1701 编辑器架构 | B — 新建 WebEditorPage.tsx | 桌面端零改动，Web 端独立 ~150行 |
+
+### 关键成果
+
+1. **分发就绪** — electron-builder NSIS 安装程序 (安装路径/协议/快捷方式/开机启动)，单实例锁定
+2. **安全闭环** — Service user_id 隔离 (6 Service) + shell:openExternal 协议白名单 + 超链接事件委托 5 分支
+3. **系列交互收尾** — 内联改名/自动过滤/滚动重置，系列体验完整
+4. **Web 编辑打通** — WebEditorPage (~182行) Tiptap 基础编辑，Web 端不再只读
+5. **类型质量** — renderer `: any` 14→5。剩余 5 处 reference 相关为已知设计约束
+
+### 审计评分
+
+Phase 17 实施审计 (2026-05-14): 9/9 全部通过，零新工单。tsc 零错误。测试 27/27 pass。
+
+### 遗留
+
+- FTS5 全文搜索 → Phase 18
+- 嵌套文件夹 + 标签关联面板 → Phase 18
+- R112 CRUD 双写收敛 → Phase 18
+
+---
+
+## Phase 18 — 工程收官 + 产品收尾
+
+> 来源: Developer 前线反馈 + Auditor 审计建议 + todo.md 遗留
+> 核心命题: 清偿最大工程债 + 补上最大产品缺口。
+> 结项日期: 2026-05-14 | 7/7 全部完成 (+6项修复) | ~24h
+
+### 任务总览
+
+| 任务 | 名称 | 估算 | 状态 |
+|------|------|------|------|
+| T1801 | FTS5 全文搜索 (Worker 倒排 + MySQL FULLTEXT) | 8h | ✅ |
+| T1802 | CRUD 双写收敛 (shared handlers) | 6h | ✅ |
+| T1803 | 错误反馈通道 (uncaughtException→IPC→Toast) | 2h | ✅ |
+| T1804 | Service 单元测试 (blog/knowledge/note/tag) | 4h | ✅ |
+| T1805 | 编辑器空白闪烁修复 | 0.5h | ✅ |
+| T1806 | Blog 映射函数统一 (3→1 mapBlogRow) | 1h | ✅ |
+| T1807 | 仪表盘/ContinueWriting loading+error | 1h | ✅ |
+
+### 裁决记录 (D39-D45)
+
+| 编号 | 决策点 | 裁决 |
+|------|--------|------|
+| D39 | FTS5 方案 | 继续 D19=B Worker 倒排 |
+| D40 | CRUD 双写范围 | blog + knowledge，6h 限定 |
+| D41 | Service 测试范围 | 4 核心 4h，不全覆盖 |
+| D42 | 错误反馈方案 | 最小通道，不建日志系统 |
+| D43 | FULLTEXT INDEX | A — INDEX 不算 Schema 变更 |
+| D44 | Worker 位置 | A — Renderer Worker |
+| D45 | shared handler 范围 | A — SQL 构建，副作用各自处理 |
+
+### 关键成果
+
+1. **FTS5 全文搜索** — Worker 倒排索引 (Intl.Segmenter + TF-IDF) + MySQL FULLTEXT INDEX。从"搜不到"到"搜得到"
+2. **CRUD 双写收敛** — blog-crud.ts (17函数) + knowledge-crud.ts (13函数)。改一处 SQL 两边生效
+3. **Service 测试** — 27→49 tests (6 files)。核心 Service 有安全网
+4. **错误反馈** — 打包后用户能看到异常报错了
+
+### 修复记录 (R130-R135)
+
+| # | 问题 | 修复 |
+|---|------|------|
+| R130 | FULLTEXT INDEX 列名错误 title→filename | 1 行修复 |
+| R131 | buildBlogUpdate hardcode format='md' | 动态取 format |
+| R132 | 搜索竞态 Promise 挂起 | 单槽→Map+correlationId |
+| R133 | Worker 无 onerror | worker.onerror 设 setReady(false) |
+| R134 | restore 缺 updated_at | 加 updated_at 参数 |
+| R135 | recycle 缺 user_id | 可接受（restore 已校验所有权） |
+
+### 审计评分
+
+Phase 18 实施审计 (2026-05-14): 7/7 实施完成，13 项发现。6 项 P1+P2 全部修复验证通过。首次 P0+P1+P2 全零。
+
+### 里程碑
+
+Phase 11 以来首次 🔴0 🟠0 🟡0。累计 109 项修复、141 个工单、45 个决策点、~441.5h。
+
+### 遗留
+
+- 嵌套文件夹 → Phase 19
+- 组件状态收敛 → Phase 19
+- 键盘可访问性 → Phase 19

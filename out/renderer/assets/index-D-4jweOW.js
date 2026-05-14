@@ -17435,36 +17435,195 @@ function ShortcutHelpPanel({ onClose }) {
     }
   );
 }
+function useSearch(userId) {
+  const [results, setResults] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(false);
+  const [ready, setReady] = reactExports.useState(false);
+  const workerRef = reactExports.useRef(null);
+  const modeRef = reactExports.useRef("init");
+  const pendingSearchesRef = reactExports.useRef(/* @__PURE__ */ new Map());
+  const correlationIdRef = reactExports.useRef(0);
+  reactExports.useEffect(() => {
+    if (!userId) return;
+    async function init2() {
+      try {
+        const resp = await window.api.searchQuery({ query: "test", userId });
+        if (resp.success && resp.data !== void 0) {
+          modeRef.current = "mysql";
+          setReady(true);
+          return;
+        }
+      } catch {
+      }
+      modeRef.current = "sqljs";
+      const worker = new Worker(
+        new URL(
+          /* @vite-ignore */
+          "" + new URL("search.worker-CK_g5QOt.js", import.meta.url).href,
+          import.meta.url
+        ),
+        { type: "module" }
+      );
+      workerRef.current = worker;
+      worker.onerror = (e) => {
+        console.error("[SearchWorker] Error:", e);
+        setReady(false);
+      };
+      worker.onmessage = (e) => {
+        const msg = e.data;
+        switch (msg.type) {
+          case "search-results": {
+            setResults(msg.results);
+            setLoading(false);
+            const cid = msg.correlationId;
+            if (cid !== void 0 && pendingSearchesRef.current.has(cid)) {
+              pendingSearchesRef.current.get(cid)(msg.results);
+              pendingSearchesRef.current.delete(cid);
+            }
+            break;
+          }
+          case "index-built":
+          case "index-restored": {
+            if (msg.type === "index-restored" && !msg.success) {
+              fetchAndBuildIndex(worker, userId);
+            } else {
+              setReady(true);
+            }
+            break;
+          }
+        }
+      };
+      worker.postMessage({ type: "restore-index" });
+    }
+    init2();
+    const unsubBlogRefresh = window.api.onBlogRefresh(() => {
+      if (modeRef.current === "mysql") {
+        return;
+      }
+      if (workerRef.current && userId) {
+        fetchAndBuildIndex(workerRef.current, userId);
+      }
+    });
+    const unsubKbRefresh = window.api.onKbRefresh(() => {
+      if (modeRef.current === "mysql") {
+        return;
+      }
+      if (workerRef.current && userId) {
+        fetchAndBuildIndex(workerRef.current, userId);
+      }
+    });
+    return () => {
+      unsubBlogRefresh();
+      unsubKbRefresh();
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, [userId]);
+  const search = reactExports.useCallback(
+    async (query) => {
+      if (!userId) return;
+      if (query.trim().length < 2) {
+        setResults([]);
+        return;
+      }
+      setLoading(true);
+      if (modeRef.current === "mysql") {
+        try {
+          const resp = await window.api.searchQuery({ query: query.trim(), userId });
+          if (resp.success && resp.data) {
+            setResults(resp.data);
+          } else {
+            setResults([]);
+          }
+        } catch {
+          setResults([]);
+        }
+        setLoading(false);
+      } else if (modeRef.current === "sqljs" && workerRef.current) {
+        const workerResults = await new Promise((resolve) => {
+          const cid = ++correlationIdRef.current;
+          pendingSearchesRef.current.set(cid, resolve);
+          workerRef.current.postMessage({ type: "search", query: query.trim(), limit: 20, correlationId: cid });
+          setTimeout(() => {
+            if (pendingSearchesRef.current.has(cid)) {
+              pendingSearchesRef.current.delete(cid);
+              resolve([]);
+            }
+          }, 5e3);
+        });
+        setResults(workerResults);
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    },
+    [userId]
+  );
+  const refreshIndex = reactExports.useCallback(async () => {
+    if (!userId || modeRef.current !== "sqljs" || !workerRef.current) return;
+    setReady(false);
+    await fetchAndBuildIndex(workerRef.current, userId);
+    setReady(true);
+  }, [userId]);
+  const addDocument = reactExports.useCallback((doc2) => {
+    if (modeRef.current === "sqljs" && workerRef.current) {
+      try {
+        workerRef.current.postMessage({ type: "add-document", doc: doc2 });
+      } catch (e) {
+        console.error("[useSearch] Failed to add document:", e);
+      }
+    }
+  }, []);
+  const removeDocument = reactExports.useCallback((docId, docType) => {
+    if (modeRef.current === "sqljs" && workerRef.current) {
+      try {
+        workerRef.current.postMessage({ type: "remove-document", docId, docType });
+      } catch (e) {
+        console.error("[useSearch] Failed to remove document:", e);
+      }
+    }
+  }, []);
+  return { search, results, loading, ready, refreshIndex, addDocument, removeDocument };
+}
+async function fetchAndBuildIndex(worker, userId) {
+  try {
+    const resp = await window.api.searchGetDocuments({ userId });
+    if (resp.success && resp.data) {
+      worker.postMessage({ type: "build-index", docs: resp.data });
+    }
+  } catch (err) {
+    console.warn("[useSearch] Failed to fetch indexable documents:", err);
+  }
+}
 function GlobalSearch() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [query, setQuery] = reactExports.useState("");
-  const [blogs, setBlogs] = reactExports.useState([]);
-  const [kbs, setKbs] = reactExports.useState([]);
   const [open, setOpen] = reactExports.useState(false);
   const [selectedIdx, setSelectedIdx] = reactExports.useState(-1);
   const inputRef = reactExports.useRef(null);
   const containerRef = reactExports.useRef(null);
   const timerRef = reactExports.useRef();
+  const { search, results } = useSearch(user?.id ?? null);
+  const groups = [];
+  const blogResults = results.filter((r) => r.type === "blog");
+  const knowledgeResults = results.filter((r) => r.type === "knowledge");
+  if (blogResults.length > 0) groups.push({ type: "blog", label: "博客", items: blogResults });
+  if (knowledgeResults.length > 0) groups.push({ type: "knowledge", label: "知识库", items: knowledgeResults });
+  const totalResults = results.length;
   const doSearch = reactExports.useCallback(
     async (q) => {
-      if (q.length < 2) {
-        setBlogs([]);
-        setKbs([]);
+      if (q.trim().length < 2) {
         setOpen(false);
         return;
       }
-      if (!user) return;
-      const data = await window.api.searchGlobal({ userId: user.id, query: q });
-      const resp = data;
-      if (resp.success && resp.data) {
-        setBlogs(resp.data.blogs);
-        setKbs(resp.data.knowledge);
-        setOpen(true);
-        setSelectedIdx(-1);
-      }
+      await search(q);
+      setOpen(true);
+      setSelectedIdx(-1);
     },
-    [user]
+    [search]
   );
   const handleChange = (val) => {
     setQuery(val);
@@ -17478,20 +17637,22 @@ function GlobalSearch() {
     else navigate("/knowledge");
   };
   const handleKeyDown2 = (e) => {
-    const total = blogs.length + kbs.length;
-    if (!open || total === 0) return;
+    if (!open || totalResults === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIdx((i) => Math.min(i + 1, total - 1));
+      setSelectedIdx((i) => Math.min(i + 1, totalResults - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter" && selectedIdx >= 0) {
       e.preventDefault();
-      if (selectedIdx < blogs.length) {
-        handleNavigate("blog", blogs[selectedIdx].id);
-      } else {
-        handleNavigate("kb", kbs[selectedIdx - blogs.length].id);
+      let idx = selectedIdx;
+      for (const group of groups) {
+        if (idx < group.items.length) {
+          handleNavigate(group.type, group.items[idx].id);
+          return;
+        }
+        idx -= group.items.length;
       }
     } else if (e.key === "Escape") {
       setOpen(false);
@@ -17527,57 +17688,45 @@ function GlobalSearch() {
         onChange: (e) => handleChange(e.target.value),
         onKeyDown: handleKeyDown2,
         onFocus: () => {
-          if (blogs.length || kbs.length) setOpen(true);
+          if (totalResults > 0) setOpen(true);
         },
         placeholder: "搜索博客和知识库... (Ctrl+F)",
         className: "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-1.5 text-sm outline-none transition-all focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]/30 placeholder:text-[var(--color-text-muted)]"
       }
     ),
-    open && (blogs.length > 0 || kbs.length > 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute left-0 right-0 top-full mt-1.5 max-h-[400px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50", children: [
-      blogs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]", children: [
-          "博客 (",
-          blogs.length,
-          ")"
-        ] }),
-        blogs.map((b, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    open && totalResults > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute left-0 right-0 top-full mt-1.5 max-h-[400px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50", children: groups.map((group, gIdx) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      gIdx > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-[var(--color-border)]" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]", children: [
+        group.label,
+        " (",
+        group.items.length,
+        ")"
+      ] }),
+      group.items.map((item, iIdx) => {
+        let flatIdx = 0;
+        for (let gi = 0; gi < gIdx; gi++) {
+          flatIdx += groups[gi].items.length;
+        }
+        flatIdx += iIdx;
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "button",
           {
             type: "button",
-            onClick: () => handleNavigate("blog", b.id),
-            className: `w-full px-4 py-2.5 text-left transition-colors ${i === selectedIdx ? "bg-[var(--color-primary)]/8" : "hover:bg-[var(--color-bg-base)]"}`,
+            onClick: () => handleNavigate(item.type, item.id),
+            className: `w-full px-4 py-2.5 text-left transition-colors ${flatIdx === selectedIdx ? "bg-[var(--color-primary)]/8" : "hover:bg-[var(--color-bg-base)]"}`,
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm font-medium text-[var(--color-text-primary)] truncate", children: b.title }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-[var(--color-text-muted)]", children: b.snippet })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm font-medium text-[var(--color-text-primary)] truncate", children: item.title }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-[var(--color-text-muted)] truncate", children: item.snippet }),
+              item.score > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[10px] text-[var(--color-text-muted)] opacity-60", children: [
+                "相关性: ",
+                item.score
+              ] })
             ]
           },
-          `b-${b.id}`
-        ))
-      ] }),
-      kbs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] border-t border-[var(--color-border)]", children: [
-          "知识库 (",
-          kbs.length,
-          ")"
-        ] }),
-        kbs.map((k, i) => {
-          const idx = blogs.length + i;
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
-            {
-              type: "button",
-              onClick: () => handleNavigate("kb", k.id),
-              className: `w-full px-4 py-2.5 text-left transition-colors ${idx === selectedIdx ? "bg-[var(--color-primary)]/8" : "hover:bg-[var(--color-bg-base)]"}`,
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm font-medium text-[var(--color-text-primary)] truncate", children: k.title }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-[var(--color-text-muted)]", children: k.snippet })
-              ]
-            },
-            `k-${k.id}`
-          );
-        })
-      ] })
-    ] })
+          `${item.type}-${item.id}`
+        );
+      })
+    ] }, group.type)) })
   ] });
 }
 const ToastContext = reactExports.createContext({ toast: () => {
@@ -18123,12 +18272,16 @@ const useThemeStore = create$1((set2, get2) => ({
     mqlListener = () => mql.removeEventListener("change", handler);
   }
 }));
+const isWeb = !navigator.userAgent.includes("Electron");
 const DashboardPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => DashboardPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.DashboardPage }))
 );
 const BlogListPage$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => BlogListPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogListPage })));
 const BlogEditorPage$3 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => BlogEditorPage$2), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogEditorPage }))
+);
+const WebEditorPage$2 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => WebEditorPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.WebEditorPage }))
 );
 const BlogPreviewPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => BlogPreviewPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.BlogPreviewPage }))
@@ -18190,8 +18343,9 @@ const router = createHashRouter([
           { index: true, element: lazyPage(ContinueWritingPage$2) },
           { path: "/dashboard", element: lazyPage(DashboardPage$2) },
           { path: "/blog", element: lazyPage(BlogListPage$2) },
-          { path: "/blog/new", element: lazyPage(BlogEditorPage$3) },
+          { path: "/blog/new", element: lazyPage(isWeb ? WebEditorPage$2 : BlogEditorPage$3) },
           { path: "/blog/:id", element: lazyPage(BlogPreviewPage$2) },
+          { path: "/blog/:id/edit", element: lazyPage(isWeb ? WebEditorPage$2 : BlogEditorPage$3) },
           { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) },
           { path: "/tags", element: lazyPage(TagManagePage$2) },
           { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
@@ -18210,11 +18364,48 @@ const router = createHashRouter([
 function App() {
   const initSession = useAuthStore((s) => s.initSession);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const [errorToast, setErrorToast] = reactExports.useState({ message: "", visible: false });
   reactExports.useEffect(() => {
     initSession();
     initTheme();
   }, [initSession, initTheme]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(RouterProvider, { router });
+  reactExports.useEffect(() => {
+    return window.api.onAppError((error2) => {
+      setErrorToast({ message: error2.message, visible: true });
+      setTimeout(() => {
+        setErrorToast((prev) => ({ ...prev, visible: false }));
+      }, 5e3);
+    });
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(RouterProvider, { router }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorToastContent, { state: errorToast, onDismiss: () => setErrorToast((prev) => ({ ...prev, visible: false })) })
+  ] });
+}
+function ErrorToastContent({ state, onDismiss }) {
+  if (!state.visible) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "fixed top-0 left-0 right-0 z-[9999] px-4 py-3 text-sm text-white text-center shadow-lg",
+      style: { background: "var(--accent-red)" },
+      role: "alert",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mr-2", children: "⚠" }),
+        state.message,
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: onDismiss,
+            className: "absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white",
+            "aria-label": "关闭",
+            children: "✕"
+          }
+        )
+      ]
+    }
+  );
 }
 const BASE = "http://localhost:3456";
 async function request(method, path, body) {
@@ -18247,8 +18438,8 @@ const webApi = {
   blogGet: (blogId) => request("GET", `/api/blog/${blogId}`),
   blogCreate: (data) => request("POST", "/api/blog/create", data),
   blogUpdate: (data) => request("POST", `/api/blog/${data.blogId}/update`, data),
-  blogDelete: (blogId) => request("POST", `/api/blog/${blogId}/delete`),
-  blogRestore: (blogId) => request("POST", `/api/blog/${blogId}/restore`),
+  blogDelete: (data) => request("POST", `/api/blog/${data.blogId}/delete`, data),
+  blogRestore: (data) => request("POST", `/api/blog/${data.blogId}/restore`, data),
   blogExport: () => Promise.resolve({ success: false, error: "网页版暂不支持导出" }),
   blogImportMd: (data) => request("POST", "/api/blog/import-md", data),
   blogSaveDraft: (data) => request("POST", "/api/blog/save-draft", data),
@@ -18257,11 +18448,12 @@ const webApi = {
   blogSeriesList: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
   blogSeriesGet: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
   blogSeriesSet: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
+  blogSeriesRename: () => Promise.resolve({ success: false, error: "网页版暂不支持系列功能" }),
   // Tag
   tagList: () => request("GET", "/api/tags/list"),
   tagCreate: (data) => request("POST", "/api/tags/create", data),
   tagUpdate: (data) => request("POST", `/api/tags/${data.tagId}/update`, data),
-  tagDelete: (tagId) => request("POST", `/api/tags/${tagId}/delete`),
+  tagDelete: (data) => request("POST", `/api/tags/${data.tagId}/delete`, data),
   tagSetBlog: (data) => request("POST", `/api/blog/${data.blogId}/tags`, data),
   tagSetFile: (data) => request("POST", `/api/knowledge/${data.fileId}/tags`, data),
   // Knowledge Base
@@ -18269,7 +18461,7 @@ const webApi = {
   kbGet: (fileId) => request("GET", `/api/knowledge/${fileId}`),
   kbImport: (data) => request("POST", "/api/knowledge/import", data),
   kbDelete: (data) => request("POST", `/api/knowledge/${data.fileId}/delete`, data),
-  kbRestore: (fileId) => request("POST", `/api/knowledge/${fileId}/restore`),
+  kbRestore: (data) => request("POST", `/api/knowledge/${data.fileId}/restore`, data),
   kbRename: (data) => request("POST", `/api/knowledge/${data.fileId}/rename`, data),
   kbPreview: (fileId) => request("GET", `/api/knowledge/${fileId}/preview`),
   kbOpenExternal: () => Promise.resolve({ success: false, error: "网页版暂不支持系统程序打开" }),
@@ -18277,6 +18469,8 @@ const webApi = {
   searchGlobal: (data) => request("POST", "/api/search/global", data),
   searchBlogs: (data) => request("POST", "/api/search/blogs", data),
   searchKb: (data) => request("POST", "/api/search/kb", data),
+  searchQuery: () => Promise.resolve({ success: false, error: "FTS搜索为桌面专属功能" }),
+  searchGetDocuments: () => Promise.resolve({ success: false, error: "FTS搜索为桌面专属功能" }),
   // Workspace
   shortcutGetAll: () => Promise.resolve({ success: false, error: "快捷键设置为桌面专属功能" }),
   shortcutUpdate: () => Promise.resolve({ success: false, error: "快捷键设置为桌面专属功能" }),
@@ -18332,6 +18526,7 @@ const webApi = {
   refGetTo: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
   refSearch: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
   // App
+  shellOpenExternal: () => Promise.resolve({ success: false, error: "网页版暂不支持打开外部链接" }),
   appGetVersion: () => Promise.resolve({ success: true, data: "0.3.0-web" }),
   appGetSystemLanguage: () => Promise.resolve({ success: true, data: navigator.language }),
   appSetAutoStart: () => Promise.resolve({ success: true }),
@@ -18345,6 +18540,10 @@ const webApi = {
   notePin: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   noteClipboard: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   onNoteRefresh: () => () => {
+  },
+  onAppError: () => () => {
+  },
+  onKbRefresh: () => () => {
   },
   // Continue Writing
   continueGetDrafts: () => Promise.resolve({ success: false, error: "续写视图为桌面专属功能" }),
@@ -18430,16 +18629,27 @@ function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const [ws, setWs] = reactExports.useState(null);
+  const [wsLoading, setWsLoading] = reactExports.useState(true);
+  const [wsError, setWsError] = reactExports.useState(null);
   const [stats, setStats] = reactExports.useState(null);
+  const [statsLoading, setStatsLoading] = reactExports.useState(true);
+  const [statsError, setStatsError] = reactExports.useState(null);
   const [achievements, setAchievements] = reactExports.useState([]);
   reactExports.useEffect(() => {
     if (!user) return;
     let aborted = false;
+    setWsLoading(true);
+    setWsError(null);
     window.api.workspaceGetInfo(user.id).then((info) => {
       if (!aborted) setWs(info);
     }).catch((e) => {
       console.error("[Dashboard] Failed to get workspace info:", e);
+      if (!aborted) setWsError("加载失败");
+    }).finally(() => {
+      if (!aborted) setWsLoading(false);
     });
+    setStatsLoading(true);
+    setStatsError(null);
     window.api.statsGet(user.id).then((r) => {
       if (aborted) return;
       if (r.success && r.data) {
@@ -18448,6 +18658,9 @@ function DashboardPage() {
       }
     }).catch((e) => {
       console.error("[Dashboard] Failed to get stats:", e);
+      if (!aborted) setStatsError("加载失败");
+    }).finally(() => {
+      if (!aborted) setStatsLoading(false);
     });
     return () => {
       aborted = true;
@@ -18462,7 +18675,7 @@ function DashboardPage() {
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "var(--text-secondary)", fontSize: 14 }, children: "> whoami" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mt-1 text-[40px] font-bold leading-tight", style: { color: "var(--text-primary)" }, children: user?.username || "..." }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[18px]", style: { color: "var(--text-secondary)" }, children: "本地博客与知识库" }),
-      stats && (stats.currentStreak > 0 || stats.totalWords > 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex flex-wrap gap-2", children: [
+      statsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : statsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 text-[13px]", style: { color: "var(--accent-red)" }, children: "加载失败" }) : stats && (stats.currentStreak > 0 || stats.totalWords > 0) ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex flex-wrap gap-2", children: [
         stats.currentStreak > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "span",
           {
@@ -18498,7 +18711,7 @@ function DashboardPage() {
             ]
           }
         )
-      ] })
+      ] }) : null
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 flex gap-1 border-b", style: { borderColor: "var(--border-default)" }, children: TABS.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
       "button",
@@ -18516,11 +18729,11 @@ function DashboardPage() {
       t.id
     )) }),
     activeTab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-4 gap-3", children: [
-        { label: "博客", val: ws?.blogCount ?? "...", sub: stats ? `本月 +${stats.monthlyCount}` : "", c: "--accent-blue" },
-        { label: "知识库", val: ws?.knowledgeCount ?? "...", c: "--accent-green" },
-        { label: "标签", val: ws?.tagCount ?? "...", c: "--accent-amber" },
-        { label: "存储占用", val: ws ? fmt(ws.storageSize || 0) : "...", c: "--text-secondary" }
+      wsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : wsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-4 gap-3", children: [
+        { label: "博客", val: ws?.blogCount ?? 0, sub: stats ? `本月 +${stats.monthlyCount}` : "", c: "--accent-blue" },
+        { label: "知识库", val: ws?.knowledgeCount ?? 0, c: "--accent-green" },
+        { label: "标签", val: ws?.tagCount ?? 0, c: "--accent-amber" },
+        { label: "存储占用", val: ws ? fmt(ws.storageSize || 0) : "0 B", c: "--text-secondary" }
       ].map((card) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "div",
         {
@@ -18565,7 +18778,7 @@ function DashboardPage() {
         a.to
       )) })
     ] }),
-    activeTab === "achievements" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    activeTab === "achievements" && /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: statsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : statsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: [
         "成就 (",
         achievements.length,
@@ -18590,7 +18803,7 @@ function DashboardPage() {
         },
         a.id
       )) })
-    ] }),
+    ] }) }),
     activeTab === "heatmap" && user && /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-[140px] rounded-[6px]", style: { background: "var(--bg-secondary)" } }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap$2, { userId: user.id }) })
   ] });
 }
@@ -18652,14 +18865,14 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
   const handleRename = async (folderId, name) => {
     const newName2 = prompt("重命名文件夹:", name);
     if (newName2?.trim() && newName2.trim() !== name) {
-      await window.api.folderRename({ folderId, name: newName2.trim() });
+      await window.api.folderRename({ userId, folderId, name: newName2.trim() });
       loadTree();
     }
     setContextFolder(null);
   };
   const handleDelete2 = async (folderId) => {
     if (!confirm("删除文件夹？其中的内容将移至根目录。")) return;
-    await window.api.folderDelete(folderId);
+    await window.api.folderDelete({ userId, folderId });
     if (selectedFolderId === folderId) onSelectFolder(null);
     setContextFolder(null);
     loadTree();
@@ -19156,6 +19369,7 @@ function BlogListPage() {
   const [scrapeLoading, setScrapeLoading] = reactExports.useState(false);
   const [scrapeResult, setScrapeResult] = reactExports.useState(null);
   const [scrapeError, setScrapeError] = reactExports.useState("");
+  const [excludeSeries, setExcludeSeries] = reactExports.useState(() => localStorage.getItem("blog-list-tab") !== "all");
   const [activeTab, setActiveTab] = reactExports.useState(
     searchParams.get("tab") === "manual" ? "manual" : "blogs"
   );
@@ -19189,7 +19403,8 @@ function BlogListPage() {
         sortBy,
         sortOrder: "desc",
         offset: pagination.offset,
-        limit: pagination.limit
+        limit: pagination.limit,
+        excludeSeries: excludeSeries || void 0
       });
       if (r.success && r.data) {
         setBlogs(r.data.blogs);
@@ -19200,7 +19415,7 @@ function BlogListPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit]);
+  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
   reactExports.useEffect(() => {
     const tagId = searchParams.get("tagId");
     const tagName = searchParams.get("tagName");
@@ -19221,7 +19436,7 @@ function BlogListPage() {
   const handleDelete2 = async (id) => {
     if (!confirm("移至回收站？")) return;
     try {
-      await window.api.blogDelete(id);
+      await window.api.blogDelete({ userId: user.id, blogId: id });
       loadBlogs();
     } catch (e) {
       console.error("delete blog failed", e);
@@ -19350,6 +19565,47 @@ function BlogListPage() {
         )
       ] }),
       activeTab === "manual" ? /* @__PURE__ */ jsxRuntimeExports.jsx(ManualCollectTab, {}) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 flex items-center gap-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "inline-flex rounded-[4px] border p-0.5",
+            style: { borderColor: "var(--border-default)" },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => {
+                    setExcludeSeries(true);
+                    localStorage.setItem("blog-list-tab", "independent");
+                  },
+                  className: "rounded-[3px] px-3 py-1 text-[12px] transition-colors",
+                  style: {
+                    background: excludeSeries ? "var(--bg-tertiary)" : "transparent",
+                    color: "var(--text-secondary)"
+                  },
+                  children: "独立博客"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => {
+                    setExcludeSeries(false);
+                    localStorage.setItem("blog-list-tab", "all");
+                  },
+                  className: "rounded-[3px] px-3 py-1 text-[12px] transition-colors",
+                  style: {
+                    background: !excludeSeries ? "var(--bg-tertiary)" : "transparent",
+                    color: "var(--text-secondary)"
+                  },
+                  children: "全部博客"
+                }
+              )
+            ]
+          }
+        ) }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center justify-between", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold text-primary", children: [
@@ -19476,7 +19732,7 @@ function BlogListPage() {
                     onClick: async () => {
                       if (!confirm(`将 ${batch.selectedCount} 篇博客移至回收站？`)) return;
                       try {
-                        await window.api.blogBatchDelete([...batch.selectedIds]);
+                        await window.api.blogBatchDelete({ userId: user.id, blogIds: [...batch.selectedIds] });
                         batch.clearSelection();
                         loadBlogs();
                       } catch (e) {
@@ -19595,7 +19851,7 @@ function BlogListPage() {
                         e.preventDefault();
                         const fid = e.target.value ? Number(e.target.value) : null;
                         try {
-                          await window.api.folderMoveItem({ itemType: "blog", itemId: blog.id, folderId: fid });
+                          await window.api.folderMoveItem({ userId: user.id, itemType: "blog", itemId: blog.id, folderId: fid });
                           loadBlogs();
                         } catch (e2) {
                           console.error(e2);
@@ -25673,6 +25929,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
     if (r.success && r.data) {
       setRefs(
         r.data.map((ref) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id }))
+        // TODO: define Reference type in shared/types.ts
       );
     }
     setLoading(false);
@@ -51876,6 +52133,7 @@ const initialState = {
   pendingTagIds: null,
   selectedTemplate: null,
   focusMode: false,
+  loading: true,
   seriesId: null,
   seriesName: "",
   seriesList: [],
@@ -51907,6 +52165,8 @@ function editorReducer(state, action) {
       return { ...state, selectedTemplate: action.payload };
     case "SET_FOCUS":
       return { ...state, focusMode: action.payload };
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
     case "SET_SERIES_ID":
       return { ...state, seriesId: action.payload };
     case "SET_SERIES_NAME":
@@ -51972,27 +52232,32 @@ function BlogEditorPage$1() {
     if (tpl.tags.length > 0) dispatch({ type: "SET_PENDING_TAGS", payload: null });
   }, []);
   reactExports.useEffect(() => {
-    if (id && user) {
-      window.api.blogGet(Number(id)).then((r) => {
-        if (r.success && r.data) {
-          const c = r.data.content || "";
-          dispatch({
-            type: "LOAD_BLOG",
-            payload: {
-              title: r.data.title,
-              format: r.data.format,
-              content: r.data.format === "md" ? md$1.render(c) : c,
-              selectedTagIds: (r.data.tags || []).map((t) => t.id),
-              seriesId: r.data.seriesId || null,
-              seriesName: r.data.seriesName || ""
-            }
-          });
-        }
-      });
-      window.api.blogSeriesList(user.id).then((r) => {
-        if (r.success && r.data) dispatch({ type: "SET_SERIES_LIST", payload: r.data });
-      });
+    if (!user) return;
+    if (!id) {
+      dispatch({ type: "SET_LOADING", payload: false });
+      return;
     }
+    dispatch({ type: "SET_LOADING", payload: true });
+    window.api.blogGet(Number(id)).then((r) => {
+      if (r.success && r.data) {
+        const c = r.data.content || "";
+        dispatch({
+          type: "LOAD_BLOG",
+          payload: {
+            title: r.data.title,
+            format: r.data.format,
+            content: r.data.format === "md" ? md$1.render(c) : c,
+            selectedTagIds: (r.data.tags || []).map((t) => t.id),
+            seriesId: r.data.seriesId || null,
+            seriesName: r.data.seriesName || ""
+          }
+        });
+      }
+      dispatch({ type: "SET_LOADING", payload: false });
+    }).catch(() => dispatch({ type: "SET_LOADING", payload: false }));
+    window.api.blogSeriesList(user.id).then((r) => {
+      if (r.success && r.data) dispatch({ type: "SET_SERIES_LIST", payload: r.data });
+    });
   }, [id, user]);
   const saveTags = reactExports.useCallback(async (blogId, tagIds) => {
     try {
@@ -52055,6 +52320,7 @@ function BlogEditorPage$1() {
       } else {
         toast("已保存", "success");
         const r = await window.api.blogUpdate({
+          userId: user.id,
           blogId: Number(id),
           title: state.title.trim(),
           content: contentToSave
@@ -52084,6 +52350,9 @@ function BlogEditorPage$1() {
     window.addEventListener("keydown", h2);
     return () => window.removeEventListener("keydown", h2);
   }, [handleSave]);
+  if (!isNew && state.loading) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." });
+  }
   if (isNew && !state.selectedTemplate) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(TemplateSelector, { onSelect: handleTemplateSelect });
   }
@@ -52206,7 +52475,7 @@ function BlogEditorPage$1() {
                 dispatch({ type: "SET_SERIES_ID", payload: null });
                 dispatch({ type: "SET_SERIES_NAME", payload: "" });
                 if (blogIdRef.current)
-                  await window.api.blogSeriesSet({ blogId: blogIdRef.current, seriesId: null, seriesName: null });
+                  await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: null, seriesName: null });
                 return;
               }
               const item = state.seriesList.find((s) => s.seriesId === val);
@@ -52215,6 +52484,7 @@ function BlogEditorPage$1() {
                 dispatch({ type: "SET_SERIES_NAME", payload: item.seriesName });
                 if (blogIdRef.current)
                   await window.api.blogSeriesSet({
+                    userId: user.id,
                     blogId: blogIdRef.current,
                     seriesId: item.seriesId,
                     seriesName: item.seriesName
@@ -52247,6 +52517,7 @@ function BlogEditorPage$1() {
                 dispatch({ type: "SET_SERIES_ID", payload: uuid });
                 dispatch({ type: "SET_SERIES_NAME", payload: state.newSeries.trim() });
                 await window.api.blogSeriesSet({
+                  userId: user.id,
                   blogId: blogIdRef.current,
                   seriesId: uuid,
                   seriesName: state.newSeries.trim()
@@ -52323,7 +52594,7 @@ function BlogEditorPage$1() {
                   onClick: async () => {
                     if (!blogIdRef.current || !confirm("恢复到该版本？")) return;
                     try {
-                      await window.api.blogRollback({ blogId: blogIdRef.current, draftId: d.id });
+                      await window.api.blogRollback({ userId: user.id, blogId: blogIdRef.current, draftId: d.id });
                       dispatch({ type: "SET_CONTENT", payload: d.content });
                       dispatch({ type: "TOGGLE_HISTORY" });
                     } catch {
@@ -52354,6 +52625,169 @@ const BlogEditorPage$2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.de
   __proto__: null,
   BlogEditorPage: BlogEditorPage$1,
   editorReducer
+}, Symbol.toStringTag, { value: "Module" }));
+const DRAFT_KEY = "web-editor-draft";
+function WebEditorPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
+  const [title, setTitle] = reactExports.useState("");
+  const [saving, setSaving] = reactExports.useState(false);
+  const [error2, setError] = reactExports.useState("");
+  const [ready, setReady] = reactExports.useState(false);
+  const loadedRef = reactExports.useRef(false);
+  const editor = useEditor({
+    extensions: [
+      index_default.configure({
+        heading: { levels: [1, 2, 3] }
+      }),
+      index_default$2.configure({ placeholder: "开始写作..." }),
+      index_default$4.configure({ allowBase64: true, inline: true })
+    ],
+    onUpdate: ({ editor: editor2 }) => {
+      if (loadedRef.current && !saving) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content: editor2.getHTML() }));
+      }
+    },
+    editorProps: {
+      attributes: { class: "prose prose-sm max-w-none focus:outline-none min-h-[400px] px-6 py-4" },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith("image/")) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const dataUrl = e.target?.result;
+                editor?.chain().focus().setImage({ src: dataUrl }).run();
+              };
+              reader.readAsDataURL(file);
+            }
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+  });
+  reactExports.useEffect(() => {
+    if (!editor || !id) return;
+    window.api.blogGet(Number(id)).then((r) => {
+      if (r.success && r.data) {
+        setTitle(r.data.title);
+        editor.commands.setContent(r.data.content || "");
+      }
+      loadedRef.current = true;
+      setReady(true);
+    });
+  }, [id, editor]);
+  reactExports.useEffect(() => {
+    if (!editor || id || ready) return;
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      try {
+        const d = JSON.parse(draft);
+        if (d.title) setTitle(d.title);
+        if (d.content) editor.commands.setContent(d.content);
+      } catch {
+      }
+    }
+    loadedRef.current = true;
+    setReady(true);
+  }, [id, editor, ready]);
+  const handleSave = reactExports.useCallback(async () => {
+    if (!user || !title.trim()) {
+      setError("请输入标题");
+      return;
+    }
+    if (!editor) return;
+    setSaving(true);
+    setError("");
+    try {
+      const content = editor.getHTML();
+      if (id) {
+        const r = await window.api.blogUpdate({ blogId: Number(id), title: title.trim(), content });
+        if (!r.success) {
+          setError(r.error || "保存失败");
+          toast(r.error || "保存失败", "error");
+          return;
+        }
+        toast("已保存", "success");
+      } else {
+        const r = await window.api.blogCreate({ userId: user.id, title: title.trim(), format: "html", content });
+        if (r.success && r.data) {
+          localStorage.removeItem(DRAFT_KEY);
+          navigate(`/blog/${r.data.id}`, { replace: true });
+        } else {
+          setError(r.error || "创建失败");
+          toast(r.error || "创建失败", "error");
+        }
+      }
+    } catch (e) {
+      const msg = e.message || "保存失败";
+      setError(msg);
+      toast(msg, "error");
+    } finally {
+      setSaving(false);
+    }
+  }, [user, title, editor, id, navigate, toast]);
+  reactExports.useEffect(() => {
+    if (!editor) return;
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSave, editor]);
+  if (!editor) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-sm", style: { color: "var(--text-secondary)" }, children: "编辑器加载中..." });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "flex h-full flex-col",
+      style: { maxWidth: "var(--content-max)", margin: "0 auto" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center gap-4", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              value: title,
+              onChange: (e) => setTitle(e.target.value),
+              placeholder: "输入博客标题...",
+              className: "input-dark flex-1 !border-transparent !bg-transparent !text-xl !font-bold"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSave, disabled: saving, className: "btn-primary", children: saving ? "保存中..." : "保存" })
+        ] }),
+        error2 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "mb-3 rounded-[4px] px-3 py-2 text-[13px]",
+            style: { background: "rgba(248,81,73,0.1)", color: "var(--accent-red)" },
+            children: error2
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EditorContent, { editor }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex justify-between text-[12px]", style: { color: "var(--text-secondary)" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: id ? "编辑模式" : "新建博客" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Ctrl+S 保存" })
+        ] })
+      ]
+    }
+  );
+}
+const WebEditorPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  WebEditorPage
 }, Symbol.toStringTag, { value: "Module" }));
 function ReadingTime({ minutes, charCount }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-2 text-[13px]", style: { color: "var(--text-secondary)" }, children: [
@@ -52596,6 +53030,11 @@ function BlogPreviewPage() {
     }
   }, [id]);
   reactExports.useEffect(() => {
+    window.scrollTo(0, 0);
+    const mainEl = document.querySelector("main");
+    if (mainEl) mainEl.scrollTop = 0;
+  }, [id]);
+  reactExports.useEffect(() => {
     if (id && user)
       window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
@@ -52713,6 +53152,28 @@ function BlogPreviewPage() {
             background: theme.bg,
             color: theme.text,
             fontFamily: theme.font
+          },
+          onClick: (e) => {
+            const target = e.target;
+            const anchor = target.closest("a");
+            if (!anchor) return;
+            const href = anchor.getAttribute("href");
+            if (!href) return;
+            if (href.startsWith("javascript:") || href.startsWith("data:")) {
+              e.preventDefault();
+              return;
+            }
+            if (href.startsWith("#")) return;
+            if (href.startsWith("/blog/") || href.startsWith("/knowledge/")) {
+              e.preventDefault();
+              navigate(href);
+              return;
+            }
+            if (href.startsWith("http://") || href.startsWith("https://")) {
+              e.preventDefault();
+              window.api.shellOpenExternal(href);
+              return;
+            }
           },
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mb-3", style: { color: theme.text }, children: blog.title }),
@@ -53109,7 +53570,7 @@ function KnowledgeListPage() {
                     onClick: async () => {
                       if (!confirm(`永久删除 ${batch.selectedCount} 个文件？`)) return;
                       try {
-                        await window.api.kbBatchDelete([...batch.selectedIds]);
+                        await window.api.kbBatchDelete({ userId: user.id, fileIds: [...batch.selectedIds] });
                         batch.clearSelection();
                         loadFiles();
                       } catch (e) {
@@ -53290,6 +53751,7 @@ function KnowledgeListPage() {
                               const fid = e.target.value ? Number(e.target.value) : null;
                               try {
                                 await window.api.folderMoveItem({
+                                  userId: user.id,
                                   itemType: "knowledge_file",
                                   itemId: f.id,
                                   folderId: fid
@@ -53350,7 +53812,7 @@ function KnowledgeListPage() {
                             onClick: async () => {
                               if (!confirm("移至回收站？")) return;
                               try {
-                                await window.api.kbDelete({ fileId: f.id, deletePhysicalFile: false });
+                                await window.api.kbDelete({ userId: user.id, fileId: f.id, deletePhysicalFile: false });
                                 loadFiles();
                               } catch (e) {
                                 console.error(e);
@@ -54165,7 +54627,7 @@ function TagManagePage() {
   const handleSaveEdit = async (tagId) => {
     if (!editingName.trim()) return;
     try {
-      await window.api.tagUpdate({ tagId, name: editingName.trim() });
+      await window.api.tagUpdate({ userId: user.id, tagId, name: editingName.trim() });
       setEditingId(null);
       loadTags();
     } catch {
@@ -54175,7 +54637,7 @@ function TagManagePage() {
   const handleDelete2 = async (tagId) => {
     if (!confirm("确定要删除此标签吗？关联的文章不会删除，但标签会被移除。")) return;
     try {
-      const result = await window.api.tagDelete(tagId);
+      const result = await window.api.tagDelete({ userId: user.id, tagId });
       const resp = result;
       if (resp?.success) {
         loadTags();
@@ -54212,7 +54674,7 @@ function TagManagePage() {
                 if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
                 for (const t of unused) {
                   try {
-                    await window.api.tagDelete(t.id);
+                    await window.api.tagDelete({ userId: user.id, tagId: t.id });
                   } catch {
                     console.error(`[TagManage] Failed to delete tag ${t.id}`);
                   }
@@ -55245,11 +55707,11 @@ function NoteListPage() {
     toast("便签已保存", "success");
   };
   const handleTogglePin = async (noteId) => {
-    await window.api.notePin(noteId);
+    await window.api.notePin({ userId: user.id, noteId });
     loadNotes();
   };
   const handleDelete2 = async (noteId) => {
-    await window.api.noteDelete(noteId);
+    await window.api.noteDelete({ userId: user.id, noteId });
     loadNotes();
   };
   const handleClipboard = async () => {
@@ -55411,22 +55873,40 @@ const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defi
 function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
   const [drafts, setDrafts] = reactExports.useState([]);
+  const [draftsLoading, setDraftsLoading] = reactExports.useState(true);
+  const [draftsError, setDraftsError] = reactExports.useState(null);
   const [lastBlog, setLastBlog] = reactExports.useState(null);
+  const [lastBlogLoading, setLastBlogLoading] = reactExports.useState(true);
+  const [lastBlogError, setLastBlogError] = reactExports.useState(null);
   const [recentFiles, setRecentFiles] = reactExports.useState([]);
+  const [recentFilesLoading, setRecentFilesLoading] = reactExports.useState(true);
+  const [recentFilesError, setRecentFilesError] = reactExports.useState(null);
   reactExports.useEffect(() => {
     if (!user) return;
+    setDraftsLoading(true);
+    setDraftsError(null);
     window.api.continueGetDrafts(user.id).then((r) => {
       if (r.success && r.data) setDrafts(r.data);
-    }).catch(() => {
-    });
+    }).catch((e) => {
+      console.error("[Continue] Failed to get drafts:", e);
+      setDraftsError("加载草稿失败");
+    }).finally(() => setDraftsLoading(false));
+    setLastBlogLoading(true);
+    setLastBlogError(null);
     window.api.continueGetLastBlog(user.id).then((r) => {
       if (r.success && r.data) setLastBlog(r.data);
-    }).catch(() => {
-    });
+    }).catch((e) => {
+      console.error("[Continue] Failed to get last blog:", e);
+      setLastBlogError("加载上次停留失败");
+    }).finally(() => setLastBlogLoading(false));
+    setRecentFilesLoading(true);
+    setRecentFilesError(null);
     window.api.continueGetRecentFiles(user.id).then((r) => {
       if (r.success && r.data) setRecentFiles(r.data);
-    }).catch(() => {
-    });
+    }).catch((e) => {
+      console.error("[Continue] Failed to get recent files:", e);
+      setRecentFilesError("加载最近素材失败");
+    }).finally(() => setRecentFilesLoading(false));
   }, [user]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -55446,7 +55926,7 @@ function ContinueWritingPage() {
           children: "最近草稿"
         }
       ),
-      drafts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "暂无草稿，新建博客后 30 秒自动保存草稿" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-3", children: drafts.slice(0, 3).map((d) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      draftsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : draftsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : drafts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "暂无草稿，新建博客后 30 秒自动保存草稿" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-3", children: drafts.slice(0, 3).map((d) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         Link$1,
         {
           to: `/blog/${d.blogId}/edit`,
@@ -55484,7 +55964,7 @@ function ContinueWritingPage() {
           children: "上次停留"
         }
       ),
-      lastBlog ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      lastBlogLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : lastBlogError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : lastBlog ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
         Link$1,
         {
           to: `/blog/${lastBlog.id}`,
@@ -55516,7 +55996,7 @@ function ContinueWritingPage() {
           children: "最近素材"
         }
       ),
-      recentFiles.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "知识库为空，导入文件后在此显示" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+      recentFilesLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : recentFilesError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : recentFiles.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: "知识库为空，导入文件后在此显示" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
         {
           className: "flex gap-3 overflow-x-auto pb-2",
@@ -55642,10 +56122,13 @@ const SeriesListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.de
 }, Symbol.toStringTag, { value: "Module" }));
 function SeriesDetailPage() {
   const { seriesId } = useParams();
-  useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   const [blogs, setBlogs] = reactExports.useState([]);
   const [loading, setLoading] = reactExports.useState(true);
   const [seriesName, setSeriesName] = reactExports.useState("");
+  const [isEditing, setIsEditing] = reactExports.useState(false);
+  const [editName, setEditName] = reactExports.useState("");
+  const inputRef = reactExports.useRef(null);
   const loadBlogs = reactExports.useCallback(async () => {
     if (!seriesId) return;
     setLoading(true);
@@ -55665,6 +56148,36 @@ function SeriesDetailPage() {
       setLoading(false);
     }
   }, [seriesId]);
+  const handleRename = reactExports.useCallback(async () => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === seriesName || !user || !seriesId) {
+      setIsEditing(false);
+      return;
+    }
+    try {
+      const r = await window.api.blogSeriesRename({ seriesId, newName: trimmed, userId: user.id });
+      if (r.success) {
+        setSeriesName(trimmed);
+        alert("系列名已更新");
+      } else {
+        alert(r.error || "重命名失败");
+      }
+    } catch (e) {
+      alert("重命名失败");
+    } finally {
+      setIsEditing(false);
+    }
+  }, [editName, seriesName, user, seriesId]);
+  const startEditing = reactExports.useCallback(() => {
+    setEditName(seriesName || decodeURIComponent(seriesId || ""));
+    setIsEditing(true);
+  }, [seriesName, seriesId]);
+  reactExports.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
   reactExports.useEffect(() => {
     loadBlogs();
   }, [loadBlogs]);
@@ -55682,9 +56195,36 @@ function SeriesDetailPage() {
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-1", style: { color: "var(--text-muted)" }, children: "›" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-primary)" }, children: seriesName || decodeURIComponent(seriesId || "") })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "mb-6 text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
-      seriesName || decodeURIComponent(seriesId || ""),
-      " ",
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center gap-2", children: [
+      isEditing ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          ref: inputRef,
+          type: "text",
+          value: editName,
+          onChange: (e) => setEditName(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === "Enter") handleRename();
+            if (e.key === "Escape") setIsEditing(false);
+          },
+          onBlur: handleRename,
+          className: "surface-input px-2 py-1 text-[20px] font-semibold",
+          style: { color: "var(--text-primary)", maxWidth: 400 },
+          title: "输入新系列名称",
+          placeholder: "系列名称"
+        }
+      ) : /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: seriesName || decodeURIComponent(seriesId || "") }),
+      !isEditing && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: startEditing,
+          className: "text-[16px] opacity-50 hover:opacity-100 transition-opacity cursor-pointer",
+          style: { color: "var(--text-secondary)" },
+          title: "重命名系列",
+          children: "✏️"
+        }
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
         blogs.length,
         " 篇"

@@ -55,12 +55,12 @@ export function NoteListPage() {
   };
 
   const handleTogglePin = async (noteId: number) => {
-    await window.api.notePin(noteId);
+    await window.api.notePin({ userId: user.id, noteId });
     loadNotes();
   };
 
   const handleDelete = async (noteId: number) => {
-    await window.api.noteDelete(noteId);
+    await window.api.noteDelete({ userId: user.id, noteId });
     loadNotes();
   };
 

@@ -79,7 +79,7 @@ export function TagManagePage() {
   const handleSaveEdit = async (tagId: number) => {
     if (!editingName.trim()) return;
     try {
-      await window.api.tagUpdate({ tagId, name: editingName.trim() });
+      await window.api.tagUpdate({ userId: user.id, tagId, name: editingName.trim() });
       setEditingId(null);
       loadTags();
     } catch {
@@ -90,7 +90,7 @@ export function TagManagePage() {
   const handleDelete = async (tagId: number) => {
     if (!confirm('确定要删除此标签吗？关联的文章不会删除，但标签会被移除。')) return;
     try {
-      const result = await window.api.tagDelete(tagId);
+      const result = await window.api.tagDelete({ userId: user.id, tagId });
       const resp = result as { success: boolean; error?: string };
       if (resp?.success) {
         loadTags();
@@ -127,7 +127,7 @@ export function TagManagePage() {
               if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
               for (const t of unused) {
                 try {
-                  await window.api.tagDelete(t.id);
+                  await window.api.tagDelete({ userId: user.id, tagId: t.id });
                 } catch {
                   console.error(`[TagManage] Failed to delete tag ${t.id}`);
                 }

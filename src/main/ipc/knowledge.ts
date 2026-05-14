@@ -1,7 +1,13 @@
-import { ipcMain } from 'electron';
+import { ipcMain, type WebContents } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { KnowledgeService } from '../services/knowledge.service';
 import { PreviewService } from '../services/preview.service';
+
+let kbRefreshTarget: WebContents | null = null;
+
+export function setKbRefreshTarget(wc: WebContents | null): void {
+  kbRefreshTarget = wc;
+}
 
 export function registerKnowledgeHandlers(): void {
   ipcMain.handle(
@@ -41,31 +47,34 @@ export function registerKnowledgeHandlers(): void {
     async (_event, data: { userId: number; filePaths: string[]; copyToWorkspace: boolean }) => {
       try {
         const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
+        kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
         return { success: true, data: files };
       } catch (err) {
         return { success: false, error: (err as Error).message };
       }
     },
   );
-  ipcMain.handle(IPC.KB_DELETE, async (_event, data: { fileId: number; deletePhysicalFile: boolean }) => {
+  ipcMain.handle(IPC.KB_DELETE, async (_event, data: { userId: number; fileId: number; deletePhysicalFile: boolean }) => {
     try {
-      await KnowledgeService.deleteFile(data.fileId, data.deletePhysicalFile);
+      await KnowledgeService.deleteFile(data.userId, data.fileId, data.deletePhysicalFile);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.KB_RESTORE, async (_event, fileId: number) => {
+  ipcMain.handle(IPC.KB_RESTORE, async (_event, data: { userId: number; fileId: number }) => {
     try {
-      await KnowledgeService.restoreFile(fileId);
+      await KnowledgeService.restoreFile(data.userId, data.fileId);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.KB_RENAME, async (_event, data: { fileId: number; newFilename: string }) => {
+  ipcMain.handle(IPC.KB_RENAME, async (_event, data: { userId: number; fileId: number; newFilename: string }) => {
     try {
-      await KnowledgeService.renameFile(data.fileId, data.newFilename);
+      await KnowledgeService.renameFile(data.userId, data.fileId, data.newFilename);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -97,9 +106,10 @@ export function registerKnowledgeHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPC.KB_BATCH_DELETE, async (_event, fileIds: number[]) => {
+  ipcMain.handle(IPC.KB_BATCH_DELETE, async (_event, data: { userId: number; fileIds: number[] }) => {
     try {
-      for (const id of fileIds) await KnowledgeService.deleteFile(id, false);
+      for (const id of data.fileIds) await KnowledgeService.deleteFile(data.userId, id, false);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true, data: { deleted: fileIds.length } };
     } catch (err) {
       return { success: false, error: (err as Error).message };

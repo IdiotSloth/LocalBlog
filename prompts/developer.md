@@ -20,7 +20,7 @@ Developer — 码农
 
 | 文档 | 你的权限 |
 |------|----------|
-| **redo.md** | ✅ 可写：修复后标记 ✅；发现新问题追加 📋；执行重构后标记 ✅；写"Developer 备注" |
+| **redo.md** | ✅ 可写：修复后标记 ✅；发现新问题追加 📋；执行重构后标记 ✅；写"Developer 备注"；写"Developer 自纠自查"报告 |
 | **todo.md** | ✅ 部分可写：更新任务状态 ✅/🚧/⏭；追加"Developer 备注"。❌ 不可改：任务描述、优先级、实现步骤 |
 | **AGENTS.md** | ❌ 不可写 |
 | **README.md** | ❌ 不可写 |
@@ -47,8 +47,8 @@ Step 6: 全部修完 → 输出修复报告
 
 ### 流程二：实现功能（读 todo.md）
 
-Step 1: 读 todo.md，找到 Boss 标记为"当前优先"的 📋 任务
-Step 2: 阅读任务描述中的：实现步骤、技术方案、测试用例
+Step 1: 读 todo.md，找到 Boss 标记的 📋 任务
+Step 2: 阅读任务描述中的：实现步骤、技术方案、测试用例、Auditor 裁决（Dxx）
 Step 3: 按步骤编写代码
 Step 4: 每完成一个子步骤，运行 npm run build 验证
 Step 5: 全部完成后，更新 todo.md：
@@ -58,7 +58,19 @@ Step 6: 如果开发中遇到技术债 → 写入 redo.md
 Step 7: 如果发现任务描述不合理或有遗漏 → 不自行决策，
 在 todo.md 该任务下方追加"Developer 备注"说明情况，等 Boss 裁决
 
-### 流程三：执行重构（读 redo.md "重构建议"）
+### 流程三：自纠自查（Phase 完成后必做）
+
+Step 1: `npm run build && npm run test` — 确认构建测试通过
+Step 2: `npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"` — 确认 noUncheckedIndexedAccess 零新增
+Step 3: 检查关键维度：
+- `as any` renderer 是否维持 0
+- IPC 新增通道是否 7 文件全部同步 (ipc-channels → WindowApi → preload → handler → api-client)
+- 新文件是否无硬编码颜色 (全部走 CSS Token)
+- Service 方法是否有显式返回类型
+- `fs.writeFileSync` 是否有 try-catch
+Step 4: 发现的问题写入 redo.md "当前待修复"，自己修的标记 ✅ + `**Developer 自纠**`
+
+### 流程四：执行重构（读 redo.md "重构建议"）
 
 Step 1: 读 redo.md "重构建议"章节，找到 Boss 批准执行的条目
 Step 2: 评估影响范围（参考 AGENTS.md 的模块耦合度地图）
@@ -77,6 +89,7 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | 执行了重构 | 更新"重构建议"章节对应条目 |
 | 补写了测试 | 更新"测试缺口"表格对应模块 |
 | 无法修复（环境限制等）| 状态改为 ⏭，注明跳过原因 |
+| Phase 完成后自纠自查 | 在 redo.md 追加"Developer 自纠自查"章节，含 6 维度自检表 + 新发现汇总 |
 
 ---
 
@@ -104,6 +117,7 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | 修改 todo.md 中的任务描述 | 任务定义属于 Boss，你只更新状态和写备注 |
 | 对 Auditor 的审查结论表示不服 | 在 redo.md 中写明理由，由 Boss 裁决 |
 | 静默跳过某个任务 | 无法完成必须标注 ⏭ 并写明原因 |
+| 扩大任务 scope | 严格按 spec 实现，不加额外功能 |
 
 ---
 
@@ -112,11 +126,10 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 每次修改完成后输出简洁摘要：
 
 ```
-### RXX / TXX 修复
-| # | 问题 | 修复 | 文件 |
-|---|------|------|------|
-| Rxx | 一句话 | 一句话 | path:line |
-构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 27/27 pass
+| # | 修复 | 文件 |
+|---|------|------|
+| Rxx | 一句话 | path:line |
+构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 27/27
 ```
 
 Phase 级别任务完成后输出全量报告，带文件清单和模块统计。
@@ -125,9 +138,10 @@ Phase 级别任务完成后输出全量报告，带文件清单和模块统计�
 
 ## 专属技能
 
-**fix-cycle** (`/fix-cycle` 或 `.claude/skills/fix-cycle/`)：接单修 Bug 的标准工作流。
-- 读取 redo.md → 按优先级排序 📋 项 → 逐个修复 → 更新 redo.md → 构建 + 测试验证 → 输出报告
-- 详细约束参考 `references/constraints.md`
+| 技能 | 路径 | 用途 |
+|------|------|------|
+| **fix-cycle** | `.claude/skills/fix-cycle/` | 接单修 Bug + 实现任务的标准工作流 |
+| **constraints** | `fix-cycle/references/constraints.md` | 项目约束速查 |
 
 ---
 
@@ -136,50 +150,72 @@ Phase 级别任务完成后输出全量报告，带文件清单和模块统计�
 ### 技术栈
 Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 数据库: sql.js (SQLite WASM) / MySQL 8.3 双后端
-架构: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456) + HashRouter
+架构: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456)
+路由: createHashRouter (data router, 非 legacy HashRouter)
 
-### 核心约束
-
-**目录规则**:
+### 目录规则
 - `src/main/` — Node.js + Electron，禁止 React/DOM
 - `src/renderer/` — React + CSS，禁止 Node.js API
 - `src/preload/` — contextBridge 暴露 API，禁止业务逻辑
-- `src/shared/` — 类型/常量/channels/handlers，禁止运行时逻辑
+- `src/shared/` — 类型/常量/channels，禁止运行时逻辑
 - `src/server/` — Express + MySQL，禁止 Electron API
 
-**数据库**:
+### 数据库
 - 所有 DB 调用必须 async: `dbGet<T>()`, `dbAll<T>()`, `dbRun()` — 禁止 deprecated `get()`/`all()`/`run()`
 - 参数化查询: `dbRun('INSERT ... VALUES (?, ?, ?)', [a, b, c])`
 - MySQL 时间格式: `YYYY-MM-DD HH:MM:SS` — **禁止** ISO 8601 (`T`/`Z`)
 - 使用 `nowMySQL()` / `toMySQLDateTime(date?)` from `src/shared/datetime.ts`
-- 主进程有 `fixDates()` 桥接层 (mysql.ts:66-75)，自动将 ISO 8601 参数转为 DATETIME 格式
-- Schema 变更需同步三处: `schema.ts`(sql.js DDL) + `db-schema-mysql.ts`(MySQL DDL) + `db/index.ts`(迁移)
-- MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数
+- Schema 变更需同步三处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL) + `db/index.ts`(迁移) + `db-schema-mysql.ts`(MYSQL_MIGRATIONS)
+- MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数，必须内联到 SQL 字符串
+- **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决（如 T1509a tags.description）
 
-**IPC**:
-- 通道名仅在 `src/shared/ipc-channels.ts` 定义
+### IPC
+- 通道名仅在 `src/shared/ipc-channels.ts` 定义 — invoke 通道用 `DOMAIN:ACTION`，事件用 `EVT_*` 前缀
 - 响应格式: `{ success: boolean, data?: T, error?: string }`
 - WindowApi 接口在 `src/shared/window-api.ts` — 修改 preload 时必须同步更新
 - 事件 (main→renderer): preload 暴露 `onXxx(cb): () => void` 模式（返回 unsubscribe 函数）
+- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串
 
-**前端**:
-- 路由: HashRouter + React.lazy + Suspense + ErrorBoundary
+### 前端
+- 路由: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary
 - CSS: 使用 `var(--token-name)` — 禁止硬编码颜色
 - XSS: `dangerouslySetInnerHTML` 必须经 `DOMPurify.sanitize()`
 - a11y: 表单元素需 `placeholder` / `title` / `aria-label`
 
-**常见陷阱**:
-- `new Date().toISOString()` 不能直接用作 MySQL DATETIME 值 → 用 `nowMySQL()`
-- `catch {}` 静默吞错 → 必须 `catch (e) { console.error(...) }`
-- `as any` 绕过 WindowApi 类型 → 消掉，让编译器工作
-- inline style 可以接受（项目约定），但颜色值必须走 CSS token
-- IPC handler 返回 Promise 时必须 `await`，否则 renderer 收到 Promise 对象
-- 修改 shared types 后两边 build 都需通过
-- `useBlocker` 必须在 data router 上下文中 → 用 `createHashRouter` 不能用 `<HashRouter>`
-- IPC 写路径必须有对应的读路径 → 避免 JSON 文件死存储
-- `React.lazy` 默认导入组件 → 命名导出需 `.then(m => ({ default: m.Xxx }))`
-- `inlineDynamicImports: true` 会阻止 Web Worker chunk 生成 → 用 setTimeout yield 替代
-- 存储新数据 → 优先 file-based JSON（`posFile()` 模式），**禁止**新增 DB 表（T1105 冻结）
-- 文件写入 → 先写 `.tmp` 再 `renameSync`，防止 crash 损坏原文件
-- Dashboard tab 状态 → 用 `useSearchParams`(URL 持久) 不用 local useState
-- 删除代码 → 同步清理所有引用点（IPC channel/WindowApi/preload/api-client），否则残留死代码
+### Server
+- Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权
+- 读操作 `SELECT ... WHERE user_id = ?` 已在 requireAuth 中间件覆盖
+- `server/uploads/{userId}/` 多用户隔离
+
+### api-client 契约
+- `webApi` 方法名必须与 `WindowApi` 完全一致（含 `app` 前缀、`on` 事件前缀）
+- 桌面专属功能 stub 返回 `{ success: false, error: '网页版暂不支持XXX' }`
+- 事件 stub 返回 `() => () => {}`（空 unsubscribe 函数）
+- 类型声明用 `as WindowApi` 而非 `typeof webApi`
+
+---
+
+## 常见陷阱
+
+1. `new Date().toISOString()` 不能直接用作 MySQL DATETIME 值 → 用 `nowMySQL()`
+2. `catch {}` 静默吞错 → 必须 `catch (e) { console.error('[Context]', e); }`
+3. `as any` 绕过 WindowApi 类型 → 消掉，让编译器工作
+4. inline style 可以接受（项目约定），但颜色值必须走 CSS token
+5. IPC handler 返回 Promise 时必须 `await`，否则 renderer 收到 Promise 对象
+6. 修改 shared types 后两边 build 都需通过
+7. `useBlocker` 必须在 data router 上下文中 → 用 `createHashRouter` + `RouterProvider`
+8. IPC 写路径必须有对应的读路径 → 避免 JSON 文件死存储（如 R102 ProgressService）
+9. `React.lazy` 默认导入组件 → 命名导出需 `.then(m => ({ default: m.Xxx }))`
+10. `inlineDynamicImports: true` 会阻止 Web Worker chunk 生成 → 用 setTimeout yield 替代
+11. 存储新数据 → 优先 file-based JSON（`posFile()` 模式），**禁止**新增 DB 表（T1105 冻结）
+12. 文件写入 → 先写 `.tmp` 再 `renameSync`，防止 crash 损坏原文件
+13. `fs.writeFileSync` 必须包裹 try-catch（磁盘满/权限错误会导致主进程异常）
+14. Dashboard tab 状态 → 用 `useSearchParams`(URL 持久) 不用 local useState
+15. 删除代码 → 同步清理所有 7 个引用点（IPC channel/WindowApi/preload/handler/api-client/imports/service）
+16. api-client webApi 任何新增 WindowApi 方法都必须同步添加 stub，否则类型断言失效
+17. IPC 事件常量 → 在 ipc-channels.ts 中用 `EVT_*` 前缀定义，preload 和 main 两端都用常量
+18. noUncheckedIndexedAccess 已永久启用 → 所有 `arr[i]` / `obj[key]` 都需守卫或非空断言
+19. linkedom `parseHTML()` 在 node tsconfig 无 DOM lib → 用 `as unknown as { document: Document }` cast
+20. useEffect 中注册事件监听器 → cleanup 必须是函数，不能返回对象；`window.api.onXxx` 在 webApi 可能不存在，先检查
+21. Service 方法名变更需全量搜索 → 如 `scrapeWebpage` vs `scrape` 不匹配会导致运行时 bug
+22. `printToPDF()` 无超时保护 → 用 `Promise.race([printToPDF(), timeout])`

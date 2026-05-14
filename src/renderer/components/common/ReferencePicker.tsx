@@ -22,7 +22,7 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
     const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
       setRefs(
-        r.data.map((ref: any) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id })),
+        r.data.map((ref: any) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id })), // TODO: define Reference type in shared/types.ts
       );
     }
     setLoading(false);

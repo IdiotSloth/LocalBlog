@@ -1,7 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { SUPPORTED_KB_EXTENSIONS } from '../../shared/constants';
-import { nowMySQL } from '../../shared/datetime';
+import {
+  buildKnowledgeCreate,
+  buildKnowledgeDelete,
+  buildKnowledgeRename,
+  buildKnowledgeRestore,
+  buildKnowledgeSelect,
+  buildKnowledgeSelectTrash,
+  buildKnowledgeTagsDelete,
+  buildKnowledgeTagsSelect,
+} from '../../shared/handlers/knowledge-crud';
+import { buildRecycleDelete, buildRecycleInsert } from '../../shared/handlers/blog-crud';
 import type { FileType, KnowledgeFile, KnowledgeFileWithTags, Tag } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 import { getKnowledgeBaseDir, initWorkspaceDirectories } from '../utils/paths';
@@ -75,11 +85,10 @@ export class KnowledgeService {
         /* content extraction is best-effort; file may be unreadable */
       }
 
-      const now = nowMySQL();
-      await dbRun(
-        'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
-        [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now],
+      const { sql: insertSql, params: insertParams } = buildKnowledgeCreate(
+        userId, path.basename(destPath), destPath, fileType, stat.size, contentText,
       );
+      await dbRun(insertSql, insertParams);
       const row = await dbGet<KbFileRow>(
         'SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1',
         [userId, path.basename(destPath), fileType],
@@ -109,54 +118,52 @@ export class KnowledgeService {
   }
 
   static async getFile(fileId: number): Promise<KnowledgeFileWithTags | null> {
-    const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet<KbFileRow>(sql, params);
     if (!row) return null;
     return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
   }
 
-  static async deleteFile(fileId: number, dpf: boolean): Promise<void> {
-    const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
+  static async deleteFile(userId: number, fileId: number, dpf: boolean): Promise<void> {
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet<KbFileRow>(sql, params);
     if (!row) throw new Error('文件不存在');
-    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
-    await dbRun('INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)', [
-      row.user_id,
-      'knowledge_file',
-      fileId,
-      nowMySQL(),
-    ]);
+    const { sql: delSql, params: delParams } = buildKnowledgeDelete(fileId, userId);
+    await dbRun(delSql, delParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleInsert(row.user_id, 'knowledge_file', fileId);
+    await dbRun(recycleSql, recycleParams);
     if (dpf && fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
   }
 
-  static async restoreFile(fileId: number): Promise<void> {
-    const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ? AND status = ?', [fileId, 'trash']);
+  static async restoreFile(userId: number, fileId: number): Promise<void> {
+    const { sql, params } = buildKnowledgeSelectTrash(fileId);
+    const row = await dbGet<KbFileRow>(sql, params);
     if (!row) throw new Error('文件不在回收站中');
-    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
-    await dbRun('DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?', ['knowledge_file', fileId]);
+    const { sql: restoreSql, params: restoreParams } = buildKnowledgeRestore(fileId, userId);
+    await dbRun(restoreSql, restoreParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleDelete('knowledge_file', fileId, userId);
+    await dbRun(recycleSql, recycleParams);
   }
 
-  static async renameFile(fileId: number, nf: string): Promise<void> {
-    const row = await dbGet<KbFileRow>('SELECT * FROM knowledge_files WHERE id = ?', [fileId]);
+  static async renameFile(userId: number, fileId: number, nf: string): Promise<void> {
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet<KbFileRow>(sql, params);
     if (!row) throw new Error('文件不存在');
     if (!nf.trim()) throw new Error('文件名不能为空');
     const np = path.join(path.dirname(row.file_path), nf);
     if (fs.existsSync(row.file_path)) fs.renameSync(row.file_path, np);
-    await dbRun('UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?', [
-      nf,
-      np,
-      nowMySQL(),
-      fileId,
-    ]);
+    const { sql: renameSql, params: renameParams } = buildKnowledgeRename(fileId, userId, nf, np);
+    await dbRun(renameSql, renameParams);
   }
 
   static async getFileTags(fileId: number): Promise<Tag[]> {
-    return dbAll<Tag>(
-      'SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?',
-      [fileId],
-    );
+    const { sql, params } = buildKnowledgeTagsSelect(fileId);
+    return dbAll<Tag>(sql, params);
   }
 
   static async setFileTags(fileId: number, tagIds: number[]): Promise<void> {
-    await dbRun('DELETE FROM knowledge_file_tags WHERE file_id = ?', [fileId]);
+    const { sql, params } = buildKnowledgeTagsDelete(fileId);
+    await dbRun(sql, params);
     for (const tid of tagIds)
       await dbRun('INSERT OR IGNORE INTO knowledge_file_tags (file_id, tag_id) VALUES (?, ?)', [fileId, tid]);
   }

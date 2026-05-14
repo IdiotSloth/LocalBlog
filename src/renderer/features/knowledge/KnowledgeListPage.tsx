@@ -6,6 +6,7 @@ import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { formatDate, formatFileSize } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import type { FolderTreeNode, KnowledgeFileWithTags, Tag } from '../../../shared/types';
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   docx: { label: 'DOCX', color: 'var(--accent-blue)' },
@@ -19,7 +20,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export function KnowledgeListPage() {
   const user = useAuthStore((s) => s.user);
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<KnowledgeFileWithTags[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -38,11 +39,11 @@ export function KnowledgeListPage() {
   const [previewing, setPreviewing] = useState(false);
   const [previewFileId, setPreviewFileId] = useState<number | null>(null);
   const [previewFileType, setPreviewFileType] = useState('');
-  const [backRefs, setBackRefs] = useState<any[]>([]);
+  const [backRefs, setBackRefs] = useState<any[]>([]); // TODO: define Reference type in shared/types.ts
   const batch = useBatchSelect(files as { id: number }[]);
   const pagination = usePagination(20);
   const [dragOver, setDragOver] = useState(false);
-  const [kbFolders, setKbFolders] = useState<any[]>([]);
+  const [kbFolders, setKbFolders] = useState<FolderTreeNode[]>([]);
   const loadKbFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
@@ -310,7 +311,7 @@ export function KnowledgeListPage() {
               onClick={async () => {
                 if (!confirm(`永久删除 ${batch.selectedCount} 个文件？`)) return;
                 try {
-                  await window.api.kbBatchDelete([...batch.selectedIds]);
+                  await window.api.kbBatchDelete({ userId: user.id, fileIds: [...batch.selectedIds] });
                   batch.clearSelection();
                   loadFiles();
                 } catch (e) {
@@ -402,7 +403,7 @@ export function KnowledgeListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {files.map((f: any) => {
+                  {files.map((f: KnowledgeFileWithTags) => {
                     const t = TYPE_LABELS[f.fileType] || TYPE_LABELS.other;
                     const isEditing = editingTagsFileId === f.id;
                     return (
@@ -459,7 +460,7 @@ export function KnowledgeListPage() {
                           </button>
                           {f.tags?.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
-                              {f.tags.map((tg: any) => (
+                              {f.tags.map((tg: Tag) => (
                                 <button
                                   key={tg.id}
                                   type="button"
@@ -516,6 +517,7 @@ export function KnowledgeListPage() {
                               const fid = e.target.value ? Number(e.target.value) : null;
                               try {
                                 await window.api.folderMoveItem({
+                                  userId: user.id,
                                   itemType: 'knowledge_file',
                                   itemId: f.id,
                                   folderId: fid,
@@ -537,7 +539,7 @@ export function KnowledgeListPage() {
                           >
                             <option value="">移至</option>
                             <option value="0">根目录</option>
-                            {kbFolders.map((fd: any) => (
+                            {kbFolders.map((fd: FolderTreeNode) => (
                               <option key={fd.id} value={fd.id}>
                                 {fd.name}
                               </option>
@@ -551,7 +553,7 @@ export function KnowledgeListPage() {
                                 setEditingTagIds([]);
                               } else {
                                 setEditingTagsFileId(f.id);
-                                setEditingTagIds((f.tags || []).map((tg: any) => tg.id));
+                                setEditingTagIds((f.tags || []).map((tg: Tag) => tg.id));
                               }
                             }}
                             className="mr-2 text-[12px] hover:underline"
@@ -572,7 +574,7 @@ export function KnowledgeListPage() {
                             onClick={async () => {
                               if (!confirm('移至回收站？')) return;
                               try {
-                                await window.api.kbDelete({ fileId: f.id, deletePhysicalFile: false });
+                                await window.api.kbDelete({ userId: user.id, fileId: f.id, deletePhysicalFile: false });
                                 loadFiles();
                               } catch (e) {
                                 console.error(e);

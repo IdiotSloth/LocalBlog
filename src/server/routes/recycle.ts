@@ -69,7 +69,7 @@ recycleRouter.post('/empty', async (req: AuthRequest, res) => {
         await pool.execute('DELETE FROM knowledge_file_tags WHERE file_id = ?', [item.item_id]);
         await pool.execute('DELETE FROM knowledge_files WHERE id = ?', [item.item_id]);
       }
-      await pool.execute('DELETE FROM recycle_bin WHERE id = ?', [item.id]);
+      await pool.execute('DELETE FROM recycle_bin WHERE id = ? AND user_id = ?', [item.id, userId]);
     }
     return res.json({ success: true, data: { removed: items.length } });
   } catch (err) {
@@ -107,7 +107,7 @@ recycleRouter.post('/auto-clean', async (req: AuthRequest, res) => {
         await pool.execute('DELETE FROM knowledge_file_tags WHERE file_id = ?', [item.item_id]);
         await pool.execute('DELETE FROM knowledge_files WHERE id = ?', [item.item_id]);
       }
-      await pool.execute('DELETE FROM recycle_bin WHERE id = ?', [item.id]);
+      await pool.execute('DELETE FROM recycle_bin WHERE id = ? AND user_id = ?', [item.id, userId]);
     }
     return res.json({ success: true, data: { cleaned: items.length } });
   } catch (err) {

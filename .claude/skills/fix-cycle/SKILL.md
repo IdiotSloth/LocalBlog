@@ -5,7 +5,7 @@ description: Developer (码农) fix cycle for the Local Blog KB project. Use whe
 
 # Fix Cycle — Developer Workflow
 
-Core loop for processing Auditor findings (R items) from redo.md and implementing tasks (T items) from todo.md.
+Core loop for processing Auditor findings (R items) from redo.md and implementing tasks (T items) from todo.md. Covers bug fixing, feature implementation, and self-audit.
 
 ## Workflow
 
@@ -17,8 +17,10 @@ Read `redo.md` and scan the `## 当前待修复` section. Identify all items wit
 
 Sort by priority:
 - 🔴 P0 — blocking stability/security/crash, must fix first
-- 🟡 P1 — code quality / minor functionality / type safety
-- 🟢 P2/P3 — low priority, can defer
+- 🟠 P1 — data safety / user-visible breakage
+- 🟡 P2 — architecture / type safety / maintainability
+- 🟢 P3 — code quality / minor UX / cleanup
+- 🔵 P4 — cosmetic / known-acceptable
 
 ### Step 2: Fix in Order
 
@@ -27,7 +29,7 @@ For each 📋 item, starting from the highest priority:
 1. **Read the problem description** — understand the root cause from the redo.md entry (includes file paths + line numbers)
 2. **Locate the files** — verify the paths are still valid (files may have moved since Auditor wrote the entry)
 3. **Write the fix** — modify code following project constraints (see `references/constraints.md`)
-4. **Clean up all references** — if removing code, remove IPC channel + WindowApi + preload + api-client stubs + handler registration
+4. **Clean up all references** — if removing code, remove ALL 7 reference points: IPC channel, WindowApi, preload, handler reg, service file, imports, api-client stub
 5. **Build to verify** — `npm run build` must pass before proceeding to next item
 6. **Batch independent fixes** — parallel edits in separate files are OK; sequential edits in the same file must be serial
 
@@ -42,24 +44,34 @@ After each fix, update the redo.md entry:
 
 When redo.md has no P0 blocking items, read `todo.md` for 📋 tasks:
 
-1. **Read the task spec** — 实现步骤, 技术方案, 测试用例, Auditor 裁决
-2. **Check Auditor rulings** — tasks may have Dxx constraints (方案 A/B, scope limits, storage decisions)
+1. **Read the task spec** — 实现步骤, 技术方案, 测试用例
+2. **Check Auditor rulings** — tasks may have Dxx constraints (方案 A/B, scope limits, storage decisions). Follow the ruling exactly.
 3. **Implement** — follow spec exactly; don't expand scope
 4. **Build after each subtask** — `npm run build` must pass
 5. **Report unknowns** — if spec is unclear, write `**Developer 备注**` and pause; don't guess
 
-### Step 5: Verify
+### Step 5: Self-Audit (after each Phase batch)
 
-After all fixes/tasks:
+After completing a batch of fixes/tasks:
+
 ```bash
 npm run build 2>&1
 npm run test 2>&1
+npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"
+npx tsc -p tsconfig.web.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"
 ```
 
-- Build: must show all three `✓ built` lines (main + preload + renderer)
-- Test: must show `27 passed` (3 files)
-- Module counts: note main/preload/renderer module counts for reports
-- If build or test fails, debug before marking items as done
+Checklist:
+- [ ] Build: three `✓ built` lines (main + preload + renderer)
+- [ ] Test: 27 passed (3 files)
+- [ ] `noUncheckedIndexedAccess`: 0 new errors
+- [ ] `as any` renderer: 0 (maintained)
+- [ ] New IPC channels: 7-file pattern completed
+- [ ] New code: no hardcoded colors (CSS Token only)
+- [ ] `fs.writeFileSync`: all wrapped in try-catch
+- [ ] api-client: all WindowApi methods have stubs
+
+Write findings to redo.md as a "Developer 自纠自查" section.
 
 ### Step 6: Report
 
@@ -69,24 +81,42 @@ Output a summary table:
 | # | 等级 | 问题 | 修复 | 文件 |
 |---|------|------|------|------|
 | Rxx | 🔴 | ... | ✅ fixed — one-line summary | path:line |
-构建: ✅ (X main + Y preload + Z renderer) | 测试: 27/27 pass
+构建: ✅ (X main + Y preload + Z renderer) | 测试: 27/27
 ```
 
-## Phase 14 Patterns (proven through 2 audit cycles)
+---
 
-**File-based storage**: When spec says "no Schema change" (T1105 freeze), use `app.getPath('userData') + JSON` (reuse `posFile()` pattern from pet.ts). Examples: `shortcuts.json`, `reading-progress.json`.
+## Proven Patterns (Phase 13-16)
 
-**Atomic writes**: Write to `path.tmp` then `fs.renameSync(tmp, path)` to prevent corruption on crash.
+### Schema & Data
+- **T1105 Schema freeze**: Never add DB tables/columns. Boss must explicitly approve exceptions (D22 pattern).
+- **File-based storage**: `app.getPath('userData') + JSON` (posFile pattern). For new data that needs persistence.
+- **Atomic writes**: `writeFileSync(tmp) → renameSync(tmp, real)` to prevent corruption on crash.
+- **writeFileSync safety**: All `fs.writeFileSync` calls must be wrapped in try-catch (disk full / permission errors crash main process).
 
-**Data router**: Use `createHashRouter` + `RouterProvider` (not legacy `<HashRouter>`) for `useBlocker` support.
+### IPC & Types
+- **IPC event channels**: Use `EVT_*` prefix constants in ipc-channels.ts. Both sender (`webContents.send(IPC.EVT_XXX)`) and receiver (`ipcRenderer.on(IPC.EVT_XXX)`) must use the constant — never hardcode strings.
+- **7-file checklist**: Adding IPC channel requires changes in: ipc-channels.ts, window-api.ts, preload/index.ts, main/ipc/xxx.ts, main/ipc/index.ts, optionally main/services/xxx.ts, renderer/lib/api-client.ts.
+- **api-client mirroring**: webApi method names must EXACTLY match WindowApi (including `app` prefix, `on` event prefix). Missing methods cause `undefined is not a function` at runtime.
+- **Type convergence**: Remove intermediate `as any` casts — `window.api.xxx()` returns `ApiResponse<T>` already.
+- **noUncheckedIndexedAccess**: Permanently enabled. All `arr[i]` / `obj[key]` need guards or non-null assertions.
 
-**Type convergence**: `window.api.xxx()` returns typed `ApiResponse<T>` already — remove intermediate `const r = d as any` casts. The type system works.
+### Frontend
+- **Data router**: `createHashRouter` + `RouterProvider` (NOT legacy `<HashRouter>`) — required for `useBlocker`.
+- **Route merging**: `?mode=edit` pattern merges read/edit at same route. Remove separate `/edit` routes. Use `navigate('?mode=edit', {replace: true})` to avoid history pollution.
+- **React.lazy named exports**: `.then(m => ({ default: m.NamedExport }))`.
+- **Dashboard tabs**: `useSearchParams` for URL-persistent state, not local useState.
+- **useEffect cleanup**: Event listeners registered via `window.api.onXxx()` must return the unsubscribe function. If `onXxx` might not exist (webApi), check existence first.
 
-**Dead code removal**: If removing a service/IPC/file, clean up ALL 5-7 reference points (channel def, WindowApi, preload, handler registration, api-client stub, imports).
+### Server
+- **user_id isolation**: Server routes must verify `user_id` on ALL write operations (UPDATE/DELETE/INSERT). Read operations are covered by `requireAuth` middleware.
+- **linkedom in node**: `parseHTML()` returns `Window & typeof globalThis`. Cast: `as unknown as { document: Document }`.
 
-**React.lazy named exports**: Use `.then(m => ({ default: m.ComponentName }))` pattern for named-export lazy loading.
+### Dead Code & Cleanup
+- **Dead code removal**: 7 reference points must be cleaned: IPC channel, WindowApi, preload, handler registration, service file, imports, api-client stub.
+- **Dead storage detection**: If a service has only writers and no readers (R102 pattern), the entire IPC + Service + JSON file chain is dead. Remove it.
 
-**Dashboard tabs**: Use `useSearchParams` for URL-persistent tab state, not local useState.
+---
 
 ## Project Quick Reference
 
@@ -96,26 +126,20 @@ Output a summary table:
 - `redo.md` — Auditor findings (read/write)
 - `todo.md` — task specs (read, update status only)
 - `src/shared/types.ts` — all data structures + interfaces
-- `src/shared/ipc-channels.ts` — IPC channel names (add here first)
+- `src/shared/ipc-channels.ts` — IPC channel names + event names (add here first)
 - `src/shared/window-api.ts` — WindowApi interface
+- `src/shared/shortcuts.ts` — shortcut defaults
+- `src/shared/db-schema-mysql.ts` — MySQL DDL + MYSQL_MIGRATIONS
+- `src/main/db/schema.ts` — sql.js DDL
+- `src/main/db/index.ts` — sql.js init + ALTER TABLE migrations
 - `src/preload/index.ts` — contextBridge bindings
 - `src/main/ipc/index.ts` — handler registration hub
 - `src/renderer/lib/api-client.ts` — web-side stubs (add desktop-only stubs here)
-- `src/shared/achievements.ts` — achievement definitions
-- `src/shared/shortcuts.ts` — shortcut defaults
+- `src/server/routes/` — REST API (must validate user_id on writes)
 
 **Developer boundaries (from prompts/developer.md):**
-- ✅ Can update: redo.md fix status, todo.md task status + Developer 备注
+- ✅ Can update: redo.md fix status + self-audit, todo.md task status + Developer 备注
 - ❌ Cannot modify: AGENTS.md, README.md (Boss-owned)
 - ❌ Cannot modify: task descriptions, priorities, implementation steps in todo.md
 
-**Adding new IPC channels** (exactly 5-7 files must change):
-1. `src/shared/ipc-channels.ts` — add channel constant
-2. `src/shared/window-api.ts` — add typed method signature
-3. `src/preload/index.ts` — wire `ipcRenderer.invoke`
-4. `src/main/ipc/xxx.ts` — handler implementation
-5. `src/main/ipc/index.ts` — register handler
-6. `src/main/services/xxx.service.ts` — business logic (if new)
-7. `src/renderer/lib/api-client.ts` — web stub
-
-For detailed constraints (DB patterns, IPC format, datetime handling, CSS tokens, new patterns), read `references/constraints.md`.
+For detailed constraints (DB patterns, IPC format, datetime handling, CSS tokens), read `references/constraints.md`.

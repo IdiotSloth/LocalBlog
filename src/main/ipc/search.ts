@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import type { SearchResult } from '../../shared/types';
+import type { FtsSearchResult, SearchResult } from '../../shared/types';
 import { SearchService } from '../services/search.service';
 
 export function registerSearchHandlers(): void {
@@ -28,5 +28,24 @@ export function registerSearchHandlers(): void {
   });
   ipcMain.handle(IPC.REBUILD_FTS_INDEX, async () => {
     return { success: true };
+  });
+
+  // T1801: FTS5 full-text search (MySQL FULLTEXT + sql.js Worker modes)
+  ipcMain.handle(IPC.SEARCH_QUERY, async (_event, data: { query: string; userId: number }) => {
+    try {
+      const results: FtsSearchResult[] = await SearchService.searchAll(data.query, data.userId);
+      return { success: true, data: results };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle(IPC.SEARCH_GET_DOCUMENTS, async (_event, data: { userId: number }) => {
+    try {
+      const docs = await SearchService.getIndexableDocuments(data.userId);
+      return { success: true, data: docs };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
 }

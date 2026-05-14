@@ -101,4 +101,8 @@ export const MYSQL_MIGRATIONS = [
   'ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
   'ALTER TABLE tags ADD COLUMN description TEXT',
   'ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL',
+
+  // T1801: MySQL FULLTEXT INDEX for full-text search
+  'ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)',
+  'ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)',
 ];

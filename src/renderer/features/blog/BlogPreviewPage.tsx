@@ -6,11 +6,12 @@ import { TableOfContents } from '../../components/blog/TableOfContents';
 import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import type { BlogWithTags, Tag } from '../../../shared/types';
 
 const BlogEditorPage = lazy(() => import('./BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })));
 
 function RelatedResources({ blogId }: { blogId: number }) {
-  const [refs, setRefs] = useState<any[]>([]);
+  const [refs, setRefs] = useState<any[]>([]); // TODO: define Reference type in shared/types.ts
   useEffect(() => {
     window.api.refGetFrom({ sourceType: 'blog', sourceId: blogId }).then((r) => {
       if (r.success && r.data) setRefs(r.data.filter((ref: any) => ref.target_type === 'knowledge'));
@@ -66,7 +67,7 @@ export function BlogPreviewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
-  const [blog, setBlog] = useState<any>(null);
+  const [blog, setBlog] = useState<BlogWithTags | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [readingTheme, setReadingTheme] = useState<string>(localStorage.getItem('reading-theme') || 'paper');
@@ -79,6 +80,13 @@ export function BlogPreviewPage() {
       if (pct > 0) el.scrollTop = pct * el.scrollHeight;
       sessionStorage.removeItem(`blog-scroll-ratio-${id}`);
     }
+  }, [id]);
+
+  // T1705: Scroll to top on blog navigation
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const mainEl = document.querySelector('main');
+    if (mainEl) mainEl.scrollTop = 0;
   }, [id]);
 
   useEffect(() => {
@@ -227,6 +235,38 @@ export function BlogPreviewPage() {
             color: theme.text,
             fontFamily: theme.font,
           }}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            const anchor = target.closest('a');
+            if (!anchor) return;
+            const href = anchor.getAttribute('href');
+            if (!href) return;
+
+            // Block dangerous protocols
+            if (href.startsWith('javascript:') || href.startsWith('data:')) {
+              e.preventDefault();
+              return;
+            }
+
+            // Allow anchor links (#section-id) to use default browser behavior
+            if (href.startsWith('#')) return;
+
+            // Internal route navigation
+            if (href.startsWith('/blog/') || href.startsWith('/knowledge/')) {
+              e.preventDefault();
+              navigate(href);
+              return;
+            }
+
+            // External links — open via shell
+            if (href.startsWith('http://') || href.startsWith('https://')) {
+              e.preventDefault();
+              window.api.shellOpenExternal(href);
+              return;
+            }
+
+            // For any other link, let default behavior handle it
+          }}
         >
           <h1 className="mb-3" style={{ color: theme.text }}>
             {blog.title}
@@ -252,7 +292,7 @@ export function BlogPreviewPage() {
 
           {blog.tags?.length > 0 && (
             <div className="mb-8 flex flex-wrap gap-2">
-              {blog.tags.map((t: any) => (
+              {blog.tags.map((t: Tag) => (
                 <button
                   key={t.id}
                   type="button"

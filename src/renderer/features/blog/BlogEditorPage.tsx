@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import TurndownService from 'turndown';
-import type { DraftItem } from '../../../shared/types';
+import type { DraftItem, Tag } from '../../../shared/types';
 import type { BlogTemplate } from '../../../shared/templates';
 import { ReferencePicker } from '../../components/common/ReferencePicker';
 import { TagSelector } from '../../components/common/TagSelector';
@@ -32,6 +32,7 @@ interface EditorState {
   pendingTagIds: number[] | null;
   selectedTemplate: BlogTemplate | null;
   focusMode: boolean;
+  loading: boolean;
   seriesId: string | null;
   seriesName: string;
   seriesList: { seriesId: string; seriesName: string }[];
@@ -51,6 +52,7 @@ const initialState: EditorState = {
   pendingTagIds: null,
   selectedTemplate: null,
   focusMode: false,
+  loading: true,
   seriesId: null,
   seriesName: '',
   seriesList: [],
@@ -74,6 +76,7 @@ type EditorAction =
   | { type: 'SET_SERIES_NAME'; payload: string }
   | { type: 'SET_SERIES_LIST'; payload: { seriesId: string; seriesName: string }[] }
   | { type: 'SET_NEW_SERIES'; payload: string }
+  | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'LOAD_BLOG'; payload: Partial<EditorState> }
   | { type: 'RESET_SAVE_STATE' };
 
@@ -103,6 +106,8 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       return { ...state, selectedTemplate: action.payload };
     case 'SET_FOCUS':
       return { ...state, focusMode: action.payload };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
     case 'SET_SERIES_ID':
       return { ...state, seriesId: action.payload };
     case 'SET_SERIES_NAME':
@@ -185,27 +190,32 @@ export function BlogEditorPage() {
   }, []);
 
   useEffect(() => {
-    if (id && user) {
-      window.api.blogGet(Number(id)).then((r) => {
-        if (r.success && r.data) {
-          const c = r.data.content || '';
-          dispatch({
-            type: 'LOAD_BLOG',
-            payload: {
-              title: r.data.title,
-              format: r.data.format,
-              content: r.data.format === 'md' ? md.render(c) : c,
-              selectedTagIds: (r.data.tags || []).map((t: any) => t.id),
-              seriesId: r.data.seriesId || null,
-              seriesName: r.data.seriesName || '',
-            },
-          });
-        }
-      });
-      window.api.blogSeriesList(user.id).then((r) => {
-        if (r.success && r.data) dispatch({ type: 'SET_SERIES_LIST', payload: r.data });
-      });
+    if (!user) return;
+    if (!id) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return;
     }
+    dispatch({ type: 'SET_LOADING', payload: true });
+    window.api.blogGet(Number(id)).then((r) => {
+      if (r.success && r.data) {
+        const c = r.data.content || '';
+        dispatch({
+          type: 'LOAD_BLOG',
+          payload: {
+            title: r.data.title,
+            format: r.data.format,
+            content: r.data.format === 'md' ? md.render(c) : c,
+            selectedTagIds: (r.data.tags || []).map((t: Tag) => t.id),
+            seriesId: r.data.seriesId || null,
+            seriesName: r.data.seriesName || '',
+          },
+        });
+      }
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }).catch(() => dispatch({ type: 'SET_LOADING', payload: false }));
+    window.api.blogSeriesList(user.id).then((r) => {
+      if (r.success && r.data) dispatch({ type: 'SET_SERIES_LIST', payload: r.data });
+    });
   }, [id, user]);
 
   const saveTags = useCallback(async (blogId: number, tagIds: number[]) => {
@@ -273,6 +283,7 @@ export function BlogEditorPage() {
       } else {
         toast('已保存', 'success');
         const r = await window.api.blogUpdate({
+          userId: user.id,
           blogId: Number(id),
           title: state.title.trim(),
           content: contentToSave,
@@ -304,6 +315,15 @@ export function BlogEditorPage() {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [handleSave]);
+
+  // Loading state for existing blog
+  if (!isNew && state.loading) {
+    return (
+      <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>
+        加载中...
+      </div>
+    );
+  }
 
   // Show template selector for new blog
   if (isNew && !state.selectedTemplate) {
@@ -433,7 +453,7 @@ export function BlogEditorPage() {
                     dispatch({ type: 'SET_SERIES_ID', payload: null });
                     dispatch({ type: 'SET_SERIES_NAME', payload: '' });
                     if (blogIdRef.current)
-                      await window.api.blogSeriesSet({ blogId: blogIdRef.current, seriesId: null, seriesName: null });
+                      await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: null, seriesName: null });
                     return;
                   }
                   const item = state.seriesList.find((s) => s.seriesId === val);
@@ -442,6 +462,7 @@ export function BlogEditorPage() {
                     dispatch({ type: 'SET_SERIES_NAME', payload: item.seriesName });
                     if (blogIdRef.current)
                       await window.api.blogSeriesSet({
+                        userId: user.id,
                         blogId: blogIdRef.current,
                         seriesId: item.seriesId,
                         seriesName: item.seriesName,
@@ -476,6 +497,7 @@ export function BlogEditorPage() {
                     dispatch({ type: 'SET_SERIES_ID', payload: uuid });
                     dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
                     await window.api.blogSeriesSet({
+                      userId: user.id,
                       blogId: blogIdRef.current,
                       seriesId: uuid,
                       seriesName: state.newSeries.trim(),
@@ -549,7 +571,7 @@ export function BlogEditorPage() {
                     onClick={async () => {
                       if (!blogIdRef.current || !confirm('恢复到该版本？')) return;
                       try {
-                        await window.api.blogRollback({ blogId: blogIdRef.current, draftId: d.id });
+                        await window.api.blogRollback({ userId: user.id, blogId: blogIdRef.current, draftId: d.id });
                         dispatch({ type: 'SET_CONTENT', payload: d.content });
                         dispatch({ type: 'TOGGLE_HISTORY' });
                       } catch {

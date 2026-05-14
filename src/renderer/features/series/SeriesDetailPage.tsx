@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
@@ -21,6 +21,9 @@ export function SeriesDetailPage() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [seriesName, setSeriesName] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const loadBlogs = useCallback(async () => {
     if (!seriesId) return;
@@ -42,6 +45,39 @@ export function SeriesDetailPage() {
     }
   }, [seriesId]);
 
+  const handleRename = useCallback(async () => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === seriesName || !user || !seriesId) {
+      setIsEditing(false);
+      return;
+    }
+    try {
+      const r = await window.api.blogSeriesRename({ seriesId, newName: trimmed, userId: user.id });
+      if (r.success) {
+        setSeriesName(trimmed);
+        alert('系列名已更新');
+      } else {
+        alert(r.error || '重命名失败');
+      }
+    } catch (e) {
+      alert('重命名失败');
+    } finally {
+      setIsEditing(false);
+    }
+  }, [editName, seriesName, user, seriesId]);
+
+  const startEditing = useCallback(() => {
+    setEditName(seriesName || decodeURIComponent(seriesId || ''));
+    setIsEditing(true);
+  }, [seriesName, seriesId]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   useEffect(() => {
     loadBlogs();
   }, [loadBlogs]);
@@ -61,12 +97,43 @@ export function SeriesDetailPage() {
         <span style={{ color: 'var(--text-primary)' }}>{seriesName || decodeURIComponent(seriesId || '')}</span>
       </div>
 
-      <h2 className="mb-6 text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-        {seriesName || decodeURIComponent(seriesId || '')}{' '}
+      <div className="mb-6 flex items-center gap-2">
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRename();
+              if (e.key === 'Escape') setIsEditing(false);
+            }}
+            onBlur={handleRename}
+            className="surface-input px-2 py-1 text-[20px] font-semibold"
+            style={{ color: 'var(--text-primary)', maxWidth: 400 }}
+            title="输入新系列名称"
+            placeholder="系列名称"
+          />
+        ) : (
+          <h2 className="text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {seriesName || decodeURIComponent(seriesId || '')}
+          </h2>
+        )}
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="text-[16px] opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+            style={{ color: 'var(--text-secondary)' }}
+            title="重命名系列"
+          >
+            ✏️
+          </button>
+        )}
         <span className="text-[14px] font-normal" style={{ color: 'var(--text-secondary)' }}>
           {blogs.length} 篇
         </span>
-      </h2>
+      </div>
 
       {loading ? (
         <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>

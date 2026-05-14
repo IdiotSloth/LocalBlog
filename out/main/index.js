@@ -32,6 +32,7 @@ const crypto = require("node:crypto");
 const ExcelJS = require("exceljs");
 const mammoth = require("mammoth");
 const TurndownService = require("turndown");
+const electronUpdater = require("electron-updater");
 const IPC = {
   // Auth
   AUTH_LOGIN: "auth:login",
@@ -64,6 +65,7 @@ const IPC = {
   BLOG_SERIES_LIST: "blog:seriesList",
   BLOG_SERIES_GET: "blog:seriesGet",
   BLOG_SERIES_SET: "blog:seriesSet",
+  BLOG_SERIES_RENAME: "blog:seriesRename",
   // Batch operations
   BLOG_BATCH_DELETE: "blog:batchDelete",
   BLOG_BATCH_TAG: "blog:batchTag",
@@ -83,6 +85,8 @@ const IPC = {
   SEARCH_BLOGS: "search:blogs",
   SEARCH_KB: "search:kb",
   REBUILD_FTS_INDEX: "search:rebuild-index",
+  SEARCH_QUERY: "search:query",
+  SEARCH_GET_DOCUMENTS: "search:get-documents",
   // Workspace
   WORKSPACE_EXPORT_ZIP: "workspace:export-zip",
   WORKSPACE_GET_INFO: "workspace:get-info",
@@ -143,6 +147,7 @@ const IPC = {
   SHORTCUT_UPDATE: "shortcut:update",
   SHORTCUT_RESET: "shortcut:reset",
   // App
+  SHELL_OPEN_EXTERNAL: "shell:openExternal",
   APP_VISIBILITY: "app:visibility",
   APP_GET_VERSION: "app:get-version",
   APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
@@ -156,7 +161,10 @@ const IPC = {
   EVT_NAVIGATE: "navigate",
   EVT_BLOG_REFRESH: "blog:refresh",
   EVT_NOTE_REFRESH: "note:refresh",
-  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress"
+  EVT_KB_REFRESH: "kb:refresh",
+  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress",
+  EVT_APP_ERROR: "app:error",
+  EVT_UPDATE_STATUS: "app:update-status"
 };
 const MYSQL_DDL = [
   `CREATE TABLE IF NOT EXISTS users (
@@ -246,7 +254,10 @@ const MYSQL_MIGRATIONS = [
   "ALTER TABLE knowledge_files ADD COLUMN content_text LONGTEXT",
   "ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
   "ALTER TABLE tags ADD COLUMN description TEXT",
-  "ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL"
+  "ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
+  // T1801: MySQL FULLTEXT INDEX for full-text search
+  "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)",
+  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)"
 ];
 let pool = null;
 function getMySQLConfig() {
@@ -581,6 +592,9 @@ function closeDatabase() {
     sqlJsDb = null;
   }
 }
+function isUsingMySQL() {
+  return useMySQL;
+}
 let saveTimer = null;
 let savePending = false;
 function sqlJsSave() {
@@ -707,6 +721,7 @@ const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   dbRun,
   get,
   initDatabase,
+  isUsingMySQL,
   run
 }, Symbol.toStringTag, { value: "Module" }));
 const DIR_BLOGS = "Blogs";
@@ -1108,6 +1123,18 @@ start "" npm run dev\r
   });
 }
 function registerAppHandlers() {
+  electron.ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_event, url) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { success: false, error: "仅允许打开 http/https 链接" };
+      }
+      await electron.shell.openExternal(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
   electron.ipcMain.handle(IPC.APP_GET_VERSION, async () => {
     return electron.app.getVersion();
   });
@@ -1383,7 +1410,7 @@ function setPetActions(actions) {
   petActions = actions;
 }
 let tray = null;
-let mainWindow$2 = null;
+let mainWindow$1 = null;
 function getFaviconPath() {
   const candidates = [
     path.join(process.resourcesPath || "", "img", "favicon.ico"),
@@ -1421,9 +1448,9 @@ function buildMenu() {
     {
       label: "📂 打开主窗口",
       click: () => {
-        if (mainWindow$2) {
-          mainWindow$2.show();
-          mainWindow$2.focus();
+        if (mainWindow$1) {
+          mainWindow$1.show();
+          mainWindow$1.focus();
         }
       }
     },
@@ -1448,24 +1475,24 @@ function togglePet() {
     return;
   }
   petActive = true;
-  if (mainWindow$2) createPet(mainWindow$2);
+  if (mainWindow$1) createPet(mainWindow$1);
   if (tray) tray.setContextMenu(buildMenu());
 }
 function setupTray(win) {
-  mainWindow$2 = win;
+  mainWindow$1 = win;
   if (tray) tray.destroy();
   tray = new electron.Tray(makeIcon(16));
   tray.setToolTip("本地博客与知识库");
   tray.setContextMenu(buildMenu());
   tray.on("double-click", () => {
-    if (mainWindow$2) {
-      mainWindow$2.show();
-      mainWindow$2.focus();
+    if (mainWindow$1) {
+      mainWindow$1.show();
+      mainWindow$1.focus();
     }
   });
 }
 let petWin = null;
-let mainWindow$1 = null;
+let mainWindow = null;
 let isDragging = false;
 let dragTimer = null;
 let dragOffset = { x: 0, y: 0 };
@@ -1610,8 +1637,8 @@ function showQuickNote() {
         `);
         await new Promise((r) => setTimeout(r, 400));
         new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
-        if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-          mainWindow$1.webContents.send(IPC.EVT_NOTE_REFRESH);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC.EVT_NOTE_REFRESH);
         }
       } catch (e) {
         console.error("[QuickNote/MVF] Save failed:", e);
@@ -1733,8 +1760,8 @@ function showMdFloatWindow() {
           hintEl.classList.add('saved');
         `);
         new electron.Notification({ title: "已保存", body: title }).show();
-        if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-          mainWindow$1.webContents.send(IPC.EVT_BLOG_REFRESH);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC.EVT_BLOG_REFRESH);
         }
       } catch (e) {
         console.error("[QuickNote/MVF] Save failed:", e);
@@ -1904,10 +1931,10 @@ async function handleImportFile() {
   }
 }
 function showStandaloneEditor() {
-  if (mainWindow$1) {
-    if (!mainWindow$1.isVisible()) mainWindow$1.show();
-    mainWindow$1.focus();
-    mainWindow$1.webContents.send(IPC.EVT_PET_ACTION, "new-blog");
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send(IPC.EVT_PET_ACTION, "new-blog");
   }
 }
 async function handleClipboardNote() {
@@ -1921,8 +1948,8 @@ async function handleClipboardNote() {
     const uid = await getUserId();
     await NoteService2.createNote(uid, text.trim(), "clipboard");
     new electron.Notification({ title: "便签已保存", body: text.trim().substring(0, 60) }).show();
-    if (mainWindow$1 && !mainWindow$1.isDestroyed()) {
-      mainWindow$1.webContents.send(IPC.EVT_NOTE_REFRESH);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC.EVT_NOTE_REFRESH);
     }
   } catch (e) {
     new electron.Notification({ title: "保存失败", body: e.message || "未知错误" }).show();
@@ -1940,9 +1967,9 @@ function petMenu() {
     {
       label: "📂 打开主窗口",
       click: () => {
-        if (mainWindow$1) {
-          mainWindow$1.show();
-          mainWindow$1.focus();
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
         }
       }
     }
@@ -1965,7 +1992,7 @@ function loadPosition() {
   return { x: primary.width - 160, y: primary.height - 160 };
 }
 function createPet(win) {
-  mainWindow$1 = win;
+  mainWindow = win;
   if (petWin && !petWin.isDestroyed()) petWin.close();
   const pos = loadPosition();
   const images = ensurePetImages();
@@ -2041,11 +2068,11 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
   });
 }
 function showManualCollect() {
-  if (mainWindow$1) {
-    if (mainWindow$1.isMinimized()) mainWindow$1.restore();
-    mainWindow$1.show();
-    mainWindow$1.focus();
-    mainWindow$1.webContents.send(IPC.EVT_NAVIGATE, "/blog?tab=manual");
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send(IPC.EVT_NAVIGATE, "/blog?tab=manual");
   }
 }
 function initPetActions() {
@@ -2183,8 +2210,71 @@ function sanitizePagination(offset, limit) {
   const safeLimit = Math.min(200, Math.max(1, Math.floor(Number(limit) || 50)));
   return { offset: safeOffset, limit: safeLimit };
 }
-const VALID_SORT = ["created_at", "updated_at", "title"];
-const VALID_ORDER = ["asc", "desc"];
+function buildBlogSelect(id) {
+  return { sql: "SELECT * FROM blogs WHERE id = ?", params: [id] };
+}
+function buildBlogCreate(userId, title, format, content) {
+  const now = nowMySQL();
+  return {
+    sql: "INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    params: [userId, title, format, content, now, now]
+  };
+}
+function buildBlogDelete(id, userId) {
+  const now = nowMySQL();
+  return {
+    sql: "UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
+    params: [now, id, userId]
+  };
+}
+function buildBlogRestore(id, userId) {
+  const now = nowMySQL();
+  return {
+    sql: "UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
+    params: [now, id, userId]
+  };
+}
+function buildBlogDraftInsert(blogId, content) {
+  const now = nowMySQL();
+  return {
+    sql: "INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)",
+    params: [blogId, content, now]
+  };
+}
+function buildRecycleInsert(userId, itemType, itemId) {
+  const now = nowMySQL();
+  return {
+    sql: "INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)",
+    params: [userId, itemType, itemId, now]
+  };
+}
+function buildBlogTagsSelect(blogId) {
+  return {
+    sql: "SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?",
+    params: [blogId]
+  };
+}
+function buildBlogSelectTrash(id) {
+  return { sql: "SELECT * FROM blogs WHERE id = ? AND status = ?", params: [id, "trash"] };
+}
+function buildRecycleDelete(itemType, itemId, userId) {
+  return {
+    sql: "DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ? AND user_id = ?",
+    params: [itemType, itemId, userId]
+  };
+}
+function buildBlogDraftSelect(draftId, blogId) {
+  return {
+    sql: "SELECT * FROM blog_drafts WHERE id = ? AND blog_id = ?",
+    params: [draftId, blogId]
+  };
+}
+function buildBlogHistorySelect(blogId) {
+  return {
+    sql: "SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20",
+    params: [blogId]
+  };
+}
 function mapBlogRow(row) {
   return {
     id: row.id,
@@ -2198,6 +2288,8 @@ function mapBlogRow(row) {
     updatedAt: row.updated_at
   };
 }
+const VALID_SORT = ["created_at", "updated_at", "title"];
+const VALID_ORDER = ["asc", "desc"];
 async function getSharedBlogList(dbAll2, dbGet2, filters) {
   const {
     userId,
@@ -2228,6 +2320,10 @@ async function getSharedBlogList(dbAll2, dbGet2, filters) {
   if (folderId !== void 0) {
     conditions.push("b.folder_id = ?");
     params.push(folderId);
+  }
+  if (filters.excludeSeries) {
+    conditions.push("(b.series_id IS NULL OR b.series_id = ?)");
+    params.push("");
   }
   const where = conditions.join(" AND ");
   const totalRow = await dbGet2(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
@@ -2270,17 +2366,17 @@ class TagService {
     if (!row) throw new Error("创建标签失败");
     return row;
   }
-  static async updateTag(tagId, name, description) {
+  static async updateTag(userId, tagId, name, description) {
     const t = name.trim();
     if (!t) throw new Error("标签名不能为空");
     if (description !== void 0) {
-      await dbRun("UPDATE tags SET name = ?, description = ? WHERE id = ?", [t, description, tagId]);
+      await dbRun("UPDATE tags SET name = ?, description = ? WHERE id = ? AND user_id = ?", [t, description, tagId, userId]);
     } else {
-      await dbRun("UPDATE tags SET name = ? WHERE id = ?", [t, tagId]);
+      await dbRun("UPDATE tags SET name = ? WHERE id = ? AND user_id = ?", [t, tagId, userId]);
     }
   }
-  static async deleteTag(tagId) {
-    await dbRun("DELETE FROM tags WHERE id = ?", [tagId]);
+  static async deleteTag(userId, tagId) {
+    await dbRun("DELETE FROM tags WHERE id = ? AND user_id = ?", [tagId, userId]);
   }
 }
 class BlogService {
@@ -2289,11 +2385,8 @@ class BlogService {
     if (!["md", "html"].includes(format)) throw new Error("格式必须是 md 或 html");
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ""));
-    const now = nowMySQL();
-    await dbRun(
-      "INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [userId, title, format, content, now, now]
-    );
+    const { sql, params } = buildBlogCreate(userId, title, format, content);
+    await dbRun(sql, params);
     const row = await dbGet(
       "SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1",
       [userId, title, format]
@@ -2301,10 +2394,11 @@ class BlogService {
     if (!row) throw new Error("创建博客失败");
     const filePath = await getBlogPath(userId, row.id, format);
     fs.writeFileSync(filePath, content, "utf-8");
-    return BlogService.rowToBlog(row);
+    return mapBlogRow(row);
   }
   static async getBlog(blogId) {
-    const row = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+    const { sql, params } = buildBlogSelect(blogId);
+    const row = await dbGet(sql, params);
     if (!row) return null;
     const filePath = await getBlogPath(row.user_id, row.id, row.format);
     let content = "";
@@ -2314,76 +2408,56 @@ class BlogService {
       content = row.content || "";
     }
     const tags = await BlogService.getBlogTags(blogId);
-    return { ...BlogService.rowToBlog(row), tags, content };
+    return { ...mapBlogRow(row), tags, content };
   }
-  static async updateBlog(blogId, update) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+  static async updateBlog(userId, blogId, update) {
+    const { sql, params } = buildBlogSelect(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
     if (update.title !== void 0) {
       if (!update.title || update.title.length > MAX_TITLE_LENGTH)
         throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ?", [update.title, nowMySQL(), blogId]);
+      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.title, nowMySQL(), blogId, userId]);
     }
     if (update.content !== void 0) {
       const filePath = await getBlogPath(blog.user_id, blogId, blog.format);
       const tmpPath = filePath + ".tmp." + Date.now();
       fs.writeFileSync(tmpPath, update.content, "utf-8");
       fs.renameSync(tmpPath, filePath);
-      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ?", [update.content, nowMySQL(), blogId]);
+      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.content, nowMySQL(), blogId, userId]);
     }
   }
-  static async deleteBlog(blogId) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+  static async deleteBlog(userId, blogId) {
+    const { sql, params } = buildBlogSelect(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
-    await dbRun("UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
-    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
-      blog.user_id,
-      "blog",
-      blogId,
-      nowMySQL()
-    ]);
+    const { sql: deleteSql, params: deleteParams } = buildBlogDelete(blogId, userId);
+    await dbRun(deleteSql, deleteParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleInsert(blog.user_id, "blog", blogId);
+    await dbRun(recycleSql, recycleParams);
   }
-  static async restoreBlog(blogId) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ? AND status = ?", [blogId, "trash"]);
+  static async restoreBlog(userId, blogId) {
+    const { sql, params } = buildBlogSelectTrash(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不在回收站中");
-    await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), blogId]);
-    await dbRun("DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?", ["blog", blogId]);
+    const { sql: restoreSql, params: restoreParams } = buildBlogRestore(blogId, userId);
+    await dbRun(restoreSql, restoreParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleDelete("blog", blogId, userId);
+    await dbRun(recycleSql, recycleParams);
   }
   static async listBlogs(filters) {
-    const conditions = ["b.user_id = ?"];
-    const params = [filters.userId];
-    conditions.push("b.status = 'active'");
-    if (filters.query) {
-      conditions.push("b.title LIKE ?");
-      params.push(`%${filters.query}%`);
-    }
-    if (filters.tagId) {
-      conditions.push("b.id IN (SELECT blog_id FROM blog_tags WHERE tag_id = ?)");
-      params.push(filters.tagId);
-    }
-    if (filters.folderId !== void 0) {
-      conditions.push("b.folder_id = ?");
-      params.push(filters.folderId);
-    }
-    const where = conditions.join(" AND ");
-    const safeSort = ["created_at", "updated_at", "title"].includes(filters.sortBy || "") ? filters.sortBy : "updated_at";
-    const safeOrder = filters.sortOrder === "asc" ? "ASC" : "DESC";
-    const { offset, limit } = sanitizePagination(filters.offset, filters.limit);
-    const totalRow = await dbGet(`SELECT COUNT(*) as count FROM blogs b WHERE ${where}`, params);
-    const rows = await dbAll(
-      `SELECT b.* FROM blogs b WHERE ${where} ORDER BY b.${safeSort} ${safeOrder} LIMIT ${limit} OFFSET ${offset}`,
-      params
+    return getSharedBlogList(
+      (sql, p) => dbAll(sql, p),
+      (sql, p) => dbGet(sql, p),
+      filters
     );
-    const blogs = await Promise.all(
-      rows.map(async (row) => ({ ...BlogService.rowToBlog(row), tags: await BlogService.getBlogTags(row.id) }))
-    );
-    return { blogs, total: totalRow?.count || 0 };
   }
-  static async exportBlogs(blogIds, outputDir) {
+  static async exportBlogs(blogIds2, outputDir) {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     let count = 0;
-    for (const blogId of blogIds) {
-      const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+    for (const blogId of blogIds2) {
+      const { sql, params } = buildBlogSelect(blogId);
+      const blog = await dbGet(sql, params);
       if (!blog) continue;
       const srcPath = await getBlogPath(blog.user_id, blogId, blog.format);
       const ext = blog.format === "html" ? ".html" : ".md";
@@ -2425,26 +2499,25 @@ class BlogService {
     return blogs;
   }
   static async saveDraft(blogId, content) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+    const { sql, params } = buildBlogSelect(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
-    await dbRun("INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)", [blogId, content, nowMySQL()]);
+    const { sql: draftSql, params: draftParams } = buildBlogDraftInsert(blogId, content);
+    await dbRun(draftSql, draftParams);
   }
   static async getHistory(blogId) {
-    return dbAll(
-      "SELECT id, blog_id, content, saved_at FROM blog_drafts WHERE blog_id = ? ORDER BY saved_at DESC LIMIT 20",
-      [blogId]
-    );
+    const { sql, params } = buildBlogHistorySelect(blogId);
+    return dbAll(sql, params);
   }
-  static async rollback(blogId, draftId) {
-    const draft = await dbGet("SELECT * FROM blog_drafts WHERE id = ? AND blog_id = ?", [draftId, blogId]);
+  static async rollback(userId, blogId, draftId) {
+    const { sql, params } = buildBlogDraftSelect(draftId, blogId);
+    const draft = await dbGet(sql, params);
     if (!draft) throw new Error("草稿不存在");
-    await BlogService.updateBlog(blogId, { content: draft.content });
+    await BlogService.updateBlog(userId, blogId, { content: draft.content });
   }
   static async getBlogTags(blogId) {
-    return dbAll(
-      "SELECT t.id, t.user_id, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ?",
-      [blogId]
-    );
+    const { sql, params } = buildBlogTagsSelect(blogId);
+    return dbAll(sql, params);
   }
   static async setBlogTags(blogId, tagIds) {
     await dbRun("DELETE FROM blog_tags WHERE blog_id = ?", [blogId]);
@@ -2453,7 +2526,8 @@ class BlogService {
   }
   // ---- Attachments ----
   static async listAttachments(blogId) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+    const { sql, params } = buildBlogSelect(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) return [];
     const assetsDir = await getBlogAssetsDir(blog.user_id, blogId);
     if (!fs.existsSync(assetsDir)) return [];
@@ -2474,7 +2548,8 @@ class BlogService {
     });
   }
   static async deleteAttachment(blogId, filename) {
-    const blog = await dbGet("SELECT * FROM blogs WHERE id = ?", [blogId]);
+    const { sql, params } = buildBlogSelect(blogId);
+    const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
     const assetsDir = await getBlogAssetsDir(blog.user_id, blogId);
     const filePath = path.join(assetsDir, filename);
@@ -2497,19 +2572,6 @@ class BlogService {
     } catch {
       return blog.content || "";
     }
-  }
-  static rowToBlog(row) {
-    return {
-      id: row.id,
-      userId: row.user_id,
-      title: row.title,
-      format: row.format,
-      status: row.status,
-      seriesId: row.series_id,
-      seriesName: row.series_name,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
-    };
   }
   // ---- Quick Note ----
   static async quickCreate(userId, title, content) {
@@ -2534,16 +2596,23 @@ class BlogService {
       `SELECT * FROM blogs WHERE series_id = ? AND status = 'active' ORDER BY created_at ASC`,
       [seriesId]
     );
-    return rows.map(BlogService.rowToBlog);
+    return rows.map(mapBlogRow);
   }
-  static async setBlogSeries(blogId, seriesId, seriesName) {
-    await dbRun("UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ?", [seriesId, seriesName, blogId]);
+  static async setBlogSeries(userId, blogId, seriesId, seriesName) {
+    await dbRun("UPDATE blogs SET series_id = ?, series_name = ? WHERE id = ? AND user_id = ?", [seriesId, seriesName, blogId, userId]);
+  }
+  static async renameSeries(seriesId, newName, userId) {
+    await dbRun("UPDATE blogs SET series_name = ? WHERE series_id = ? AND user_id = ?", [newName, seriesId, userId]);
   }
 }
 const blog_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   BlogService
 }, Symbol.toStringTag, { value: "Module" }));
+let blogRefreshTarget = null;
+function setBlogRefreshTarget(wc) {
+  blogRefreshTarget = wc;
+}
 function registerBlogHandlers() {
   electron.ipcMain.handle(
     IPC.BLOG_LIST,
@@ -2574,6 +2643,7 @@ function registerBlogHandlers() {
     async (_event, data) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
         return { success: false, error: err.message };
@@ -2582,23 +2652,26 @@ function registerBlogHandlers() {
   );
   electron.ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data) => {
     try {
-      await BlogService.updateBlog(data.blogId, { title: data.title, content: data.content });
+      await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_DELETE, async (_event, blogId) => {
+  electron.ipcMain.handle(IPC.BLOG_DELETE, async (_event, data) => {
     try {
-      await BlogService.deleteBlog(blogId);
+      await BlogService.deleteBlog(data.userId, data.blogId);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_RESTORE, async (_event, blogId) => {
+  electron.ipcMain.handle(IPC.BLOG_RESTORE, async (_event, data) => {
     try {
-      await BlogService.restoreBlog(blogId);
+      await BlogService.restoreBlog(data.userId, data.blogId);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -2617,6 +2690,7 @@ function registerBlogHandlers() {
     async (_event, data) => {
       try {
         const blogs = await BlogService.importMarkdownFiles(data.userId, data.filePaths || [], data.contents || []);
+        blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blogs };
       } catch (err) {
         return { success: false, error: err.message };
@@ -2641,7 +2715,7 @@ function registerBlogHandlers() {
   });
   electron.ipcMain.handle(IPC.BLOG_ROLLBACK, async (_event, data) => {
     try {
-      await BlogService.rollback(data.blogId, data.draftId);
+      await BlogService.rollback(data.userId, data.blogId, data.draftId);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -2679,9 +2753,10 @@ function registerBlogHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, blogIds) => {
+  electron.ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, data) => {
     try {
-      for (const id of blogIds) await BlogService.deleteBlog(id);
+      for (const id of data.blogIds) await BlogService.deleteBlog(data.userId, id);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: { deleted: blogIds.length } };
     } catch (err) {
       return { success: false, error: err.message };
@@ -2767,6 +2842,7 @@ function registerBlogHandlers() {
   electron.ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
+      blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {
       return { success: false, error: err.message };
@@ -2792,7 +2868,18 @@ function registerBlogHandlers() {
     IPC.BLOG_SERIES_SET,
     async (_event, data) => {
       try {
-        await BlogService.setBlogSeries(data.blogId, data.seriesId, data.seriesName);
+        await BlogService.setBlogSeries(data.userId, data.blogId, data.seriesId, data.seriesName);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
+  electron.ipcMain.handle(
+    IPC.BLOG_SERIES_RENAME,
+    async (_event, data) => {
+      try {
+        await BlogService.renameSeries(data.seriesId, data.newName, data.userId);
         return { success: true };
       } catch (err) {
         return { success: false, error: err.message };
@@ -2986,17 +3073,17 @@ class FolderService {
     if (!row) throw new Error("创建文件夹失败");
     return row;
   }
-  static async renameFolder(folderId, name) {
+  static async renameFolder(userId, folderId, name) {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("文件夹名不能为空");
-    await dbRun("UPDATE folders SET name = ? WHERE id = ?", [trimmed, folderId]);
+    await dbRun("UPDATE folders SET name = ? WHERE id = ? AND user_id = ?", [trimmed, folderId, userId]);
   }
-  static async deleteFolder(folderId) {
-    await dbRun("DELETE FROM folders WHERE id = ?", [folderId]);
+  static async deleteFolder(userId, folderId) {
+    await dbRun("DELETE FROM folders WHERE id = ? AND user_id = ?", [folderId, userId]);
   }
-  static async moveToFolder(itemType, itemId, folderId) {
+  static async moveToFolder(userId, itemType, itemId, folderId) {
     const table = itemType === "blog" ? "blogs" : "knowledge_files";
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [folderId, nowMySQL(), itemId]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowMySQL(), itemId, userId]);
   }
 }
 function buildTree(rows) {
@@ -3043,15 +3130,15 @@ function registerFolderHandlers() {
   );
   electron.ipcMain.handle(IPC.FOLDER_RENAME, async (_event, data) => {
     try {
-      await FolderService.renameFolder(data.folderId, data.name);
+      await FolderService.renameFolder(data.userId, data.folderId, data.name);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.FOLDER_DELETE, async (_event, folderId) => {
+  electron.ipcMain.handle(IPC.FOLDER_DELETE, async (_event, data) => {
     try {
-      await FolderService.deleteFolder(folderId);
+      await FolderService.deleteFolder(data.userId, data.folderId);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3061,13 +3148,56 @@ function registerFolderHandlers() {
     IPC.FOLDER_MOVE_ITEM,
     async (_event, data) => {
       try {
-        await FolderService.moveToFolder(data.itemType, data.itemId, data.folderId);
+        await FolderService.moveToFolder(data.userId, data.itemType, data.itemId, data.folderId);
         return { success: true };
       } catch (err) {
         return { success: false, error: err.message };
       }
     }
   );
+}
+function buildKnowledgeSelect(id) {
+  return { sql: "SELECT * FROM knowledge_files WHERE id = ?", params: [id] };
+}
+function buildKnowledgeCreate(userId, filename, filePath, fileType, fileSize, contentText) {
+  const now = nowMySQL();
+  return {
+    sql: "INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    params: [userId, filename, filePath, fileType, fileSize, contentText, now, now]
+  };
+}
+function buildKnowledgeDelete(id, userId) {
+  const now = nowMySQL();
+  return {
+    sql: "UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
+    params: [now, id, userId]
+  };
+}
+function buildKnowledgeRestore(id, userId) {
+  const now = nowMySQL();
+  return {
+    sql: "UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
+    params: [now, id, userId]
+  };
+}
+function buildKnowledgeRename(id, userId, filename, filePath) {
+  const now = nowMySQL();
+  return {
+    sql: "UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    params: [filename, filePath, now, id, userId]
+  };
+}
+function buildKnowledgeTagsSelect(fileId) {
+  return {
+    sql: "SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?",
+    params: [fileId]
+  };
+}
+function buildKnowledgeTagsDelete(fileId) {
+  return { sql: "DELETE FROM knowledge_file_tags WHERE file_id = ?", params: [fileId] };
+}
+function buildKnowledgeSelectTrash(id) {
+  return { sql: "SELECT * FROM knowledge_files WHERE id = ? AND status = ?", params: [id, "trash"] };
 }
 class KnowledgeService {
   static async importFiles(userId, filePaths, copyToWorkspace) {
@@ -3120,11 +3250,15 @@ class KnowledgeService {
         }
       } catch {
       }
-      const now = nowMySQL();
-      await dbRun(
-        "INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
-        [userId, path.basename(destPath), destPath, fileType, stat.size, contentText, now, now]
+      const { sql: insertSql, params: insertParams } = buildKnowledgeCreate(
+        userId,
+        path.basename(destPath),
+        destPath,
+        fileType,
+        stat.size,
+        contentText
       );
+      await dbRun(insertSql, insertParams);
       const row = await dbGet(
         "SELECT * FROM knowledge_files WHERE user_id = ? AND filename = ? AND file_type = ? ORDER BY id DESC LIMIT 1",
         [userId, path.basename(destPath), fileType]
@@ -3142,49 +3276,47 @@ class KnowledgeService {
     );
   }
   static async getFile(fileId) {
-    const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet(sql, params);
     if (!row) return null;
     return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
   }
-  static async deleteFile(fileId, dpf) {
-    const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
+  static async deleteFile(userId, fileId, dpf) {
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet(sql, params);
     if (!row) throw new Error("文件不存在");
-    await dbRun("UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
-    await dbRun("INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)", [
-      row.user_id,
-      "knowledge_file",
-      fileId,
-      nowMySQL()
-    ]);
+    const { sql: delSql, params: delParams } = buildKnowledgeDelete(fileId, userId);
+    await dbRun(delSql, delParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleInsert(row.user_id, "knowledge_file", fileId);
+    await dbRun(recycleSql, recycleParams);
     if (dpf && fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
   }
-  static async restoreFile(fileId) {
-    const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ? AND status = ?", [fileId, "trash"]);
+  static async restoreFile(userId, fileId) {
+    const { sql, params } = buildKnowledgeSelectTrash(fileId);
+    const row = await dbGet(sql, params);
     if (!row) throw new Error("文件不在回收站中");
-    await dbRun("UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?", [nowMySQL(), fileId]);
-    await dbRun("DELETE FROM recycle_bin WHERE item_type = ? AND item_id = ?", ["knowledge_file", fileId]);
+    const { sql: restoreSql, params: restoreParams } = buildKnowledgeRestore(fileId, userId);
+    await dbRun(restoreSql, restoreParams);
+    const { sql: recycleSql, params: recycleParams } = buildRecycleDelete("knowledge_file", fileId, userId);
+    await dbRun(recycleSql, recycleParams);
   }
-  static async renameFile(fileId, nf) {
-    const row = await dbGet("SELECT * FROM knowledge_files WHERE id = ?", [fileId]);
+  static async renameFile(userId, fileId, nf) {
+    const { sql, params } = buildKnowledgeSelect(fileId);
+    const row = await dbGet(sql, params);
     if (!row) throw new Error("文件不存在");
     if (!nf.trim()) throw new Error("文件名不能为空");
     const np = path.join(path.dirname(row.file_path), nf);
     if (fs.existsSync(row.file_path)) fs.renameSync(row.file_path, np);
-    await dbRun("UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ?", [
-      nf,
-      np,
-      nowMySQL(),
-      fileId
-    ]);
+    const { sql: renameSql, params: renameParams } = buildKnowledgeRename(fileId, userId, nf, np);
+    await dbRun(renameSql, renameParams);
   }
   static async getFileTags(fileId) {
-    return dbAll(
-      "SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?",
-      [fileId]
-    );
+    const { sql, params } = buildKnowledgeTagsSelect(fileId);
+    return dbAll(sql, params);
   }
   static async setFileTags(fileId, tagIds) {
-    await dbRun("DELETE FROM knowledge_file_tags WHERE file_id = ?", [fileId]);
+    const { sql, params } = buildKnowledgeTagsDelete(fileId);
+    await dbRun(sql, params);
     for (const tid of tagIds)
       await dbRun("INSERT OR IGNORE INTO knowledge_file_tags (file_id, tag_id) VALUES (?, ?)", [fileId, tid]);
   }
@@ -3416,6 +3548,10 @@ class PreviewService {
     }
   }
 }
+let kbRefreshTarget = null;
+function setKbRefreshTarget(wc) {
+  kbRefreshTarget = wc;
+}
 function registerKnowledgeHandlers() {
   electron.ipcMain.handle(
     IPC.KB_LIST,
@@ -3442,6 +3578,7 @@ function registerKnowledgeHandlers() {
     async (_event, data) => {
       try {
         const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
+        kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
         return { success: true, data: files };
       } catch (err) {
         return { success: false, error: err.message };
@@ -3450,15 +3587,17 @@ function registerKnowledgeHandlers() {
   );
   electron.ipcMain.handle(IPC.KB_DELETE, async (_event, data) => {
     try {
-      await KnowledgeService.deleteFile(data.fileId, data.deletePhysicalFile);
+      await KnowledgeService.deleteFile(data.userId, data.fileId, data.deletePhysicalFile);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.KB_RESTORE, async (_event, fileId) => {
+  electron.ipcMain.handle(IPC.KB_RESTORE, async (_event, data) => {
     try {
-      await KnowledgeService.restoreFile(fileId);
+      await KnowledgeService.restoreFile(data.userId, data.fileId);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3466,7 +3605,7 @@ function registerKnowledgeHandlers() {
   });
   electron.ipcMain.handle(IPC.KB_RENAME, async (_event, data) => {
     try {
-      await KnowledgeService.renameFile(data.fileId, data.newFilename);
+      await KnowledgeService.renameFile(data.userId, data.fileId, data.newFilename);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3497,9 +3636,10 @@ function registerKnowledgeHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.KB_BATCH_DELETE, async (_event, fileIds) => {
+  electron.ipcMain.handle(IPC.KB_BATCH_DELETE, async (_event, data) => {
     try {
-      for (const id of fileIds) await KnowledgeService.deleteFile(id, false);
+      for (const id of data.fileIds) await KnowledgeService.deleteFile(data.userId, id, false);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
       return { success: true, data: { deleted: fileIds.length } };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3539,13 +3679,13 @@ class NoteService {
     if (!row) throw new Error("创建便签失败");
     return rowToNote(row);
   }
-  static async deleteNote(noteId) {
-    await dbRun("DELETE FROM notes WHERE id = ?", [noteId]);
+  static async deleteNote(userId, noteId) {
+    await dbRun("DELETE FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
   }
-  static async togglePin(noteId) {
+  static async togglePin(userId, noteId) {
     const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
     if (!row) return null;
-    await dbRun("UPDATE notes SET pinned = ? WHERE id = ?", [row.pinned ? 0 : 1, noteId]);
+    await dbRun("UPDATE notes SET pinned = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, noteId, userId]);
     const updated = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
     return updated ? rowToNote(updated) : null;
   }
@@ -3583,18 +3723,18 @@ function registerNoteHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, noteId) => {
+  electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, data) => {
     try {
-      await NoteService.deleteNote(noteId);
+      await NoteService.deleteNote(data.userId, data.noteId);
       noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.NOTE_PIN, async (_event, noteId) => {
+  electron.ipcMain.handle(IPC.NOTE_PIN, async (_event, data) => {
     try {
-      const note = await NoteService.togglePin(noteId);
+      const note = await NoteService.togglePin(data.userId, data.noteId);
       noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
       return note ? { success: true, data: note } : { success: false, error: "便签不存在" };
     } catch (err) {
@@ -4026,7 +4166,7 @@ class ManualCollectorService {
       }
       try {
         const blog = await BlogService.createBlog(userId, r.title, "md", r.content);
-        await BlogService.setBlogSeries(blog.id, seriesId, seriesName);
+        await BlogService.setBlogSeries(userId, blog.id, seriesId, seriesName);
         if (!firstBlogId) firstBlogId = blog.id;
         succeeded++;
       } catch {
@@ -4138,6 +4278,19 @@ function registerScrapeHandler() {
   );
 }
 class SearchService {
+  /**
+   * Legacy: global search returning old SearchResult format (used by existing GlobalSearch).
+   */
+  static async globalSearch(userId, query) {
+    const [blogs, knowledge] = await Promise.all([
+      SearchService.searchBlogs(userId, query),
+      SearchService.searchKnowledge(userId, query)
+    ]);
+    return { blogs, knowledge };
+  }
+  /**
+   * Legacy: blog search returning old SearchResult format.
+   */
   static async searchBlogs(userId, query) {
     const like = `%${query}%`;
     const rows = await dbAll(
@@ -4162,6 +4315,9 @@ class SearchService {
       matchField: row.match_field
     }));
   }
+  /**
+   * Legacy: knowledge search returning old SearchResult format.
+   */
   static async searchKnowledge(userId, query) {
     const like = `%${query}%`;
     const rows = await dbAll(
@@ -4192,12 +4348,149 @@ class SearchService {
       };
     });
   }
-  static async globalSearch(userId, query) {
+  /**
+   * Search all content using MySQL FULLTEXT (MySQL mode) or
+   * return indexable documents for Worker-based search (sql.js mode).
+   *
+   * When MySQL: performs MATCH ... AGAINST queries on blogs and knowledge_files.
+   * When sql.js: returns all active blogs + knowledge files for the Worker to index.
+   */
+  static async searchAll(query, userId) {
+    if (isUsingMySQL()) {
+      return SearchService.mysqlFulltextSearch(query, userId);
+    }
+    return [];
+  }
+  /**
+   * MySQL FULLTEXT search using MATCH ... AGAINST in natural language mode.
+   */
+  static async mysqlFulltextSearch(query, userId) {
+    const escaped = query.replace(/[+\-<>()~*"@]/g, " ").trim();
+    if (!escaped) return [];
     const [blogs, knowledge] = await Promise.all([
-      SearchService.searchBlogs(userId, query),
-      SearchService.searchKnowledge(userId, query)
+      SearchService.mysqlSearchBlogs(escaped, userId),
+      SearchService.mysqlSearchKnowledge(escaped, userId)
     ]);
-    return { blogs, knowledge };
+    const merged = [...blogs, ...knowledge].sort((a, b) => b.score - a.score);
+    return merged.slice(0, 20);
+  }
+  static async mysqlSearchBlogs(query, userId) {
+    try {
+      const rows = await dbAll(
+        `SELECT id, title, SUBSTRING(content, 1, 200) as content,
+                MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE) as score
+         FROM blogs
+         WHERE user_id = ? AND status = 'active'
+           AND MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)
+         ORDER BY score DESC
+         LIMIT 20`,
+        [query, userId, query]
+      );
+      return rows.map((row) => ({
+        id: row.id,
+        type: "blog",
+        title: row.title,
+        snippet: (row.content || "").slice(0, 200),
+        score: Math.round((row.score || 0) * 1e3) / 1e3
+      }));
+    } catch (err) {
+      console.warn("[SearchService] MySQL blog fulltext search failed, falling back to LIKE:", err.message);
+      return SearchService.fallbackBlogSearch(query, userId);
+    }
+  }
+  static async mysqlSearchKnowledge(query, userId) {
+    try {
+      const rows = await dbAll(
+        `SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text,
+                MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE) as score
+         FROM knowledge_files
+         WHERE user_id = ? AND status = 'active'
+           AND MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE)
+         ORDER BY score DESC
+         LIMIT 20`,
+        [query, userId, query]
+      );
+      return rows.map((row) => ({
+        id: row.id,
+        type: "knowledge",
+        title: row.title,
+        snippet: (row.content_text || "").slice(0, 200),
+        score: Math.round((row.score || 0) * 1e3) / 1e3
+      }));
+    } catch (err) {
+      console.warn("[SearchService] MySQL knowledge fulltext search failed, falling back to LIKE:", err.message);
+      return SearchService.fallbackKnowledgeSearch(query, userId);
+    }
+  }
+  /**
+   * Fallback: LIKE-based search when FULLTEXT index is unavailable (e.g., during migration).
+   */
+  static async fallbackBlogSearch(query, userId) {
+    const like = `%${query}%`;
+    const rows = await dbAll(
+      `SELECT id, title, SUBSTRING(content, 1, 200) as content
+       FROM blogs
+       WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?)
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [userId, like, like]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      type: "blog",
+      title: row.title,
+      snippet: (row.content || "").slice(0, 200),
+      score: 0
+    }));
+  }
+  static async fallbackKnowledgeSearch(query, userId) {
+    const like = `%${query}%`;
+    const rows = await dbAll(
+      `SELECT id, filename, SUBSTRING(content_text, 1, 200) as content_text
+       FROM knowledge_files
+       WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?)
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [userId, like, like]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      type: "knowledge",
+      title: row.filename,
+      snippet: (row.content_text || "").slice(0, 200),
+      score: 0
+    }));
+  }
+  /**
+   * Get all indexable documents for the Worker to build its inverted index.
+   * Used in sql.js mode.
+   */
+  static async getIndexableDocuments(userId) {
+    const [blogs, knowledge] = await Promise.all([
+      dbAll(
+        "SELECT id, title, COALESCE(content, '') as content FROM blogs WHERE user_id = ? AND status = 'active'",
+        [userId]
+      ),
+      dbAll(
+        "SELECT id, filename, COALESCE(content_text, '') as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active'",
+        [userId]
+      )
+    ]);
+    const docs = [
+      ...blogs.map((b) => ({
+        id: b.id,
+        docType: "blog",
+        title: b.title,
+        content: b.content || ""
+      })),
+      ...knowledge.map((k) => ({
+        id: k.id,
+        docType: "knowledge",
+        title: k.filename,
+        content: k.content_text || ""
+      }))
+    ];
+    return docs;
   }
 }
 function registerSearchHandlers() {
@@ -4225,6 +4518,22 @@ function registerSearchHandlers() {
   });
   electron.ipcMain.handle(IPC.REBUILD_FTS_INDEX, async () => {
     return { success: true };
+  });
+  electron.ipcMain.handle(IPC.SEARCH_QUERY, async (_event, data) => {
+    try {
+      const results = await SearchService.searchAll(data.query, data.userId);
+      return { success: true, data: results };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.SEARCH_GET_DOCUMENTS, async (_event, data) => {
+    try {
+      const docs = await SearchService.getIndexableDocuments(data.userId);
+      return { success: true, data: docs };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 }
 const SHORTCUTS = [
@@ -4320,15 +4629,15 @@ function registerTagHandlers() {
   });
   electron.ipcMain.handle(IPC.TAG_UPDATE, async (_event, data) => {
     try {
-      await TagService.updateTag(data.tagId, data.name, data.description);
+      await TagService.updateTag(data.userId, data.tagId, data.name, data.description);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.TAG_DELETE, async (_event, tagId) => {
+  electron.ipcMain.handle(IPC.TAG_DELETE, async (_event, data) => {
     try {
-      await TagService.deleteTag(tagId);
+      await TagService.deleteTag(data.userId, data.tagId);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -4409,129 +4718,205 @@ function registerAllIpcHandlers() {
   registerNoteHandlers();
   registerContinueHandlers();
 }
+function setupAutoUpdater(getMainWindow) {
+  if (!require("electron").app.isPackaged) return;
+  electronUpdater.autoUpdater.autoDownload = true;
+  electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
+  electronUpdater.autoUpdater.on("checking-for-update", () => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "checking" });
+    }
+  });
+  electronUpdater.autoUpdater.on("update-available", (info) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
+        status: "available",
+        version: info.version
+      });
+    }
+  });
+  electronUpdater.autoUpdater.on("update-not-available", () => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "not-available" });
+    }
+  });
+  electronUpdater.autoUpdater.on("download-progress", (progress) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
+        status: "downloading",
+        percent: progress.percent
+      });
+    }
+  });
+  electronUpdater.autoUpdater.on("update-downloaded", (info) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
+        status: "downloaded",
+        version: info.version
+      });
+    }
+  });
+  electronUpdater.autoUpdater.on("error", (error) => {
+    console.error("[AutoUpdater] Error:", error.message);
+  });
+  setTimeout(() => {
+    electronUpdater.autoUpdater.checkForUpdates().catch(() => {
+    });
+  }, 5e3);
+}
+process.on("uncaughtException", (error) => {
+  console.error("[Main] Uncaught exception:", error);
+  try {
+    const wins = electron.BrowserWindow.getAllWindows();
+    if (wins.length > 0 && !wins[0].isDestroyed()) {
+      wins[0].webContents.send(IPC.EVT_APP_ERROR, { message: error.message || "未知错误" });
+    }
+  } catch {
+  }
+});
 electron.app.disableHardwareAcceleration();
 electron.app.commandLine.appendSwitch("disable-gpu");
 electron.app.setPath("cache", path.join(electron.app.getPath("userData"), "cache"));
-let mainWindow = null;
-let noteCleanTimer = null;
-function createWindow() {
-  mainWindow = new electron.BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 680,
-    title: "本地博客与知识库",
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false
-    },
-    autoHideMenuBar: true,
-    webviewTag: true,
-    show: false
-  });
-  if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
-  mainWindow.on("ready-to-show", () => {
-    mainWindow?.show();
-    if (!electron.app.isPackaged) mainWindow?.webContents.openDevTools();
-  });
-  mainWindow.on("close", (e) => {
-    e.preventDefault();
-    mainWindow?.hide();
-  });
-  mainWindow.on("hide", () => {
-    if (noteCleanTimer) {
-      clearInterval(noteCleanTimer);
-      noteCleanTimer = null;
-    }
-    mainWindow?.webContents.send(IPC.APP_VISIBILITY, "hidden");
-  });
-  mainWindow.on("show", () => {
-    if (!noteCleanTimer) {
-      noteCleanTimer = setInterval(() => {
-        NoteService.cleanOldNotes().catch(() => {
-        });
-      }, 5 * 60 * 1e3);
-    }
-    mainWindow?.webContents.send(IPC.APP_VISIBILITY, "visible");
-  });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    electron.shell.openExternal(url);
-    return { action: "deny" };
-  });
-}
-electron.app.whenReady().then(async () => {
-  try {
-    await initDatabase();
-    console.log("[Main] Database ready");
-    BackupService.startAutoBackup();
-  } catch (err) {
-    console.warn("[Main] Database unavailable:", err.message);
-  }
-  registerAllIpcHandlers();
-  createWindow();
-  if (mainWindow) {
-    setupTray(mainWindow);
-    setNoteRefreshTarget(mainWindow.webContents);
-  }
-  initPetActions();
-  noteCleanTimer = setInterval(() => {
-    NoteService.cleanOldNotes().catch(() => {
+const gotTheLock = electron.app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  electron.app.quit();
+} else {
+  let createWindow = function() {
+    mainWindow2 = new electron.BrowserWindow({
+      width: 1400,
+      height: 900,
+      minWidth: 1024,
+      minHeight: 680,
+      title: "本地博客与知识库",
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false
+      },
+      autoHideMenuBar: true,
+      webviewTag: true,
+      show: false
     });
-  }, 5 * 60 * 1e3);
-  electron.globalShortcut.register("CommandOrControl+Shift+N", () => {
-    showMdFloatWindow();
+    if (process.env.ELECTRON_RENDERER_URL) {
+      mainWindow2.loadURL(process.env.ELECTRON_RENDERER_URL);
+    } else {
+      mainWindow2.loadFile(path.join(__dirname, "../renderer/index.html"));
+    }
+    mainWindow2.on("ready-to-show", () => {
+      mainWindow2?.show();
+      if (!electron.app.isPackaged) mainWindow2?.webContents.openDevTools();
+    });
+    mainWindow2.on("close", (e) => {
+      e.preventDefault();
+      mainWindow2?.hide();
+    });
+    mainWindow2.on("hide", () => {
+      if (noteCleanTimer) {
+        clearInterval(noteCleanTimer);
+        noteCleanTimer = null;
+      }
+      mainWindow2?.webContents.send(IPC.APP_VISIBILITY, "hidden");
+    });
+    mainWindow2.on("show", () => {
+      if (!noteCleanTimer) {
+        noteCleanTimer = setInterval(() => {
+          NoteService.cleanOldNotes().catch(() => {
+          });
+        }, 5 * 60 * 1e3);
+      }
+      mainWindow2?.webContents.send(IPC.APP_VISIBILITY, "visible");
+    });
+    mainWindow2.webContents.setWindowOpenHandler(({ url }) => {
+      electron.shell.openExternal(url);
+      return { action: "deny" };
+    });
+  };
+  electron.app.on("second-instance", (_event, _commandLine, _workingDirectory) => {
+    if (mainWindow2) {
+      if (mainWindow2.isMinimized()) mainWindow2.restore();
+      mainWindow2.focus();
+      mainWindow2.show();
+    }
   });
-  electron.globalShortcut.register("CommandOrControl+Shift+M", () => {
-    handleClipboardNote();
-  });
-  const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
-  const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
-  if (!fs.existsSync(shortcutPath)) {
-    const projectRoot = path.join(__dirname, "..", "..");
-    const packagedExe = path.join(projectRoot, "release", "Idiot-win32-x64", "Idiot.exe");
-    const launcherBatPath = path.join(electron.app.getPath("userData"), "launcher.bat");
-    let batContent;
-    let workingDir;
-    if (fs.existsSync(packagedExe)) {
-      batContent = `@echo off\r
+  let mainWindow2 = null;
+  let noteCleanTimer = null;
+  electron.app.whenReady().then(async () => {
+    try {
+      await initDatabase();
+      console.log("[Main] Database ready");
+      BackupService.startAutoBackup();
+    } catch (err) {
+      console.warn("[Main] Database unavailable:", err.message);
+    }
+    registerAllIpcHandlers();
+    createWindow();
+    if (mainWindow2) {
+      setupTray(mainWindow2);
+      setupAutoUpdater(() => mainWindow2);
+      setNoteRefreshTarget(mainWindow2.webContents);
+      setBlogRefreshTarget(mainWindow2.webContents);
+      setKbRefreshTarget(mainWindow2.webContents);
+    }
+    initPetActions();
+    noteCleanTimer = setInterval(() => {
+      NoteService.cleanOldNotes().catch(() => {
+      });
+    }, 5 * 60 * 1e3);
+    electron.globalShortcut.register("CommandOrControl+Shift+N", () => {
+      showMdFloatWindow();
+    });
+    electron.globalShortcut.register("CommandOrControl+Shift+M", () => {
+      handleClipboardNote();
+    });
+    const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
+    const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
+    if (!fs.existsSync(shortcutPath)) {
+      const projectRoot = path.join(__dirname, "..", "..");
+      const packagedExe = path.join(projectRoot, "release", "Idiot-win32-x64", "Idiot.exe");
+      const launcherBatPath = path.join(electron.app.getPath("userData"), "launcher.bat");
+      let batContent;
+      let workingDir;
+      if (fs.existsSync(packagedExe)) {
+        batContent = `@echo off\r
 set ELECTRON_RUN_AS_NODE=\r
 start "" "${packagedExe}"\r
 `;
-      workingDir = path.dirname(packagedExe);
-    } else {
-      batContent = `@echo off\r
+        workingDir = path.dirname(packagedExe);
+      } else {
+        batContent = `@echo off\r
 set ELECTRON_RUN_AS_NODE=\r
 cd /d "${projectRoot}"\r
 start "" npm run dev\r
 `;
-      workingDir = projectRoot;
+        workingDir = projectRoot;
+      }
+      fs.writeFileSync(launcherBatPath, batContent, "utf-8");
+      const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherBatPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${workingDir.replace(/'/g, "''")}';$sc.Save()`;
+      node_child_process.exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
+        if (!err) console.log("[Main] Start Menu shortcut created");
+      });
     }
-    fs.writeFileSync(launcherBatPath, batContent, "utf-8");
-    const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherBatPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${workingDir.replace(/'/g, "''")}';$sc.Save()`;
-    node_child_process.exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
-      if (!err) console.log("[Main] Start Menu shortcut created");
+    electron.app.on("activate", () => {
+      if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
     });
-  }
-  electron.app.on("activate", () => {
-    if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
+    electron.app.on("will-quit", () => {
+      electron.globalShortcut.unregisterAll();
+      if (noteCleanTimer) {
+        clearInterval(noteCleanTimer);
+        noteCleanTimer = null;
+      }
+    });
   });
-  electron.app.on("will-quit", () => {
-    electron.globalShortcut.unregisterAll();
-    if (noteCleanTimer) {
-      clearInterval(noteCleanTimer);
-      noteCleanTimer = null;
-    }
+  electron.app.on("window-all-closed", () => {
+    BackupService.stopAutoBackup();
+    closeDatabase();
+    if (process.platform !== "darwin") electron.app.quit();
   });
-});
-electron.app.on("window-all-closed", () => {
-  BackupService.stopAutoBackup();
-  closeDatabase();
-  if (process.platform !== "darwin") electron.app.quit();
-});
+}
 exports.sanitizePagination = sanitizePagination;

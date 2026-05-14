@@ -1,7 +1,7 @@
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain, shell } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { BackupService } from '../services/backup.service';
 import { StatsService, getDailyStats } from '../services/stats.service';
@@ -74,6 +74,19 @@ async function createShortcut(): Promise<boolean> {
 }
 
 export function registerAppHandlers(): void {
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_event, url: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { success: false, error: '仅允许打开 http/https 链接' };
+      }
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle(IPC.APP_GET_VERSION, async (): Promise<string> => {
     return app.getVersion();
   });

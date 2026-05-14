@@ -87,6 +87,7 @@ Step 4: 每个文件审查完毕 → 记录发现
 Step 5: 全部审查完毕 → 输出审查报告
 Step 6: 将新发现的问题写入 redo.md "当前待修复"表格
 Step 7: 如发现架构陷阱或约束变化 → 在审查报告中单独列出，由 Boss 决定是否更新 AGENTS.md
+Step 8: (可选) 检查浏览器 Console 运行时错误 — `destroy is not a function` / `useEffect returned [object Object]` 等 React Strict Mode 暴露的 cleanup 问题，仅在代码审查中不可见
 
 ### 流程二：验证 Developer 的修复
 
@@ -258,7 +259,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 1-14 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-16 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -274,6 +275,12 @@ Boss 裁决的工单你不再争议
 | **CSS 变量主题半边覆盖** | `:root` 定义了 `--var`，但 `.light` 节缺少对应覆盖值 → 亮色模式下使用的仍是暗色值 | 检查所有新增 CSS 变量是否同时在 `:root`（暗色）和 `.light`（亮色）中定义 |
 | **事件 listener 生命周期** | click handler 中用命令式 `addEventListener(keydown, handler, true)`，组件卸载时若正在录制则 listener + timeout 泄漏 | 将全局 listener 生命周期与 React 组件生命周期对齐：用 `useEffect` 的 cleanup 管理，而非 click handler 中的裸 addEventListener |
 | **状态机迁移后类型残留** | useState→useReducer 迁移后，action payload 和 state 字段仍保留 `any[]` 类型，DraftRow 类型未导出至 shared | 检查 reducer 中每个 action 的 payload 类型、state 字段类型，确保全部收敛为具体类型 |
+| **useEffect cleanup 返回非函数** | useEffect 返回 `[object Object]`（Promise 或对象），React Strict Mode 双调 unmount 时 `destroy is not a function` → ErrorBoundary 捕获崩溃 (R126) | 检查所有 `useEffect` 的 cleanup：event listener 注册方法必须返回 cleanup 函数而非 Promise/对象。对 `window.api.onXxx()` 返回值做 `typeof unsub === 'function'` 防御 |
+| **api-client webApi 方法名与 WindowApi 不匹配** | webApi fallback 使用短名 `getVersion`，WindowApi 要求 `appGetVersion`。Browser 模式下调用方法抛 `undefined is not a function` (R209) | 每次新增 WindowApi 方法时，同步检查 api-client.ts webApi 对象是否包含同名 stub。用 `const api: WindowApi` 类型断言兜底 |
+| **IPC 事件通道名硬编码** | preload `ipcRenderer.on('tray-action', ...)` 用裸字符串而非 `IPC.EVT_TRAY_ACTION`。与 sender 端字符串不同步时静默断开 (R210) | IPC 事件通道名也应在 `ipc-channels.ts` 中定义为 `EVT_*` 常量。preload + sender 两端都必须用常量 |
+| **功能覆盖不完整** | TOC 选择器仅覆盖 4 框架，MkDocs/Hugo/Sphinx 等 7 种通用框架缺失 → 降级为单页 (R128)。`TOC_SELECTORS` 选择器集不应声称"完整" | 对选择器/白名单类配置：至少覆盖 Top 10 框架，加通用启发式降级规则 |
+| **交互入口位置违背功能核心价值** | 编辑按钮绑在页末，长文用户读中想改需翻到底部 → "阅读即编辑" 承诺落空 (R129) | 审查交互类 spec 时，验证关键操作入口在用户自然操作路径上（顶部工具栏 + 底部，双入口） |
+| **Server 路由 user_id 隔离缺失** | Server routes 仅用 `requireAuth` 中间件，但 folder delete/rename/move + blog saveDraft 的 SQL 无 `AND user_id = ?` → 认证用户可操作他人数据 (R203-R206) | 审计 server routes 时逐条检查 UPDATE/DELETE 是否带 user_id 过滤。`requireAuth` 只验证身份，不验证所有权 |
 
 ---
 
@@ -326,6 +333,19 @@ Boss 裁决后写入 redo.md 结案，不再争议。
 | 中 | 跨进程类型契约（WindowApi → preload → IPC handler 三方对齐） | 代码组织偏好 |
 | 低 | 纯 UI 重组 — 无数据流变化则快速验证 | — |
 
+### tsc 验证双轨制
+
+`npx tsc --noEmit`（项目级 tsconfig）和 `npx tsc -p tsconfig.node.json --noEmit` / `npx tsc -p tsconfig.web.json --noEmit`（独立 tsconfig）的覆盖范围不同。项目级通过不代表独立 config 零错误：
+
+```bash
+# 验证时三项都跑
+npx tsc --noEmit                          # 项目级
+npx tsc -p tsconfig.node.json --noEmit    # main + preload + shared
+npx tsc -p tsconfig.web.json --noEmit     # renderer + shared
+```
+
+常见模式：项目级零错误，但 node 或 web config 有预存错误。区分新增错误 vs 预存错误：Phase 变更前后的 error count 对比。
+
 ### 审计与角色边界再强调
 
 | 你做 | 你绝不做 |
@@ -346,16 +366,24 @@ Boss 裁决后写入 redo.md 结案，不再争议。
 关键约束:
 所有 DB 调用必须 async (dbGet/dbAll/dbRun)
 禁止 renderer 使用 Node.js API
-IPC 通道名仅在 ipc-channels.ts 定义
-Schema 变更需同步三处 DDL (sql.js 已冻结 T1105)
+IPC 通道名仅在 ipc-channels.ts 定义 (handle 通道用标准常量, 事件通道用 EVT_ 前缀常量)
+Schema 变更需同步三处 DDL (schema.ts + db-schema-mysql.ts + server db.ts 复用 MYSQL_DDL) + migrateDatabase() ALTER TABLE
 MySQL 不支持 LIMIT ? OFFSET ? 预处理参数
 MySQL 不识别 strftime()/date('now')/rowid 等 SQLite 特有语法 (toMySQL() 翻译)
 React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 legacy `<HashRouter>`
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-07, Phase 14 审计后):
-- `as any`: renderer 0, shared 0, preload 0。server routes 28 处 (MySQL 驱动豁免)
-- IPC 通道: 46。每个新增通道需验证读写对称
-- CSS 变量: 新增变量须同时在 `:root` (暗色) 和 `.light` (亮色) 中定义
-- 测试: 27/27 unit, 11/11 e2e
+**当前质量基线** (2026-05-08, Phase 16 审计后):
+- `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免)
+- `: any` 类型标注: renderer 15 处 (BlogListPage/KnowledgeListPage/BlogPreviewPage map 回调等)
+- `Record<string,unknown>` in WindowApi: 6 处 (blogGetHistory/blogSeriesGet/refAdd/refGetFrom/refGetTo/refSearch)
+- IPC 通道: 93 (handle) + 6 (EVT_ event channels)
+- CSS 变量: 3 项缺 `.light` 覆盖 (R220-R221 已修复)
+- 测试: 27/27 unit (auth/blog service only), 11/11 e2e。14/16 service 无单元测试
+- `noUncheckedIndexedAccess`: ✅ 永久启用 (Phase 15 T1502)
+- tsc: 项目级零错误；node 16 预存 + web 16 预存 (独立 tsconfig)
+- Server user_id 隔离: P1 5 项已修复 (Phase 16)
+- 构建: 47 main + 2 preload + 221 renderer
+- BlogEditorPage: ✅ 已收敛至 useReducer (Phase 14 T1402)
+- KnowledgeListPage 20 useState / BlogListPage 19 useState (待收敛)

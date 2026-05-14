@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code、Codex、Cline 等 AI 工具读取。
-> 最后更新：2026-05-07 (Phase 14 全部完成, redo.md 清零, ship)
+> 最后更新：2026-05-14 (Phase 17 立案)
 
 ---
 
@@ -248,14 +248,16 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 
 ---
 
-## 当前状态 (2026-05-08)
+## 当前状态 (2026-05-14)
 
-- **Phase 1-16**: ✅ 全部完成 (~400.5h)
-  - Phase 16 5/5 核心完成：阅读即编辑 (mode=edit 路由合并) + 手册收纳 (linkedom) + TOC 修复 + 剪贴板键补齐 + 图标更新。`noUncheckedIndexedAccess` 永久启用。
-- **审查修复**: 累计 ~93 项修复 (F01-F93+), ~125 个工单 (R01-R125)
-- **当前待修复**: Phase 16 新增类型错误全部清零
-- **已知缺口**: FTS5 全文搜索 (延 Phase 17)、Web Tiptap 编辑器 (T1504b, ~3.5h)、国际化 (明确否决 D18=C)
-- **构建状态**: ✅ 测试 27/27 pass | E2E 11/11 pass | `noUncheckedIndexedAccess` ✅
+- **Phase 1-18**: ✅ 全部完成 (~441.5h)
+  - Phase 18 7/7：FTS5 Worker 倒排索引 + CRUD 双写收敛 (shared handlers) + 错误反馈通道 + Service 测试 49/49 + UX 收尾
+  - Phase 17 9/9：Web Tiptap/系列交互/超链接安全/单实例/安装包/Service user_id 隔离/类型收敛
+  - `noUncheckedIndexedAccess` 永久启用。renderer `: any` 14→5。IPC 95→99。
+- **审查修复**: 累计 ~109 项修复 (F01-F109+), 141 个工单 (R01-R141), 45 个决策点 (D01-D45)
+- **当前待修复**: 🔴0 🟠0 🟡0 🟢7 — Phase 11 以来首次 P0+P1+P2 全零
+- **已知缺口**: 嵌套文件夹 (延 Phase 19)、组件状态收敛 (延 Phase 19)、键盘可访问性 (延 Phase 19)
+- **构建状态**: ✅ 测试 49/49 pass | E2E 11/11 pass | tsc 零错误
 
 ---
 
@@ -317,13 +319,14 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 |--------|------|--------|
 | P0 | `AGENTS.md` | 本文档 — 架构约束 + 常见陷阱 |
 | P0 | `src/shared/types.ts` | 所有数据结构的权威定义 |
-| P0 | `src/shared/ipc-channels.ts` | 91 个 IPC 通道签名 |
+| P0 | `src/shared/ipc-channels.ts` | 99 个 IPC 通道签名 |
 | P1 | `src/shared/constants.ts` | 目录名、扩展名白名单、限制值 |
-| P1 | `todo.md` | 当前待办与 Phase 完成状态 (详细任务规格已移至 docs/) |
-| P1 | `redo.md` | 技术债与修复清单 |
+| P1 | `todo.md` | 功能路线图 — 当前活跃 Phase 任务 + Phase 表 + 改进方向 (详细规格在 docs/phase-archive) |
+| P1 | `redo.md` | 修复清单 — 当前待修复 + 决策点 + 历史摘要 (格式规范见文件 §1) |
 | P1 | `STYLE.md` | 设计系统规范 (颜色/间距/字体) |
 | P1 | `prompts/*.md` | 角色切换时读取对应文件，获取完整工作规则 |
-| P2 | `docs/phase-archive.md` | Phase 1-13 完整任务规格 (历史档案) |
+| P2 | `docs/phase-archive.md` | Phase 1-16 完整任务规格 + 裁决记录 (历史档案) |
+| P2 | `docs/history-audit.md` | Phase 13-17 审计报告 + 健康度趋势 + 安全里程碑 (历史档案) |
 | P2 | `docs/development-guide.md` | 测试策略、工作流程图、文件清单、依赖关系 |
 | P2 | `package.json` | 依赖版本、可执行脚本 |
 | P2 | `src/main/db/schema.ts` | SQLite DDL (sql.js 回退) |

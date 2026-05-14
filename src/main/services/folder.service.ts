@@ -61,24 +61,25 @@ export class FolderService {
     return row;
   }
 
-  static async renameFolder(folderId: number, name: string): Promise<void> {
+  static async renameFolder(userId: number, folderId: number, name: string): Promise<void> {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('文件夹名不能为空');
-    await dbRun('UPDATE folders SET name = ? WHERE id = ?', [trimmed, folderId]);
+    await dbRun('UPDATE folders SET name = ? WHERE id = ? AND user_id = ?', [trimmed, folderId, userId]);
   }
 
-  static async deleteFolder(folderId: number): Promise<void> {
+  static async deleteFolder(userId: number, folderId: number): Promise<void> {
     // Children get parent set to null (ON DELETE SET NULL in schema)
-    await dbRun('DELETE FROM folders WHERE id = ?', [folderId]);
+    await dbRun('DELETE FROM folders WHERE id = ? AND user_id = ?', [folderId, userId]);
   }
 
   static async moveToFolder(
+    userId: number,
     itemType: 'blog' | 'knowledge_file',
     itemId: number,
     folderId: number | null,
   ): Promise<void> {
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ?`, [folderId, nowMySQL(), itemId]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowMySQL(), itemId, userId]);
   }
 }
 

@@ -40,8 +40,8 @@ const webApi = {
   blogCreate: (data: object) => request('POST', '/api/blog/create', data),
   blogUpdate: (data: { blogId: number; title?: string; content?: string }) =>
     request('POST', `/api/blog/${data.blogId}/update`, data),
-  blogDelete: (blogId: number) => request('POST', `/api/blog/${blogId}/delete`),
-  blogRestore: (blogId: number) => request('POST', `/api/blog/${blogId}/restore`),
+  blogDelete: (data: { userId: number; blogId: number }) => request('POST', `/api/blog/${data.blogId}/delete`, data),
+  blogRestore: (data: { userId: number; blogId: number }) => request('POST', `/api/blog/${data.blogId}/restore`, data),
   blogExport: () => Promise.resolve({ success: false, error: '网页版暂不支持导出' }),
   blogImportMd: (data: { userId: number; filePaths: string[] }) => request('POST', '/api/blog/import-md', data),
   blogSaveDraft: (data: { blogId: number; content: string }) => request('POST', '/api/blog/save-draft', data),
@@ -51,12 +51,13 @@ const webApi = {
   blogSeriesList: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
   blogSeriesGet: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
   blogSeriesSet: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
+  blogSeriesRename: () => Promise.resolve({ success: false, error: '网页版暂不支持系列功能' }),
 
   // Tag
   tagList: () => request('GET', '/api/tags/list'),
   tagCreate: (data: { userId: number; name: string }) => request('POST', '/api/tags/create', data),
   tagUpdate: (data: { tagId: number; name: string }) => request('POST', `/api/tags/${data.tagId}/update`, data),
-  tagDelete: (tagId: number) => request('POST', `/api/tags/${tagId}/delete`),
+  tagDelete: (data: { userId: number; tagId: number }) => request('POST', `/api/tags/${data.tagId}/delete`, data),
   tagSetBlog: (data: { blogId: number; tagIds: number[] }) => request('POST', `/api/blog/${data.blogId}/tags`, data),
   tagSetFile: (data: { fileId: number; tagIds: number[] }) =>
     request('POST', `/api/knowledge/${data.fileId}/tags`, data),
@@ -68,7 +69,7 @@ const webApi = {
     request('POST', '/api/knowledge/import', data),
   kbDelete: (data: { fileId: number; deletePhysicalFile: boolean }) =>
     request('POST', `/api/knowledge/${data.fileId}/delete`, data),
-  kbRestore: (fileId: number) => request('POST', `/api/knowledge/${fileId}/restore`),
+  kbRestore: (data: { userId: number; fileId: number }) => request('POST', `/api/knowledge/${data.fileId}/restore`, data),
   kbRename: (data: { fileId: number; newFilename: string }) =>
     request('POST', `/api/knowledge/${data.fileId}/rename`, data),
   kbPreview: (fileId: number) => request('GET', `/api/knowledge/${fileId}/preview`),
@@ -78,6 +79,8 @@ const webApi = {
   searchGlobal: (data: { userId: number; query: string }) => request('POST', '/api/search/global', data),
   searchBlogs: (data: { userId: number; query: string }) => request('POST', '/api/search/blogs', data),
   searchKb: (data: { userId: number; query: string }) => request('POST', '/api/search/kb', data),
+  searchQuery: () => Promise.resolve({ success: false, error: 'FTS搜索为桌面专属功能' }),
+  searchGetDocuments: () => Promise.resolve({ success: false, error: 'FTS搜索为桌面专属功能' }),
 
   // Workspace
   shortcutGetAll: () => Promise.resolve({ success: false, error: '快捷键设置为桌面专属功能' }),
@@ -137,6 +140,7 @@ const webApi = {
   refSearch: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),
 
   // App
+  shellOpenExternal: () => Promise.resolve({ success: false, error: '网页版暂不支持打开外部链接' }),
   appGetVersion: () => Promise.resolve({ success: true, data: '0.3.0-web' }),
   appGetSystemLanguage: () => Promise.resolve({ success: true, data: navigator.language }),
   appSetAutoStart: () => Promise.resolve({ success: true }),
@@ -151,6 +155,8 @@ const webApi = {
   notePin: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   noteClipboard: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   onNoteRefresh: () => () => {},
+  onAppError: () => () => {},
+  onKbRefresh: () => () => {},
 
   // Continue Writing
   continueGetDrafts: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),

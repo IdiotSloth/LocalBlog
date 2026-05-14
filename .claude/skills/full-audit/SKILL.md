@@ -24,20 +24,16 @@ Execute in this exact order:
 
 ### Phase 2: Systematic File Review
 
-Review files in this order (each layer builds on the previous):
+For efficiency on large codebases, launch **4 concurrent Explore agents** each covering specific dimensions:
 
-1. **`src/shared/`** — types, constants, handlers, pagination, validation, window-api
-2. **`src/main/db/`** — index.ts, mysql.ts, schema.ts
-3. **`src/main/services/`** — blog, knowledge, search, recycle, folder, stats, reference, preview, web-scraper, tag, backup
-4. **`src/main/ipc/`** — all 12 IPC handler files + index.ts
-5. **`src/preload/`** — index.ts
-6. **`src/server/`** — index.ts, db.ts, config.ts, middleware/*, routes/*
-7. **`src/renderer/stores/`** — auth-store, theme-store
-8. **`src/renderer/lib/`** — api-client, utils, toc-parser, hooks
-9. **`src/renderer/features/`** — all page components
-10. **`src/renderer/components/`** — all shared components
+| Agent | Dimensions | Focus Files |
+|-------|-----------|-------------|
+| Agent 1 | **Security + Data Integrity** | server/routes/*, main/services/*, main/db/*, preload/index.ts |
+| Agent 2 | **Type Safety** | shared/window-api.ts, preload/index.ts, renderer/lib/api-client.ts, all renderer files |
+| Agent 3 | **Redundancy + Maintainability** | server/routes/* vs main/services/*, renderer/features/*, renderer/hooks/* |
+| Agent 4 | **Robustness** | renderer/App.tsx, renderer/features/*, renderer/assets/index.css, renderer/lib/api-client.ts |
 
-For each file, check against ALL six audit dimensions below.
+Each agent checks its assigned dimensions across ALL files. Give each agent the full dimension checklists from below.
 
 ### Phase 3: Report Generation
 
@@ -88,6 +84,9 @@ Check each of these concrete patterns:
 | Cross-process type imports | Renderer code must never import from `src/main/`. All shared types must live in `src/shared/types.ts`. Check with `grep -r "from '.*main/" src/renderer/` | 🔴 P0 |
 | Pre-existing tsc errors | Run `npx tsc --noEmit` and count errors. Separate new errors from pre-existing ones. Pre-existing errors that accumulate indicate CI gap | 🟡 P2 |
 | IPC channel hardcoding | `ipcMain.handle('xxx', ...)` calls must use `IPC.XXX` constants, not raw strings. Check with `grep "ipcMain.handle('"` | 🟡 P2 |
+| IPC event channel hardcoding | `ipcRenderer.on('xxx', ...)` in preload + `webContents.send('xxx', ...)` in main must use `IPC.EVT_XXX` constants (Phase 16 R210). 6+ event channels historically hardcoded — check both sender and receiver | 🟡 P2 |
+| api-client webApi completeness | Every method in `WindowApi` must have a corresponding stub in `api-client.ts`'s `webApi` object. Missing stubs cause `undefined is not a function` in browser mode (R209). Check property name alignment (e.g., `appGetVersion` vs `getVersion`) | 🟠 P1 |
+| `: any` type annotation density | Count `: any` type annotations (not `as any` casts) in renderer components. Goal: declining trend. Map callbacks, useState generics, filter predicates are common hotspots | 🟡 P2 |
 | IPC write-read symmetry | Every new IPC channel that writes persistent data must have a corresponding reader somewhere in the codebase. A channel with only a writer (IPC handler → service.save()) but no reader (page mount → service.get()) is dead storage. Audit each IPC channel by tracing both directions | 🟡 P2 |
 | camelCase vs snake_case | Frontend code must not access snake_case DB column names directly. Check for patterns like `row.user_id`, `row.created_at` in renderer files — these should be mapped to camelCase by the service/handler layer | 🟡 P2 |
 | React Router compatibility | `useBlocker`/`useBeforeUnload`/`usePrompt` require data router (`createHashRouter` + `<RouterProvider>`). Using these hooks inside legacy `<HashRouter>` throws `invariant` error at runtime. Check `App.tsx` router creation method | 🔴 P0 |
@@ -131,6 +130,10 @@ Check each of these concrete patterns:
 | Debounce on frequent writes | sql.js `saveToDisk()` (which writes the entire DB to disk) must be debounced. Check `db/index.ts` for debounce timer logic | 🟡 P2 |
 | CSS variable theme coverage | Every new CSS variable defined in `:root` (dark theme) must have a corresponding override in `.light` (light theme). A variable defined only in `:root` leaves the light theme using dark-mode colors. Check `index.css` for variables present in `:root` but absent in `.light` | 🟢 P3 |
 | Spec-implementation gap | For tasks with explicit spec constraints (e.g., "不加载全文", "亮/暗色自适应"), verify the implementation matches. Flag mismatches even if they don't cause runtime errors — the gap between spec intent and implementation is itself a finding | 🟢 P3 |
+| Functional coverage completeness | For selector/whitelist-based features (e.g., TOC extraction, file type mapping), verify the coverage set is not artificially narrow. 4-framework selector list missing 7 common frameworks is a spec-implementation gap (R128) | 🟡 P2 |
+| Interaction placement vs feature value | Verify critical UI entry points are placed where users naturally encounter them. A feature whose core value is "instant access" but whose button is hidden at page bottom is a design-level implementation defect (R129) | 🟠 P1 |
+| useEffect cleanup return type | React Strict Mode double-invoke unmasks non-function cleanup values. `useEffect(() => { return someObject }, [])` causes `destroy is not a function` → ErrorBoundary crash (R126). Defensive pattern: `typeof cleanup === 'function'` guard | 🔴 P0 |
+| Server route user_id isolation | `requireAuth` middleware verifies identity but does NOT verify resource ownership. Server routes must add `AND user_id = ?` to UPDATE/DELETE or do a pre-check `SELECT ... WHERE id = ? AND user_id = ?` (R203-R206) | 🟠 P1 |
 
 ---
 
@@ -185,15 +188,21 @@ Compare key metrics with previous audit (if data available):
 | bare catch {} | N | M | ↑/↓/→ |
 | as any count (renderer) | N | M | ↑/↓/→ |
 | as any count (shared+preload) | N | M | ↑/↓/→ |
+| : any type annotations (renderer) | N | M | ↑/↓/→ |
+| Record<string,unknown> in WindowApi | N | M | ↑/↓/→ |
 | Preload tsc errors | N | M | ↑/↓/→ |
 | Promise<unknown> in preload | N | M | ↑/↓/→ |
 | Duplicated domains | N | M | ↑/↓/→ |
 | DI shared handlers | N | M | ↑/↓/→ |
-| Pre-existing tsc errors | N | M | ↑/↓/→ |
+| Pre-existing tsc errors (node) | N | M | ↑/↓/→ |
+| Pre-existing tsc errors (web) | N | M | ↑/↓/→ |
 | Test coverage (modules) | N | M | ↑/↓/→ |
-| IPC channels (total) | N | M | ↑/↓/→ |
+| IPC channels (total, handle) | N | M | ↑/↓/→ |
+| IPC event channels (EVT_) | N | M | — |
 | IPC write-read symmetry | N | M | — |
 | CSS variable theme coverage | N | M | — |
+| noUncheckedIndexedAccess | enabled? | enabled? | — |
+| Server user_id isolation gaps | N | M | — |
 ```
 
 ### 5. New Findings Summary

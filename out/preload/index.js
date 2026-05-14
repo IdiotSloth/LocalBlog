@@ -32,6 +32,7 @@ const IPC = {
   BLOG_SERIES_LIST: "blog:seriesList",
   BLOG_SERIES_GET: "blog:seriesGet",
   BLOG_SERIES_SET: "blog:seriesSet",
+  BLOG_SERIES_RENAME: "blog:seriesRename",
   // Batch operations
   BLOG_BATCH_DELETE: "blog:batchDelete",
   BLOG_BATCH_TAG: "blog:batchTag",
@@ -50,6 +51,8 @@ const IPC = {
   SEARCH_GLOBAL: "search:global",
   SEARCH_BLOGS: "search:blogs",
   SEARCH_KB: "search:kb",
+  SEARCH_QUERY: "search:query",
+  SEARCH_GET_DOCUMENTS: "search:get-documents",
   // Workspace
   WORKSPACE_EXPORT_ZIP: "workspace:export-zip",
   WORKSPACE_GET_INFO: "workspace:get-info",
@@ -110,6 +113,7 @@ const IPC = {
   SHORTCUT_UPDATE: "shortcut:update",
   SHORTCUT_RESET: "shortcut:reset",
   // App
+  SHELL_OPEN_EXTERNAL: "shell:openExternal",
   APP_VISIBILITY: "app:visibility",
   APP_GET_VERSION: "app:get-version",
   APP_GET_SYSTEM_LANGUAGE: "app:get-system-language",
@@ -123,7 +127,10 @@ const IPC = {
   EVT_NAVIGATE: "navigate",
   EVT_BLOG_REFRESH: "blog:refresh",
   EVT_NOTE_REFRESH: "note:refresh",
-  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress"
+  EVT_KB_REFRESH: "kb:refresh",
+  EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress",
+  EVT_APP_ERROR: "app:error",
+  EVT_UPDATE_STATUS: "app:update-status"
 };
 const api = {
   // Auth
@@ -137,8 +144,8 @@ const api = {
   blogGet: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_GET, blogId),
   blogCreate: (data) => electron.ipcRenderer.invoke(IPC.BLOG_CREATE, data),
   blogUpdate: (data) => electron.ipcRenderer.invoke(IPC.BLOG_UPDATE, data),
-  blogDelete: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_DELETE, blogId),
-  blogRestore: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_RESTORE, blogId),
+  blogDelete: (data) => electron.ipcRenderer.invoke(IPC.BLOG_DELETE, data),
+  blogRestore: (data) => electron.ipcRenderer.invoke(IPC.BLOG_RESTORE, data),
   blogExport: (data) => electron.ipcRenderer.invoke(IPC.BLOG_EXPORT, data),
   blogExportPdf: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_EXPORT_PDF, blogId),
   blogExportDocx: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_EXPORT_DOCX, blogId),
@@ -153,13 +160,14 @@ const api = {
   blogSeriesList: (userId) => electron.ipcRenderer.invoke(IPC.BLOG_SERIES_LIST, userId),
   blogSeriesGet: (seriesId) => electron.ipcRenderer.invoke(IPC.BLOG_SERIES_GET, seriesId),
   blogSeriesSet: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SERIES_SET, data),
-  blogBatchDelete: (blogIds) => electron.ipcRenderer.invoke(IPC.BLOG_BATCH_DELETE, blogIds),
+  blogSeriesRename: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SERIES_RENAME, data),
+  blogBatchDelete: (data) => electron.ipcRenderer.invoke(IPC.BLOG_BATCH_DELETE, data),
   blogBatchTag: (data) => electron.ipcRenderer.invoke(IPC.BLOG_BATCH_TAG, data),
   // Tag
   tagList: (userId) => electron.ipcRenderer.invoke(IPC.TAG_LIST, userId),
   tagCreate: (data) => electron.ipcRenderer.invoke(IPC.TAG_CREATE, data),
   tagUpdate: (data) => electron.ipcRenderer.invoke(IPC.TAG_UPDATE, data),
-  tagDelete: (tagId) => electron.ipcRenderer.invoke(IPC.TAG_DELETE, tagId),
+  tagDelete: (data) => electron.ipcRenderer.invoke(IPC.TAG_DELETE, data),
   tagSetBlog: (data) => electron.ipcRenderer.invoke(IPC.TAG_SET_BLOG, data),
   tagSetFile: (data) => electron.ipcRenderer.invoke(IPC.TAG_SET_FILE, data),
   // Knowledge Base
@@ -167,15 +175,17 @@ const api = {
   kbGet: (fileId) => electron.ipcRenderer.invoke(IPC.KB_GET, fileId),
   kbImport: (data) => electron.ipcRenderer.invoke(IPC.KB_IMPORT, data),
   kbDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_DELETE, data),
-  kbRestore: (fileId) => electron.ipcRenderer.invoke(IPC.KB_RESTORE, fileId),
+  kbRestore: (data) => electron.ipcRenderer.invoke(IPC.KB_RESTORE, data),
   kbRename: (data) => electron.ipcRenderer.invoke(IPC.KB_RENAME, data),
   kbPreview: (fileId) => electron.ipcRenderer.invoke(IPC.KB_PREVIEW, fileId),
   kbOpenExternal: (fileId) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, fileId),
-  kbBatchDelete: (fileIds) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, fileIds),
+  kbBatchDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
   // Search
   searchGlobal: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
   searchBlogs: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
   searchKb: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_KB, data),
+  searchQuery: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_QUERY, data),
+  searchGetDocuments: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GET_DOCUMENTS, data),
   // Workspace
   workspaceExportZip: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_ZIP, userId),
   workspaceGetInfo: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_GET_INFO, userId),
@@ -198,7 +208,7 @@ const api = {
   folderTree: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_TREE, data),
   folderCreate: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_CREATE, data),
   folderRename: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_RENAME, data),
-  folderDelete: (folderId) => electron.ipcRenderer.invoke(IPC.FOLDER_DELETE, folderId),
+  folderDelete: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_DELETE, data),
   folderMoveItem: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_MOVE_ITEM, data),
   // Web Scraping
   scrapeWebpage: (url) => electron.ipcRenderer.invoke(IPC.SCRAPE_WEBPAGE, url),
@@ -248,11 +258,26 @@ const api = {
     electron.ipcRenderer.on(IPC.EVT_NOTE_REFRESH, handler);
     return () => electron.ipcRenderer.removeListener(IPC.EVT_NOTE_REFRESH, handler);
   },
+  onAppError: (cb) => {
+    const handler = (_e, data) => cb(data);
+    electron.ipcRenderer.on(IPC.EVT_APP_ERROR, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_APP_ERROR, handler);
+  },
+  onUpdateStatus: (cb) => {
+    const handler = (_e, data) => cb(data);
+    electron.ipcRenderer.on(IPC.EVT_UPDATE_STATUS, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_UPDATE_STATUS, handler);
+  },
+  onKbRefresh: (cb) => {
+    const handler = () => cb();
+    electron.ipcRenderer.on(IPC.EVT_KB_REFRESH, handler);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_KB_REFRESH, handler);
+  },
   // Notes
   noteList: (userId) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId),
   noteCreate: (data) => electron.ipcRenderer.invoke(IPC.NOTE_CREATE, data),
-  noteDelete: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, noteId),
-  notePin: (noteId) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, noteId),
+  noteDelete: (data) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, data),
+  notePin: (data) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, data),
   noteClipboard: () => electron.ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
   // Continue Writing
   continueGetDrafts: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
@@ -266,6 +291,7 @@ const api = {
   shortcutUpdate: (id, key) => electron.ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, id, key),
   shortcutReset: () => electron.ipcRenderer.invoke(IPC.SHORTCUT_RESET),
   // App
+  shellOpenExternal: (url) => electron.ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   appGetVersion: () => electron.ipcRenderer.invoke(IPC.APP_GET_VERSION),
   appGetSystemLanguage: () => electron.ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
   appSetAutoStart: (enable) => electron.ipcRenderer.invoke(IPC.APP_SET_AUTO_START, enable),

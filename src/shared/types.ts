@@ -75,6 +75,23 @@ export interface SearchResult {
   matchField: string;
 }
 
+// T1801: Full-text search result with relevance score
+export interface FtsSearchResult {
+  id: number;
+  type: 'blog' | 'knowledge';
+  title: string;
+  snippet: string;
+  score: number;
+}
+
+// T1801: Document for Worker-based inverted index
+export interface IndexableDoc {
+  id: number;
+  docType: 'blog' | 'knowledge';
+  title: string;
+  content: string;
+}
+
 // ==================== Workspace ====================
 export interface WorkspaceInfo {
   path: string;

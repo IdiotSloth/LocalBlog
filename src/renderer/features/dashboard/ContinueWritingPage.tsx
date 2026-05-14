@@ -25,23 +25,41 @@ interface KnowledgeItem {
 export function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(true);
+  const [draftsError, setDraftsError] = useState<string | null>(null);
   const [lastBlog, setLastBlog] = useState<RecentBlog | null>(null);
+  const [lastBlogLoading, setLastBlogLoading] = useState(true);
+  const [lastBlogError, setLastBlogError] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<KnowledgeItem[]>([]);
+  const [recentFilesLoading, setRecentFilesLoading] = useState(true);
+  const [recentFilesError, setRecentFilesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+
+    setDraftsLoading(true);
+    setDraftsError(null);
     window.api
       .continueGetDrafts(user.id)
       .then((r) => { if (r.success && r.data) setDrafts(r.data as DraftItem[]); })
-      .catch(() => { /* best-effort */ });
+      .catch((e) => { console.error('[Continue] Failed to get drafts:', e); setDraftsError('加载草稿失败'); })
+      .finally(() => setDraftsLoading(false));
+
+    setLastBlogLoading(true);
+    setLastBlogError(null);
     window.api
       .continueGetLastBlog(user.id)
       .then((r) => { if (r.success && r.data) setLastBlog(r.data as RecentBlog); })
-      .catch(() => {});
+      .catch((e) => { console.error('[Continue] Failed to get last blog:', e); setLastBlogError('加载上次停留失败'); })
+      .finally(() => setLastBlogLoading(false));
+
+    setRecentFilesLoading(true);
+    setRecentFilesError(null);
     window.api
       .continueGetRecentFiles(user.id)
       .then((r) => { if (r.success && r.data) setRecentFiles(r.data as KnowledgeItem[]); })
-      .catch(() => {});
+      .catch((e) => { console.error('[Continue] Failed to get recent files:', e); setRecentFilesError('加载最近素材失败'); })
+      .finally(() => setRecentFilesLoading(false));
   }, [user]);
 
   return (
@@ -61,7 +79,11 @@ export function ContinueWritingPage() {
         >
           最近草稿
         </h3>
-        {drafts.length === 0 ? (
+        {draftsLoading ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+        ) : draftsError ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--accent-red)' }}>加载失败，请刷新重试</div>
+        ) : drafts.length === 0 ? (
           <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
             暂无草稿，新建博客后 30 秒自动保存草稿
           </p>
@@ -107,7 +129,11 @@ export function ContinueWritingPage() {
         >
           上次停留
         </h3>
-        {lastBlog ? (
+        {lastBlogLoading ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+        ) : lastBlogError ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--accent-red)' }}>加载失败，请刷新重试</div>
+        ) : lastBlog ? (
           <Link
             to={`/blog/${lastBlog.id}`}
             className="no-underline flex items-center gap-4 rounded-[8px] border p-5 transition-shadow hover:shadow-md"
@@ -141,7 +167,11 @@ export function ContinueWritingPage() {
         >
           最近素材
         </h3>
-        {recentFiles.length === 0 ? (
+        {recentFilesLoading ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+        ) : recentFilesError ? (
+          <div className="flex justify-center py-8" style={{ color: 'var(--accent-red)' }}>加载失败，请刷新重试</div>
+        ) : recentFiles.length === 0 ? (
           <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
             知识库为空，导入文件后在此显示
           </p>

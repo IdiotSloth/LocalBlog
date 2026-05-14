@@ -38,6 +38,7 @@ export const IPC = {
   BLOG_SERIES_LIST: 'blog:seriesList',
   BLOG_SERIES_GET: 'blog:seriesGet',
   BLOG_SERIES_SET: 'blog:seriesSet',
+  BLOG_SERIES_RENAME: 'blog:seriesRename',
 
   // Batch operations
   BLOG_BATCH_DELETE: 'blog:batchDelete',
@@ -60,6 +61,8 @@ export const IPC = {
   SEARCH_BLOGS: 'search:blogs',
   SEARCH_KB: 'search:kb',
   REBUILD_FTS_INDEX: 'search:rebuild-index',
+  SEARCH_QUERY: 'search:query',
+  SEARCH_GET_DOCUMENTS: 'search:get-documents',
 
   // Workspace
   WORKSPACE_EXPORT_ZIP: 'workspace:export-zip',
@@ -134,6 +137,7 @@ export const IPC = {
   SHORTCUT_RESET: 'shortcut:reset',
 
   // App
+  SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   APP_VISIBILITY: 'app:visibility',
   APP_GET_VERSION: 'app:get-version',
   APP_GET_SYSTEM_LANGUAGE: 'app:get-system-language',
@@ -148,7 +152,10 @@ export const IPC = {
   EVT_NAVIGATE: 'navigate',
   EVT_BLOG_REFRESH: 'blog:refresh',
   EVT_NOTE_REFRESH: 'note:refresh',
+  EVT_KB_REFRESH: 'kb:refresh',
   EVT_MANUAL_COLLECT_PROGRESS: 'manual:collect-progress',
+  EVT_APP_ERROR: 'app:error',
+  EVT_UPDATE_STATUS: 'app:update-status',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

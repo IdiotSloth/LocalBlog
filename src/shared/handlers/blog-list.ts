@@ -4,6 +4,7 @@
  */
 
 import { sanitizePagination } from '../pagination';
+import { mapBlogRow } from './blog-crud';
 
 type QueryRows = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 type QueryOne = (sql: string, params: unknown[]) => Promise<Record<string, unknown> | undefined>;
@@ -18,24 +19,11 @@ export interface BlogListFilters {
   sortOrder?: string;
   offset?: number;
   limit?: number;
+  excludeSeries?: boolean;
 }
 
 const VALID_SORT = ['created_at', 'updated_at', 'title'] as const;
 const VALID_ORDER = ['asc', 'desc'] as const;
-
-function mapBlogRow(row: Record<string, unknown>) {
-  return {
-    id: row.id as number,
-    userId: row.user_id as number,
-    title: row.title as string,
-    format: row.format as string,
-    status: row.status as string,
-    seriesId: row.series_id as string | undefined,
-    seriesName: row.series_name as string | undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
-}
 
 export async function getSharedBlogList(dbAll: QueryRows, dbGet: QueryOne, filters: BlogListFilters) {
   const {
@@ -71,6 +59,10 @@ export async function getSharedBlogList(dbAll: QueryRows, dbGet: QueryOne, filte
   if (folderId !== undefined) {
     conditions.push('b.folder_id = ?');
     params.push(folderId);
+  }
+  if (filters.excludeSeries) {
+    conditions.push('(b.series_id IS NULL OR b.series_id = ?)');
+    params.push('');
   }
 
   const where = conditions.join(' AND ');

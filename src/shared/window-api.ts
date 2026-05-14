@@ -6,6 +6,8 @@ import type {
   BlogWithTags,
   DraftItem,
   FolderTreeNode,
+  FtsSearchResult,
+  IndexableDoc,
   KnowledgeFileWithTags,
   LastBlog,
   LoginRequest,
@@ -38,8 +40,8 @@ export interface WindowApi {
   blogGet(blogId: number): Promise<ApiResponse<BlogWithTags>>;
   blogCreate(data: Record<string, unknown>): Promise<ApiResponse<Blog>>;
   blogUpdate(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  blogDelete(blogId: number): Promise<ApiResponse<void>>;
-  blogRestore(blogId: number): Promise<ApiResponse<void>>;
+  blogDelete(data: { userId: number; blogId: number }): Promise<ApiResponse<void>>;
+  blogRestore(data: { userId: number; blogId: number }): Promise<ApiResponse<void>>;
   blogExport(data: Record<string, unknown>): Promise<ApiResponse<{ path: string }>>;
   blogExportPdf(blogId: number): Promise<ApiResponse<{ path: string }>>;
   blogExportDocx(blogId: number): Promise<ApiResponse<{ path: string }>>;
@@ -54,14 +56,15 @@ export interface WindowApi {
   blogSeriesList(userId: number): Promise<ApiResponse<{ seriesId: string; seriesName: string; count: number }[]>>;
   blogSeriesGet(seriesId: string): Promise<ApiResponse<Record<string, unknown>>>;
   blogSeriesSet(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  blogBatchDelete(blogIds: number[]): Promise<ApiResponse<{ deleted: number }>>;
+  blogSeriesRename(data: { seriesId: string; newName: string; userId: number }): Promise<ApiResponse<void>>;
+  blogBatchDelete(data: { userId: number; blogIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
   blogBatchTag(data: Record<string, unknown>): Promise<ApiResponse<void>>;
 
   // Tag
   tagList(userId: number): Promise<ApiResponse<(Tag & { count?: number })[]>>;
   tagCreate(data: Record<string, unknown>): Promise<ApiResponse<Tag>>;
   tagUpdate(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  tagDelete(tagId: number): Promise<ApiResponse<void>>;
+  tagDelete(data: { userId: number; tagId: number }): Promise<ApiResponse<void>>;
   tagSetBlog(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   tagSetFile(data: Record<string, unknown>): Promise<ApiResponse<void>>;
 
@@ -70,16 +73,18 @@ export interface WindowApi {
   kbGet(fileId: number): Promise<ApiResponse<KnowledgeFileWithTags>>;
   kbImport(data: Record<string, unknown>): Promise<ApiResponse<KnowledgeFileWithTags[]>>;
   kbDelete(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  kbRestore(fileId: number): Promise<ApiResponse<void>>;
+  kbRestore(data: { userId: number; fileId: number }): Promise<ApiResponse<void>>;
   kbRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   kbPreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }>;
   kbOpenExternal(fileId: number): Promise<ApiResponse<void>>;
-  kbBatchDelete(fileIds: number[]): Promise<ApiResponse<{ deleted: number }>>;
+  kbBatchDelete(data: { userId: number; fileIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
 
   // Search
   searchGlobal(data: Record<string, unknown>): Promise<ApiResponse<SearchResult[]>>;
   searchBlogs(data: Record<string, unknown>): Promise<ApiResponse<SearchResult[]>>;
   searchKb(data: Record<string, unknown>): Promise<ApiResponse<SearchResult[]>>;
+  searchQuery(data: { query: string; userId: number }): Promise<ApiResponse<FtsSearchResult[]>>;
+  searchGetDocuments(data: { userId: number }): Promise<ApiResponse<IndexableDoc[]>>;
 
   // Workspace
   workspaceExportZip(userId: number): Promise<ApiResponse<{ path: string }>>;
@@ -106,7 +111,7 @@ export interface WindowApi {
   folderTree(data: Record<string, unknown>): Promise<ApiResponse<FolderTreeNode[]>>;
   folderCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number }>>;
   folderRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  folderDelete(folderId: number): Promise<ApiResponse<void>>;
+  folderDelete(data: { userId: number; folderId: number }): Promise<ApiResponse<void>>;
   folderMoveItem(data: Record<string, unknown>): Promise<ApiResponse<void>>;
 
   // Web Scraping
@@ -132,12 +137,15 @@ export interface WindowApi {
   onPetAction(cb: (action: string) => void): () => void;
   onBlogRefresh(cb: () => void): () => void;
   onNoteRefresh(cb: () => void): () => void;
+  onKbRefresh(cb: () => void): () => void;
+  onAppError(cb: (error: { message: string }) => void): () => void;
+  onUpdateStatus(cb: (data: { status: string; version?: string; percent?: number }) => void): () => void;
 
   // Notes
   noteList(userId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }[]>>;
   noteCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
-  noteDelete(noteId: number): Promise<ApiResponse<void>>;
-  notePin(noteId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
+  noteDelete(data: { userId: number; noteId: number }): Promise<ApiResponse<void>>;
+  notePin(data: { userId: number; noteId: number }): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
   noteClipboard(): Promise<ApiResponse<string>>;
 
   // Continue Writing
@@ -155,6 +163,7 @@ export interface WindowApi {
   shortcutReset(): Promise<ApiResponse<void>>;
 
   // App
+  shellOpenExternal(url: string): Promise<ApiResponse<void>>;
   appGetVersion(): Promise<ApiResponse<string>>;
   appGetSystemLanguage(): Promise<ApiResponse<string>>;
   appSetAutoStart(enable: boolean): Promise<ApiResponse<void>>;

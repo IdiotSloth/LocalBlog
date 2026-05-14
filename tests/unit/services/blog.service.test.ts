@@ -108,10 +108,10 @@ describe('BlogService', () => {
   describe('deleteBlog', () => {
     it('should throw for non-existent blog', async () => {
       mockDbGet.mockResolvedValueOnce(undefined);
-      await expect(BlogService.deleteBlog(999)).rejects.toThrow('博客不存在');
+      await expect(BlogService.deleteBlog(999, 1)).rejects.toThrow('博客不存在');
     });
 
-    it('should mark blog as trash', async () => {
+    it('should mark blog as trash and insert recycle record', async () => {
       mockDbGet.mockResolvedValueOnce({
         id: 1,
         user_id: 1,
@@ -122,8 +122,70 @@ describe('BlogService', () => {
         updated_at: '2026-01-01',
       });
       mockDbRun.mockResolvedValue(undefined);
-      await BlogService.deleteBlog(1);
+      await BlogService.deleteBlog(1, 1);
       expect(mockDbRun).toHaveBeenCalledTimes(2); // UPDATE status + INSERT recycle
+    });
+  });
+
+  describe('updateBlog', () => {
+    it('should update title', async () => {
+      mockDbGet.mockResolvedValueOnce({
+        id: 1,
+        user_id: 1,
+        title: 'Old Title',
+        format: 'md',
+        content: '# Hello',
+        status: 'active',
+        created_at: '2026-01-01',
+        updated_at: '2026-01-01',
+      });
+      mockDbRun.mockResolvedValue(undefined);
+      await BlogService.updateBlog(1, 1, { title: 'New Title' });
+      // Should call SELECT first, then UPDATE title
+      expect(mockDbRun).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE blogs SET title ='),
+        expect.arrayContaining(['New Title']),
+      );
+    });
+
+    it('should update content', async () => {
+      mockDbGet.mockResolvedValueOnce({
+        id: 1,
+        user_id: 1,
+        title: 'Test',
+        format: 'md',
+        content: '# Old Content',
+        status: 'active',
+        created_at: '2026-01-01',
+        updated_at: '2026-01-01',
+      });
+      mockDbRun.mockResolvedValue(undefined);
+      await BlogService.updateBlog(1, 1, { content: '# New Content' });
+      // Should call SELECT first, then UPDATE content
+      expect(mockDbRun).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE blogs SET content ='),
+        expect.arrayContaining(['# New Content']),
+      );
+    });
+  });
+
+  describe('restoreBlog', () => {
+    it('should restore trashed blog', async () => {
+      mockDbGet.mockResolvedValueOnce({
+        id: 1,
+        user_id: 1,
+        title: 'Test',
+        format: 'md',
+        status: 'trash',
+        created_at: '2026-01-01',
+        updated_at: '2026-01-01',
+      });
+      mockDbRun.mockResolvedValue(undefined);
+      await BlogService.restoreBlog(1, 1);
+      expect(mockDbRun).toHaveBeenCalledWith(
+        expect.stringContaining("UPDATE blogs SET status = 'active'"),
+        expect.arrayContaining([1, 1]),
+      );
     });
   });
 
