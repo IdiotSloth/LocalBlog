@@ -1,5 +1,6 @@
 appId: com.localblogkb.app
-productName: LocalBlogKB
+productName: Idiot
+artifactName: Idiot_SetUp.exe
 directories:
   output: dist
   buildResources: img
@@ -14,10 +15,10 @@ nsis:
   license: LICENSE.txt
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: LocalBlogKB
+  shortcutName: Idiot
 win:
   target: nsis
-  icon: img/favicon.ico
+  icon: build/icon.png
 publish:
   provider: github
   owner: IdiotSloth
@@ -25,3 +26,5 @@ publish:
 extraResources:
   - from: scripts/launcher.bat
     to: launcher.bat
+electronDist: node_modules/electron/dist
+npmRebuild: false
