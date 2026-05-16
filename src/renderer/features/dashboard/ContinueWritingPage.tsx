@@ -24,6 +24,7 @@ interface KnowledgeItem {
 
 export function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
+  const abortedRef = useRef(false);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
   const [draftsError, setDraftsError] = useState<string | null>(null);
@@ -36,30 +37,33 @@ export function ContinueWritingPage() {
 
   useEffect(() => {
     if (!user) return;
+    abortedRef.current = false;
 
     setDraftsLoading(true);
     setDraftsError(null);
     window.api
       .continueGetDrafts(user.id)
-      .then((r) => { if (r.success && r.data) setDrafts(r.data as DraftItem[]); })
-      .catch((e) => { console.error('[Continue] Failed to get drafts:', e); setDraftsError('加载草稿失败'); })
-      .finally(() => setDraftsLoading(false));
+      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setDrafts(r.data as DraftItem[]); })
+      .catch((e) => { if (abortedRef.current) return; console.error('[Continue] Failed to get drafts:', e); setDraftsError('加载草稿失败'); })
+      .finally(() => { if (!abortedRef.current) setDraftsLoading(false); });
 
     setLastBlogLoading(true);
     setLastBlogError(null);
     window.api
       .continueGetLastBlog(user.id)
-      .then((r) => { if (r.success && r.data) setLastBlog(r.data as RecentBlog); })
-      .catch((e) => { console.error('[Continue] Failed to get last blog:', e); setLastBlogError('加载上次停留失败'); })
-      .finally(() => setLastBlogLoading(false));
+      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setLastBlog(r.data as RecentBlog); })
+      .catch((e) => { if (abortedRef.current) return; console.error('[Continue] Failed to get last blog:', e); setLastBlogError('加载上次停留失败'); })
+      .finally(() => { if (!abortedRef.current) setLastBlogLoading(false); });
 
     setRecentFilesLoading(true);
     setRecentFilesError(null);
     window.api
       .continueGetRecentFiles(user.id)
-      .then((r) => { if (r.success && r.data) setRecentFiles(r.data as KnowledgeItem[]); })
-      .catch((e) => { console.error('[Continue] Failed to get recent files:', e); setRecentFilesError('加载最近素材失败'); })
-      .finally(() => setRecentFilesLoading(false));
+      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setRecentFiles(r.data as KnowledgeItem[]); })
+      .catch((e) => { if (abortedRef.current) return; console.error('[Continue] Failed to get recent files:', e); setRecentFilesError('加载最近素材失败'); })
+      .finally(() => { if (!abortedRef.current) setRecentFilesLoading(false); });
+
+    return () => { abortedRef.current = true; };
   }, [user]);
 
   return (

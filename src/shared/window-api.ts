@@ -11,8 +11,10 @@ import type {
   KnowledgeFileWithTags,
   LastBlog,
   LoginRequest,
+  Note,
   RecentFile,
   RecycleBinItem,
+  Reference,
   RegisterRequest,
   ScrapeResult,
   SearchResult,
@@ -47,14 +49,14 @@ export interface WindowApi {
   blogExportDocx(blogId: number): Promise<ApiResponse<{ path: string }>>;
   blogImportMd(data: Record<string, unknown>): Promise<ApiResponse<Blog[]>>;
   blogSaveDraft(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  blogGetHistory(blogId: number): Promise<ApiResponse<Record<string, unknown>[]>>;
+  blogGetHistory(blogId: number): Promise<ApiResponse<DraftItem[]>>;
   blogRollback(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogListAttachments(blogId: number): Promise<ApiResponse<{ filename: string; size: number; usedInBlog: boolean }[]>>;
   blogDeleteAttachment(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogCleanupAttachments(blogId: number): Promise<ApiResponse<{ deleted: number }>>;
   blogQuickCreate(data: Record<string, unknown>): Promise<ApiResponse<Blog>>;
   blogSeriesList(userId: number): Promise<ApiResponse<{ seriesId: string; seriesName: string; count: number }[]>>;
-  blogSeriesGet(seriesId: string): Promise<ApiResponse<Record<string, unknown>>>;
+  blogSeriesGet(seriesId: string): Promise<ApiResponse<BlogWithTags[]>>;
   blogSeriesSet(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogSeriesRename(data: { seriesId: string; newName: string; userId: number }): Promise<ApiResponse<void>>;
   blogBatchDelete(data: { userId: number; blogIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
@@ -70,13 +72,13 @@ export interface WindowApi {
 
   // Knowledge Base — core
   kbList(filters?: Record<string, unknown>): Promise<ApiResponse<{ files: KnowledgeFileWithTags[]; total: number }>>;
-  kbGet(fileId: number): Promise<ApiResponse<KnowledgeFileWithTags>>;
+  kbGet(data: { fileId: number; userId: number }): Promise<ApiResponse<KnowledgeFileWithTags>>;
   kbImport(data: Record<string, unknown>): Promise<ApiResponse<KnowledgeFileWithTags[]>>;
   kbDelete(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   kbRestore(data: { userId: number; fileId: number }): Promise<ApiResponse<void>>;
   kbRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
-  kbPreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }>;
-  kbOpenExternal(fileId: number): Promise<ApiResponse<void>>;
+  kbPreview(data: { fileId: number; userId: number }): Promise<ApiResponse<{ html?: string; fileType?: string }>>;
+  kbOpenExternal(data: { fileId: number; userId: number }): Promise<ApiResponse<void>>;
   kbBatchDelete(data: { userId: number; fileIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
 
   // Search
@@ -101,11 +103,11 @@ export interface WindowApi {
   recycleBatchRestore(data: Record<string, unknown>): Promise<ApiResponse<{ restored: number }>>;
 
   // References
-  refAdd(data: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>>>;
+  refAdd(data: Record<string, unknown>): Promise<ApiResponse<Reference>>;
   refRemove(refId: number): Promise<ApiResponse<void>>;
-  refGetFrom(data: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>[]>>;
-  refGetTo(data: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>[]>>;
-  refSearch(data: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>[]>>;
+  refGetFrom(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
+  refGetTo(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
+  refSearch(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
 
   // Folder
   folderTree(data: Record<string, unknown>): Promise<ApiResponse<FolderTreeNode[]>>;
@@ -113,6 +115,7 @@ export interface WindowApi {
   folderRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   folderDelete(data: { userId: number; folderId: number }): Promise<ApiResponse<void>>;
   folderMoveItem(data: Record<string, unknown>): Promise<ApiResponse<void>>;
+  folderMove(data: { userId: number; folderId: number; newParentId: number | null }): Promise<ApiResponse<void>>;
 
   // Web Scraping
   scrapeWebpage(url: string): Promise<ApiResponse<ScrapeResult>>;
@@ -142,10 +145,14 @@ export interface WindowApi {
   onUpdateStatus(cb: (data: { status: string; version?: string; percent?: number }) => void): () => void;
 
   // Notes
-  noteList(userId: number): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }[]>>;
-  noteCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
+  noteList(userId: number, memoType?: string): Promise<ApiResponse<Note[]>>;
+  noteCreate(data: {
+    userId: number; content: string; source?: string;
+    title?: string; memoType?: 'note' | 'schedule' | 'todo'; dueDate?: string;
+    noteId?: number;
+  }): Promise<ApiResponse<Note>>;
   noteDelete(data: { userId: number; noteId: number }): Promise<ApiResponse<void>>;
-  notePin(data: { userId: number; noteId: number }): Promise<ApiResponse<{ id: number; userId: number; content: string; pinned: boolean; source: string; createdAt: string }>>;
+  notePin(data: { userId: number; noteId: number }): Promise<ApiResponse<Note>>;
   noteClipboard(): Promise<ApiResponse<string>>;
 
   // Continue Writing

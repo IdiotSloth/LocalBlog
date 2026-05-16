@@ -7,8 +7,7 @@ searchRouter.use(requireAuth);
 
 searchRouter.post('/global', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { query } = req.body;
     if (!query?.trim()) return res.json({ success: true, data: { blogs: [], knowledge: [] } });
 
@@ -40,8 +39,7 @@ searchRouter.post('/global', async (req: AuthRequest, res) => {
 
 searchRouter.post('/blogs', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { query } = req.body;
     if (!query?.trim()) return res.json({ success: true, data: [] });
 
@@ -65,8 +63,7 @@ searchRouter.post('/blogs', async (req: AuthRequest, res) => {
 
 searchRouter.post('/kb', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { query } = req.body;
     if (!query?.trim()) return res.json({ success: true, data: [] });
 

@@ -70,6 +70,7 @@ const IPC = {
   FOLDER_RENAME: "folder:rename",
   FOLDER_DELETE: "folder:delete",
   FOLDER_MOVE_ITEM: "folder:move-item",
+  FOLDER_MOVE: "folder:move",
   // Web Scraping
   SCRAPE_WEBPAGE: "scrape:webpage",
   SCRAPE_EXTRACT_TOC: "scrape:extract-toc",
@@ -172,13 +173,13 @@ const api = {
   tagSetFile: (data) => electron.ipcRenderer.invoke(IPC.TAG_SET_FILE, data),
   // Knowledge Base
   kbList: (filters) => electron.ipcRenderer.invoke(IPC.KB_LIST, filters),
-  kbGet: (fileId) => electron.ipcRenderer.invoke(IPC.KB_GET, fileId),
+  kbGet: (data) => electron.ipcRenderer.invoke(IPC.KB_GET, data),
   kbImport: (data) => electron.ipcRenderer.invoke(IPC.KB_IMPORT, data),
   kbDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_DELETE, data),
   kbRestore: (data) => electron.ipcRenderer.invoke(IPC.KB_RESTORE, data),
   kbRename: (data) => electron.ipcRenderer.invoke(IPC.KB_RENAME, data),
-  kbPreview: (fileId) => electron.ipcRenderer.invoke(IPC.KB_PREVIEW, fileId),
-  kbOpenExternal: (fileId) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, fileId),
+  kbPreview: (data) => electron.ipcRenderer.invoke(IPC.KB_PREVIEW, data),
+  kbOpenExternal: (data) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
   // Search
   searchGlobal: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
@@ -210,6 +211,7 @@ const api = {
   folderRename: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_RENAME, data),
   folderDelete: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_DELETE, data),
   folderMoveItem: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_MOVE_ITEM, data),
+  folderMove: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_MOVE, data),
   // Web Scraping
   scrapeWebpage: (url) => electron.ipcRenderer.invoke(IPC.SCRAPE_WEBPAGE, url),
   scrapeExtractToc: (url) => electron.ipcRenderer.invoke(IPC.SCRAPE_EXTRACT_TOC, url),
@@ -274,7 +276,7 @@ const api = {
     return () => electron.ipcRenderer.removeListener(IPC.EVT_KB_REFRESH, handler);
   },
   // Notes
-  noteList: (userId) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId),
+  noteList: (userId, memoType) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType),
   noteCreate: (data) => electron.ipcRenderer.invoke(IPC.NOTE_CREATE, data),
   noteDelete: (data) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, data),

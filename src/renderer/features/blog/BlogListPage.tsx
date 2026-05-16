@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { BlogWithTags, FolderTreeNode, ScrapeResult, Tag } from '../../../shared/types';
 import { FolderTree } from '../../components/common/FolderTree';
@@ -9,38 +9,129 @@ import { useAuthStore } from '../../stores/auth-store';
 import { ManualCollectTab } from './ManualCollectTab';
 import { TimelineView } from './TimelineView';
 
+export interface BlogListState {
+  blogs: BlogWithTags[];
+  total: number;
+  loading: boolean;
+  query: string;
+  sortBy: string;
+  filterTagId: number | null;
+  filterTagName: string;
+  filterFolderId: number | null;
+  showFolderSidebar: boolean;
+  viewMode: 'cards' | 'timeline';
+  importing: boolean;
+  scrapeOpen: boolean;
+  scrapeUrl: string;
+  scrapeLoading: boolean;
+  scrapeResult: ScrapeResult | null;
+  scrapeError: string;
+  excludeSeries: boolean;
+  activeTab: 'blogs' | 'manual';
+  folderTree: FolderTreeNode[];
+}
+
+export type BlogListAction =
+  | { type: 'SET_BLOGS'; payload: { blogs: BlogWithTags[]; total: number } }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_QUERY'; payload: string }
+  | { type: 'SET_SORT_BY'; payload: string }
+  | { type: 'SET_TAG_FILTER'; payload: { id: number | null; name: string } }
+  | { type: 'SET_FOLDER_FILTER'; payload: number | null }
+  | { type: 'TOGGLE_FOLDER_SIDEBAR'; payload: boolean }
+  | { type: 'SET_VIEW_MODE'; payload: 'cards' | 'timeline' }
+  | { type: 'SET_IMPORTING'; payload: boolean }
+  | { type: 'SET_SCRAPE_OPEN'; payload: boolean }
+  | { type: 'SET_SCRAPE_URL'; payload: string }
+  | { type: 'SET_SCRAPE_LOADING'; payload: boolean }
+  | { type: 'SET_SCRAPE_RESULT'; payload: ScrapeResult | null }
+  | { type: 'SET_SCRAPE_ERROR'; payload: string }
+  | { type: 'SET_EXCLUDE_SERIES'; payload: boolean }
+  | { type: 'SET_ACTIVE_TAB'; payload: 'blogs' | 'manual' }
+  | { type: 'SET_FOLDER_TREE'; payload: FolderTreeNode[] }
+  | { type: 'BATCH_SET'; payload: Partial<BlogListState> };
+
+export function blogListReducer(state: BlogListState, action: BlogListAction): BlogListState {
+  switch (action.type) {
+    case 'SET_BLOGS':
+      return { ...state, blogs: action.payload.blogs, total: action.payload.total };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_QUERY':
+      return { ...state, query: action.payload };
+    case 'SET_SORT_BY':
+      return { ...state, sortBy: action.payload };
+    case 'SET_TAG_FILTER':
+      return { ...state, filterTagId: action.payload.id, filterTagName: action.payload.name };
+    case 'SET_FOLDER_FILTER':
+      return { ...state, filterFolderId: action.payload };
+    case 'TOGGLE_FOLDER_SIDEBAR':
+      return { ...state, showFolderSidebar: action.payload };
+    case 'SET_VIEW_MODE':
+      return { ...state, viewMode: action.payload };
+    case 'SET_IMPORTING':
+      return { ...state, importing: action.payload };
+    case 'SET_SCRAPE_OPEN':
+      return { ...state, scrapeOpen: action.payload };
+    case 'SET_SCRAPE_URL':
+      return { ...state, scrapeUrl: action.payload };
+    case 'SET_SCRAPE_LOADING':
+      return { ...state, scrapeLoading: action.payload };
+    case 'SET_SCRAPE_RESULT':
+      return { ...state, scrapeResult: action.payload };
+    case 'SET_SCRAPE_ERROR':
+      return { ...state, scrapeError: action.payload };
+    case 'SET_EXCLUDE_SERIES':
+      return { ...state, excludeSeries: action.payload };
+    case 'SET_ACTIVE_TAB':
+      return { ...state, activeTab: action.payload };
+    case 'SET_FOLDER_TREE':
+      return { ...state, folderTree: action.payload };
+    case 'BATCH_SET':
+      return { ...state, ...action.payload };
+    default:
+      return state;
+  }
+}
+
 export function BlogListPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [blogs, setBlogs] = useState<BlogWithTags[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [state, dispatch] = useReducer(blogListReducer, searchParams, (sp: URLSearchParams): BlogListState => ({
+    blogs: [],
+    total: 0,
+    loading: true,
+    query: '',
+    sortBy: 'updated_at',
+    filterTagId: null,
+    filterTagName: '',
+    filterFolderId: null,
+    showFolderSidebar: localStorage.getItem('sidebar_folder_blog') === '1',
+    viewMode: 'cards',
+    importing: false,
+    scrapeOpen: false,
+    scrapeUrl: '',
+    scrapeLoading: false,
+    scrapeResult: null,
+    scrapeError: '',
+    excludeSeries: localStorage.getItem('blog-list-tab') !== 'all',
+    activeTab: sp.get('tab') === 'manual' ? 'manual' : 'blogs',
+    folderTree: [],
+  }));
+  const {
+    blogs, total, loading, query, sortBy, filterTagId, filterTagName,
+    filterFolderId, showFolderSidebar, viewMode, importing,
+    scrapeOpen, scrapeUrl, scrapeLoading, scrapeResult, scrapeError,
+    excludeSeries, activeTab, folderTree,
+  } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState('updated_at');
-  const [filterTagId, setFilterTagId] = useState<number | null>(null);
-  const [filterTagName, setFilterTagName] = useState('');
-  const [filterFolderId, setFilterFolderId] = useState<number | null>(null);
-  const [showFolderSidebar, setShowFolderSidebar] = useState(() => localStorage.getItem('sidebar_folder_blog') === '1');
-  const [viewMode, setViewMode] = useState<'cards' | 'timeline'>('cards');
-  const [importing, setImporting] = useState(false);
-  const [scrapeOpen, setScrapeOpen] = useState(false);
-  const [scrapeUrl, setScrapeUrl] = useState('');
-  const [scrapeLoading, setScrapeLoading] = useState(false);
-  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
-  const [scrapeError, setScrapeError] = useState('');
-  const [excludeSeries, setExcludeSeries] = useState(() => localStorage.getItem('blog-list-tab') !== 'all');
-  const [activeTab, setActiveTab] = useState<'blogs' | 'manual'>(
-    searchParams.get('tab') === 'manual' ? 'manual' : 'blogs',
-  );
   const batch = useBatchSelect(blogs as { id: number }[]);
-  const pagination = usePagination(20);
-  const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
+  const pagination = usePagination(20, total);
   const loadFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'blog' });
-    if (r.success && r.data) setFolderTree(r.data);
+    if (r.success && r.data) dispatch({ type: 'SET_FOLDER_TREE', payload: r.data });
   }, [user]);
   useEffect(() => {
     loadFolders();
@@ -50,14 +141,14 @@ export function BlogListPage() {
   useEffect(() => {
     if (!window.api.onNavigate) return;
     const unsub = window.api.onNavigate((path: string) => {
-      if (path.includes('tab=manual')) setActiveTab('manual');
+      if (path.includes('tab=manual')) dispatch({ type: 'SET_ACTIVE_TAB', payload: 'manual' });
     });
     if (typeof unsub === 'function') return unsub;
   }, []);
 
   const loadBlogs = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const r = await window.api.blogList({
         userId: user.id,
@@ -71,21 +162,19 @@ export function BlogListPage() {
         excludeSeries: excludeSeries || undefined,
       });
       if (r.success && r.data) {
-        setBlogs(r.data.blogs);
-        setTotal(r.data.total);
+        dispatch({ type: 'SET_BLOGS', payload: { blogs: r.data.blogs, total: r.data.total } });
       }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
   useEffect(() => {
     const tagId = searchParams.get('tagId');
     const tagName = searchParams.get('tagName');
     if (tagId) {
-      setFilterTagId(Number(tagId));
-      setFilterTagName(tagName || '');
+      dispatch({ type: 'SET_TAG_FILTER', payload: { id: Number(tagId), name: tagName || '' } });
     }
   }, [searchParams]);
   useEffect(() => {
@@ -117,7 +206,7 @@ export function BlogListPage() {
     try {
       const files = await window.api.selectFiles(['md', 'txt', 'html']);
       if (files?.length) {
-        setImporting(true);
+        dispatch({ type: 'SET_IMPORTING', payload: true });
         try {
           const r = await window.api.blogImportMd({ userId: user.id, filePaths: files });
           if (r?.success === false) {
@@ -126,7 +215,7 @@ export function BlogListPage() {
         } catch {
           alert('导入失败');
         } finally {
-          setImporting(false);
+          dispatch({ type: 'SET_IMPORTING', payload: false });
         }
         return;
       }
@@ -137,7 +226,7 @@ export function BlogListPage() {
   };
   const handleWebFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user || !e.target.files?.length) return;
-    setImporting(true);
+    dispatch({ type: 'SET_IMPORTING', payload: true });
     try {
       const contents: { title: string; content: string }[] = [];
       for (const file of Array.from(e.target.files)) {
@@ -149,23 +238,23 @@ export function BlogListPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setImporting(false);
+      dispatch({ type: 'SET_IMPORTING', payload: false });
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
   const handleScrape = async () => {
     if (!scrapeUrl.trim() || !user) return;
-    setScrapeLoading(true);
-    setScrapeError('');
-    setScrapeResult(null);
+    dispatch({ type: 'SET_SCRAPE_LOADING', payload: true });
+    dispatch({ type: 'SET_SCRAPE_ERROR', payload: '' });
+    dispatch({ type: 'SET_SCRAPE_RESULT', payload: null });
     try {
       const r = await window.api.scrapeWebpage(scrapeUrl.trim());
-      if (r.success) setScrapeResult(r.data);
-      else setScrapeError(r.error);
+      if (r.success) dispatch({ type: 'SET_SCRAPE_RESULT', payload: r.data });
+      else dispatch({ type: 'SET_SCRAPE_ERROR', payload: r.error });
     } catch {
-      setScrapeError('抓取失败');
+      dispatch({ type: 'SET_SCRAPE_ERROR', payload: '抓取失败' });
     } finally {
-      setScrapeLoading(false);
+      dispatch({ type: 'SET_SCRAPE_LOADING', payload: false });
     }
   };
 
@@ -178,7 +267,7 @@ export function BlogListPage() {
             type="button"
             onClick={() => {
               const v = !showFolderSidebar;
-              setShowFolderSidebar(v);
+              dispatch({ type: 'TOGGLE_FOLDER_SIDEBAR', payload: v });
               localStorage.setItem('sidebar_folder_blog', v ? '1' : '0');
             }}
             className="mb-2 rounded-[4px] px-2 py-1 text-[11px] hover:opacity-80 transition-opacity"
@@ -195,7 +284,7 @@ export function BlogListPage() {
                 userId={user.id}
                 type="blog"
                 selectedFolderId={filterFolderId}
-                onSelectFolder={setFilterFolderId}
+                onSelectFolder={(id) => dispatch({ type: 'SET_FOLDER_FILTER', payload: id })}
               />
             </div>
           )}
@@ -207,7 +296,7 @@ export function BlogListPage() {
         <div className="mb-4 flex gap-2 border-b" style={{ borderColor: 'var(--border-default)' }}>
           <button
             type="button"
-            onClick={() => setActiveTab('blogs')}
+            onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', payload: 'blogs' })}
             className="px-3 py-2 text-[14px] font-medium border-b-2 transition-colors"
             style={{
               color: activeTab === 'blogs' ? 'var(--accent-blue)' : 'var(--text-secondary)',
@@ -219,7 +308,7 @@ export function BlogListPage() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('manual')}
+            onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', payload: 'manual' })}
             className="px-3 py-2 text-[14px] font-medium border-b-2 transition-colors"
             style={{
               color: activeTab === 'manual' ? 'var(--accent-blue)' : 'var(--text-secondary)',
@@ -242,7 +331,7 @@ export function BlogListPage() {
             <button
               type="button"
               onClick={() => {
-                setExcludeSeries(true);
+                dispatch({ type: 'SET_EXCLUDE_SERIES', payload: true });
                 localStorage.setItem('blog-list-tab', 'independent');
               }}
               className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
@@ -256,7 +345,7 @@ export function BlogListPage() {
             <button
               type="button"
               onClick={() => {
-                setExcludeSeries(false);
+                dispatch({ type: 'SET_EXCLUDE_SERIES', payload: false });
                 localStorage.setItem('blog-list-tab', 'all');
               }}
               className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
@@ -277,7 +366,7 @@ export function BlogListPage() {
             <div className="flex gap-1 rounded-[4px] border p-0.5 section-border">
               <button
                 type="button"
-                onClick={() => setViewMode('cards')}
+                onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'cards' })}
                 className="rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors"
                 style={{ background: viewMode === 'cards' ? 'var(--bg-tertiary)' : 'transparent' }}
               >
@@ -285,7 +374,7 @@ export function BlogListPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('timeline')}
+                onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'timeline' })}
                 className="rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors"
                 style={{ background: viewMode === 'timeline' ? 'var(--bg-tertiary)' : 'transparent' }}
               >
@@ -294,7 +383,7 @@ export function BlogListPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setScrapeOpen(true)} className="btn-primary !text-[13px]">
+            <button type="button" onClick={() => dispatch({ type: 'SET_SCRAPE_OPEN', payload: true })} className="btn-primary !text-[13px]">
               收藏网页
             </button>
             <button
@@ -330,13 +419,13 @@ export function BlogListPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_QUERY', payload: e.target.value })}
             placeholder="搜索博客标题..."
             className="max-w-xs surface-input px-3 py-1.5 text-[13px]"
           />
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_SORT_BY', payload: e.target.value })}
             title="排序方式"
             className="max-w-[140px] surface-input px-3 py-1.5 text-[13px]"
           >
@@ -416,8 +505,7 @@ export function BlogListPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setFilterTagId(null);
-                    setFilterTagName('');
+                    dispatch({ type: 'SET_TAG_FILTER', payload: { id: null, name: '' } });
                   }}
                   className="ml-auto text-[12px] hover:underline"
                   style={{ color: 'var(--accent-red)' }}
@@ -477,8 +565,7 @@ export function BlogListPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        setFilterTagId(t.id);
-                        setFilterTagName(t.name);
+                        dispatch({ type: 'SET_TAG_FILTER', payload: { id: t.id, name: t.name } });
                       }}
                       title={`筛选标签: ${t.name}`}
                     >
@@ -605,7 +692,7 @@ export function BlogListPage() {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center"
             style={{ background: 'rgba(0,0,0,0.5)' }}
-            onClick={() => setScrapeOpen(false)}
+            onClick={() => dispatch({ type: 'SET_SCRAPE_OPEN', payload: false })}
           >
             <div
               className="w-full max-w-[560px] rounded-[8px] border p-6 shadow-2xl"
@@ -617,10 +704,7 @@ export function BlogListPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setScrapeOpen(false);
-                    setScrapeResult(null);
-                    setScrapeError('');
-                    setScrapeUrl('');
+                    dispatch({ type: 'BATCH_SET', payload: { scrapeOpen: false, scrapeResult: null, scrapeError: '', scrapeUrl: '' } });
                   }}
                   className="text-[14px] text-secondary"
                 >
@@ -633,7 +717,7 @@ export function BlogListPage() {
                     <input
                       type="text"
                       value={scrapeUrl}
-                      onChange={(e) => setScrapeUrl(e.target.value)}
+                      onChange={(e) => dispatch({ type: 'SET_SCRAPE_URL', payload: e.target.value })}
                       onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
                       placeholder="粘贴网页 URL"
                       className="input-dark flex-1"
@@ -678,11 +762,9 @@ export function BlogListPage() {
                             content: scrapeResult.content,
                           });
                           loadBlogs();
-                          setScrapeOpen(false);
-                          setScrapeUrl('');
-                          setScrapeResult(null);
+                          dispatch({ type: 'BATCH_SET', payload: { scrapeOpen: false, scrapeUrl: '', scrapeResult: null } });
                         } catch {
-                          setScrapeError('导入失败');
+                          dispatch({ type: 'SET_SCRAPE_ERROR', payload: '导入失败' });
                         }
                       }}
                       className="btn-primary"
@@ -692,8 +774,8 @@ export function BlogListPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setScrapeResult(null);
-                        setScrapeError('');
+                        dispatch({ type: 'SET_SCRAPE_RESULT', payload: null });
+                        dispatch({ type: 'SET_SCRAPE_ERROR', payload: '' });
                       }}
                       className="btn-primary"
                       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}

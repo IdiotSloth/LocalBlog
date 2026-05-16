@@ -5,12 +5,26 @@ import ExcelJS from 'exceljs';
 import mammoth from 'mammoth';
 import { dbGet } from '../db';
 
+/** Wrap a promise with a timeout; on timeout return partial result with note */
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | { error: string }> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} 解析超时 (${ms / 1000}s)`)), ms),
+  );
+  try {
+    return await Promise.race([promise, timeout]);
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
 export class PreviewService {
   /** Generate an HTML preview for a knowledge base file */
-  static async generatePreview(fileId: number): Promise<{ html?: string; error?: string; fileType?: string }> {
+  static async generatePreview(fileId: number, userId?: number): Promise<{ html?: string; error?: string; fileType?: string }> {
     const row = await dbGet<{ file_path: string; filename: string; file_type: string }>(
-      'SELECT * FROM knowledge_files WHERE id = ?',
-      [fileId],
+      userId
+        ? 'SELECT * FROM knowledge_files WHERE id = ? AND user_id = ?'
+        : 'SELECT * FROM knowledge_files WHERE id = ?',
+      userId ? [fileId, userId] : [fileId],
     );
     if (!row) return { error: '文件不存在' };
 
@@ -23,12 +37,12 @@ export class PreviewService {
       switch (ext) {
         case '.docx':
         case '.doc':
-          return await PreviewService.previewDocx(filePath);
+          return (await withTimeout(PreviewService.previewDocx(filePath), 30000, 'DOCX')) as { html?: string; error?: string };
         case '.xlsx':
         case '.xls':
-          return await PreviewService.previewXlsx(filePath);
+          return (await withTimeout(PreviewService.previewXlsx(filePath), 30000, 'XLSX')) as { html?: string; error?: string };
         case '.pdf':
-          return await PreviewService.previewPdf(filePath);
+          return (await withTimeout(PreviewService.previewPdf(filePath), 30000, 'PDF')) as { html?: string; error?: string };
         case '.txt':
           return PreviewService.previewText(filePath);
         case '.md':

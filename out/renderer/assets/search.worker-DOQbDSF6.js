@@ -8,12 +8,16 @@
   const index = /* @__PURE__ */ new Map();
   const docs = /* @__PURE__ */ new Map();
   let totalDocs = 0;
+  function stripHtml(text) {
+    return text.replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/&#\d+;/g, " ").replace(/\s+/g, " ");
+  }
   function tokenize(text) {
+    const clean = stripHtml(text);
     try {
       const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
-      return Array.from(segmenter.segment(text)).filter((s) => s.isWordLike).map((s) => s.segment.toLowerCase());
+      return Array.from(segmenter.segment(clean)).filter((s) => s.isWordLike).map((s) => s.segment.toLowerCase());
     } catch {
-      return text.toLowerCase().split(/[\s,.;:!?()\[\]{}""''「」、，。；：！？（）【】《》""''‘’]+/).filter(Boolean);
+      return clean.toLowerCase().split(/[\s,.;:!?()\[\]{}""''「」、，。；：！？（）【】《》""''‘’]+/).filter(Boolean);
     }
   }
   function addToIndex(doc) {

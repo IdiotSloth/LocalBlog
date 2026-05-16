@@ -64,7 +64,7 @@ const webApi = {
 
   // Knowledge Base
   kbList: (filters: Record<string, unknown> = {}) => request('GET', `/api/knowledge/list${getQuery(filters)}`),
-  kbGet: (fileId: number) => request('GET', `/api/knowledge/${fileId}`),
+  kbGet: (data: { fileId: number; userId: number }) => request('GET', `/api/knowledge/${data.fileId}`),
   kbImport: (data: { userId: number; filePaths: string[]; copyToWorkspace: boolean }) =>
     request('POST', '/api/knowledge/import', data),
   kbDelete: (data: { fileId: number; deletePhysicalFile: boolean }) =>
@@ -72,8 +72,8 @@ const webApi = {
   kbRestore: (data: { userId: number; fileId: number }) => request('POST', `/api/knowledge/${data.fileId}/restore`, data),
   kbRename: (data: { fileId: number; newFilename: string }) =>
     request('POST', `/api/knowledge/${data.fileId}/rename`, data),
-  kbPreview: (fileId: number) => request('GET', `/api/knowledge/${fileId}/preview`),
-  kbOpenExternal: () => Promise.resolve({ success: false, error: '网页版暂不支持系统程序打开' }),
+  kbPreview: (data: { fileId: number; userId: number }) => request('GET', `/api/knowledge/${data.fileId}/preview`),
+  kbOpenExternal: (_data: { fileId: number; userId: number }) => Promise.resolve({ success: false, error: '网页版暂不支持系统程序打开' }),
 
   // Search
   searchGlobal: (data: { userId: number; query: string }) => request('POST', '/api/search/global', data),
@@ -132,6 +132,7 @@ const webApi = {
   folderCreate: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
   folderRename: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
   folderDelete: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
+  folderMove: () => Promise.resolve({ success: false, error: '网页版暂不支持移动文件夹' }),
   folderMoveItem: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
   refAdd: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),
   refRemove: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),

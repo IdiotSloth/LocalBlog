@@ -26,3 +26,26 @@ if (fs.existsSync(htmlPath)) {
   fs.writeFileSync(htmlPath, html);
   console.log('[post-build] Stripped crossorigin from renderer HTML');
 }
+
+// 3. Copy img/ to out/renderer/img/ so favicon.ico is available to renderer HTML
+const imgDir = path.join(ROOT, 'img');
+const outImgDir = path.join(OUT_DIR, 'renderer', 'img');
+if (fs.existsSync(imgDir)) {
+  fs.mkdirSync(outImgDir, { recursive: true });
+  for (const f of fs.readdirSync(imgDir)) {
+    fs.copyFileSync(path.join(imgDir, f), path.join(outImgDir, f));
+  }
+  console.log('[post-build] Copied img/ to out/renderer/img/');
+}
+
+// 4. Copy SVG assets from src/renderer/assets/ to out/renderer/assets/ (guide images etc.)
+const assetsDir = path.join(ROOT, 'src', 'renderer', 'assets');
+const outAssetsDir = path.join(OUT_DIR, 'renderer', 'assets');
+if (fs.existsSync(assetsDir)) {
+  for (const f of fs.readdirSync(assetsDir)) {
+    if (f.endsWith('.svg')) {
+      fs.copyFileSync(path.join(assetsDir, f), path.join(outAssetsDir, f));
+    }
+  }
+  console.log('[post-build] Copied SVG assets to out/renderer/assets/');
+}

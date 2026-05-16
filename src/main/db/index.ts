@@ -117,6 +117,12 @@ export async function initDatabase(): Promise<void> {
     /* table already exists */
   }
 
+  // R142: T1906 notes table extension — ALTER TABLE for existing sql.js databases
+  try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN title TEXT DEFAULT ''"); } catch { /* column exists */ }
+  try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN memo_type TEXT DEFAULT 'note'"); } catch { /* column exists */ }
+  try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN due_date TEXT DEFAULT NULL"); } catch { /* column exists */ }
+  try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))"); } catch { /* column exists */ }
+
   sqlJsSave();
   useMySQL = false;
   console.log('[DB] sql.js initialized at', sqlJsPath);
@@ -344,6 +350,39 @@ async function migrateSqlJsToMySQL(): Promise<void> {
         d.saved_at,
       ]);
     }
+
+    // R144: Migrate folders
+    try {
+      const folders = sqlJsQuery(oldDb, 'SELECT * FROM folders');
+      for (const f of folders) {
+        await _mysqlRun(
+          'INSERT INTO folders (id, user_id, name, parent_id, type, sort_order, created_at) VALUES (?,?,?,?,?,?,?)',
+          [f.id, f.user_id, f.name, f.parent_id ?? null, f.type, f.sort_order ?? 0, f.created_at],
+        );
+      }
+    } catch { /* folders table may not exist in old DB */ }
+
+    // R144: Migrate refs
+    try {
+      const refs = sqlJsQuery(oldDb, 'SELECT * FROM refs');
+      for (const r of refs) {
+        await _mysqlRun(
+          'INSERT INTO refs (id, source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?,?)',
+          [r.id, r.source_type, r.source_id, r.target_type, r.target_id, r.created_at],
+        );
+      }
+    } catch { /* refs table may not exist in old DB */ }
+
+    // R144: Migrate notes
+    try {
+      const notes = sqlJsQuery(oldDb, 'SELECT * FROM notes');
+      for (const n of notes) {
+        await _mysqlRun(
+          'INSERT INTO notes (id, user_id, content, pinned, source, created_at, title, memo_type, due_date, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [n.id, n.user_id, n.content ?? '', n.pinned ?? 0, n.source ?? 'manual', n.created_at, n.title ?? '', n.memo_type ?? 'note', n.due_date ?? null, n.updated_at ?? n.created_at],
+        );
+      }
+    } catch { /* notes table may not exist in old DB */ }
 
     oldDb.close();
     console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);

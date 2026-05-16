@@ -34,6 +34,11 @@ export function ShortcutSettings() {
   useEffect(() => { load(); }, [load]);
 
   const handleRecord = useCallback((id: string) => {
+    // Clean up previous recording before starting new one
+    if (recordCleanup.current) {
+      recordCleanup.current();
+      recordCleanup.current = null;
+    }
     setEditingId(id);
     const handler = (e: KeyboardEvent) => {
       e.preventDefault();

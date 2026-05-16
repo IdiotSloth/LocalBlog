@@ -8,8 +8,7 @@ folderRouter.use(requireAuth);
 
 folderRouter.get('/tree', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const type = (req.query.type as string) || 'blog';
     const pool = getPool();
 
@@ -32,8 +31,7 @@ folderRouter.get('/tree', async (req: AuthRequest, res) => {
 
 folderRouter.post('/create', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { name, type, parentId } = req.body;
     const trimmed = (name || '').trim();
     if (!trimmed) return res.json({ success: false, error: '文件夹名不能为空' });
@@ -75,8 +73,7 @@ folderRouter.post('/create', async (req: AuthRequest, res) => {
 
 folderRouter.post('/:id/rename', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { name } = req.body;
     const trimmed = (name || '').trim();
     if (!trimmed) return res.json({ success: false, error: '文件夹名不能为空' });
@@ -90,8 +87,7 @@ folderRouter.post('/:id/rename', async (req: AuthRequest, res) => {
 
 folderRouter.post('/:id/delete', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     await pool.execute('DELETE FROM folders WHERE id = ? AND user_id = ?', [req.params.id, userId]);
     return res.json({ success: true });
@@ -102,8 +98,7 @@ folderRouter.post('/:id/delete', async (req: AuthRequest, res) => {
 
 folderRouter.post('/move-item', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { itemType, itemId, folderId } = req.body;
     const pool = getPool();
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';

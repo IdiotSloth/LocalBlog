@@ -248,6 +248,21 @@ export function GuidePage() {
         className="mb-6 rounded-[16px] border p-6 md:p-8"
         style={{ background: 'var(--color-bg-card)', borderColor: 'var(--border-default)' }}
       >
+
+        {/* Architecture Diagram */}
+        <div className="mb-6">
+          <img
+            src="./assets/guide-architecture.svg"
+            alt="Local Blog KB 系统架构图"
+            className="w-full rounded-[8px]"
+            style={{ border: '1px solid var(--border-default)' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <p className="mt-2 text-center text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            ▲ Local Blog KB 系统架构：Electron 桌面壳 + Express Web 服务器 + 双数据库后端 + FTS5 检索引擎
+          </p>
+        </div>
+
         <div className="mb-5 text-center">
           <h2
             className="text-[22px] font-bold"
@@ -384,7 +399,7 @@ export function GuidePage() {
             title="编辑器功能"
             items={[
               'Markdown / 所见即所得双模式切换',
-              'Ctrl+S 保存 + 30 秒自动草稿备份',
+              'Ctrl+S 保存 + 30 秒自动草稿 + 恢复提示',
               '专注模式 — 全屏无干扰沉浸写作',
               '模板系统 — 复用常用文章结构',
               '历史版本回滚 — 随时恢复到之前版本',
@@ -395,14 +410,28 @@ export function GuidePage() {
             icon="🏗️"
             title="组织与发布"
             items={[
-              '标签系统 — 多标签分类 + 点击标签名查看关联',
+              '标签系统 — 多标签分类 + 关联计数面板',
               '系列链 — 设置系列 ID 自动生成上一篇/下一篇',
-              '文件夹拖放 — 将文章拖入文件夹分类管理',
+              '文件夹分类 — 多层嵌套树形结构管理',
               '批量操作 — 多选删除 / 批量打标签',
               '导出 PDF — 打印级质量排版',
               '导出 Word (.docx) — 兼容 MS Office',
             ]}
           />
+        </div>
+
+        {/* Blog Editor Workflow Diagram */}
+        <div className="mb-4">
+          <img
+            src="./assets/guide-blog-editor.svg"
+            alt="博客写作工作流"
+            className="w-full rounded-[8px]"
+            style={{ border: '1px solid var(--border-default)' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <p className="mt-2 text-center text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            ▲ 博客写作流程：编辑 → 整理 → 发布 + 辅助功能
+          </p>
         </div>
 
         {/* Writing mini-flow */}
@@ -561,7 +590,27 @@ export function GuidePage() {
               <li>· 快捷便签 — Enter 保存 · 24h 自动清理</li>
               <li>· MD 浮窗 — Ctrl+Shift+N · 独立写作窗口</li>
               <li>· 剪贴板一键转入便签</li>
-              <li>· 浮窗关闭自动保存为博客草稿</li>
+              <li>· Markdown 富文本渲染，编辑/预览切换</li>
+            </ul>
+          </div>
+          <div
+            className="rounded-[10px] p-5"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[20px]">📑</span>
+              <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                博客标签条
+              </h4>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}>
+                快速切换
+              </span>
+            </div>
+            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--text-secondary)', listStyle: 'none', paddingInlineStart: 0 }}>
+              <li>· 阅读中一键最小化为浮动标签条</li>
+              <li>· 最多同时缩小 5 篇博客</li>
+              <li>· 点击标签即恢复，无缝跳转</li>
+              <li>· 位置记忆 + 标题截断显示</li>
             </ul>
           </div>
           <div
@@ -594,6 +643,20 @@ export function GuidePage() {
         title="全局搜索与回收站"
         subtitle="快速检索所有内容 · 误删 30 天内可恢复"
       >
+        {/* Search System Diagram */}
+        <div className="mb-5">
+          <img
+            src="./assets/guide-search-system.svg"
+            alt="FTS5 全文搜索系统"
+            className="w-full rounded-[8px]"
+            style={{ border: '1px solid var(--border-default)' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <p className="mt-2 text-center text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            ▲ FTS5 搜索系统：MySQL FULLTEXT + Worker 倒排索引双模式，Intl.Segmenter 中文分词 + TF-IDF 相关度排序
+          </p>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <FeatureCard
             icon="🔎"
@@ -601,9 +664,9 @@ export function GuidePage() {
             items={[
               '顶部搜索栏 — 任意页面可用',
               '同时搜索博客标题/内容 + 知识库文件名',
-              'SQL LIKE 中文全文检索',
-              '搜索结果显示博客/知识库分类',
-              '点击结果直接跳转目标页面',
+              'FTS5 全文检索引擎 + Intl.Segmenter 中文分词',
+              'Worker 线程倒排索引，TF-IDF 相关度排序',
+              'MySQL FULLTEXT INDEX 数据库级加速',
             ]}
           />
           <FeatureCard
@@ -655,7 +718,42 @@ export function GuidePage() {
         </TipBox>
       </Section>
 
-      {/* ═══ 8. 备份 ═══ */}
+      {/* ═══ 8. 日历与备忘录 ═══ */}
+      <Section
+        icon="📅"
+        title="日历与备忘录"
+        subtitle="时间管理 + 随手记事，一屏掌控"
+      >
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
+          <FeatureCard
+            icon="📆"
+            title="日历视图"
+            items={[
+              '月视图日历 — 替换传统热力图',
+              '点击日期添加日程（标题+描述+时间）',
+              '有日程的日期显示圆点标记',
+              '日/周/月视图自由切换',
+              '数据持久化存储，重启不丢失',
+            ]}
+          />
+          <FeatureCard
+            icon="📝"
+            title="备忘录"
+            items={[
+              'Markdown 富文本编辑，所见即所得',
+              '笔记/日程/待办三种类型自由切换',
+              '置顶 + 归档 + 搜索 + 标签',
+              '复用便签 IPC 通道，零新依赖',
+              '列表视图 + 详情展开，高效浏览',
+            ]}
+          />
+        </div>
+        <TipBox>
+          日历和备忘录共用 notes 数据表。日程类型会自动在日历视图显示，笔记类型在备忘录列表展示。
+        </TipBox>
+      </Section>
+
+      {/* ═══ 9. 备份 ═══ */}
       <Section
         icon="💾"
         title="数据安全与备份"

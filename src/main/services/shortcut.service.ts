@@ -1,10 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { app } from 'electron';
+import { app, globalShortcut } from 'electron';
 import type { ShortcutDef } from '../../shared/shortcuts';
 import { SHORTCUTS as DEFAULTS } from '../../shared/shortcuts';
 
+/** Action handlers injected by main/index.ts to avoid circular deps with pet.ts */
+type ShortcutActions = Record<string, () => void>;
+let shortcutActions: ShortcutActions = {};
+
 export class ShortcutService {
+  static setActions(actions: ShortcutActions): void {
+    shortcutActions = actions;
+  }
+
   private static filePath(): string {
     return path.join(app.getPath('userData'), 'shortcuts.json');
   }
@@ -35,5 +43,26 @@ export class ShortcutService {
     try {
       if (fs.existsSync(ShortcutService.filePath())) fs.unlinkSync(ShortcutService.filePath());
     } catch { /* best-effort */ }
+  }
+
+  /** Convert user-facing key (Ctrl+N) to Electron accelerator (CommandOrControl+N) */
+  private static toAccelerator(key: string): string {
+    return key.replace(/^Ctrl\+/, 'CommandOrControl+');
+  }
+
+  /** Re-register all global shortcuts from saved config. Idempotent. */
+  static reregisterAll(): void {
+    globalShortcut.unregisterAll();
+    const shortcuts = ShortcutService.load();
+    for (const s of shortcuts) {
+      if (s.group !== 'global') continue;
+      const action = shortcutActions[s.id];
+      if (!action) continue;
+      try {
+        globalShortcut.register(ShortcutService.toAccelerator(s.key), action);
+      } catch {
+        console.error(`[ShortcutService] Failed to register shortcut: ${s.id} → ${s.key}`);
+      }
+    }
   }
 }

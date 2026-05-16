@@ -2,9 +2,11 @@ import type { Tag } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 
 export class TagService {
-  static async listTags(userId: number): Promise<(Tag & { count: number })[]> {
-    return dbAll<Tag & { count: number }>(
+  static async listTags(userId: number): Promise<(Tag & { count: number; blogCount: number; kbCount: number })[]> {
+    return dbAll<Tag & { count: number; blogCount: number; kbCount: number }>(
       `SELECT t.id, t.user_id, t.name, t.description,
+        (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) as blogCount,
+        (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as kbCount,
         (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) +
         (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as count
        FROM tags t WHERE t.user_id = ? ORDER BY t.name ASC`,

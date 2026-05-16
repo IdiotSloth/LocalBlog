@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderTree } from '../../components/common/FolderTree';
 import { TagSelector } from '../../components/common/TagSelector';
@@ -18,36 +18,103 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   other: { label: 'FILE', color: 'var(--text-secondary)' },
 };
 
+/*** R143 — 19 state flags collapsed into 1 useReducer ***/
+
+export interface KnowledgeListState {
+  files: KnowledgeFileWithTags[];
+  total: number;
+  loading: boolean;
+  query: string;
+  fileType: string;
+  filterTagId: number | null;
+  filterTagName: string;
+  filterFolderId: number | null;
+  showFolderSidebar: boolean;
+  editingTagsFileId: number | null;
+  editingTagIds: number[];
+  previewHtml: string;
+  previewTitle: string;
+  previewing: boolean;
+  previewFileId: number | null;
+  previewFileType: string;
+  backRefs: any[];
+  dragOver: boolean;
+  kbFolders: FolderTreeNode[];
+}
+
+export type KnowledgeListAction =
+  | { type: 'SET_FILES'; files: KnowledgeFileWithTags[]; total: number }
+  | { type: 'SET_LOADING'; v: boolean }
+  | { type: 'SET_QUERY'; v: string }
+  | { type: 'SET_FILE_TYPE'; v: string }
+  | { type: 'SET_TAG_FILTER'; id: number | null; name: string }
+  | { type: 'SET_FOLDER_FILTER'; v: number | null }
+  | { type: 'TOGGLE_SIDEBAR'; v: boolean }
+  | { type: 'START_EDIT_TAGS'; fileId: number; tagIds: number[] }
+  | { type: 'STOP_EDIT_TAGS' }
+  | { type: 'SET_EDIT_TAG_IDS'; ids: number[] }
+  | { type: 'PREVIEW_START'; title: string; fileId: number; fileType: string }
+  | { type: 'PREVIEW_LOADING' }
+  | { type: 'PREVIEW_HTML'; html: string }
+  | { type: 'PREVIEW_CLOSE' }
+  | { type: 'SET_BACKREFS'; refs: any[] }
+  | { type: 'SET_DRAG_OVER'; v: boolean }
+  | { type: 'SET_KB_FOLDERS'; v: FolderTreeNode[] };
+
+export function knowledgeListReducer(state: KnowledgeListState, action: KnowledgeListAction): KnowledgeListState {
+  switch (action.type) {
+    case 'SET_FILES': return { ...state, files: action.files, total: action.total };
+    case 'SET_LOADING': return { ...state, loading: action.v };
+    case 'SET_QUERY': return { ...state, query: action.v };
+    case 'SET_FILE_TYPE': return { ...state, fileType: action.v };
+    case 'SET_TAG_FILTER': return { ...state, filterTagId: action.id, filterTagName: action.name };
+    case 'SET_FOLDER_FILTER': return { ...state, filterFolderId: action.v };
+    case 'TOGGLE_SIDEBAR': return { ...state, showFolderSidebar: action.v };
+    case 'START_EDIT_TAGS': return { ...state, editingTagsFileId: action.fileId, editingTagIds: action.tagIds };
+    case 'STOP_EDIT_TAGS': return { ...state, editingTagsFileId: null, editingTagIds: [] };
+    case 'SET_EDIT_TAG_IDS': return { ...state, editingTagIds: action.ids };
+    case 'PREVIEW_START': return { ...state, previewing: true, previewTitle: action.title, previewFileId: action.fileId, previewFileType: action.fileType, backRefs: [], previewHtml: '' };
+    case 'PREVIEW_LOADING': return { ...state, previewing: true };
+    case 'PREVIEW_HTML': return { ...state, previewHtml: action.html, previewing: false };
+    case 'PREVIEW_CLOSE': return { ...state, previewHtml: '', previewTitle: '', previewFileId: null, previewFileType: '', backRefs: [] };
+    case 'SET_BACKREFS': return { ...state, backRefs: action.refs };
+    case 'SET_DRAG_OVER': return { ...state, dragOver: action.v };
+    case 'SET_KB_FOLDERS': return { ...state, kbFolders: action.v };
+    default: return state;
+  }
+}
+
+
 export function KnowledgeListPage() {
   const user = useAuthStore((s) => s.user);
-  const [files, setFiles] = useState<KnowledgeFileWithTags[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  const [fileType, setFileType] = useState('');
-  const [filterTagId, setFilterTagId] = useState<number | null>(null);
-  const [filterTagName, setFilterTagName] = useState('');
-  const [filterFolderId, setFilterFolderId] = useState<number | null>(null);
-  const [showFolderSidebar, setShowFolderSidebar] = useState(
-    () => localStorage.getItem('sidebar_folder_knowledge') === '1',
-  );
-  const [editingTagsFileId, setEditingTagsFileId] = useState<number | null>(null);
-  const [editingTagIds, setEditingTagIds] = useState<number[]>([]);
+  const [state, dispatch] = useReducer(knowledgeListReducer, {
+    files: [],
+    total: 0,
+    loading: true,
+    query: '',
+    fileType: '',
+    filterTagId: null,
+    filterTagName: '',
+    filterFolderId: null,
+    showFolderSidebar: localStorage.getItem('sidebar_folder_knowledge') === '1',
+    editingTagsFileId: null,
+    editingTagIds: [],
+    previewHtml: '',
+    previewTitle: '',
+    previewing: false,
+    previewFileId: null,
+    previewFileType: '',
+    backRefs: [],
+    dragOver: false,
+    kbFolders: [],
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewHtml, setPreviewHtml] = useState('');
-  const [previewTitle, setPreviewTitle] = useState('');
-  const [previewing, setPreviewing] = useState(false);
-  const [previewFileId, setPreviewFileId] = useState<number | null>(null);
-  const [previewFileType, setPreviewFileType] = useState('');
-  const [backRefs, setBackRefs] = useState<any[]>([]); // TODO: define Reference type in shared/types.ts
-  const batch = useBatchSelect(files as { id: number }[]);
-  const pagination = usePagination(20);
-  const [dragOver, setDragOver] = useState(false);
-  const [kbFolders, setKbFolders] = useState<FolderTreeNode[]>([]);
+  const batch = useBatchSelect(state.files as { id: number }[]);
+  const pagination = usePagination(20, state.total);
   const loadKbFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
-    if (r.success && r.data) setKbFolders(r.data);
+    if (r.success && r.data) dispatch({ type: 'SET_KB_FOLDERS', v: r.data });
   }, [user]);
   useEffect(() => {
     loadKbFolders();
@@ -55,7 +122,7 @@ export function KnowledgeListPage() {
 
   const loadFiles = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    dispatch({ type: 'SET_LOADING', v: true });
     try {
       const r = await window.api.kbList({
         userId: user.id,
@@ -75,7 +142,7 @@ export function KnowledgeListPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', v: false });
     }
   }, [user, query, fileType, filterTagId, filterFolderId, pagination.offset, pagination.limit]);
   useEffect(() => {
@@ -137,13 +204,13 @@ export function KnowledgeListPage() {
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOver(true);
+        dispatch({ type: 'SET_DRAG_OVER', v: true });
       }}
-      onDragLeave={() => setDragOver(false)}
+      onDragLeave={() => dispatch({ type: 'SET_DRAG_OVER', v: false })}
       onDrop={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOver(false);
+        dispatch({ type: 'SET_DRAG_OVER', v: false });
         if (!user || !e.dataTransfer.files.length) return;
         const paths: string[] = [];
         for (const file of Array.from(e.dataTransfer.files)) {
@@ -441,7 +508,7 @@ export function KnowledgeListPage() {
                                 const timeout = new Promise<string>((_, reject) =>
                                   setTimeout(() => reject(new Error('TIMEOUT')), 10000),
                                 );
-                                const preview = window.api.kbPreview(f.id).then((r) => r.html || '<p style=color:var(--text-secondary)>无法预览</p>');
+                                const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r: any) => (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>');
                                 const html = await Promise.race([preview, timeout]);
                                 setPreviewHtml(html);
                               } catch (e) {
@@ -563,7 +630,7 @@ export function KnowledgeListPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => window.api.kbOpenExternal(f.id)}
+                            onClick={() => window.api.kbOpenExternal({ fileId: f.id, userId: user.id })}
                             className="mr-2 text-[12px] hover:underline"
                             style={{ color: 'var(--accent-blue)' }}
                           >
@@ -687,7 +754,7 @@ export function KnowledgeListPage() {
                 ref={(el) => {
                   if (el && previewFileId) {
                     const kbId = previewFileId;
-                    window.api.kbGet(kbId).then((r) => {
+                    window.api.kbGet({ fileId: kbId, userId: user.id }).then((r: any) => {
                       if (r.success && r.data?.filePath)
                         el.setAttribute('src', `file:///${r.data.filePath.replace(/\\/g, '/')}`);
                     });

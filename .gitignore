@@ -4,6 +4,10 @@ node_modules/
 # Build output
 release/
 dist/
+dist2/
+
+# Claude worktrees
+.claude/worktrees/
 
 # User data (runtime)
 user-data/

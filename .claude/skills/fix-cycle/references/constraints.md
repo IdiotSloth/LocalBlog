@@ -12,7 +12,8 @@
 | src/main/ | Node.js, Electron APIs, DB | React, DOM |
 | src/renderer/ | React, CSS, DOM | Node.js APIs (fs, path, electron) |
 | src/preload/ | contextBridge only | Business logic |
-| src/shared/ | Types, constants, handlers | Runtime code |
+| src/shared/ | Types, constants, handlers, channels | Runtime code, side effects |
+| src/shared/handlers/ | Pure SQL builder functions (string + params only) | File I/O, DB execution, side effects |
 | src/server/ | Express, MySQL | Electron APIs |
 
 ## Database
@@ -24,6 +25,8 @@
 - **Schema changes**: sync 4 locations: sql.js DDL (`schema.ts`) + MySQL DDL (`db-schema-mysql.ts`) + sql.js migrations (`db/index.ts`) + MySQL migrations (`db-schema-mysql.ts` MYSQL_MIGRATIONS)
 - **T1105 Schema freeze**: No new DB tables or columns. Exceptions require Boss approval (D22 pattern: functional need + migration path + DDL sync)
 - **MySQL LIMIT**: `LIMIT ? OFFSET ?` not supported as prepared params → inline to SQL string
+- **MySQL FULLTEXT INDEX**: Not a schema change (D43=A). Use `ALTER TABLE ... ADD FULLTEXT INDEX` in MYSQL_MIGRATIONS. Column names must match actual table structure.
+- **CRUD convergence**: All SQL strings shared via `src/shared/handlers/*-crud.ts` builder functions. Pattern: `buildXxx(...)` → `{ sql: string, params: any[] }`. Service calls `dbRun(buildBlogCreate(...).sql, buildBlogCreate(...).params)`. Server routes use same builders. D45: builders are pure (SQL + params only), side effects stay in callers.
 
 ## IPC
 - **Channel names**: defined in `src/shared/ipc-channels.ts` only
@@ -44,11 +47,32 @@
 6. `src/main/services/xxx.service.ts` — business logic (if new)
 7. `src/renderer/lib/api-client.ts` — web stub (return `{ success: false, error: '...' }`; events return `() => () => {}`)
 
+## FTS5 / Web Worker
+- **Worker file**: `src/renderer/workers/search.worker.ts` — Vite auto-chunks as `out/renderer/assets/search.worker-*.js`
+- **Tokenizer**: `Intl.Segmenter` (browser API, zero deps) for CJK; whitespace fallback
+- **Scoring**: TF-IDF with title match boost. Results sorted by relevance.
+- **Index cache**: `localStorage` serialized index for warm restart on page load
+- **Dual mode**: MySQL uses `MATCH ... AGAINST` + FULLTEXT INDEX; sql.js uses Worker inverted index
+- **CRUD sync**: Main process sends `EVT_BLOG_REFRESH` / `EVT_KB_REFRESH` after create/update/delete/import → renderer re-indexes
+- **Correlation ID**: Worker messaging MUST use `Map<correlationId, resolve>` — NEVER a single-slot `pendingRef`. Single slot causes race condition: rapid typing overwrites previous resolve → UI permanently stuck in loading
+- **Worker safety**: Must have `self.onerror` + `worker.onerror` + postMessage try-catch. Worker crash without handlers = silent terminal failure, UI loading forever
+- **use-search hook**: `src/renderer/lib/use-search.ts` — detects MySQL vs sql.js, manages Worker lifecycle, exposes `{ search, results, loading, ready }`
+
 ## Server-Side Constraints
-- **user_id isolation**: All write operations (UPDATE/DELETE/INSERT) must include `AND user_id = ?` or ownership check
+- **user_id isolation**: All write operations (UPDATE/DELETE/INSERT) must include `AND user_id = ?` or ownership check. Includes recycle_bin DELETE.
 - **Read operations**: Covered by `requireAuth` middleware (`WHERE user_id = ?`)
 - **File storage**: `server/uploads/{userId}/` — subdirectory per user
 - **File upload**: multer middleware, 10MB limit, type whitelist
+- **blog format preservation**: Server `buildBlogUpdate` must query existing format first — never hardcode `'md'` (R131). HTML blogs get format reset silently otherwise.
+
+## Error Feedback
+- **Main process**: `process.on('uncaughtException')` → `webContents.send(IPC.EVT_APP_ERROR, { message })`
+- **Renderer**: Listen via `onAppError` → render ErrorToast component at App root
+- **Minimal pattern**: Zero file I/O. Don't write log files. Just tell user something went wrong.
+- **Worker errors**: `self.onerror` + `worker.onerror` + try-catch around postMessage. Crash without handlers = UI stuck.
+
+## Audit Protocol
+- **裁决后再修**: Auditor submits findings → Boss issues rulings → Developer fixes. Never skip the ruling step.
 
 ## Frontend
 - **Routing**: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary
@@ -109,3 +133,9 @@
 - **Service method names**: Renaming a method requires full-text search across the entire codebase. Mismatch = runtime bug (R122 pattern)
 - **printToPDF / long operations**: Use `Promise.race([operation, timeout])` to prevent indefinite hang
 - **Route merging**: Use `?mode=edit` + `replace` navigation instead of separate `/xxx/edit` routes. Save scroll ratio before switching.
+- **Server blog update format**: Always query existing format before `buildBlogUpdate` — never hardcode `'md'`. HTML blogs get format reset silently otherwise (R131).
+- **FULLTEXT INDEX columns**: Must match actual table structure. `knowledge_files` is `filename`, not `title` (R130).
+- **Worker correlation ID**: Use `Map<number, resolve>` for search promises, NOT single-slot ref. Rapid typing = race condition = UI stuck (R132).
+- **Worker onerror**: Every Worker must have `self.onerror` + `worker.onerror` + postMessage try-catch. Crash without handlers = silent failure (R133).
+- **buildRestore updated_at**: All restore handlers must set `updated_at = nowMySQL()`. Missing = recovered items sort by deletion time (R134).
+- **Server recycle user_id**: recycle_bin DELETE must include `AND user_id = ?`. Otherwise user A can delete user B's entries (R135).

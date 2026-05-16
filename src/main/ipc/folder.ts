@@ -43,6 +43,18 @@ export function registerFolderHandlers(): void {
   });
 
   ipcMain.handle(
+    IPC.FOLDER_MOVE,
+    async (_event, data: { userId: number; folderId: number; newParentId: number | null }) => {
+      try {
+        await FolderService.moveFolder(data.userId, data.folderId, data.newParentId);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(
     IPC.FOLDER_MOVE_ITEM,
     async (_event, data: { userId: number; itemType: string; itemId: number; folderId: number | null }) => {
       try {

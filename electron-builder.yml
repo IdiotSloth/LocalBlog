@@ -2,7 +2,7 @@ appId: com.localblogkb.app
 productName: Idiot
 artifactName: Idiot_SetUp.exe
 directories:
-  output: dist
+  output: dist2
   buildResources: img
 files:
   - out/**/*
@@ -26,5 +26,7 @@ publish:
 extraResources:
   - from: scripts/launcher.bat
     to: launcher.bat
+  - from: img/
+    to: img/
 electronDist: node_modules/electron/dist
 npmRebuild: false

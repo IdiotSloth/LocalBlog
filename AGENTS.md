@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code、Codex、Cline 等 AI 工具读取。
-> 最后更新：2026-05-14 (Phase 17 立案)
+> 最后更新：2026-05-16 (Phase 19 结项)
 
 ---
 
@@ -12,7 +12,7 @@
 │                    Electron 41 桌面壳                  │
 │  ┌──────────┐   contextBridge    ┌──────────────────┐ │
 │  │ 主进程    │◄─────IPC───────►│ 渲染进程 (React 19) │ │
-│  │ Node.js  │  91 个通道      │ Vite 7 + Tailwind │ │
+│  │ Node.js  │  112 个通道     │ Vite 7 + Tailwind │ │
 │  └────┬─────┘                   └────────┬─────────┘ │
 │       │                                  │            │
 │       │  ┌────────────────────┐          │            │
@@ -226,7 +226,7 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 
 1. **`paths.ts` 的函数现在是 async** — `getWorkspacePath()`, `getBlogsDir()`, `getBlogPath()` 都需要 `await`
 2. **MySQL 不支持** `LIMIT ? OFFSET ?` 预处理参数 — 必须内联到 SQL 字符串
-3. **搜索使用 SQL LIKE** — 全文搜索 (FTS5) 尚未实现
+3. **搜索使用 FTS5** — 全文搜索已实现：sql.js 模式用 Worker 倒排索引 (Intl.Segmenter + TF-IDF)，MySQL 模式用 FULLTEXT INDEX + MATCH AGAINST
 4. **内容双存储**：桌面端写文件 + DB，Web 端仅 DB — `getBlog()` 优先读文件，再回退 DB
 5. **`blog_drafts`** 同时作草稿历史 + Web 端内容存储
 6. **Drizzle ORM 配置指向 SQLite** — MySQL 版本未使用 ORM
@@ -248,16 +248,16 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 
 ---
 
-## 当前状态 (2026-05-14)
+## 当前状态 (2026-05-16)
 
-- **Phase 1-18**: ✅ 全部完成 (~441.5h)
-  - Phase 18 7/7：FTS5 Worker 倒排索引 + CRUD 双写收敛 (shared handlers) + 错误反馈通道 + Service 测试 49/49 + UX 收尾
-  - Phase 17 9/9：Web Tiptap/系列交互/超链接安全/单实例/安装包/Service user_id 隔离/类型收敛
-  - `noUncheckedIndexedAccess` 永久启用。renderer `: any` 14→5。IPC 95→99。
-- **审查修复**: 累计 ~109 项修复 (F01-F109+), 141 个工单 (R01-R141), 45 个决策点 (D01-D45)
-- **当前待修复**: 🔴0 🟠0 🟡0 🟢7 — Phase 11 以来首次 P0+P1+P2 全零
-- **已知缺口**: 嵌套文件夹 (延 Phase 19)、组件状态收敛 (延 Phase 19)、键盘可访问性 (延 Phase 19)
-- **构建状态**: ✅ 测试 49/49 pass | E2E 11/11 pass | tsc 零错误
+- **Phase 1-19**: ✅ 全部完成
+  - Phase 19 19/19：搜索修复/时间线/全局快捷键/安装包图片/批量限制/日历备忘录/缩小化切换/指南配图/组件收敛/嵌套文件夹/键盘访问/WindowApi类型化/redo全清/服务测试87/标签面板/自动保存/浏览记录/字数统计/便签增强
+  - Phase 18 7/7：FTS5 Worker 倒排索引 + CRUD 双写收敛 + 错误反馈 + 测试 49/49 + UX 收尾
+  - `noUncheckedIndexedAccess` 永久启用。renderer `: any` 11。`as any` renderer=0。IPC 112。
+- **审查修复**: 累计 ~130 项修复 (F01-F130+), 157 个工单 (R01-R157), 50 个决策点 (D01-D50)
+- **当前待修复**: 🔴0 🟠0 🟡0 🟢0 — Phase 11 以来首次 P0+P1+P2+P3 全零
+- **已知缺口**: 国际化 i18n (D18=C 否决)
+- **构建状态**: ✅ 测试 87/87 pass (12 files) | E2E 11/11 pass | tsc 零错误
 
 ---
 

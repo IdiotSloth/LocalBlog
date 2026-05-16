@@ -88,13 +88,13 @@ export class SearchService {
    * When MySQL: performs MATCH ... AGAINST queries on blogs and knowledge_files.
    * When sql.js: returns all active blogs + knowledge files for the Worker to index.
    */
-  static async searchAll(query: string, userId: number): Promise<FtsSearchResult[]> {
+  static async searchAll(query: string, userId: number): Promise<FtsSearchResult[] | null> {
     if (isUsingMySQL()) {
       return SearchService.mysqlFulltextSearch(query, userId);
     }
-    // sql.js mode: Server has no index; returns empty — Worker handles search in renderer.
-    // The renderer should request indexable documents separately via getIndexableDocuments.
-    return [];
+    // sql.js mode: Worker handles search in renderer. Return null so the
+    // renderer can distinguish "not MySQL" from "MySQL returned empty results".
+    return null;
   }
 
   /**

@@ -83,6 +83,7 @@ export const IPC = {
   FOLDER_RENAME: 'folder:rename',
   FOLDER_DELETE: 'folder:delete',
   FOLDER_MOVE_ITEM: 'folder:move-item',
+  FOLDER_MOVE: 'folder:move',
 
   // Web Scraping
   SCRAPE_WEBPAGE: 'scrape:webpage',
@@ -145,6 +146,14 @@ export const IPC = {
   APP_GET_AUTO_START: 'app:get-auto-start',
   APP_CREATE_START_MENU_SHORTCUT: 'app:create-start-menu-shortcut',
   APP_HAS_START_MENU_SHORTCUT: 'app:has-start-menu-shortcut',
+
+  // Pet
+  PET_SCRAPE: 'pet:scrape',
+  PET_SCRAPE_IMPORT: 'pet:scrape-import',
+  PET_START_DRAG: 'pet:startDrag',
+  PET_STOP_DRAG: 'pet:stopDrag',
+  PET_SAVE_POSITION: 'pet:savePosition',
+  PET_CLICK: 'pet:click',
 
   // Events (main → renderer via webContents.send)
   EVT_TRAY_ACTION: 'tray-action',

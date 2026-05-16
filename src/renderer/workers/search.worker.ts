@@ -50,15 +50,25 @@ let totalDocs = 0;
 
 // ---- Tokenizer ----
 
+/** Strip HTML tags and entities before tokenization to avoid indexing markup. */
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/&#\d+;/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
 function tokenize(text: string): string[] {
+  const clean = stripHtml(text);
   try {
     const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
-    return Array.from(segmenter.segment(text))
+    return Array.from(segmenter.segment(clean))
       .filter((s) => s.isWordLike)
       .map((s) => s.segment.toLowerCase());
   } catch {
     // Fallback: whitespace splitting for non-CJK or older engines
-    return text.toLowerCase().split(/[\s,.;:!?()\[\]{}""''「」、，。；：！？（）【】《》""''‘’]+/).filter(Boolean);
+    return clean.toLowerCase().split(/[\s,.;:!?()\[\]{}""''「」、，。；：！？（）【】《》""''‘’]+/).filter(Boolean);
   }
 }
 

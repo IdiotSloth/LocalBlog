@@ -25,8 +25,7 @@ blogRouter.use(requireAuth);
 
 blogRouter.get('/list', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const dbAll = (sql: string, params: unknown[]) => pool.execute(sql, params).then(([rows]) => rows as any[]);
     const dbGet = (sql: string, params: unknown[]) => pool.execute(sql, params).then(([rows]) => (rows as any[])[0]);
@@ -50,8 +49,7 @@ blogRouter.get('/list', async (req: AuthRequest, res) => {
 
 blogRouter.get('/:id', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql, params } = buildBlogSelectByUser(Number(req.params.id), userId);
     const [rows] = (await pool.execute(sql, params)) as any[];
@@ -69,8 +67,7 @@ blogRouter.get('/:id', async (req: AuthRequest, res) => {
 
 blogRouter.post('/create', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const parsed = blogCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.json({ success: false, error: parsed.error.issues[0]?.message || '参数错误' });
     const { title, format, content } = parsed.data;
@@ -100,8 +97,7 @@ blogRouter.post('/create', async (req: AuthRequest, res) => {
 
 blogRouter.post('/:id/update', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const bp = blogUpdateSchema.safeParse(req.body);
     if (!bp.success) return res.json({ success: false, error: bp.error.issues[0]?.message || '参数错误' });
     const { title, content } = bp.data;
@@ -136,7 +132,8 @@ blogRouter.post('/:id/update', async (req: AuthRequest, res) => {
 
     // Also save content to drafts for history
     if (content !== undefined) {
-      await pool.execute('INSERT INTO blog_drafts (blog_id, content) VALUES (?, ?)', [req.params.id, content]);
+      const { sql: draftSql, params: draftParams } = buildBlogDraftInsert(Number(req.params.id), content);
+      await pool.execute(draftSql, draftParams);
     }
 
     return res.json({ success: true });
@@ -147,8 +144,7 @@ blogRouter.post('/:id/update', async (req: AuthRequest, res) => {
 
 blogRouter.post('/:id/delete', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql: checkSql, params: checkParams } = buildBlogSelectByUser(Number(req.params.id), userId);
     const [[blog]] = (await pool.execute(checkSql, checkParams)) as any[];
@@ -166,8 +162,7 @@ blogRouter.post('/:id/delete', async (req: AuthRequest, res) => {
 
 blogRouter.post('/:id/restore', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql, params } = buildBlogRestore(Number(req.params.id), userId);
     await pool.execute(sql, params);
@@ -181,8 +176,7 @@ blogRouter.post('/:id/restore', async (req: AuthRequest, res) => {
 
 blogRouter.post('/import-md', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { filePaths = [], contents = [] } = req.body;
     const items = contents.length > 0 ? contents : filePaths;
     if (!items.length) return res.json({ success: false, error: '请提供文件路径或内容' });
@@ -203,8 +197,7 @@ blogRouter.post('/import-md', async (req: AuthRequest, res) => {
 
 blogRouter.post('/save-draft', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { blogId, content } = req.body;
     const pool = getPool();
     // Verify blog ownership
@@ -221,8 +214,7 @@ blogRouter.post('/save-draft', async (req: AuthRequest, res) => {
 
 blogRouter.get('/:id/history', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql, params } = buildBlogHistorySelectByUser(Number(req.params.id), userId);
     const [rows] = (await pool.execute(sql, params)) as any[];
@@ -234,8 +226,7 @@ blogRouter.get('/:id/history', async (req: AuthRequest, res) => {
 
 blogRouter.post('/:id/rollback', async (req: AuthRequest, res) => {
   try {
-    const uid = req.userId;
-    if (!uid) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const { draftId } = req.body;
     const pool = getPool();
     const { sql, params } = buildBlogDraftSelect(Number(draftId), Number(req.params.id));
@@ -256,8 +247,7 @@ blogRouter.post('/:id/rollback', async (req: AuthRequest, res) => {
 
 blogRouter.post('/:id/tags', async (req: AuthRequest, res) => {
   try {
-    const uid = req.userId;
-    if (!uid) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const { tagIds } = req.body;
     const pool = getPool();
     // Verify blog ownership

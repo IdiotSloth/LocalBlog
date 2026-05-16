@@ -142,6 +142,11 @@ export function BlogEditorPage() {
   contentRef.current = state.content;
   const draftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // T1916: Draft restore and auto-save indicator
+  const [restoreDraft, setRestoreDraft] = useState<{ content: string; savedAt: string } | null>(null);
+  const [draftSavedIndicator, setDraftSavedIndicator] = useState(false);
+  const draftIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       dispatch({ type: 'SET_TITLE', payload: e.target.value });
@@ -216,6 +221,17 @@ export function BlogEditorPage() {
     window.api.blogSeriesList(user.id).then((r) => {
       if (r.success && r.data) dispatch({ type: 'SET_SERIES_LIST', payload: r.data });
     });
+    // Check for recent draft to offer restore
+    if (Number(id)) {
+      window.api.blogGetHistory(Number(id)).then((r) => {
+        if (r.success && r.data && r.data.length > 0) {
+          const latest = r.data[0] as { content: string; saved_at: string };
+          if (latest?.saved_at) {
+            setRestoreDraft({ content: latest.content, savedAt: latest.saved_at });
+          }
+        }
+      }).catch(() => { /* draft check best-effort */ });
+    }
   }, [id, user]);
 
   const saveTags = useCallback(async (blogId: number, tagIds: number[]) => {
@@ -237,13 +253,21 @@ export function BlogEditorPage() {
     },
     [saveTags],
   );
+  // T1916: Auto-save draft every 30 seconds
   useEffect(() => {
     draftTimerRef.current = setInterval(() => {
-      if (contentRef.current && blogIdRef.current)
-        window.api.blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current });
+      if (contentRef.current && blogIdRef.current) {
+        window.api.blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current }).then(() => {
+          // Show subtle draft saved indicator
+          setDraftSavedIndicator(true);
+          if (draftIndicatorTimer.current) clearTimeout(draftIndicatorTimer.current);
+          draftIndicatorTimer.current = setTimeout(() => setDraftSavedIndicator(false), 2000);
+        }).catch(() => { /* auto-save failure is non-critical */ });
+      }
     }, 30000);
     return () => {
       if (draftTimerRef.current) clearInterval(draftTimerRef.current);
+      if (draftIndicatorTimer.current) clearTimeout(draftIndicatorTimer.current);
     };
   }, []);
 
@@ -275,6 +299,7 @@ export function BlogEditorPage() {
           const pt = state.pendingTagIds;
           dispatch({ type: 'SET_PENDING_TAGS', payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
+          setRestoreDraft(null);
           navigate(`/blog/${r.data.id}`, { replace: true });
         } else {
           dispatch({ type: 'SET_ERROR', payload: r.error || '创建失败' });
@@ -294,6 +319,7 @@ export function BlogEditorPage() {
           toast(r.error || '保存失败', 'error');
         } else {
           dispatch({ type: 'SET_DIRTY', payload: false });
+          setRestoreDraft(null);
         }
       }
     } catch (e) {
@@ -420,6 +446,35 @@ export function BlogEditorPage() {
             {state.error}
           </div>
         )}
+        {/* T1916: Draft restore prompt */}
+        {restoreDraft && (
+          <div
+            className="mb-3 flex items-center gap-3 rounded-[4px] border px-4 py-2.5 text-[13px]"
+            style={{ borderColor: 'var(--accent-amber)', background: 'rgba(211,153,34,0.08)', color: 'var(--accent-amber)' }}
+          >
+            <span>📝 检测到未保存的草稿 ({new Date(restoreDraft.savedAt).toLocaleString('zh-CN')})</span>
+            <button
+              type="button"
+              onClick={() => {
+                dispatch({ type: 'SET_CONTENT', payload: restoreDraft.content });
+                setRestoreDraft(null);
+                toast('已恢复草稿', 'success');
+              }}
+              className="ml-auto rounded-[3px] px-3 py-0.5 text-[12px] font-medium"
+              style={{ background: 'var(--accent-amber)', color: '#fff' }}
+            >
+              恢复
+            </button>
+            <button
+              type="button"
+              onClick={() => setRestoreDraft(null)}
+              className="text-[12px] hover:underline"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              忽略
+            </button>
+          </div>
+        )}
         <div className="flex-1">
           <TiptapEditor content={state.content} onChange={handleContentChange} />
         </div>
@@ -522,7 +577,14 @@ export function BlogEditorPage() {
         )}
         <div className="mt-2 flex justify-between text-[12px]" style={{ color: 'var(--text-secondary)' }}>
           <span>{isNew ? '新建博客' : '编辑模式'}</span>
-          <span>Ctrl+S 保存</span>
+          <span className="flex items-center gap-3">
+            {draftSavedIndicator && (
+              <span style={{ color: 'var(--accent-green)' }}>草稿已保存</span>
+            )}
+            <span title="字数">{countChars(state.content)} 字</span>
+            <span title="预计阅读时间">~{estimateReadingTime(state.content)} 分钟</span>
+            <span>Ctrl+S 保存</span>
+          </span>
         </div>
       </div>
       {state.focusMode && (

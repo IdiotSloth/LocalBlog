@@ -72,6 +72,10 @@ export class FolderService {
     await dbRun('DELETE FROM folders WHERE id = ? AND user_id = ?', [folderId, userId]);
   }
 
+  static async moveFolder(userId: number, folderId: number, newParentId: number | null): Promise<void> {
+    await dbRun('UPDATE folders SET parent_id = ? WHERE id = ? AND user_id = ?', [newParentId, folderId, userId]);
+  }
+
   static async moveToFolder(
     userId: number,
     itemType: 'blog' | 'knowledge_file',

@@ -105,7 +105,11 @@ CREATE TABLE IF NOT EXISTS notes (
   content TEXT NOT NULL,
   pinned INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'manual',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  title TEXT NOT NULL DEFAULT '',
+  memo_type TEXT NOT NULL DEFAULT 'note' CHECK(memo_type IN ('note', 'schedule', 'todo')),
+  due_date TEXT DEFAULT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Performance indexes

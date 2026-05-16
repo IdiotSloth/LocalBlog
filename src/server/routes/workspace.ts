@@ -7,8 +7,7 @@ workspaceRouter.use(requireAuth);
 
 workspaceRouter.get('/info', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
 
     const [[{ blogCount }]] = (await pool.execute(

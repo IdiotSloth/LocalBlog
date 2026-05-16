@@ -18,7 +18,7 @@ import {
   buildRecycleInsert,
   mapBlogRow,
 } from '../../shared/handlers/blog-crud';
-import type { Blog, BlogFormat, BlogWithTags, ItemStatus, Tag } from '../../shared/types';
+import type { Blog, BlogFormat, BlogWithTags, DraftItem, ItemStatus, Tag } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 import { getBlogAssetsDir, getBlogPath, getBlogsDir, initWorkspaceDirectories } from '../utils/paths';
 import { TagService } from './tag.service';
@@ -200,9 +200,19 @@ export class BlogService {
     await dbRun(draftSql, draftParams);
   }
 
-  static async getHistory(blogId: number): Promise<DraftRow[]> {
+  static async getHistory(blogId: number): Promise<DraftItem[]> {
     const { sql, params } = buildBlogHistorySelect(blogId);
-    return dbAll<DraftRow>(sql, params);
+    const rows = await dbAll<DraftRow>(sql, params);
+    // Resolve blog title for the DraftItem type
+    const blogQuery = await dbGet<{ title: string }>('SELECT title FROM blogs WHERE id = ?', [blogId]);
+    const blogTitle = blogQuery?.title || '';
+    return rows.map((r) => ({
+      id: r.id,
+      blogId: r.blog_id,
+      blogTitle,
+      content: r.content,
+      savedAt: r.saved_at,
+    }));
   }
 
   static async rollback(userId: number, blogId: number, draftId: number): Promise<void> {
@@ -253,12 +263,13 @@ export class BlogService {
   }
 
   static async deleteAttachment(blogId: number, filename: string): Promise<void> {
+    const safeName = BlogService.validateFilename(filename);
     const { sql, params } = buildBlogSelect(blogId);
     const blog = await dbGet<BlogRow>(sql, params);
     if (!blog) throw new Error('博客不存在');
 
     const assetsDir = await getBlogAssetsDir(blog.user_id, blogId);
-    const filePath = path.join(assetsDir, filename);
+    const filePath = path.join(assetsDir, safeName);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 
@@ -272,6 +283,13 @@ export class BlogService {
       }
     }
     return cleaned;
+  }
+
+  private static validateFilename(name: string): string {
+    const sanitized = path.basename(name); // strips any path components
+    if (!sanitized || sanitized === '.' || sanitized === '..') throw new Error('Invalid filename');
+    if (sanitized.includes('\0')) throw new Error('Invalid filename');
+    return sanitized;
   }
 
   private static async getBlogContent(blog: BlogRow): Promise<string> {

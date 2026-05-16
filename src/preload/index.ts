@@ -45,13 +45,13 @@ const api: WindowApi = {
 
   // Knowledge Base
   kbList: (filters) => ipcRenderer.invoke(IPC.KB_LIST, filters),
-  kbGet: (fileId) => ipcRenderer.invoke(IPC.KB_GET, fileId),
+  kbGet: (data) => ipcRenderer.invoke(IPC.KB_GET, data),
   kbImport: (data) => ipcRenderer.invoke(IPC.KB_IMPORT, data),
   kbDelete: (data) => ipcRenderer.invoke(IPC.KB_DELETE, data),
   kbRestore: (data) => ipcRenderer.invoke(IPC.KB_RESTORE, data),
   kbRename: (data) => ipcRenderer.invoke(IPC.KB_RENAME, data),
-  kbPreview: (fileId) => ipcRenderer.invoke(IPC.KB_PREVIEW, fileId),
-  kbOpenExternal: (fileId) => ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, fileId),
+  kbPreview: (data) => ipcRenderer.invoke(IPC.KB_PREVIEW, data),
+  kbOpenExternal: (data) => ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
 
   // Search
@@ -88,6 +88,7 @@ const api: WindowApi = {
   folderRename: (data) => ipcRenderer.invoke(IPC.FOLDER_RENAME, data),
   folderDelete: (data) => ipcRenderer.invoke(IPC.FOLDER_DELETE, data),
   folderMoveItem: (data) => ipcRenderer.invoke(IPC.FOLDER_MOVE_ITEM, data),
+  folderMove: (data) => ipcRenderer.invoke(IPC.FOLDER_MOVE, data),
 
   // Web Scraping
   scrapeWebpage: (url) => ipcRenderer.invoke(IPC.SCRAPE_WEBPAGE, url),
@@ -157,7 +158,7 @@ const api: WindowApi = {
   },
 
   // Notes
-  noteList: (userId) => ipcRenderer.invoke(IPC.NOTE_LIST, userId),
+  noteList: (userId, memoType) => ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType),
   noteCreate: (data) => ipcRenderer.invoke(IPC.NOTE_CREATE, data),
   noteDelete: (data) => ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => ipcRenderer.invoke(IPC.NOTE_PIN, data),

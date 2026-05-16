@@ -129,6 +129,12 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 /* Selection */
 ::selection {
   background: rgba(88, 166, 255, 0.2);

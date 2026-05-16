@@ -33,9 +33,9 @@ export function registerKnowledgeHandlers(): void {
       }
     },
   );
-  ipcMain.handle(IPC.KB_GET, async (_event, fileId: number) => {
+  ipcMain.handle(IPC.KB_GET, async (_event, data: { fileId: number; userId: number }) => {
     try {
-      const f = await KnowledgeService.getFile(fileId);
+      const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: '文件不存在' };
       return { success: true, data: f };
     } catch (err) {
@@ -80,16 +80,16 @@ export function registerKnowledgeHandlers(): void {
       return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.KB_PREVIEW, async (_event, fileId: number) => {
+  ipcMain.handle(IPC.KB_PREVIEW, async (_event, data: { fileId: number; userId: number }) => {
     try {
-      return await PreviewService.generatePreview(fileId);
+      return await PreviewService.generatePreview(data.fileId, data.userId);
     } catch (err) {
-      return { error: (err as Error).message };
+      return { success: false, error: (err as Error).message };
     }
   });
-  ipcMain.handle(IPC.KB_OPEN_EXTERNAL, async (_event, fileId: number) => {
+  ipcMain.handle(IPC.KB_OPEN_EXTERNAL, async (_event, data: { fileId: number; userId: number }) => {
     try {
-      const f = await KnowledgeService.getFile(fileId);
+      const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: '文件不存在' };
       await PreviewService.openExternal(f.filePath);
       return { success: true };

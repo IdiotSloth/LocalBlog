@@ -117,8 +117,10 @@ export class KnowledgeService {
     );
   }
 
-  static async getFile(fileId: number): Promise<KnowledgeFileWithTags | null> {
-    const { sql, params } = buildKnowledgeSelect(fileId);
+  static async getFile(fileId: number, userId?: number): Promise<KnowledgeFileWithTags | null> {
+    const { sql, params } = userId
+      ? buildKnowledgeSelectByUser(fileId, userId)
+      : buildKnowledgeSelect(fileId);
     const row = await dbGet<KbFileRow>(sql, params);
     if (!row) return null;
     return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
@@ -145,12 +147,20 @@ export class KnowledgeService {
     await dbRun(recycleSql, recycleParams);
   }
 
+  private static validateFilename(name: string): string {
+    const sanitized = path.basename(name); // strips any path components
+    if (!sanitized || sanitized === '.' || sanitized === '..') throw new Error('Invalid filename');
+    if (sanitized.includes('\0')) throw new Error('Invalid filename');
+    return sanitized;
+  }
+
   static async renameFile(userId: number, fileId: number, nf: string): Promise<void> {
     const { sql, params } = buildKnowledgeSelect(fileId);
     const row = await dbGet<KbFileRow>(sql, params);
     if (!row) throw new Error('文件不存在');
     if (!nf.trim()) throw new Error('文件名不能为空');
-    const np = path.join(path.dirname(row.file_path), nf);
+    const safeName = KnowledgeService.validateFilename(nf);
+    const np = path.join(path.dirname(row.file_path), safeName);
     if (fs.existsSync(row.file_path)) fs.renameSync(row.file_path, np);
     const { sql: renameSql, params: renameParams } = buildKnowledgeRename(fileId, userId, nf, np);
     await dbRun(renameSql, renameParams);

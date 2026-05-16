@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24"/>
+    </marker>
+    <marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa"/>
+    </marker>
+  </defs>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+    text { font-family: 'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', monospace; }
+  </style>
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <text x="35" y="32" fill="#e2e8f0" font-size="16" font-weight="700">FTS5 全文搜索系统</text>
+  <text x="35" y="50" fill="#64748b" font-size="10">双模式并行 — MySQL FULLTEXT + Worker 倒排索引</text>
+
+  <!-- === Mode Selector === -->
+  <rect x="280" y="72" width="340" height="36" rx="6" fill="#0f172a"/>
+  <rect x="280" y="72" width="340" height="36" rx="6" fill="rgba(59,130,246,0.15)" stroke="#60a5fa" stroke-width="1.2"/>
+  <text x="450" y="95" fill="#60a5fa" font-size="11" font-weight="600" text-anchor="middle">useSearch() — Dual Mode Detection</text>
+
+  <!-- Left branch: MySQL -->
+  <path d="M 380 108 L 240 140" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+  <text x="280" y="126" fill="#a78bfa" font-size="8">isUsingMySQL()</text>
+
+  <rect x="30" y="145" width="400" height="130" rx="8" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="6,3" stroke-opacity="0.3"/>
+  <text x="48" y="162" fill="#a78bfa" font-size="9" font-weight="600">MySQL 模式</text>
+
+  <g transform="translate(50, 175)">
+    <rect x="0" y="0" width="170" height="45" rx="6" fill="#0f172a"/>
+    <rect x="0" y="0" width="170" height="45" rx="6" fill="rgba(76,29,149,0.25)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="85" y="18" fill="#a78bfa" font-size="9" font-weight="600" text-anchor="middle">MATCH ... AGAINST</text>
+    <text x="85" y="34" fill="#64748b" font-size="7" text-anchor="middle">Natural Language Mode</text>
+  </g>
+  <path d="M 220 197 L 240 197" fill="none" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#arrow-violet)"/>
+
+  <g transform="translate(245, 175)">
+    <rect x="0" y="0" width="170" height="45" rx="6" fill="#0f172a"/>
+    <rect x="0" y="0" width="170" height="45" rx="6" fill="rgba(76,29,149,0.2)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="85" y="18" fill="#e2e8f0" font-size="9" font-weight="500" text-anchor="middle">FULLTEXT INDEX</text>
+    <text x="85" y="34" fill="#64748b" font-size="7" text-anchor="middle">blogs(title,content)</text>
+  </g>
+
+  <g transform="translate(130, 235)">
+    <rect x="0" y="0" width="210" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="210" height="28" rx="4" fill="rgba(76,29,149,0.1)" stroke="#a78bfa" stroke-width="0.8" stroke-dasharray="3,3"/>
+    <text x="105" y="18" fill="#64748b" font-size="7" text-anchor="middle">Fallback: LIKE search</text>
+  </g>
+
+  <!-- Right branch: sql.js Worker -->
+  <path d="M 520 108 L 640 140" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="580" y="126" fill="#34d399" font-size="8">sql.js</text>
+
+  <rect x="470" y="145" width="410" height="185" rx="8" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="6,3" stroke-opacity="0.3"/>
+  <text x="488" y="162" fill="#34d399" font-size="9" font-weight="600">sql.js 模式 — Web Worker 倒排索引</text>
+
+  <!-- Step 1: Documents -->
+  <g transform="translate(490, 178)">
+    <rect x="0" y="0" width="170" height="38" rx="6" fill="#0f172a"/>
+    <rect x="0" y="0" width="170" height="38" rx="6" fill="rgba(6,78,59,0.2)" stroke="#34d399" stroke-width="0.8"/>
+    <text x="85" y="16" fill="#34d399" font-size="8" font-weight="500" text-anchor="middle">📄 获取可索引文档</text>
+    <text x="85" y="30" fill="#64748b" font-size="7" text-anchor="middle">getIndexableDocuments()</text>
+  </g>
+  <path d="M 660 197 L 680 197" fill="none" stroke="#34d399" stroke-width="1" marker-end="url(#arrow-green)"/>
+
+  <!-- Step 2: Tokenize -->
+  <g transform="translate(685, 178)">
+    <rect x="0" y="0" width="180" height="38" rx="6" fill="#0f172a"/>
+    <rect x="0" y="0" width="180" height="38" rx="6" fill="rgba(6,78,59,0.2)" stroke="#34d399" stroke-width="0.8"/>
+    <text x="90" y="16" fill="#34d399" font-size="8" font-weight="500" text-anchor="middle">🔤 Intl.Segmenter 分词</text>
+    <text x="90" y="30" fill="#64748b" font-size="7" text-anchor="middle">CJK word · HTML strip</text>
+  </g>
+
+  <!-- Step 3: Build Index -->
+  <path d="M 580 216 L 580 248" fill="none" stroke="#34d399" stroke-width="1" marker-end="url(#arrow-green)"/>
+
+  <g transform="translate(490, 253)">
+    <rect x="0" y="0" width="370" height="38" rx="6" fill="#0f172a"/>
+    <rect x="0" y="0" width="370" height="38" rx="6" fill="rgba(6,78,59,0.25)" stroke="#34d399" stroke-width="1"/>
+    <text x="185" y="16" fill="#34d399" font-size="9" font-weight="600" text-anchor="middle">📊 倒排索引 (Inverted Index)</text>
+    <text x="185" y="30" fill="#64748b" font-size="7" text-anchor="middle">Term → [{docId, docType, title, tf}]  ·  Map&lt;correlationId, resolve&gt;</text>
+  </g>
+
+  <g transform="translate(560, 300)">
+    <rect x="0" y="0" width="230" height="22" rx="4" fill="rgba(251,146,60,0.1)" stroke="#fb923c" stroke-width="0.8" stroke-dasharray="3,3"/>
+    <text x="115" y="15" fill="#fb923c" font-size="7" text-anchor="middle">localStorage cache · warm restart</text>
+  </g>
+
+  <!-- === Search Flow === -->
+  <rect x="30" y="355" width="850" height="75" rx="8" fill="#0f172a"/>
+  <rect x="30" y="355" width="850" height="75" rx="8" fill="rgba(251,146,60,0.08)" stroke="#fb923c" stroke-width="1"/>
+  <text x="455" y="375" fill="#fb923c" font-size="11" font-weight="600" text-anchor="middle">🔍 搜索执行流程</text>
+
+  <g transform="translate(60, 390)">
+    <rect x="0" y="0" width="145" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="145" height="28" rx="4" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="0.8"/>
+    <text x="72" y="18" fill="#22d3ee" font-size="8" font-weight="500" text-anchor="middle">用户输入关键词</text>
+  </g>
+  <text x="213" y="408" fill="#64748b" font-size="10">→</text>
+
+  <g transform="translate(230, 390)">
+    <rect x="0" y="0" width="145" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="145" height="28" rx="4" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="0.8"/>
+    <text x="72" y="18" fill="#22d3ee" font-size="8" font-weight="500" text-anchor="middle">query.trim() ≥ 2 字符</text>
+  </g>
+  <text x="383" y="408" fill="#64748b" font-size="10">→</text>
+
+  <g transform="translate(400, 390)">
+    <rect x="0" y="0" width="160" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="160" height="28" rx="4" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="0.8"/>
+    <text x="80" y="18" fill="#34d399" font-size="8" font-weight="500" text-anchor="middle">TF-IDF 相关度计算</text>
+  </g>
+  <text x="568" y="408" fill="#64748b" font-size="10">→</text>
+
+  <g transform="translate(585, 390)">
+    <rect x="0" y="0" width="130" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="130" height="28" rx="4" fill="rgba(251,191,36,0.15)" stroke="#fbbf24" stroke-width="0.8"/>
+    <text x="65" y="18" fill="#fbbf24" font-size="8" font-weight="500" text-anchor="middle">标题匹配 Boost ×2</text>
+  </g>
+  <text x="723" y="408" fill="#64748b" font-size="10">→</text>
+
+  <g transform="translate(740, 390)">
+    <rect x="0" y="0" width="120" height="28" rx="4" fill="#0f172a"/>
+    <rect x="0" y="0" width="120" height="28" rx="4" fill="rgba(248,113,113,0.15)" stroke="#fb7185" stroke-width="0.8"/>
+    <text x="60" y="18" fill="#fb7185" font-size="8" font-weight="500" text-anchor="middle">排序 → Top 20</text>
+  </g>
+
+  <!-- CRUD Sync -->
+  <rect x="30" y="450" width="850" height="55" rx="6" fill="#0f172a"/>
+  <rect x="30" y="450" width="850" height="55" rx="6" fill="rgba(59,130,246,0.08)" stroke="#60a5fa" stroke-width="0.8"/>
+  <text x="455" y="470" fill="#60a5fa" font-size="9" font-weight="500" text-anchor="middle">CRUD 同步机制</text>
+  <text x="455" y="488" fill="#94a3b8" font-size="8" text-anchor="middle">EVT_BLOG_REFRESH → use-search → fetchAndBuildIndex() · EVT_KB_REFRESH → re-index · 5s safety timeout</text>
+  <text x="455" y="500" fill="#64748b" font-size="7" text-anchor="middle">Worker.onerror · self.onerror · postMessage try-catch</text>
+</svg>

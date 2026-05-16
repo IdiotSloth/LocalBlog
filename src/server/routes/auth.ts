@@ -89,8 +89,7 @@ authRouter.post('/login', async (req, res) => {
 authRouter.get('/session', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool();
-    const uid = req.userId;
-    if (uid == null) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const [rows] = (await pool.execute('SELECT * FROM users WHERE id = ?', [uid])) as any[];
     if (rows.length === 0) return res.json({ success: false, error: '用户不存在' });
     const u = rows[0];
@@ -111,8 +110,7 @@ authRouter.post('/logout', (_req, res) => {
 authRouter.post('/delete', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool();
-    const uid = req.userId;
-    if (uid == null) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const keepFiles = req.body.keepFiles === true;
 
     if (keepFiles) {

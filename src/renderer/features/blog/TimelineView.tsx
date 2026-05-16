@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface BlogItem {
@@ -22,6 +22,7 @@ interface Props {
 export function TimelineView({ userId }: Props) {
   const [groups, setGroups] = useState<MonthGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const abortedRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,12 +31,19 @@ export function TimelineView({ userId }: Props) {
     window.api
       .blogList({ userId, sortBy: 'created_at', sortOrder: 'desc', limit: 200 })
       .then((r) => {
+        if (abortedRef.current) return;
         if (r.success && r.data) {
-          setGroups(groupByMonth(r.data.blogs || []));
+          const blogs = Array.isArray(r.data) ? r.data : (r.data as { blogs: BlogItem[] }).blogs;
+          setGroups(groupByMonth(blogs || []));
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => {
+        if (abortedRef.current) return;
+        console.error('[TimelineView] Failed to load:', e);
+        setLoading(false);
+      });
+    return () => { abortedRef.current = true; };
   }, [userId]);
 
   if (loading)
@@ -118,7 +126,8 @@ export function TimelineView({ userId }: Props) {
 function groupByMonth(blogs: BlogItem[]): MonthGroup[] {
   const map = new Map<string, BlogItem[]>();
   for (const b of blogs) {
-    const key = b.createdAt.substring(0, 7); // '2026-05'
+    const key = (b.createdAt || '').substring(0, 7);
+    if (!key) continue;
     if (!map.has(key)) map.set(key, []);
     map.get(key)?.push(b);
   }

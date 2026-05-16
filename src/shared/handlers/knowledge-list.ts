@@ -3,6 +3,7 @@
  */
 
 import { sanitizePagination } from '../pagination';
+import { mapKnowledgeRow } from './knowledge-crud';
 
 type QueryRows = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 type QueryOne = (sql: string, params: unknown[]) => Promise<Record<string, unknown> | undefined>;
@@ -21,20 +22,6 @@ export interface KnowledgeListFilters {
 
 const VALID_SORT = ['created_at', 'updated_at', 'filename', 'file_size'] as const;
 const VALID_ORDER = ['asc', 'desc'] as const;
-
-function mapFileRow(row: Record<string, unknown>) {
-  return {
-    id: row.id as number,
-    userId: row.user_id as number,
-    filename: row.filename as string,
-    filePath: row.file_path as string,
-    fileType: row.file_type as string,
-    fileSize: row.file_size as number,
-    status: row.status as string,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
-}
 
 export async function getSharedKnowledgeList(dbAll: QueryRows, dbGet: QueryOne, filters: KnowledgeListFilters) {
   const {
@@ -85,7 +72,7 @@ export async function getSharedKnowledgeList(dbAll: QueryRows, dbGet: QueryOne, 
 
   const files = await Promise.all(
     rows.map(async (row) => {
-      const file = mapFileRow(row);
+      const file = mapKnowledgeRow(row);
       const tags = await dbAll(
         'SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?',
         [file.id],

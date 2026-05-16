@@ -12,6 +12,7 @@ export function SeriesListPage() {
   const user = useAuthStore((s) => s.user);
   const [series, setSeries] = useState<SeriesItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSeries = useCallback(async () => {
     if (!user) return;
@@ -21,6 +22,7 @@ export function SeriesListPage() {
       if (r.success && r.data) setSeries(r.data);
     } catch (e) {
       console.error('[SeriesList]', e);
+      setError('加载失败');
     } finally {
       setLoading(false);
     }
@@ -38,6 +40,19 @@ export function SeriesListPage() {
           {series.length} 个系列
         </span>
       </h2>
+
+      {/* Error state */}
+      {error && (
+        <div style={{ color: 'var(--accent-red)', textAlign: 'center', padding: '3rem' }}>
+          <p>{error}</p>
+          <button
+            onClick={() => { setError(null); loadSeries(); }}
+            style={{ color: 'var(--accent-blue)', marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+          >
+            重试
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>

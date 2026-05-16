@@ -33,19 +33,20 @@ export function useSearch(userId: number | null): UseSearchReturn {
   const modeRef = useRef<SearchMode>('init');
   const pendingSearchesRef = useRef<Map<number, (results: FtsSearchResult[]) => void>>(new Map());
   const correlationIdRef = useRef(0);
+  const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize: determine mode and create Worker if needed
   useEffect(() => {
     if (!userId) return;
 
-    let terminated = false;
+    const uid = userId; // capture narrowed type for async closures
 
     async function init() {
       // Try MySQL mode first: make a test query
       try {
-        const resp = await window.api.searchQuery({ query: 'test', userId });
-        if (resp.success && resp.data !== undefined) {
-          // MySQL mode — results come from main process
+        const resp = await window.api.searchQuery({ query: 'test', userId: uid });
+        // searchAll returns null for sql.js mode, array for MySQL mode
+        if (resp.success && resp.data !== null) {
           modeRef.current = 'mysql';
           setReady(true);
           return;
@@ -66,6 +67,9 @@ export function useSearch(userId: number | null): UseSearchReturn {
         console.error('[SearchWorker] Error:', e);
         setReady(false);
       };
+      worker.onmessageerror = (e) => {
+        console.error('[SearchWorker] Message error:', e);
+      };
       worker.onmessage = (e: MessageEvent) => {
         const msg = e.data;
         switch (msg.type) {
@@ -82,8 +86,7 @@ export function useSearch(userId: number | null): UseSearchReturn {
           case 'index-built':
           case 'index-restored': {
             if (msg.type === 'index-restored' && !msg.success) {
-              // localStorage cache miss — build from scratch
-              fetchAndBuildIndex(worker, userId);
+              fetchAndBuildIndex(worker, uid);
             } else {
               setReady(true);
             }
@@ -91,44 +94,38 @@ export function useSearch(userId: number | null): UseSearchReturn {
           }
           case 'document-added':
           case 'document-removed':
-            // Index updated; no UI change needed
             break;
           default:
             break;
         }
       };
 
-      // Try restoring index from localStorage first
       worker.postMessage({ type: 'restore-index' });
     }
 
     init();
 
-    // Listen for refresh events to re-index after CRUD
     const unsubBlogRefresh = window.api.onBlogRefresh(() => {
-      if (modeRef.current === 'mysql') {
-        // MySQL: already handled by main process, just update status
-        return;
-      }
-      // sql.js: rebuild index
-      if (workerRef.current && userId) {
-        fetchAndBuildIndex(workerRef.current, userId);
+      if (modeRef.current === 'mysql') return;
+      if (workerRef.current) {
+        fetchAndBuildIndex(workerRef.current, uid);
       }
     });
 
     const unsubKbRefresh = window.api.onKbRefresh(() => {
-      if (modeRef.current === 'mysql') {
-        return;
-      }
-      if (workerRef.current && userId) {
-        fetchAndBuildIndex(workerRef.current, userId);
+      if (modeRef.current === 'mysql') return;
+      if (workerRef.current) {
+        fetchAndBuildIndex(workerRef.current, uid);
       }
     });
 
     return () => {
-      terminated = true;
       unsubBlogRefresh();
       unsubKbRefresh();
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
       if (workerRef.current) {
         workerRef.current.terminate();
         workerRef.current = null;
@@ -144,11 +141,13 @@ export function useSearch(userId: number | null): UseSearchReturn {
         return;
       }
 
+      const uid = userId;
+
       setLoading(true);
 
       if (modeRef.current === 'mysql') {
         try {
-          const resp = await window.api.searchQuery({ query: query.trim(), userId });
+          const resp = await window.api.searchQuery({ query: query.trim(), userId: uid });
           if (resp.success && resp.data) {
             setResults(resp.data);
           } else {
@@ -159,17 +158,16 @@ export function useSearch(userId: number | null): UseSearchReturn {
         }
         setLoading(false);
       } else if (modeRef.current === 'sqljs' && workerRef.current) {
-        // Use a promise to wait for worker response
         const workerResults = await new Promise<FtsSearchResult[]>((resolve) => {
           const cid = ++correlationIdRef.current;
           pendingSearchesRef.current.set(cid, resolve);
           workerRef.current!.postMessage({ type: 'search', query: query.trim(), limit: 20, correlationId: cid });
-          // Timeout safety: resolve empty after 5s
-          setTimeout(() => {
+          safetyTimeoutRef.current = setTimeout(() => {
             if (pendingSearchesRef.current.has(cid)) {
               pendingSearchesRef.current.delete(cid);
               resolve([]);
             }
+            safetyTimeoutRef.current = null;
           }, 5000);
         });
         setResults(workerResults);

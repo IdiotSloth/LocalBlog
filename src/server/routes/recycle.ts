@@ -8,8 +8,7 @@ recycleRouter.use(requireAuth);
 
 recycleRouter.get('/list', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const [rows] = (await pool.execute('SELECT * FROM recycle_bin WHERE user_id = ? ORDER BY deleted_at DESC', [
       userId,
@@ -22,8 +21,7 @@ recycleRouter.get('/list', async (req: AuthRequest, res) => {
 
 recycleRouter.post('/restore', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { itemId, itemType } = req.body;
     const pool = getPool();
     if (itemType === 'blog') {
@@ -44,8 +42,7 @@ recycleRouter.post('/restore', async (req: AuthRequest, res) => {
 
 recycleRouter.post('/empty', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const [items] = (await pool.execute('SELECT * FROM recycle_bin WHERE user_id = ?', [userId])) as any[];
     for (const item of items) {
@@ -79,8 +76,7 @@ recycleRouter.post('/empty', async (req: AuthRequest, res) => {
 
 recycleRouter.post('/auto-clean', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { days } = req.body;
     const pool = getPool();
     const [items] = (await pool.execute(

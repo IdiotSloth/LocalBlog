@@ -134,6 +134,13 @@ Check each of these concrete patterns:
 | Interaction placement vs feature value | Verify critical UI entry points are placed where users naturally encounter them. A feature whose core value is "instant access" but whose button is hidden at page bottom is a design-level implementation defect (R129) | 🟠 P1 |
 | useEffect cleanup return type | React Strict Mode double-invoke unmasks non-function cleanup values. `useEffect(() => { return someObject }, [])` causes `destroy is not a function` → ErrorBoundary crash (R126). Defensive pattern: `typeof cleanup === 'function'` guard | 🔴 P0 |
 | Server route user_id isolation | `requireAuth` middleware verifies identity but does NOT verify resource ownership. Server routes must add `AND user_id = ?` to UPDATE/DELETE or do a pre-check `SELECT ... WHERE id = ? AND user_id = ?` (R203-R206) | 🟠 P1 |
+| Shared handler hardcoded values | When CRUD SQL is extracted to shared handlers, callers must not pass hardcoded literals for business-variable fields. `buildBlogUpdate(..., 'md')` silently resets HTML blogs to MD (R131). Check all shared handler call sites for format/status/type parameters that should be dynamic | 🟠 P1 |
+| DDL migration error silencing | Empty `catch {}` blocks around ALTER TABLE with misleading comment "migration already applied" silently swallow "column doesn't exist" errors (R130). Check all DDL migration catch blocks: at minimum `console.warn` the error, and distinguish index-exists (ignore) vs column-not-found (alert) | 🟠 P1 |
+| Worker lifecycle completeness | Worker threads must have `worker.onerror` and `worker.onmessageerror` handlers. Without onerror, Worker crashes are invisible and leave UI permanently in loading state (R133). Check every `new Worker()` site | 🟡 P2 |
+| Promise concurrency pattern (single-ref vs Map) | Using a single `useRef` to store a pending Promise resolver is inherently racy. Concurrent requests overwrite the ref, causing mismatched responses and hung Promises (R132). In postMessage/MessageChannel patterns, use `Map<correlationId, resolve>` + incrementing counter | 🟡 P2 |
+| Type narrowing across async closure boundaries | TypeScript cannot narrow `number \| null` across async function boundaries even after early-return guard. `if (!x) return;` before defining `async function init()` does NOT narrow `x` inside `init()`. Capture narrowed value: `const x2 = x;` before async function definition (R141) | 🟡 P2 |
+| Shared handler migration completeness | When a domain's CRUD SQL moves to shared handlers, mapping functions (mapFile/rowToFile), type-detection helpers (detectFileType/typeMap), and validation logic should also be unified — not just SQL builders. Check for duplicate mappers/detectors in server routes vs main services (R139) | 🟡 P2 |
+| HTML tags in tokenizer input | Worker/segmenter tokenizers that receive raw HTML input will index markup tokens (`<div>`, `class`, etc.), polluting the inverted index. Check that text is stripped of HTML tags before tokenization: `text.replace(/<[^>]*>/g, '')` (R140) | 🟢 P3 |
 
 ---
 
@@ -203,6 +210,13 @@ Compare key metrics with previous audit (if data available):
 | CSS variable theme coverage | N | M | — |
 | noUncheckedIndexedAccess | enabled? | enabled? | — |
 | Server user_id isolation gaps | N | M | — |
+| Shared handler coverage (domains) | N | M | — |
+| Shared handler completeness (SQL+mappers) | N | M | — |
+| FTS5 index correctness (MySQL FULLTEXT) | — | — | — |
+| Worker error handling coverage | N | M | — |
+| Promise concurrency safety | N | M | — |
+| P0+P1+P2 total count | N | M | ↓ |
+| DDL migration catch block safety | N | M | — |
 ```
 
 ### 5. New Findings Summary

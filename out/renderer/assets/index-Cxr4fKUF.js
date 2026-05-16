@@ -473,9 +473,9 @@ function requireReact_production() {
   react_production.useState = function(initialState2) {
     return ReactSharedInternals.H.useState(initialState2);
   };
-  react_production.useSyncExternalStore = function(subscribe, getSnapshot, getServerSnapshot) {
+  react_production.useSyncExternalStore = function(subscribe2, getSnapshot, getServerSnapshot) {
     return ReactSharedInternals.H.useSyncExternalStore(
-      subscribe,
+      subscribe2,
       getSnapshot,
       getServerSnapshot
     );
@@ -3106,15 +3106,15 @@ function requireReactDomClient_production() {
     return value;
   }
   var AbortControllerLocal = "undefined" !== typeof AbortController ? AbortController : function() {
-    var listeners = [], signal = this.signal = {
+    var listeners2 = [], signal = this.signal = {
       aborted: false,
       addEventListener: function(type, listener) {
-        listeners.push(listener);
+        listeners2.push(listener);
       }
     };
     this.abort = function() {
       signal.aborted = true;
-      listeners.forEach(function(listener) {
+      listeners2.forEach(function(listener) {
         return listener();
       });
     };
@@ -3160,33 +3160,33 @@ function requireReactDomClient_production() {
   function pingEngtangledActionScope() {
     if (0 === --currentEntangledPendingCount && null !== currentEntangledListeners) {
       null !== currentEntangledActionThenable && (currentEntangledActionThenable.status = "fulfilled");
-      var listeners = currentEntangledListeners;
+      var listeners2 = currentEntangledListeners;
       currentEntangledListeners = null;
       currentEntangledLane = 0;
       currentEntangledActionThenable = null;
-      for (var i = 0; i < listeners.length; i++) (0, listeners[i])();
+      for (var i = 0; i < listeners2.length; i++) (0, listeners2[i])();
     }
   }
   function chainThenableValue(thenable, result) {
-    var listeners = [], thenableWithOverride = {
+    var listeners2 = [], thenableWithOverride = {
       status: "pending",
       value: null,
       reason: null,
       then: function(resolve) {
-        listeners.push(resolve);
+        listeners2.push(resolve);
       }
     };
     thenable.then(
       function() {
         thenableWithOverride.status = "fulfilled";
         thenableWithOverride.value = result;
-        for (var i = 0; i < listeners.length; i++) (0, listeners[i])(result);
+        for (var i = 0; i < listeners2.length; i++) (0, listeners2[i])(result);
       },
       function(error2) {
         thenableWithOverride.status = "rejected";
         thenableWithOverride.reason = error2;
-        for (error2 = 0; error2 < listeners.length; error2++)
-          (0, listeners[error2])(void 0);
+        for (error2 = 0; error2 < listeners2.length; error2++)
+          (0, listeners2[error2])(void 0);
       }
     );
     return thenableWithOverride;
@@ -4253,7 +4253,7 @@ function requireReactDomClient_production() {
     }
     return [newState, dispatch];
   }
-  function updateSyncExternalStore(subscribe, getSnapshot, getServerSnapshot) {
+  function updateSyncExternalStore(subscribe2, getSnapshot, getServerSnapshot) {
     var fiber = currentlyRenderingFiber, hook = updateWorkInProgressHook(), isHydrating$jscomp$0 = isHydrating;
     if (isHydrating$jscomp$0) {
       if (void 0 === getServerSnapshot) throw Error(formatProdErrorMessage(407));
@@ -4265,8 +4265,8 @@ function requireReactDomClient_production() {
     );
     snapshotChanged && (hook.memoizedState = getServerSnapshot, didReceiveUpdate = true);
     hook = hook.queue;
-    updateEffect(subscribeToStore.bind(null, fiber, hook, subscribe), [
-      subscribe
+    updateEffect(subscribeToStore.bind(null, fiber, hook, subscribe2), [
+      subscribe2
     ]);
     if (hook.getSnapshot !== getSnapshot || snapshotChanged || null !== workInProgressHook && workInProgressHook.memoizedState.tag & 1) {
       fiber.flags |= 2048;
@@ -4298,8 +4298,8 @@ function requireReactDomClient_production() {
     inst.getSnapshot = getSnapshot;
     checkIfSnapshotChanged(inst) && forceStoreRerender(fiber);
   }
-  function subscribeToStore(fiber, inst, subscribe) {
-    return subscribe(function() {
+  function subscribeToStore(fiber, inst, subscribe2) {
+    return subscribe2(function() {
       checkIfSnapshotChanged(inst) && forceStoreRerender(fiber);
     });
   }
@@ -5018,7 +5018,7 @@ function requireReactDomClient_production() {
       mountWorkInProgressHook().memoizedState = stateHook;
       return [false, stateHook];
     },
-    useSyncExternalStore: function(subscribe, getSnapshot, getServerSnapshot) {
+    useSyncExternalStore: function(subscribe2, getSnapshot, getServerSnapshot) {
       var fiber = currentlyRenderingFiber, hook = mountWorkInProgressHook();
       if (isHydrating) {
         if (void 0 === getServerSnapshot)
@@ -5033,8 +5033,8 @@ function requireReactDomClient_production() {
       hook.memoizedState = getServerSnapshot;
       var inst = { value: getServerSnapshot, getSnapshot };
       hook.queue = inst;
-      mountEffect(subscribeToStore.bind(null, fiber, inst, subscribe), [
-        subscribe
+      mountEffect(subscribeToStore.bind(null, fiber, inst, subscribe2), [
+        subscribe2
       ]);
       fiber.flags |= 2048;
       pushSimpleEffect(
@@ -10127,15 +10127,15 @@ function requireReactDomClient_production() {
     };
   }
   function accumulateTwoPhaseListeners(targetFiber, reactName) {
-    for (var captureName = reactName + "Capture", listeners = []; null !== targetFiber; ) {
+    for (var captureName = reactName + "Capture", listeners2 = []; null !== targetFiber; ) {
       var _instance2 = targetFiber, stateNode = _instance2.stateNode;
       _instance2 = _instance2.tag;
-      5 !== _instance2 && 26 !== _instance2 && 27 !== _instance2 || null === stateNode || (_instance2 = getListener(targetFiber, captureName), null != _instance2 && listeners.unshift(
+      5 !== _instance2 && 26 !== _instance2 && 27 !== _instance2 || null === stateNode || (_instance2 = getListener(targetFiber, captureName), null != _instance2 && listeners2.unshift(
         createDispatchListener(targetFiber, _instance2, stateNode)
-      ), _instance2 = getListener(targetFiber, reactName), null != _instance2 && listeners.push(
+      ), _instance2 = getListener(targetFiber, reactName), null != _instance2 && listeners2.push(
         createDispatchListener(targetFiber, _instance2, stateNode)
       ));
-      if (3 === targetFiber.tag) return listeners;
+      if (3 === targetFiber.tag) return listeners2;
       targetFiber = targetFiber.return;
     }
     return [];
@@ -10148,18 +10148,18 @@ function requireReactDomClient_production() {
     return inst ? inst : null;
   }
   function accumulateEnterLeaveListenersForEvent(dispatchQueue, event, target, common, inCapturePhase) {
-    for (var registrationName = event._reactName, listeners = []; null !== target && target !== common; ) {
+    for (var registrationName = event._reactName, listeners2 = []; null !== target && target !== common; ) {
       var _instance3 = target, alternate = _instance3.alternate, stateNode = _instance3.stateNode;
       _instance3 = _instance3.tag;
       if (null !== alternate && alternate === common) break;
-      5 !== _instance3 && 26 !== _instance3 && 27 !== _instance3 || null === stateNode || (alternate = stateNode, inCapturePhase ? (stateNode = getListener(target, registrationName), null != stateNode && listeners.unshift(
+      5 !== _instance3 && 26 !== _instance3 && 27 !== _instance3 || null === stateNode || (alternate = stateNode, inCapturePhase ? (stateNode = getListener(target, registrationName), null != stateNode && listeners2.unshift(
         createDispatchListener(target, stateNode, alternate)
-      )) : inCapturePhase || (stateNode = getListener(target, registrationName), null != stateNode && listeners.push(
+      )) : inCapturePhase || (stateNode = getListener(target, registrationName), null != stateNode && listeners2.push(
         createDispatchListener(target, stateNode, alternate)
       )));
       target = target.return;
     }
-    0 !== listeners.length && dispatchQueue.push({ event, listeners });
+    0 !== listeners2.length && dispatchQueue.push({ event, listeners: listeners2 });
   }
   var NORMALIZE_NEWLINES_REGEX = /\r\n?/g, NORMALIZE_NULL_AND_REPLACEMENT_REGEX = /\u0000|\uFFFD/g;
   function normalizeMarkupForTextOrAttribute(markup) {
@@ -13463,7 +13463,7 @@ function createRouter(init2) {
     state.fetchers.forEach((_, key) => deleteFetcher(key));
     state.blockers.forEach((_, key) => deleteBlocker(key));
   }
-  function subscribe(fn) {
+  function subscribe2(fn) {
     subscribers.add(fn);
     return () => subscribers.delete(fn);
   }
@@ -14777,7 +14777,7 @@ function createRouter(init2) {
       return routerWindow;
     },
     initialize,
-    subscribe,
+    subscribe: subscribe2,
     enableScrollRestoration,
     navigate,
     fetch: fetch2,
@@ -17232,22 +17232,22 @@ function useShortcuts(extraShortcuts) {
 }
 const createStoreImpl = (createState) => {
   let state;
-  const listeners = /* @__PURE__ */ new Set();
+  const listeners2 = /* @__PURE__ */ new Set();
   const setState = (partial, replace2) => {
     const nextState = typeof partial === "function" ? partial(state) : partial;
     if (!Object.is(nextState, state)) {
       const previousState = state;
       state = (replace2 != null ? replace2 : typeof nextState !== "object" || nextState === null) ? nextState : Object.assign({}, state, nextState);
-      listeners.forEach((listener) => listener(state, previousState));
+      listeners2.forEach((listener) => listener(state, previousState));
     }
   };
   const getState = () => state;
   const getInitialState = () => initialState2;
-  const subscribe = (listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
+  const subscribe2 = (listener) => {
+    listeners2.add(listener);
+    return () => listeners2.delete(listener);
   };
-  const api2 = { setState, getState, getInitialState, subscribe };
+  const api2 = { setState, getState, getInitialState, subscribe: subscribe2 };
   const initialState2 = state = createState(setState, getState, api2);
   return api2;
 };
@@ -17437,18 +17437,20 @@ function ShortcutHelpPanel({ onClose }) {
 }
 function useSearch(userId) {
   const [results, setResults] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(false);
+  const [loading2, setLoading] = reactExports.useState(false);
   const [ready, setReady] = reactExports.useState(false);
   const workerRef = reactExports.useRef(null);
   const modeRef = reactExports.useRef("init");
   const pendingSearchesRef = reactExports.useRef(/* @__PURE__ */ new Map());
   const correlationIdRef = reactExports.useRef(0);
+  const safetyTimeoutRef = reactExports.useRef(null);
   reactExports.useEffect(() => {
     if (!userId) return;
+    const uid = userId;
     async function init2() {
       try {
-        const resp = await window.api.searchQuery({ query: "test", userId });
-        if (resp.success && resp.data !== void 0) {
+        const resp = await window.api.searchQuery({ query: "test", userId: uid });
+        if (resp.success && resp.data !== null) {
           modeRef.current = "mysql";
           setReady(true);
           return;
@@ -17459,7 +17461,7 @@ function useSearch(userId) {
       const worker = new Worker(
         new URL(
           /* @vite-ignore */
-          "" + new URL("search.worker-CK_g5QOt.js", import.meta.url).href,
+          "" + new URL("search.worker-DOQbDSF6.js", import.meta.url).href,
           import.meta.url
         ),
         { type: "module" }
@@ -17468,6 +17470,9 @@ function useSearch(userId) {
       worker.onerror = (e) => {
         console.error("[SearchWorker] Error:", e);
         setReady(false);
+      };
+      worker.onmessageerror = (e) => {
+        console.error("[SearchWorker] Message error:", e);
       };
       worker.onmessage = (e) => {
         const msg = e.data;
@@ -17485,7 +17490,7 @@ function useSearch(userId) {
           case "index-built":
           case "index-restored": {
             if (msg.type === "index-restored" && !msg.success) {
-              fetchAndBuildIndex(worker, userId);
+              fetchAndBuildIndex(worker, uid);
             } else {
               setReady(true);
             }
@@ -17497,24 +17502,24 @@ function useSearch(userId) {
     }
     init2();
     const unsubBlogRefresh = window.api.onBlogRefresh(() => {
-      if (modeRef.current === "mysql") {
-        return;
-      }
-      if (workerRef.current && userId) {
-        fetchAndBuildIndex(workerRef.current, userId);
+      if (modeRef.current === "mysql") return;
+      if (workerRef.current) {
+        fetchAndBuildIndex(workerRef.current, uid);
       }
     });
     const unsubKbRefresh = window.api.onKbRefresh(() => {
-      if (modeRef.current === "mysql") {
-        return;
-      }
-      if (workerRef.current && userId) {
-        fetchAndBuildIndex(workerRef.current, userId);
+      if (modeRef.current === "mysql") return;
+      if (workerRef.current) {
+        fetchAndBuildIndex(workerRef.current, uid);
       }
     });
     return () => {
       unsubBlogRefresh();
       unsubKbRefresh();
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
       if (workerRef.current) {
         workerRef.current.terminate();
         workerRef.current = null;
@@ -17522,16 +17527,17 @@ function useSearch(userId) {
     };
   }, [userId]);
   const search = reactExports.useCallback(
-    async (query) => {
+    async (query2) => {
       if (!userId) return;
-      if (query.trim().length < 2) {
+      if (query2.trim().length < 2) {
         setResults([]);
         return;
       }
+      const uid = userId;
       setLoading(true);
       if (modeRef.current === "mysql") {
         try {
-          const resp = await window.api.searchQuery({ query: query.trim(), userId });
+          const resp = await window.api.searchQuery({ query: query2.trim(), userId: uid });
           if (resp.success && resp.data) {
             setResults(resp.data);
           } else {
@@ -17545,12 +17551,13 @@ function useSearch(userId) {
         const workerResults = await new Promise((resolve) => {
           const cid = ++correlationIdRef.current;
           pendingSearchesRef.current.set(cid, resolve);
-          workerRef.current.postMessage({ type: "search", query: query.trim(), limit: 20, correlationId: cid });
-          setTimeout(() => {
+          workerRef.current.postMessage({ type: "search", query: query2.trim(), limit: 20, correlationId: cid });
+          safetyTimeoutRef.current = setTimeout(() => {
             if (pendingSearchesRef.current.has(cid)) {
               pendingSearchesRef.current.delete(cid);
               resolve([]);
             }
+            safetyTimeoutRef.current = null;
           }, 5e3);
         });
         setResults(workerResults);
@@ -17585,7 +17592,7 @@ function useSearch(userId) {
       }
     }
   }, []);
-  return { search, results, loading, ready, refreshIndex, addDocument, removeDocument };
+  return { search, results, loading: loading2, ready, refreshIndex, addDocument, removeDocument };
 }
 async function fetchAndBuildIndex(worker, userId) {
   try {
@@ -17600,7 +17607,7 @@ async function fetchAndBuildIndex(worker, userId) {
 function GlobalSearch() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const [query, setQuery] = reactExports.useState("");
+  const [query2, setQuery2] = reactExports.useState("");
   const [open, setOpen] = reactExports.useState(false);
   const [selectedIdx, setSelectedIdx] = reactExports.useState(-1);
   const inputRef = reactExports.useRef(null);
@@ -17626,13 +17633,13 @@ function GlobalSearch() {
     [search]
   );
   const handleChange = (val) => {
-    setQuery(val);
+    setQuery2(val);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => doSearch(val), 300);
   };
   const handleNavigate = (type, id) => {
     setOpen(false);
-    setQuery("");
+    setQuery2("");
     if (type === "blog") navigate(`/blog/${id}/edit`);
     else navigate("/knowledge");
   };
@@ -17656,7 +17663,7 @@ function GlobalSearch() {
       }
     } else if (e.key === "Escape") {
       setOpen(false);
-      setQuery("");
+      setQuery2("");
     }
   };
   reactExports.useEffect(() => {
@@ -17684,7 +17691,7 @@ function GlobalSearch() {
       {
         ref: inputRef,
         type: "text",
-        value: query,
+        value: query2,
         onChange: (e) => handleChange(e.target.value),
         onKeyDown: handleKeyDown2,
         onFocus: () => {
@@ -17867,6 +17874,7 @@ const navGroups = [
     label: "写作",
     items: [
       { to: "/notes", label: "便签", icon: "📝" },
+      { to: "/memo", label: "备忘录", icon: "📋" },
       { to: "/blog", label: "博客", icon: "✎" }
     ]
   },
@@ -18033,7 +18041,7 @@ function LoginPage() {
   const [password, setPassword] = reactExports.useState("");
   const [rememberMe, setRememberMe] = reactExports.useState(true);
   const [error2, setError] = reactExports.useState("");
-  const [loading, setLoading] = reactExports.useState(false);
+  const [loading2, setLoading] = reactExports.useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
@@ -18104,7 +18112,7 @@ function LoginPage() {
         ]
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading, className: "btn-primary w-full py-2.5 text-[15px]", children: loading ? "登录中..." : "登录" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading2, className: "btn-primary w-full py-2.5 text-[15px]", children: loading2 ? "登录中..." : "登录" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: [
       "还没有账户？",
       " ",
@@ -18126,7 +18134,7 @@ function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = reactExports.useState("");
   const [workspacePath, setWorkspacePath] = reactExports.useState("");
   const [error2, setError] = reactExports.useState("");
-  const [loading, setLoading] = reactExports.useState(false);
+  const [loading2, setLoading] = reactExports.useState(false);
   const register = useAuthStore((s) => s.register);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
@@ -18239,13 +18247,106 @@ function RegisterPage() {
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading, className: "btn-primary w-full py-2.5 text-[15px]", children: loading ? "注册中..." : "创建账户" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading2, className: "btn-primary w-full py-2.5 text-[15px]", children: loading2 ? "注册中..." : "创建账户" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: [
       "已有账户？",
       " ",
       /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/login", style: { color: "var(--accent-blue)" }, className: "hover:underline", children: "立即登录" })
     ] })
   ] });
+}
+const STORAGE_KEY$1 = "lbkb_minimized_blogs";
+const listeners = /* @__PURE__ */ new Set();
+function notify() {
+  listeners.forEach((fn) => fn());
+}
+function getTabs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY$1);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t) => t && typeof t === "object" && "id" in t).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+function removeTab(id) {
+  const tabs = getTabs().filter((t) => t.id !== id);
+  localStorage.setItem(STORAGE_KEY$1, JSON.stringify(tabs));
+  notify();
+}
+function subscribe(fn) {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+function FloatingBlogTabs() {
+  const [tabs, setTabs] = reactExports.useState(() => getTabs());
+  reactExports.useEffect(() => {
+    const unsub = subscribe(() => {
+      setTabs(getTabs());
+    });
+    return unsub;
+  }, []);
+  if (tabs.length === 0) return null;
+  const handleTabClick = (tab) => {
+    window.location.hash = `/blog/${tab.id}`;
+  };
+  const handleClose = (e, tabId) => {
+    e.stopPropagation();
+    removeTab(tabId);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "fixed bottom-0 left-0 right-0 z-[9998] flex items-center gap-1 border-t px-3 py-1.5",
+      style: {
+        background: "var(--bg-sidebar)",
+        borderColor: "var(--border-default)",
+        height: 36
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mr-1 text-[11px] shrink-0", style: { color: "var(--text-muted)" }, children: "最小化:" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-1 overflow-x-auto", children: tabs.map((tab) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: () => handleTabClick(tab),
+            "aria-label": `切换到 ${tab.title || "无标题"}`,
+            className: "flex items-center gap-1.5 rounded-[4px] px-2.5 py-0.5 text-[12px] whitespace-nowrap transition-colors hover:opacity-80",
+            style: {
+              background: "var(--bg-tertiary)",
+              color: "var(--text-primary)"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "max-w-[120px] truncate", children: tab.title || "无标题" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "rounded-[2px] px-1 py-[1px] text-[9px] font-mono uppercase",
+                  style: { background: "var(--bg-primary)", color: "var(--text-muted)" },
+                  children: tab.format
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "ml-0.5 cursor-pointer text-[12px] leading-none hover:opacity-60",
+                  style: { color: "var(--text-muted)" },
+                  onClick: (e) => handleClose(e, tab.id),
+                  "aria-label": `关闭 ${tab.title || "无标题"}`,
+                  children: "×"
+                }
+              )
+            ]
+          },
+          tab.id
+        )) })
+      ]
+    }
+  );
 }
 let mqlListener = null;
 function applyTheme(theme) {
@@ -18305,6 +18406,9 @@ const SeriesListPage$2 = reactExports.lazy(
 const SeriesDetailPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => SeriesDetailPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.SeriesDetailPage }))
 );
+const MemoPage$2 = reactExports.lazy(
+  () => __vitePreload(() => Promise.resolve().then(() => MemoPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.MemoPage }))
+);
 function PageSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "animate-pulse space-y-4 p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-1/3 rounded", style: { background: "var(--bg-tertiary)" } }),
@@ -18351,6 +18455,7 @@ const router = createHashRouter([
           { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
           { path: "/settings", element: lazyPage(SettingsPage$2) },
           { path: "/notes", element: lazyPage(NoteListPage$2) },
+          { path: "/memo", element: lazyPage(MemoPage$2) },
           { path: "/series", element: lazyPage(SeriesListPage$2) },
           { path: "/series/:seriesId", element: lazyPage(SeriesDetailPage$2) },
           { path: "/guide", element: lazyPage(GuidePage$2) }
@@ -18378,8 +18483,19 @@ function App() {
     });
   }, []);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "a",
+      {
+        href: "#main-content",
+        className: "fixed top-2 left-2 z-[10000] rounded-[4px] px-3 py-2 text-[13px] font-medium transition-transform -translate-y-20 focus:translate-y-0",
+        style: { background: "var(--accent-blue)", color: "#fff" },
+        children: "跳到主要内容"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { id: "main-content" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(RouterProvider, { router }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorToastContent, { state: errorToast, onDismiss: () => setErrorToast((prev) => ({ ...prev, visible: false })) })
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorToastContent, { state: errorToast, onDismiss: () => setErrorToast((prev) => ({ ...prev, visible: false })) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(FloatingBlogTabs, {})
   ] });
 }
 function ErrorToastContent({ state, onDismiss }) {
@@ -18458,13 +18574,13 @@ const webApi = {
   tagSetFile: (data) => request("POST", `/api/knowledge/${data.fileId}/tags`, data),
   // Knowledge Base
   kbList: (filters = {}) => request("GET", `/api/knowledge/list${getQuery(filters)}`),
-  kbGet: (fileId) => request("GET", `/api/knowledge/${fileId}`),
+  kbGet: (data) => request("GET", `/api/knowledge/${data.fileId}`),
   kbImport: (data) => request("POST", "/api/knowledge/import", data),
   kbDelete: (data) => request("POST", `/api/knowledge/${data.fileId}/delete`, data),
   kbRestore: (data) => request("POST", `/api/knowledge/${data.fileId}/restore`, data),
   kbRename: (data) => request("POST", `/api/knowledge/${data.fileId}/rename`, data),
-  kbPreview: (fileId) => request("GET", `/api/knowledge/${fileId}/preview`),
-  kbOpenExternal: () => Promise.resolve({ success: false, error: "网页版暂不支持系统程序打开" }),
+  kbPreview: (data) => request("GET", `/api/knowledge/${data.fileId}/preview`),
+  kbOpenExternal: (_data) => Promise.resolve({ success: false, error: "网页版暂不支持系统程序打开" }),
   // Search
   searchGlobal: (data) => request("POST", "/api/search/global", data),
   searchBlogs: (data) => request("POST", "/api/search/blogs", data),
@@ -18519,6 +18635,7 @@ const webApi = {
   folderCreate: () => Promise.resolve({ success: false, error: "网页版暂不支持文件夹" }),
   folderRename: () => Promise.resolve({ success: false, error: "网页版暂不支持文件夹" }),
   folderDelete: () => Promise.resolve({ success: false, error: "网页版暂不支持文件夹" }),
+  folderMove: () => Promise.resolve({ success: false, error: "网页版暂不支持移动文件夹" }),
   folderMoveItem: () => Promise.resolve({ success: false, error: "网页版暂不支持文件夹" }),
   refAdd: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
   refRemove: () => Promise.resolve({ success: false, error: "网页版暂不支持引用" }),
@@ -18618,6 +18735,33 @@ const ACHIEVEMENTS = [
     condition: (s) => s.currentStreak >= 7
   }
 ];
+const STORAGE_KEY = "lbkb_recent_blogs";
+const MAX_ITEMS = 10;
+function readStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function writeStorage(entries2) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries2));
+  } catch {
+  }
+}
+function recordRecentBlog(blogId, title) {
+  const entries2 = readStorage();
+  const filtered = entries2.filter((e) => e.id !== blogId);
+  filtered.unshift({ id: blogId, title, timestamp: Date.now() });
+  writeStorage(filtered.slice(0, MAX_ITEMS));
+}
+function getRecentBlogs() {
+  return readStorage();
+}
 const Heatmap$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => Heatmap$1), true ? void 0 : void 0, import.meta.url));
 const TABS = [
   { id: "overview", label: "概览" },
@@ -18635,6 +18779,7 @@ function DashboardPage() {
   const [statsLoading, setStatsLoading] = reactExports.useState(true);
   const [statsError, setStatsError] = reactExports.useState(null);
   const [achievements, setAchievements] = reactExports.useState([]);
+  const [recentBlogs, setRecentBlogs] = reactExports.useState([]);
   reactExports.useEffect(() => {
     if (!user) return;
     let aborted = false;
@@ -18662,6 +18807,7 @@ function DashboardPage() {
     }).finally(() => {
       if (!aborted) setStatsLoading(false);
     });
+    setRecentBlogs(getRecentBlogs());
     return () => {
       aborted = true;
     };
@@ -18749,6 +18895,40 @@ function DashboardPage() {
         },
         card.label
       )) }),
+      recentBlogs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: "最近浏览" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto", style: { scrollbarWidth: "thin" }, children: recentBlogs.slice(0, 5).map((entry) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          Link$1,
+          {
+            to: `/blog/${entry.id}`,
+            className: "no-underline shrink-0 rounded-[6px] border p-3 transition-all hover:border-[var(--accent-blue)]",
+            style: {
+              width: 180,
+              borderColor: "var(--border-default)",
+              background: "var(--bg-secondary)"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "truncate text-[13px] font-medium",
+                  style: { color: "var(--text-primary)" },
+                  children: entry.title
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "mt-1 text-[11px]",
+                  style: { color: "var(--text-muted)" },
+                  children: new Date(entry.timestamp).toLocaleDateString("zh-CN")
+                }
+              )
+            ]
+          },
+          entry.id
+        )) })
+      ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: "快捷操作" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-4 gap-3", children: [
         { to: "/blog/new", label: "写博客", k: "✍", desc: "创建一篇新文章" },
@@ -18819,10 +18999,23 @@ const DashboardPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.def
 }, Symbol.toStringTag, { value: "Module" }));
 function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
   const [tree, setTree] = reactExports.useState([]);
+  const [expandedIds, setExpandedIds] = reactExports.useState(/* @__PURE__ */ new Set());
   const [showNewInput, setShowNewInput] = reactExports.useState(null);
   const [newName, setNewName] = reactExports.useState("");
   const [contextFolder, setContextFolder] = reactExports.useState(null);
+  const [showMoveSubmenu, setShowMoveSubmenu] = reactExports.useState(false);
   const [contextPos, setContextPos] = reactExports.useState({ x: 0, y: 0 });
+  reactExports.useMemo(() => {
+    const ids = /* @__PURE__ */ new Set();
+    const walk = (nodes) => {
+      for (const n of nodes) {
+        ids.add(n.id);
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    return ids;
+  }, [tree]);
   const [error2, setError] = reactExports.useState(false);
   const loadTree = reactExports.useCallback(async () => {
     try {
@@ -18830,6 +19023,15 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
       if (r.success && r.data) {
         setTree(r.data);
         setError(false);
+        const ids = /* @__PURE__ */ new Set();
+        const walk = (nodes) => {
+          for (const n of nodes) {
+            ids.add(n.id);
+            walk(n.children);
+          }
+        };
+        walk(r.data);
+        setExpandedIds(ids);
       } else setError(true);
     } catch {
       setError(true);
@@ -18839,7 +19041,10 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
     loadTree();
   }, [loadTree]);
   reactExports.useEffect(() => {
-    const h2 = () => setContextFolder(null);
+    const h2 = () => {
+      setContextFolder(null);
+      setShowMoveSubmenu(false);
+    };
     window.addEventListener("click", h2);
     return () => window.removeEventListener("click", h2);
   }, []);
@@ -18877,51 +19082,78 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
     setContextFolder(null);
     loadTree();
   };
-  const renderNode = (node, depth) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "button",
-      {
-        type: "button",
-        className: "flex w-full items-center gap-1.5 rounded-[4px] px-2 py-1 text-left text-[13px] transition-colors",
-        style: {
-          paddingLeft: 8 + depth * 16,
-          background: selectedFolderId === node.id ? "var(--bg-tertiary)" : "transparent",
-          color: selectedFolderId === node.id ? "var(--text-primary)" : "var(--text-secondary)"
-        },
-        onClick: () => onSelectFolder(selectedFolderId === node.id ? null : node.id),
-        onContextMenu: (e) => {
-          e.preventDefault();
-          setContextFolder(node);
-          setContextPos({ x: e.clientX, y: e.clientY });
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11 }, children: "📂" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate flex-1", children: node.name }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, color: "var(--text-placeholder)" }, children: node.itemCount })
-        ]
-      }
-    ),
-    node.children.map((child) => renderNode(child, depth + 1)),
-    showNewInput === node.id && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-1 px-2 py-1", style: { paddingLeft: 8 + (depth + 1) * 16 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "input",
-      {
-        type: "text",
-        value: newName,
-        onChange: (e) => setNewName(e.target.value),
-        onKeyDown: (e) => {
-          if (e.key === "Enter") handleCreate(node.id);
-          if (e.key === "Escape") setShowNewInput(null);
-        },
-        placeholder: "文件夹名...",
-        className: "flex-1 rounded-[3px] px-2 py-0.5 text-[12px]",
-        style: {
-          background: "var(--bg-primary)",
-          border: "1px solid var(--border-default)",
-          color: "var(--text-primary)"
+  const toggleExpand = (folderId) => {
+    setExpandedIds((prev) => {
+      const next2 = new Set(prev);
+      if (next2.has(folderId)) next2.delete(folderId);
+      else next2.add(folderId);
+      return next2;
+    });
+  };
+  const renderNode = (node, depth) => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expandedIds.has(node.id);
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: "flex w-full items-center gap-1.5 rounded-[4px] px-2 py-1 text-left text-[13px] transition-colors",
+          style: {
+            paddingLeft: 8 + depth * 16,
+            background: selectedFolderId === node.id ? "var(--bg-tertiary)" : "transparent",
+            color: selectedFolderId === node.id ? "var(--text-primary)" : "var(--text-secondary)"
+          },
+          onClick: () => onSelectFolder(selectedFolderId === node.id ? null : node.id),
+          onContextMenu: (e) => {
+            e.preventDefault();
+            setContextFolder(node);
+            setContextPos({ x: e.clientX, y: e.clientY });
+            setShowMoveSubmenu(false);
+          },
+          children: [
+            hasChildren ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                className: "flex items-center justify-center w-4 h-4 text-[10px] p-0 border-0 bg-transparent cursor-pointer shrink-0",
+                style: { color: "var(--text-placeholder)" },
+                onClick: (e) => {
+                  e.stopPropagation();
+                  toggleExpand(node.id);
+                },
+                "aria-label": isExpanded ? "折叠" : "展开",
+                children: isExpanded ? "▼" : "▶"
+              }
+            ) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-4 shrink-0" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11 }, children: "📂" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate flex-1", children: node.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, color: "var(--text-placeholder)" }, children: node.itemCount })
+          ]
         }
-      }
-    ) })
-  ] }, node.id);
+      ),
+      hasChildren && isExpanded && node.children.map((child) => renderNode(child, depth + 1)),
+      showNewInput === node.id && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-1 px-2 py-1", style: { paddingLeft: 8 + (depth + 1) * 16 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          type: "text",
+          value: newName,
+          onChange: (e) => setNewName(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === "Enter") handleCreate(node.id);
+            if (e.key === "Escape") setShowNewInput(null);
+          },
+          placeholder: "文件夹名...",
+          className: "flex-1 rounded-[3px] px-2 py-0.5 text-[12px]",
+          style: {
+            background: "var(--bg-primary)",
+            border: "1px solid var(--border-default)",
+            color: "var(--text-primary)"
+          }
+        }
+      ) })
+    ] }, node.id);
+  };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "select-none", children: [
     actionError && /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
@@ -18993,7 +19225,7 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
           top: contextPos.y,
           background: "var(--bg-secondary)",
           borderColor: "var(--border-default)",
-          minWidth: 140
+          minWidth: 160
         },
         onClick: (e) => e.stopPropagation(),
         children: [
@@ -19021,6 +19253,81 @@ function FolderTree({ userId, type, selectedFolderId, onSelectFolder }) {
               children: "重命名"
             }
           ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                className: "block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80",
+                style: { color: "var(--text-primary)" },
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setShowMoveSubmenu(!showMoveSubmenu);
+                },
+                children: "移动到... ▸"
+              }
+            ),
+            showMoveSubmenu && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "absolute left-full top-0 z-50 rounded-[6px] border py-1 shadow-lg max-h-[200px] overflow-y-auto",
+                style: {
+                  background: "var(--bg-secondary)",
+                  borderColor: "var(--border-default)",
+                  minWidth: 160
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      className: "block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80",
+                      style: { color: "var(--text-primary)" },
+                      onClick: async () => {
+                        if (!contextFolder) return;
+                        await window.api.folderMove({ userId, folderId: contextFolder.id, newParentId: null });
+                        setContextFolder(null);
+                        setShowMoveSubmenu(false);
+                        loadTree();
+                      },
+                      children: "根目录"
+                    }
+                  ),
+                  (() => {
+                    const items = [];
+                    const walk = (nodes, d) => {
+                      for (const n of nodes) {
+                        if (n.id !== contextFolder.id) {
+                          items.push({ id: n.id, name: n.name, depth: d });
+                          walk(n.children, d + 1);
+                        }
+                      }
+                    };
+                    walk(tree, 0);
+                    return items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        className: "block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80 truncate",
+                        style: {
+                          color: "var(--text-primary)",
+                          paddingLeft: 12 + item.depth * 12
+                        },
+                        onClick: async () => {
+                          await window.api.folderMove({ userId, folderId: contextFolder.id, newParentId: item.id });
+                          setContextFolder(null);
+                          setShowMoveSubmenu(false);
+                          loadTree();
+                        },
+                        children: item.name
+                      },
+                      item.id
+                    ));
+                  })()
+                ]
+              }
+            )
+          ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -19067,15 +19374,19 @@ function useBatchSelect(items) {
     selectedCount: selectedIds.size
   };
 }
-function usePagination(pageSize = 20) {
+function usePagination(pageSize = 20, total2) {
   const [page, setPage] = reactExports.useState(1);
   const offset = (page - 1) * pageSize;
   const limit = pageSize;
-  const goTo = reactExports.useCallback((p) => setPage(Math.max(1, p)), []);
-  const next2 = reactExports.useCallback(() => setPage((p) => p + 1), []);
+  const totalPages = reactExports.useMemo(() => {
+    if (total2 === void 0) return 0;
+    return Math.max(1, Math.ceil(total2 / pageSize));
+  }, [total2, pageSize]);
+  const goTo = reactExports.useCallback((p) => setPage(Math.max(1, Math.min(p, totalPages || Infinity))), [totalPages]);
+  const next2 = reactExports.useCallback(() => setPage((p) => Math.min(p + 1, totalPages || Infinity)), [totalPages]);
   const prev = reactExports.useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
   const reset2 = reactExports.useCallback(() => setPage(1), []);
-  return { page, offset, limit, goTo, next: next2, prev, reset: reset2 };
+  return { page, offset, limit, totalPages, goTo, next: next2, prev, reset: reset2 };
 }
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return "0 B";
@@ -19267,19 +19578,29 @@ function ManualCollectTab() {
 }
 function TimelineView({ userId }) {
   const [groups, setGroups] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
+  const abortedRef = reactExports.useRef(false);
   const navigate = useNavigate();
   reactExports.useEffect(() => {
     if (!userId) return;
     setLoading(true);
     window.api.blogList({ userId, sortBy: "created_at", sortOrder: "desc", limit: 200 }).then((r) => {
+      if (abortedRef.current) return;
       if (r.success && r.data) {
-        setGroups(groupByMonth(r.data.blogs || []));
+        const blogs = Array.isArray(r.data) ? r.data : r.data.blogs;
+        setGroups(groupByMonth(blogs || []));
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((e) => {
+      if (abortedRef.current) return;
+      console.error("[TimelineView] Failed to load:", e);
+      setLoading(false);
+    });
+    return () => {
+      abortedRef.current = true;
+    };
   }, [userId]);
-  if (loading)
+  if (loading2)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
   if (groups.length === 0)
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -19338,7 +19659,8 @@ function TimelineView({ userId }) {
 function groupByMonth(blogs) {
   const map3 = /* @__PURE__ */ new Map();
   for (const b of blogs) {
-    const key = b.createdAt.substring(0, 7);
+    const key = (b.createdAt || "").substring(0, 7);
+    if (!key) continue;
     if (!map3.has(key)) map3.set(key, []);
     map3.get(key)?.push(b);
   }
@@ -19348,38 +19670,101 @@ function groupByMonth(blogs) {
     return { month, label: `${y}年 ${months[Number(m) - 1]}`, items };
   });
 }
+function blogListReducer(state, action) {
+  switch (action.type) {
+    case "SET_BLOGS":
+      return { ...state, blogs: action.payload.blogs, total: action.payload.total };
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
+    case "SET_QUERY":
+      return { ...state, query: action.payload };
+    case "SET_SORT_BY":
+      return { ...state, sortBy: action.payload };
+    case "SET_TAG_FILTER":
+      return { ...state, filterTagId: action.payload.id, filterTagName: action.payload.name };
+    case "SET_FOLDER_FILTER":
+      return { ...state, filterFolderId: action.payload };
+    case "TOGGLE_FOLDER_SIDEBAR":
+      return { ...state, showFolderSidebar: action.payload };
+    case "SET_VIEW_MODE":
+      return { ...state, viewMode: action.payload };
+    case "SET_IMPORTING":
+      return { ...state, importing: action.payload };
+    case "SET_SCRAPE_OPEN":
+      return { ...state, scrapeOpen: action.payload };
+    case "SET_SCRAPE_URL":
+      return { ...state, scrapeUrl: action.payload };
+    case "SET_SCRAPE_LOADING":
+      return { ...state, scrapeLoading: action.payload };
+    case "SET_SCRAPE_RESULT":
+      return { ...state, scrapeResult: action.payload };
+    case "SET_SCRAPE_ERROR":
+      return { ...state, scrapeError: action.payload };
+    case "SET_EXCLUDE_SERIES":
+      return { ...state, excludeSeries: action.payload };
+    case "SET_ACTIVE_TAB":
+      return { ...state, activeTab: action.payload };
+    case "SET_FOLDER_TREE":
+      return { ...state, folderTree: action.payload };
+    case "BATCH_SET":
+      return { ...state, ...action.payload };
+    default:
+      return state;
+  }
+}
 function BlogListPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [blogs, setBlogs] = reactExports.useState([]);
-  const [total, setTotal] = reactExports.useState(0);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [state, dispatch] = reactExports.useReducer(blogListReducer, searchParams, (sp) => ({
+    blogs: [],
+    total: 0,
+    loading: true,
+    query: "",
+    sortBy: "updated_at",
+    filterTagId: null,
+    filterTagName: "",
+    filterFolderId: null,
+    showFolderSidebar: localStorage.getItem("sidebar_folder_blog") === "1",
+    viewMode: "cards",
+    importing: false,
+    scrapeOpen: false,
+    scrapeUrl: "",
+    scrapeLoading: false,
+    scrapeResult: null,
+    scrapeError: "",
+    excludeSeries: localStorage.getItem("blog-list-tab") !== "all",
+    activeTab: sp.get("tab") === "manual" ? "manual" : "blogs",
+    folderTree: []
+  }));
+  const {
+    blogs,
+    total: total2,
+    loading: loading2,
+    query: query2,
+    sortBy,
+    filterTagId: filterTagId2,
+    filterTagName: filterTagName2,
+    filterFolderId: filterFolderId2,
+    showFolderSidebar: showFolderSidebar2,
+    viewMode,
+    importing,
+    scrapeOpen,
+    scrapeUrl,
+    scrapeLoading,
+    scrapeResult,
+    scrapeError,
+    excludeSeries,
+    activeTab,
+    folderTree
+  } = state;
   const fileInputRef = reactExports.useRef(null);
-  const [query, setQuery] = reactExports.useState("");
-  const [sortBy, setSortBy] = reactExports.useState("updated_at");
-  const [filterTagId, setFilterTagId] = reactExports.useState(null);
-  const [filterTagName, setFilterTagName] = reactExports.useState("");
-  const [filterFolderId, setFilterFolderId] = reactExports.useState(null);
-  const [showFolderSidebar, setShowFolderSidebar] = reactExports.useState(() => localStorage.getItem("sidebar_folder_blog") === "1");
-  const [viewMode, setViewMode] = reactExports.useState("cards");
-  const [importing, setImporting] = reactExports.useState(false);
-  const [scrapeOpen, setScrapeOpen] = reactExports.useState(false);
-  const [scrapeUrl, setScrapeUrl] = reactExports.useState("");
-  const [scrapeLoading, setScrapeLoading] = reactExports.useState(false);
-  const [scrapeResult, setScrapeResult] = reactExports.useState(null);
-  const [scrapeError, setScrapeError] = reactExports.useState("");
-  const [excludeSeries, setExcludeSeries] = reactExports.useState(() => localStorage.getItem("blog-list-tab") !== "all");
-  const [activeTab, setActiveTab] = reactExports.useState(
-    searchParams.get("tab") === "manual" ? "manual" : "blogs"
-  );
   const batch = useBatchSelect(blogs);
-  const pagination = usePagination(20);
-  const [folderTree, setFolderTree] = reactExports.useState([]);
+  const pagination = usePagination(20, total2);
   const loadFolders = reactExports.useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: "blog" });
-    if (r.success && r.data) setFolderTree(r.data);
+    if (r.success && r.data) dispatch({ type: "SET_FOLDER_TREE", payload: r.data });
   }, [user]);
   reactExports.useEffect(() => {
     loadFolders();
@@ -19387,19 +19772,19 @@ function BlogListPage() {
   reactExports.useEffect(() => {
     if (!window.api.onNavigate) return;
     const unsub = window.api.onNavigate((path) => {
-      if (path.includes("tab=manual")) setActiveTab("manual");
+      if (path.includes("tab=manual")) dispatch({ type: "SET_ACTIVE_TAB", payload: "manual" });
     });
     if (typeof unsub === "function") return unsub;
   }, []);
   const loadBlogs = reactExports.useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    dispatch({ type: "SET_LOADING", payload: true });
     try {
       const r = await window.api.blogList({
         userId: user.id,
-        query: query || void 0,
-        tagId: filterTagId || void 0,
-        folderId: filterFolderId || void 0,
+        query: query2 || void 0,
+        tagId: filterTagId2 || void 0,
+        folderId: filterFolderId2 || void 0,
         sortBy,
         sortOrder: "desc",
         offset: pagination.offset,
@@ -19407,21 +19792,19 @@ function BlogListPage() {
         excludeSeries: excludeSeries || void 0
       });
       if (r.success && r.data) {
-        setBlogs(r.data.blogs);
-        setTotal(r.data.total);
+        dispatch({ type: "SET_BLOGS", payload: { blogs: r.data.blogs, total: r.data.total } });
       }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
+  }, [user, query2, sortBy, filterTagId2, filterFolderId2, pagination.offset, pagination.limit, excludeSeries]);
   reactExports.useEffect(() => {
     const tagId = searchParams.get("tagId");
     const tagName = searchParams.get("tagName");
     if (tagId) {
-      setFilterTagId(Number(tagId));
-      setFilterTagName(tagName || "");
+      dispatch({ type: "SET_TAG_FILTER", payload: { id: Number(tagId), name: tagName || "" } });
     }
   }, [searchParams]);
   reactExports.useEffect(() => {
@@ -19448,18 +19831,18 @@ function BlogListPage() {
       return;
     }
     try {
-      const files = await window.api.selectFiles(["md", "txt", "html"]);
-      if (files?.length) {
-        setImporting(true);
+      const files2 = await window.api.selectFiles(["md", "txt", "html"]);
+      if (files2?.length) {
+        dispatch({ type: "SET_IMPORTING", payload: true });
         try {
-          const r = await window.api.blogImportMd({ userId: user.id, filePaths: files });
+          const r = await window.api.blogImportMd({ userId: user.id, filePaths: files2 });
           if (r?.success === false) {
             alert(`导入失败: ${r.error || "未知错误"}`);
           } else loadBlogs();
         } catch {
           alert("导入失败");
         } finally {
-          setImporting(false);
+          dispatch({ type: "SET_IMPORTING", payload: false });
         }
         return;
       }
@@ -19470,7 +19853,7 @@ function BlogListPage() {
   };
   const handleWebFileImport = async (e) => {
     if (!user || !e.target.files?.length) return;
-    setImporting(true);
+    dispatch({ type: "SET_IMPORTING", payload: true });
     try {
       const contents = [];
       for (const file of Array.from(e.target.files)) {
@@ -19482,23 +19865,23 @@ function BlogListPage() {
     } catch (e2) {
       console.error(e2);
     } finally {
-      setImporting(false);
+      dispatch({ type: "SET_IMPORTING", payload: false });
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
   const handleScrape = async () => {
     if (!scrapeUrl.trim() || !user) return;
-    setScrapeLoading(true);
-    setScrapeError("");
-    setScrapeResult(null);
+    dispatch({ type: "SET_SCRAPE_LOADING", payload: true });
+    dispatch({ type: "SET_SCRAPE_ERROR", payload: "" });
+    dispatch({ type: "SET_SCRAPE_RESULT", payload: null });
     try {
       const r = await window.api.scrapeWebpage(scrapeUrl.trim());
-      if (r.success) setScrapeResult(r.data);
-      else setScrapeError(r.error);
+      if (r.success) dispatch({ type: "SET_SCRAPE_RESULT", payload: r.data });
+      else dispatch({ type: "SET_SCRAPE_ERROR", payload: r.error });
     } catch {
-      setScrapeError("抓取失败");
+      dispatch({ type: "SET_SCRAPE_ERROR", payload: "抓取失败" });
     } finally {
-      setScrapeLoading(false);
+      dispatch({ type: "SET_SCRAPE_LOADING", payload: false });
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-6", style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
@@ -19508,28 +19891,28 @@ function BlogListPage() {
         {
           type: "button",
           onClick: () => {
-            const v = !showFolderSidebar;
-            setShowFolderSidebar(v);
+            const v = !showFolderSidebar2;
+            dispatch({ type: "TOGGLE_FOLDER_SIDEBAR", payload: v });
             localStorage.setItem("sidebar_folder_blog", v ? "1" : "0");
           },
           className: "mb-2 rounded-[4px] px-2 py-1 text-[11px] hover:opacity-80 transition-opacity",
           style: {
             color: "var(--text-secondary)",
-            background: showFolderSidebar ? "var(--bg-tertiary)" : "transparent"
+            background: showFolderSidebar2 ? "var(--bg-tertiary)" : "transparent"
           },
           children: [
             "📂 ",
-            showFolderSidebar ? "收起" : "文件夹"
+            showFolderSidebar2 ? "收起" : "文件夹"
           ]
         }
       ),
-      showFolderSidebar && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 170 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      showFolderSidebar2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 170 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         FolderTree,
         {
           userId: user.id,
           type: "blog",
-          selectedFolderId: filterFolderId,
-          onSelectFolder: setFilterFolderId
+          selectedFolderId: filterFolderId2,
+          onSelectFolder: (id) => dispatch({ type: "SET_FOLDER_FILTER", payload: id })
         }
       ) })
     ] }),
@@ -19539,7 +19922,7 @@ function BlogListPage() {
           "button",
           {
             type: "button",
-            onClick: () => setActiveTab("blogs"),
+            onClick: () => dispatch({ type: "SET_ACTIVE_TAB", payload: "blogs" }),
             className: "px-3 py-2 text-[14px] font-medium border-b-2 transition-colors",
             style: {
               color: activeTab === "blogs" ? "var(--accent-blue)" : "var(--text-secondary)",
@@ -19553,7 +19936,7 @@ function BlogListPage() {
           "button",
           {
             type: "button",
-            onClick: () => setActiveTab("manual"),
+            onClick: () => dispatch({ type: "SET_ACTIVE_TAB", payload: "manual" }),
             className: "px-3 py-2 text-[14px] font-medium border-b-2 transition-colors",
             style: {
               color: activeTab === "manual" ? "var(--accent-blue)" : "var(--text-secondary)",
@@ -19576,7 +19959,7 @@ function BlogListPage() {
                 {
                   type: "button",
                   onClick: () => {
-                    setExcludeSeries(true);
+                    dispatch({ type: "SET_EXCLUDE_SERIES", payload: true });
                     localStorage.setItem("blog-list-tab", "independent");
                   },
                   className: "rounded-[3px] px-3 py-1 text-[12px] transition-colors",
@@ -19592,7 +19975,7 @@ function BlogListPage() {
                 {
                   type: "button",
                   onClick: () => {
-                    setExcludeSeries(false);
+                    dispatch({ type: "SET_EXCLUDE_SERIES", payload: false });
                     localStorage.setItem("blog-list-tab", "all");
                   },
                   className: "rounded-[3px] px-3 py-1 text-[12px] transition-colors",
@@ -19611,7 +19994,7 @@ function BlogListPage() {
             /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold text-primary", children: [
               "博客 ",
               /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal text-secondary", children: [
-                total,
+                total2,
                 " 篇"
               ] })
             ] }),
@@ -19620,7 +20003,7 @@ function BlogListPage() {
                 "button",
                 {
                   type: "button",
-                  onClick: () => setViewMode("cards"),
+                  onClick: () => dispatch({ type: "SET_VIEW_MODE", payload: "cards" }),
                   className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
                   style: { background: viewMode === "cards" ? "var(--bg-tertiary)" : "transparent" },
                   children: "卡片"
@@ -19630,7 +20013,7 @@ function BlogListPage() {
                 "button",
                 {
                   type: "button",
-                  onClick: () => setViewMode("timeline"),
+                  onClick: () => dispatch({ type: "SET_VIEW_MODE", payload: "timeline" }),
                   className: "rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors",
                   style: { background: viewMode === "timeline" ? "var(--bg-tertiary)" : "transparent" },
                   children: "时间线"
@@ -19639,7 +20022,7 @@ function BlogListPage() {
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setScrapeOpen(true), className: "btn-primary !text-[13px]", children: "收藏网页" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => dispatch({ type: "SET_SCRAPE_OPEN", payload: true }), className: "btn-primary !text-[13px]", children: "收藏网页" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
@@ -19675,8 +20058,8 @@ function BlogListPage() {
             "input",
             {
               type: "text",
-              value: query,
-              onChange: (e) => setQuery(e.target.value),
+              value: query2,
+              onChange: (e) => dispatch({ type: "SET_QUERY", payload: e.target.value }),
               placeholder: "搜索博客标题...",
               className: "max-w-xs surface-input px-3 py-1.5 text-[13px]"
             }
@@ -19685,7 +20068,7 @@ function BlogListPage() {
             "select",
             {
               value: sortBy,
-              onChange: (e) => setSortBy(e.target.value),
+              onChange: (e) => dispatch({ type: "SET_SORT_BY", payload: e.target.value }),
               title: "排序方式",
               className: "max-w-[140px] surface-input px-3 py-1.5 text-[13px]",
               children: [
@@ -19696,12 +20079,12 @@ function BlogListPage() {
             }
           )
         ] }),
-        viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
             className: "rounded-[6px] border border-dashed p-12 text-center",
             style: { borderColor: "var(--border-default)" },
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query ? "没有找到匹配的博客" : filterTagId ? "该标签下暂无博客" : "还没有博客" })
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query2 ? "没有找到匹配的博客" : filterTagId2 ? "该标签下暂无博客" : "还没有博客" })
           }
         ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
           batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -19757,21 +20140,20 @@ function BlogListPage() {
               ]
             }
           ),
-          filterTagId && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          filterTagId2 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
               className: "flex items-center gap-2 rounded-[6px] border p-3",
               style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-secondary", children: "筛选标签:" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName2 }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "button",
                   {
                     type: "button",
                     onClick: () => {
-                      setFilterTagId(null);
-                      setFilterTagName("");
+                      dispatch({ type: "SET_TAG_FILTER", payload: { id: null, name: "" } });
                     },
                     className: "ml-auto text-[12px] hover:underline",
                     style: { color: "var(--accent-red)" },
@@ -19833,8 +20215,7 @@ function BlogListPage() {
                       onClick: (e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        setFilterTagId(t.id);
-                        setFilterTagName(t.name);
+                        dispatch({ type: "SET_TAG_FILTER", payload: { id: t.id, name: t.name } });
                       },
                       title: `筛选标签: ${t.name}`,
                       children: t.name
@@ -19896,7 +20277,7 @@ function BlogListPage() {
             blog.id
           ))
         ] }),
-        total > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
+        total2 > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -19908,8 +20289,8 @@ function BlogListPage() {
               children: "←"
             }
           ),
-          Array.from({ length: Math.min(5, Math.ceil(total / pagination.limit)) }, (_, i) => {
-            const totalPages = Math.ceil(total / pagination.limit);
+          Array.from({ length: Math.min(5, Math.ceil(total2 / pagination.limit)) }, (_, i) => {
+            const totalPages = Math.ceil(total2 / pagination.limit);
             let p;
             if (totalPages <= 5) {
               p = i + 1;
@@ -19940,7 +20321,7 @@ function BlogListPage() {
             {
               type: "button",
               onClick: pagination.next,
-              disabled: pagination.page >= Math.ceil(total / pagination.limit),
+              disabled: pagination.page >= Math.ceil(total2 / pagination.limit),
               className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
               style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
               children: "→"
@@ -19964,7 +20345,7 @@ function BlogListPage() {
           {
             className: "fixed inset-0 z-50 flex items-center justify-center",
             style: { background: "rgba(0,0,0,0.5)" },
-            onClick: () => setScrapeOpen(false),
+            onClick: () => dispatch({ type: "SET_SCRAPE_OPEN", payload: false }),
             children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
@@ -19979,10 +20360,7 @@ function BlogListPage() {
                       {
                         type: "button",
                         onClick: () => {
-                          setScrapeOpen(false);
-                          setScrapeResult(null);
-                          setScrapeError("");
-                          setScrapeUrl("");
+                          dispatch({ type: "BATCH_SET", payload: { scrapeOpen: false, scrapeResult: null, scrapeError: "", scrapeUrl: "" } });
                         },
                         className: "text-[14px] text-secondary",
                         children: "✕"
@@ -19996,7 +20374,7 @@ function BlogListPage() {
                         {
                           type: "text",
                           value: scrapeUrl,
-                          onChange: (e) => setScrapeUrl(e.target.value),
+                          onChange: (e) => dispatch({ type: "SET_SCRAPE_URL", payload: e.target.value }),
                           onKeyDown: (e) => e.key === "Enter" && handleScrape(),
                           placeholder: "粘贴网页 URL",
                           className: "input-dark flex-1"
@@ -20043,11 +20421,9 @@ function BlogListPage() {
                                 content: scrapeResult.content
                               });
                               loadBlogs();
-                              setScrapeOpen(false);
-                              setScrapeUrl("");
-                              setScrapeResult(null);
+                              dispatch({ type: "BATCH_SET", payload: { scrapeOpen: false, scrapeUrl: "", scrapeResult: null } });
                             } catch {
-                              setScrapeError("导入失败");
+                              dispatch({ type: "SET_SCRAPE_ERROR", payload: "导入失败" });
                             }
                           },
                           className: "btn-primary",
@@ -20059,8 +20435,8 @@ function BlogListPage() {
                         {
                           type: "button",
                           onClick: () => {
-                            setScrapeResult(null);
-                            setScrapeError("");
+                            dispatch({ type: "SET_SCRAPE_RESULT", payload: null });
+                            dispatch({ type: "SET_SCRAPE_ERROR", payload: "" });
                           },
                           className: "btn-primary",
                           style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
@@ -20080,7 +20456,8 @@ function BlogListPage() {
 }
 const BlogListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  BlogListPage
+  BlogListPage,
+  blogListReducer
 }, Symbol.toStringTag, { value: "Module" }));
 const decodeCache = {};
 function getDecodeCache(exclude) {
@@ -25921,9 +26298,9 @@ function canConvert(input) {
 function ReferencePicker({ userId, sourceType, sourceId }) {
   const [refs, setRefs] = reactExports.useState([]);
   const [searchOpen, setSearchOpen] = reactExports.useState(false);
-  const [query, setQuery] = reactExports.useState("");
+  const [query2, setQuery2] = reactExports.useState("");
   const [results, setResults] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const loadRefs = reactExports.useCallback(async () => {
     const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
@@ -25938,18 +26315,18 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
     loadRefs();
   }, [loadRefs]);
   const handleSearch = reactExports.useCallback(async () => {
-    if (!query.trim()) return;
+    if (!query2.trim()) return;
     const r = await window.api.refSearch({
       userId,
       scope: sourceType === "blog" ? "knowledge" : "all",
-      query: query.trim()
+      query: query2.trim()
     });
     if (r.success) setResults(r.data);
-  }, [userId, query, sourceType]);
+  }, [userId, query2, sourceType]);
   const handleAdd = async (targetType, targetId) => {
     await window.api.refAdd({ sourceType, sourceId, targetType, targetId });
     setSearchOpen(false);
-    setQuery("");
+    setQuery2("");
     setResults([]);
     loadRefs();
   };
@@ -25972,7 +26349,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
         }
       )
     ] }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : refs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无关联" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: refs.map((ref) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : refs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无关联" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: refs.map((ref) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-1.5 rounded-[3px] px-1.5 py-0.5 text-[12px]",
@@ -26016,8 +26393,8 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
                   "input",
                   {
                     type: "text",
-                    value: query,
-                    onChange: (e) => setQuery(e.target.value),
+                    value: query2,
+                    onChange: (e) => setQuery2(e.target.value),
                     onKeyDown: (e) => e.key === "Enter" && handleSearch(),
                     placeholder: "搜索博客或知识库文件...",
                     className: "input-dark flex-1"
@@ -26040,7 +26417,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
                   },
                   `${item.type}-${item.id}`
                 )),
-                query && results.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-center text-[12px] py-3", style: { color: "var(--text-secondary)" }, children: "未找到匹配项" })
+                query2 && results.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-center text-[12px] py-3", style: { color: "var(--text-secondary)" }, children: "未找到匹配项" })
               ] })
             ]
           }
@@ -26051,7 +26428,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
 }
 function TagSelector({ userId, selectedTagIds, onChange }) {
   const [tags, setTags] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const [open, setOpen] = reactExports.useState(false);
   const [newName, setNewName] = reactExports.useState("");
   const [creating, setCreating] = reactExports.useState(false);
@@ -26194,7 +26571,7 @@ function TagSelector({ userId, selectedTagIds, onChange }) {
             )
           ] }),
           error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2 text-[11px]", style: { color: "var(--accent-red)" }, children: error2 }),
-          loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
+          loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
             const sel = selectedTagIds.includes(t.id);
             return /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "button",
@@ -48373,25 +48750,25 @@ function requireUseSyncExternalStoreShim_production() {
   function is2(x, y) {
     return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
   }
-  var objectIs = "function" === typeof Object.is ? Object.is : is2, useState = React2.useState, useEffect = React2.useEffect, useLayoutEffect = React2.useLayoutEffect, useDebugValue = React2.useDebugValue;
-  function useSyncExternalStore$2(subscribe, getSnapshot) {
-    var value = getSnapshot(), _useState = useState({ inst: { value, getSnapshot } }), inst = _useState[0].inst, forceUpdate = _useState[1];
+  var objectIs = "function" === typeof Object.is ? Object.is : is2, useState2 = React2.useState, useEffect = React2.useEffect, useLayoutEffect = React2.useLayoutEffect, useDebugValue = React2.useDebugValue;
+  function useSyncExternalStore$2(subscribe2, getSnapshot) {
+    var value = getSnapshot(), _useState = useState2({ inst: { value, getSnapshot } }), inst = _useState[0].inst, forceUpdate = _useState[1];
     useLayoutEffect(
       function() {
         inst.value = value;
         inst.getSnapshot = getSnapshot;
         checkIfSnapshotChanged(inst) && forceUpdate({ inst });
       },
-      [subscribe, value, getSnapshot]
+      [subscribe2, value, getSnapshot]
     );
     useEffect(
       function() {
         checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-        return subscribe(function() {
+        return subscribe2(function() {
           checkIfSnapshotChanged(inst) && forceUpdate({ inst });
         });
       },
-      [subscribe]
+      [subscribe2]
     );
     useDebugValue(value);
     return value;
@@ -48406,7 +48783,7 @@ function requireUseSyncExternalStoreShim_production() {
       return true;
     }
   }
-  function useSyncExternalStore$1(subscribe, getSnapshot) {
+  function useSyncExternalStore$1(subscribe2, getSnapshot) {
     return getSnapshot();
   }
   var shim2 = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
@@ -48869,9 +49246,9 @@ function requireWithSelector_production() {
   function is2(x, y) {
     return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
   }
-  var objectIs = "function" === typeof Object.is ? Object.is : is2, useSyncExternalStore = shim2.useSyncExternalStore, useRef = React2.useRef, useEffect = React2.useEffect, useMemo = React2.useMemo, useDebugValue = React2.useDebugValue;
-  withSelector_production.useSyncExternalStoreWithSelector = function(subscribe, getSnapshot, getServerSnapshot, selector, isEqual) {
-    var instRef = useRef(null);
+  var objectIs = "function" === typeof Object.is ? Object.is : is2, useSyncExternalStore = shim2.useSyncExternalStore, useRef2 = React2.useRef, useEffect = React2.useEffect, useMemo = React2.useMemo, useDebugValue = React2.useDebugValue;
+  withSelector_production.useSyncExternalStoreWithSelector = function(subscribe2, getSnapshot, getServerSnapshot, selector, isEqual) {
+    var instRef = useRef2(null);
     if (null === instRef.current) {
       var inst = { hasValue: false, value: null };
       instRef.current = inst;
@@ -48910,7 +49287,7 @@ function requireWithSelector_production() {
       },
       [getSnapshot, getServerSnapshot, selector, isEqual]
     );
-    var value = useSyncExternalStore(subscribe, instRef[0], instRef[1]);
+    var value = useSyncExternalStore(subscribe2, instRef[0], instRef[1]);
     useEffect(
       function() {
         inst.hasValue = true;
@@ -51875,7 +52252,7 @@ function fmtSize$1(bytes) {
 }
 function AttachmentPanel({ blogId }) {
   const [attachments, setAttachments] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const load = reactExports.useCallback(async () => {
     const r = await window.api.blogListAttachments(blogId);
     if (r.success && r.data) setAttachments(r.data);
@@ -51921,7 +52298,7 @@ function AttachmentPanel({ blogId }) {
         }
       )
     ] }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : attachments.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无附件" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: attachments.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : attachments.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无附件" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: attachments.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-2 rounded-[3px] px-2 py-1 text-[12px]",
@@ -52118,9 +52495,9 @@ const iconMap = {
   Users: "👥",
   FileText: "📄"
 };
-const md$1 = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const md$3 = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", emDelimiter: "*" });
-const initialState = {
+const initialState$1 = {
   title: "",
   content: "",
   format: "md",
@@ -52189,11 +52566,14 @@ function BlogEditorPage$1() {
   const user = useAuthStore((s) => s.user);
   const { toast } = useToast();
   const isNew = !id;
-  const [state, dispatch] = reactExports.useReducer(editorReducer, initialState);
+  const [state, dispatch] = reactExports.useReducer(editorReducer, initialState$1);
   const blogIdRef = reactExports.useRef(id ? Number(id) : null);
   const contentRef = reactExports.useRef(state.content);
   contentRef.current = state.content;
   const draftTimerRef = reactExports.useRef(null);
+  const [restoreDraft, setRestoreDraft] = useState(null);
+  const [draftSavedIndicator, setDraftSavedIndicator] = useState(false);
+  const draftIndicatorTimer = reactExports.useRef(null);
   const handleTitleChange = reactExports.useCallback(
     (e) => {
       dispatch({ type: "SET_TITLE", payload: e.target.value });
@@ -52227,7 +52607,7 @@ function BlogEditorPage$1() {
   }, [state.isDirty]);
   const handleTemplateSelect = reactExports.useCallback((tpl) => {
     dispatch({ type: "SET_TEMPLATE", payload: tpl });
-    if (tpl.content) dispatch({ type: "SET_CONTENT", payload: tpl.format === "md" ? md$1.render(tpl.content) : tpl.content });
+    if (tpl.content) dispatch({ type: "SET_CONTENT", payload: tpl.format === "md" ? md$3.render(tpl.content) : tpl.content });
     dispatch({ type: "SET_FORMAT", payload: tpl.format });
     if (tpl.tags.length > 0) dispatch({ type: "SET_PENDING_TAGS", payload: null });
   }, []);
@@ -52246,7 +52626,7 @@ function BlogEditorPage$1() {
           payload: {
             title: r.data.title,
             format: r.data.format,
-            content: r.data.format === "md" ? md$1.render(c) : c,
+            content: r.data.format === "md" ? md$3.render(c) : c,
             selectedTagIds: (r.data.tags || []).map((t) => t.id),
             seriesId: r.data.seriesId || null,
             seriesName: r.data.seriesName || ""
@@ -52258,6 +52638,17 @@ function BlogEditorPage$1() {
     window.api.blogSeriesList(user.id).then((r) => {
       if (r.success && r.data) dispatch({ type: "SET_SERIES_LIST", payload: r.data });
     });
+    if (Number(id)) {
+      window.api.blogGetHistory(Number(id)).then((r) => {
+        if (r.success && r.data && r.data.length > 0) {
+          const latest = r.data[0];
+          if (latest?.saved_at) {
+            setRestoreDraft({ content: latest.content, savedAt: latest.saved_at });
+          }
+        }
+      }).catch(() => {
+      });
+    }
   }, [id, user]);
   const saveTags = reactExports.useCallback(async (blogId, tagIds) => {
     try {
@@ -52279,11 +52670,18 @@ function BlogEditorPage$1() {
   );
   reactExports.useEffect(() => {
     draftTimerRef.current = setInterval(() => {
-      if (contentRef.current && blogIdRef.current)
-        window.api.blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current });
+      if (contentRef.current && blogIdRef.current) {
+        window.api.blogSaveDraft({ blogId: blogIdRef.current, content: contentRef.current }).then(() => {
+          setDraftSavedIndicator(true);
+          if (draftIndicatorTimer.current) clearTimeout(draftIndicatorTimer.current);
+          draftIndicatorTimer.current = setTimeout(() => setDraftSavedIndicator(false), 2e3);
+        }).catch(() => {
+        });
+      }
     }, 3e4);
     return () => {
       if (draftTimerRef.current) clearInterval(draftTimerRef.current);
+      if (draftIndicatorTimer.current) clearTimeout(draftIndicatorTimer.current);
     };
   }, []);
   const loadHistory = reactExports.useCallback(async () => {
@@ -52312,6 +52710,7 @@ function BlogEditorPage$1() {
           const pt = state.pendingTagIds;
           dispatch({ type: "SET_PENDING_TAGS", payload: null });
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
+          setRestoreDraft(null);
           navigate(`/blog/${r.data.id}`, { replace: true });
         } else {
           dispatch({ type: "SET_ERROR", payload: r.error || "创建失败" });
@@ -52330,6 +52729,7 @@ function BlogEditorPage$1() {
           toast(r.error || "保存失败", "error");
         } else {
           dispatch({ type: "SET_DIRTY", payload: false });
+          setRestoreDraft(null);
         }
       }
     } catch (e) {
@@ -52458,6 +52858,44 @@ function BlogEditorPage$1() {
           children: state.error
         }
       ),
+      restoreDraft && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "mb-3 flex items-center gap-3 rounded-[4px] border px-4 py-2.5 text-[13px]",
+          style: { borderColor: "var(--accent-amber)", background: "rgba(211,153,34,0.08)", color: "var(--accent-amber)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              "📝 检测到未保存的草稿 (",
+              new Date(restoreDraft.savedAt).toLocaleString("zh-CN"),
+              ")"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  dispatch({ type: "SET_CONTENT", payload: restoreDraft.content });
+                  setRestoreDraft(null);
+                  toast("已恢复草稿", "success");
+                },
+                className: "ml-auto rounded-[3px] px-3 py-0.5 text-[12px] font-medium",
+                style: { background: "var(--accent-amber)", color: "#fff" },
+                children: "恢复"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => setRestoreDraft(null),
+                className: "text-[12px] hover:underline",
+                style: { color: "var(--text-secondary)" },
+                children: "忽略"
+              }
+            )
+          ]
+        }
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TiptapEditor, { content: state.content, onChange: handleContentChange }) }),
       user && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TagSelector, { userId: user.id, selectedTagIds: state.selectedTagIds, onChange: handleTagChange }) }),
       blogIdRef.current && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 border-t pt-3", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(AttachmentPanel, { blogId: blogIdRef.current }) }),
@@ -52541,7 +52979,19 @@ function BlogEditorPage$1() {
       ] }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex justify-between text-[12px]", style: { color: "var(--text-secondary)" }, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isNew ? "新建博客" : "编辑模式" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Ctrl+S 保存" })
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-3", children: [
+          draftSavedIndicator && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-green)" }, children: "草稿已保存" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: "字数", children: [
+            countChars(state.content),
+            " 字"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { title: "预计阅读时间", children: [
+            "~",
+            estimateReadingTime(state.content),
+            " 分钟"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Ctrl+S 保存" })
+        ] })
       ] })
     ] }),
     state.focusMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -52994,8 +53444,8 @@ function RelatedResources({ blogId }) {
     }
   );
 }
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-md.renderer.rules.heading_open = (tokens, idx) => {
+const md$2 = new MarkdownIt({ html: false, linkify: true, typographer: true });
+md$2.renderer.rules.heading_open = (tokens, idx) => {
   const token = tokens[idx];
   if (!token) return "";
   const text2 = tokens[idx + 1]?.content || "";
@@ -53016,7 +53466,7 @@ function BlogPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [blog, setBlog] = reactExports.useState(null);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const [progress, setProgress] = reactExports.useState(0);
   const [readingTheme, setReadingTheme] = reactExports.useState(localStorage.getItem("reading-theme") || "paper");
   const isEditMode = searchParams.get("mode") === "edit";
@@ -53039,13 +53489,14 @@ function BlogPreviewPage() {
       window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
           setBlog(r.data);
+          recordRecentBlog(r.data.id, r.data.title);
           const saved = localStorage.getItem(`blog-progress-${id}`);
           if (saved) {
             const pct = Number(saved);
             if (pct > 0) {
               requestAnimationFrame(() => {
-                const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                window.scrollTo(0, total * pct / 100);
+                const total2 = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                window.scrollTo(0, total2 * pct / 100);
               });
             }
           }
@@ -53062,21 +53513,21 @@ function BlogPreviewPage() {
   }, [id, progress]);
   const handleScroll = reactExports.useCallback(() => {
     const h2 = document.documentElement;
-    const total = h2.scrollHeight - h2.clientHeight;
-    setProgress(total > 0 ? Math.min(h2.scrollTop / total * 100, 100) : 0);
+    const total2 = h2.scrollHeight - h2.clientHeight;
+    setProgress(total2 > 0 ? Math.min(h2.scrollTop / total2 * 100, 100) : 0);
   }, []);
   reactExports.useEffect(() => {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
-  if (loading)
+  if (loading2)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
   if (!blog)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--accent-red)" }, children: "博客不存在" });
   if (isEditMode) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: scrollContainerRef, className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, {}) });
   }
-  const rendered = blog.format === "md" ? md.render(blog.content) : blog.content;
+  const rendered = blog.format === "md" ? md$2.render(blog.content) : blog.content;
   const tocItems = parseToc(blog.content, blog.format);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
@@ -53265,43 +53716,83 @@ const TYPE_LABELS = {
   image: { label: "IMG", color: "var(--accent-purple)" },
   other: { label: "FILE", color: "var(--text-secondary)" }
 };
+function knowledgeListReducer(state, action) {
+  switch (action.type) {
+    case "SET_FILES":
+      return { ...state, files: action.files, total: action.total };
+    case "SET_LOADING":
+      return { ...state, loading: action.v };
+    case "SET_QUERY":
+      return { ...state, query: action.v };
+    case "SET_FILE_TYPE":
+      return { ...state, fileType: action.v };
+    case "SET_TAG_FILTER":
+      return { ...state, filterTagId: action.id, filterTagName: action.name };
+    case "SET_FOLDER_FILTER":
+      return { ...state, filterFolderId: action.v };
+    case "TOGGLE_SIDEBAR":
+      return { ...state, showFolderSidebar: action.v };
+    case "START_EDIT_TAGS":
+      return { ...state, editingTagsFileId: action.fileId, editingTagIds: action.tagIds };
+    case "STOP_EDIT_TAGS":
+      return { ...state, editingTagsFileId: null, editingTagIds: [] };
+    case "SET_EDIT_TAG_IDS":
+      return { ...state, editingTagIds: action.ids };
+    case "PREVIEW_START":
+      return { ...state, previewing: true, previewTitle: action.title, previewFileId: action.fileId, previewFileType: action.fileType, backRefs: [], previewHtml: "" };
+    case "PREVIEW_LOADING":
+      return { ...state, previewing: true };
+    case "PREVIEW_HTML":
+      return { ...state, previewHtml: action.html, previewing: false };
+    case "PREVIEW_CLOSE":
+      return { ...state, previewHtml: "", previewTitle: "", previewFileId: null, previewFileType: "", backRefs: [] };
+    case "SET_BACKREFS":
+      return { ...state, backRefs: action.refs };
+    case "SET_DRAG_OVER":
+      return { ...state, dragOver: action.v };
+    case "SET_KB_FOLDERS":
+      return { ...state, kbFolders: action.v };
+    default:
+      return state;
+  }
+}
 function KnowledgeListPage() {
   const user = useAuthStore((s) => s.user);
-  const [files, setFiles] = reactExports.useState([]);
-  const [total, setTotal] = reactExports.useState(0);
-  const [loading, setLoading] = reactExports.useState(true);
-  const [query, setQuery] = reactExports.useState("");
-  const [fileType, setFileType] = reactExports.useState("");
-  const [filterTagId, setFilterTagId] = reactExports.useState(null);
-  const [filterTagName, setFilterTagName] = reactExports.useState("");
-  const [filterFolderId, setFilterFolderId] = reactExports.useState(null);
-  const [showFolderSidebar, setShowFolderSidebar] = reactExports.useState(
-    () => localStorage.getItem("sidebar_folder_knowledge") === "1"
-  );
-  const [editingTagsFileId, setEditingTagsFileId] = reactExports.useState(null);
-  const [editingTagIds, setEditingTagIds] = reactExports.useState([]);
+  const [state, dispatch] = reactExports.useReducer(knowledgeListReducer, {
+    files: [],
+    total: 0,
+    loading: true,
+    query: "",
+    fileType: "",
+    filterTagId: null,
+    filterTagName: "",
+    filterFolderId: null,
+    showFolderSidebar: localStorage.getItem("sidebar_folder_knowledge") === "1",
+    editingTagsFileId: null,
+    editingTagIds: [],
+    previewHtml: "",
+    previewTitle: "",
+    previewing: false,
+    previewFileId: null,
+    previewFileType: "",
+    backRefs: [],
+    dragOver: false,
+    kbFolders: []
+  });
   const fileInputRef = reactExports.useRef(null);
-  const [previewHtml, setPreviewHtml] = reactExports.useState("");
-  const [previewTitle, setPreviewTitle] = reactExports.useState("");
-  const [previewing, setPreviewing] = reactExports.useState(false);
-  const [previewFileId, setPreviewFileId] = reactExports.useState(null);
-  const [previewFileType, setPreviewFileType] = reactExports.useState("");
-  const [backRefs, setBackRefs] = reactExports.useState([]);
-  const batch = useBatchSelect(files);
-  const pagination = usePagination(20);
-  const [dragOver, setDragOver] = reactExports.useState(false);
-  const [kbFolders, setKbFolders] = reactExports.useState([]);
+  const batch = useBatchSelect(state.files);
+  const pagination = usePagination(20, state.total);
   const loadKbFolders = reactExports.useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: "knowledge" });
-    if (r.success && r.data) setKbFolders(r.data);
+    if (r.success && r.data) dispatch({ type: "SET_KB_FOLDERS", v: r.data });
   }, [user]);
   reactExports.useEffect(() => {
     loadKbFolders();
   }, [loadKbFolders]);
   const loadFiles = reactExports.useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    dispatch({ type: "SET_LOADING", v: true });
     try {
       const r = await window.api.kbList({
         userId: user.id,
@@ -53321,7 +53812,7 @@ function KnowledgeListPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      dispatch({ type: "SET_LOADING", v: false });
     }
   }, [user, query, fileType, filterTagId, filterFolderId, pagination.offset, pagination.limit]);
   reactExports.useEffect(() => {
@@ -53380,13 +53871,13 @@ function KnowledgeListPage() {
       onDragOver: (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOver(true);
+        dispatch({ type: "SET_DRAG_OVER", v: true });
       },
-      onDragLeave: () => setDragOver(false),
+      onDragLeave: () => dispatch({ type: "SET_DRAG_OVER", v: false }),
       onDrop: async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOver(false);
+        dispatch({ type: "SET_DRAG_OVER", v: false });
         if (!user || !e.dataTransfer.files.length) return;
         const paths = [];
         for (const file of Array.from(e.dataTransfer.files)) {
@@ -53684,7 +54175,7 @@ function KnowledgeListPage() {
                                 const timeout = new Promise(
                                   (_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 1e4)
                                 );
-                                const preview = window.api.kbPreview(f.id).then((r) => r.html || "<p style=color:var(--text-secondary)>无法预览</p>");
+                                const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r) => (r.success !== false ? r.data?.html || r.html : "") || "<p style=color:var(--text-secondary)>无法预览</p>");
                                 const html2 = await Promise.race([preview, timeout]);
                                 setPreviewHtml(html2);
                               } catch (e) {
@@ -53799,7 +54290,7 @@ function KnowledgeListPage() {
                           "button",
                           {
                             type: "button",
-                            onClick: () => window.api.kbOpenExternal(f.id),
+                            onClick: () => window.api.kbOpenExternal({ fileId: f.id, userId: user.id }),
                             className: "mr-2 text-[12px] hover:underline",
                             style: { color: "var(--accent-blue)" },
                             children: "打开"
@@ -53925,7 +54416,7 @@ function KnowledgeListPage() {
                   ref: (el) => {
                     if (el && previewFileId) {
                       const kbId = previewFileId;
-                      window.api.kbGet(kbId).then((r) => {
+                      window.api.kbGet({ fileId: kbId, userId: user.id }).then((r) => {
                         if (r.success && r.data?.filePath)
                           el.setAttribute("src", `file:///${r.data.filePath.replace(/\\/g, "/")}`);
                       });
@@ -53967,12 +54458,13 @@ function KnowledgeListPage() {
 }
 const KnowledgeListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  KnowledgeListPage
+  KnowledgeListPage,
+  knowledgeListReducer
 }, Symbol.toStringTag, { value: "Module" }));
 function RecycleBinPage() {
   const user = useAuthStore((s) => s.user);
   const [items, setItems] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const loadItems = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -54027,7 +54519,7 @@ function RecycleBinPage() {
         }
       )
     ] }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : items.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : items.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
         className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -54100,7 +54592,7 @@ function fmtSize(bytes) {
 function BackupSection() {
   const user = useAuthStore((s) => s.user);
   const [backups, setBackups] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const [message, setMessage] = reactExports.useState("");
   const load = reactExports.useCallback(async () => {
     setLoading(true);
@@ -54170,7 +54662,7 @@ function BackupSection() {
         children: "📦 导出工作区 (.zip)"
       }
     ),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : backups.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "暂无备份" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: backups.map((b) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : backups.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "暂无备份" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: backups.map((b) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-3 rounded-[4px] border px-4 py-2.5",
@@ -54227,6 +54719,10 @@ function ShortcutSettings() {
     load();
   }, [load]);
   const handleRecord = reactExports.useCallback((id) => {
+    if (recordCleanup.current) {
+      recordCleanup.current();
+      recordCleanup.current = null;
+    }
     setEditingId(id);
     const handler = (e) => {
       e.preventDefault();
@@ -54573,65 +55069,96 @@ const SettingsPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defi
   __proto__: null,
   SettingsPage
 }, Symbol.toStringTag, { value: "Module" }));
+const initialState = {
+  tags: [],
+  loading: true,
+  newName: "",
+  editingId: null,
+  editingName: "",
+  error: "",
+  selectedTag: null,
+  results: [],
+  resultsLoading: false,
+  tagFilter: "",
+  debouncedFilter: ""
+};
+function tagManageReducer(state, action) {
+  switch (action.type) {
+    case "SET_TAGS":
+      return { ...state, tags: action.tags };
+    case "SET_LOADING":
+      return { ...state, loading: action.loading };
+    case "SET_NEW_NAME":
+      return { ...state, newName: action.name };
+    case "START_EDIT":
+      return { ...state, editingId: action.id, editingName: action.name };
+    case "CANCEL_EDIT":
+      return { ...state, editingId: null, editingName: "", error: "" };
+    case "SET_ERROR":
+      return { ...state, error: action.error };
+    case "SELECT_TAG":
+      return { ...state, selectedTag: action.tag };
+    case "SET_RESULTS":
+      return { ...state, results: action.results, resultsLoading: false };
+    case "SET_RESULTS_LOADING":
+      return { ...state, resultsLoading: action.v };
+    case "SET_TAG_FILTER":
+      return { ...state, tagFilter: action.val };
+    case "SET_DEBOUNCED_FILTER":
+      return { ...state, debouncedFilter: action.val };
+    default:
+      return state;
+  }
+}
 function TagManagePage() {
   const user = useAuthStore((s) => s.user);
-  const [tags, setTags] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
-  const [newName, setNewName] = reactExports.useState("");
-  const [editingId, setEditingId] = reactExports.useState(null);
-  const [editingName, setEditingName] = reactExports.useState("");
-  const [error2, setError] = reactExports.useState("");
-  const [selectedTag, setSelectedTag] = reactExports.useState(null);
-  const [results, setResults] = reactExports.useState([]);
-  const [resultsLoading, setResultsLoading] = reactExports.useState(false);
-  const [tagFilter, setTagFilter] = reactExports.useState("");
+  const [state, dispatch] = reactExports.useReducer(tagManageReducer, initialState);
   const filterTimer = reactExports.useRef(null);
-  const [debouncedFilter, setDebouncedFilter] = reactExports.useState("");
   const loadTags = reactExports.useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    dispatch({ type: "SET_LOADING", loading: true });
     try {
       const res = await window.api.tagList(user.id);
-      setTags(res?.data || []);
+      dispatch({ type: "SET_TAGS", tags: res?.data || [] });
     } catch {
-      setTags([]);
+      dispatch({ type: "SET_TAGS", tags: [] });
     } finally {
-      setLoading(false);
+      dispatch({ type: "SET_LOADING", loading: false });
     }
   }, [user]);
   reactExports.useEffect(() => {
     loadTags();
   }, [loadTags]);
   const handleFilterChange = reactExports.useCallback((val) => {
-    setTagFilter(val);
+    dispatch({ type: "SET_TAG_FILTER", val });
     if (filterTimer.current) clearTimeout(filterTimer.current);
-    filterTimer.current = setTimeout(() => setDebouncedFilter(val), 200);
+    filterTimer.current = setTimeout(() => dispatch({ type: "SET_DEBOUNCED_FILTER", val }), 200);
   }, []);
-  const filteredTags = debouncedFilter ? tags.filter((t) => t.name.toLowerCase().includes(debouncedFilter.toLowerCase())) : tags;
+  const filteredTags = state.debouncedFilter ? state.tags.filter((t) => t.name.toLowerCase().includes(state.debouncedFilter.toLowerCase())) : state.tags;
   const handleCreate = async () => {
-    if (!user || !newName.trim()) return;
-    setError("");
+    if (!user || !state.newName.trim()) return;
+    dispatch({ type: "SET_ERROR", error: "" });
     try {
-      const data = await window.api.tagCreate({ userId: user.id, name: newName.trim() });
+      const data = await window.api.tagCreate({ userId: user.id, name: state.newName.trim() });
       const resp = data;
       if (resp.success) {
-        setNewName("");
+        dispatch({ type: "SET_NEW_NAME", name: "" });
         loadTags();
       } else {
-        setError(resp.error || "创建失败");
+        dispatch({ type: "SET_ERROR", error: resp.error || "创建失败" });
       }
     } catch {
-      setError("创建失败");
+      dispatch({ type: "SET_ERROR", error: "创建失败" });
     }
   };
   const handleSaveEdit = async (tagId) => {
-    if (!editingName.trim()) return;
+    if (!state.editingName.trim()) return;
     try {
-      await window.api.tagUpdate({ userId: user.id, tagId, name: editingName.trim() });
-      setEditingId(null);
+      await window.api.tagUpdate({ userId: user.id, tagId, name: state.editingName.trim() });
+      dispatch({ type: "CANCEL_EDIT" });
       loadTags();
     } catch {
-      setError("重命名失败");
+      dispatch({ type: "SET_ERROR", error: "重命名失败" });
     }
   };
   const handleDelete2 = async (tagId) => {
@@ -54642,264 +55169,108 @@ function TagManagePage() {
       if (resp?.success) {
         loadTags();
       } else {
-        setError(resp?.error || "删除失败");
+        dispatch({ type: "SET_ERROR", error: resp?.error || "删除失败" });
       }
     } catch {
-      setError("删除失败");
+      dispatch({ type: "SET_ERROR", error: "删除失败" });
     }
   };
-  const startEdit = (tag) => {
-    setEditingId(tag.id);
-    setEditingName(tag.name);
-  };
+  const startEdit = (tag) => dispatch({ type: "START_EDIT", id: tag.id, name: tag.name });
+  const unusedCount = state.tags.filter((t) => (t.count ?? 0) === 0).length;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mb-6 text-xl font-bold", children: "标签管理" }),
-    tags.some((t) => (t.count ?? 0) === 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "mb-4 flex items-center gap-3 rounded-[6px] border p-3",
-        style: { borderColor: "var(--accent-amber)", background: "var(--bg-secondary)" },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[13px]", style: { color: "var(--accent-amber)" }, children: [
-            "⚠️ ",
-            tags.filter((t) => (t.count ?? 0) === 0).length,
-            " 个标签未被使用"
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: async () => {
-                const unused = tags.filter((t) => (t.count ?? 0) === 0);
-                if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
-                for (const t of unused) {
-                  try {
-                    await window.api.tagDelete({ userId: user.id, tagId: t.id });
-                  } catch {
-                    console.error(`[TagManage] Failed to delete tag ${t.id}`);
-                  }
-                }
-                loadTags();
-              },
-              className: "text-[12px] font-medium hover:underline",
-              style: { color: "var(--accent-red)" },
-              children: "清理未使用标签"
-            }
-          )
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
-        {
-          type: "text",
-          value: newName,
-          onChange: (e) => setNewName(e.target.value),
-          onKeyDown: (e) => e.key === "Enter" && handleCreate(),
-          placeholder: "新标签名称...",
-          className: "flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]"
+    unusedCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center gap-3 rounded-[6px] border p-3", style: { borderColor: "var(--accent-amber)", background: "var(--bg-secondary)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[13px]", style: { color: "var(--accent-amber)" }, children: [
+        "⚠️ ",
+        unusedCount,
+        " 个标签未被使用"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: async () => {
+        const unused = state.tags.filter((t) => (t.count ?? 0) === 0);
+        if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
+        for (const t of unused) {
+          try {
+            await window.api.tagDelete({ userId: user.id, tagId: t.id });
+          } catch {
+          }
         }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: handleCreate,
-          disabled: !newName.trim(),
-          className: "rounded-md bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary-dark)] disabled:opacity-40 transition-all",
-          children: "创建标签"
-        }
-      )
+        loadTags();
+      }, className: "text-[12px] font-medium hover:underline", style: { color: "var(--accent-red)" }, children: "清理未使用标签" })
     ] }),
-    error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-600", children: error2 }),
-    !loading && tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "input",
-      {
-        type: "text",
-        value: tagFilter,
-        onChange: (e) => handleFilterChange(e.target.value),
-        placeholder: "搜索标签...",
-        className: "mb-4 rounded-[6px] border px-3 py-1.5 text-[13px] outline-none w-full max-w-[300px]",
-        style: {
-          background: "var(--bg-primary)",
-          borderColor: "var(--border-default)",
-          color: "var(--text-primary)"
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "text", value: state.newName, onChange: (e) => dispatch({ type: "SET_NEW_NAME", name: e.target.value }), onKeyDown: (e) => e.key === "Enter" && handleCreate(), placeholder: "新标签名称...", "aria-label": "新标签名称", className: "flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleCreate, disabled: !state.newName.trim(), className: "rounded-md bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary-dark)] disabled:opacity-40 transition-all", children: "创建标签" })
+    ] }),
+    state.error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-600", children: state.error }),
+    !state.loading && state.tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "text", value: state.tagFilter, onChange: (e) => handleFilterChange(e.target.value), placeholder: "搜索标签...", "aria-label": "搜索标签", className: "mb-4 rounded-[6px] border px-3 py-1.5 text-[13px] outline-none w-full max-w-[300px]", style: { background: "var(--bg-primary)", borderColor: "var(--border-default)", color: "var(--text-primary)" } }),
+    state.loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-sm text-[var(--color-text-muted)]", children: "加载中..." }) : state.tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] p-12 text-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-[var(--color-text-muted)]", children: "暂无标签，创建一个吧" }) }) : filteredTags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-8 text-center text-[13px]", style: { color: "var(--text-muted)" }, children: "没有匹配的标签" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3", children: filteredTags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-all hover:shadow-md hover:border-[var(--color-primary-light)]", children: state.editingId === tag.id ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "text", value: state.editingName, onChange: (e) => dispatch({ type: "START_EDIT", id: tag.id, name: e.target.value }), onKeyDown: (e) => {
+        if (e.key === "Enter") handleSaveEdit(tag.id);
+        if (e.key === "Escape") dispatch({ type: "CANCEL_EDIT" });
+      }, placeholder: tag.name, title: "编辑标签名称", "aria-label": "编辑标签名称", className: "w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleSaveEdit(tag.id), className: "text-xs text-green-600 hover:underline", children: "保存" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => dispatch({ type: "CANCEL_EDIT" }), className: "text-xs text-[var(--color-text-muted)] hover:underline", children: "取消" })
+    ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-[var(--color-text-primary)] cursor-pointer hover:text-[var(--color-primary)] transition-colors", onClick: async () => {
+        const isSelected = state.selectedTag?.id === tag.id;
+        dispatch({ type: "SELECT_TAG", tag: isSelected ? null : tag });
+        if (!isSelected) {
+          dispatch({ type: "SET_RESULTS_LOADING", v: true });
+          try {
+            const [blogsRes, kbRes] = await Promise.all([
+              window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
+              user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null)
+            ]);
+            const items = [];
+            if (blogsRes?.success && blogsRes.data?.blogs) items.push(...blogsRes.data.blogs.map((b) => ({ id: b.id, title: b.title, type: "blog", updatedAt: b.updatedAt })));
+            if (kbRes?.success && kbRes.data?.files) items.push(...kbRes.data.files.map((f) => ({ id: f.id, title: f.filename, type: "knowledge" })));
+            dispatch({ type: "SET_RESULTS", results: items });
+          } catch {
+            dispatch({ type: "SET_RESULTS", results: [] });
+          }
+        } else {
+          dispatch({ type: "SET_RESULTS", results: [] });
         }
-      }
-    ),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-sm text-[var(--color-text-muted)]", children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-card)] p-12 text-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-[var(--color-text-muted)]", children: "暂无标签，创建一个吧" }) }) : filteredTags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-8 text-center text-[13px]", style: { color: "var(--text-muted)" }, children: "没有匹配的标签" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-3", children: filteredTags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-all hover:shadow-md hover:border-[var(--color-primary-light)]",
-        children: editingId === tag.id ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
-            {
-              type: "text",
-              value: editingName,
-              onChange: (e) => setEditingName(e.target.value),
-              onKeyDown: (e) => {
-                if (e.key === "Enter") handleSaveEdit(tag.id);
-                if (e.key === "Escape") setEditingId(null);
-              },
-              placeholder: tag.name,
-              title: "编辑标签名称",
-              className: "w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => handleSaveEdit(tag.id),
-              className: "text-xs text-green-600 hover:underline",
-              children: "保存"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => setEditingId(null),
-              className: "text-xs text-[var(--color-text-muted)] hover:underline",
-              children: "取消"
-            }
-          )
-        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "text-sm font-medium text-[var(--color-text-primary)] cursor-pointer hover:text-[var(--color-primary)] transition-colors",
-              onClick: async () => {
-                setSelectedTag(selectedTag?.id === tag.id ? null : tag);
-                if (selectedTag?.id !== tag.id) {
-                  setResultsLoading(true);
-                  try {
-                    const [blogsRes, kbRes] = await Promise.all([
-                      window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
-                      user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null)
-                    ]);
-                    const items = [];
-                    if (blogsRes?.success && blogsRes.data?.blogs)
-                      items.push(
-                        ...blogsRes.data.blogs.map((b) => ({
-                          id: b.id,
-                          title: b.title,
-                          type: "blog",
-                          updatedAt: b.updatedAt
-                        }))
-                      );
-                    if (kbRes?.success && kbRes.data?.files)
-                      items.push(
-                        ...kbRes.data.files.map((f) => ({
-                          id: f.id,
-                          title: f.filename,
-                          type: "knowledge"
-                        }))
-                      );
-                    setResults(items);
-                  } catch {
-                    setResults([]);
-                  }
-                  setResultsLoading(false);
-                } else {
-                  setResults([]);
-                }
-              },
-              title: tag.description || `查看标签"${tag.name}"关联的内容`,
-              children: tag.name
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-[var(--color-text-muted)]",
-              title: `${tag.count ?? 0} 篇关联`,
-              children: tag.count ?? 0
-            }
-          ),
-          (tag.count ?? 0) === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-amber)" }, children: "⚠️ 未使用" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => startEdit(tag),
-              className: "ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all",
-              children: "编辑"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => handleDelete2(tag.id),
-              className: "text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all",
-              children: "删除"
-            }
-          )
-        ] })
-      },
-      tag.id
-    )) }),
-    selectedTag && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "mt-6 rounded-[8px] border p-5",
-        style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center justify-between", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: [
-              "标签「",
-              selectedTag.name,
-              "」关联的内容 (",
-              results.length,
-              ")"
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => {
-                  setSelectedTag(null);
-                  setResults([]);
-                },
-                className: "text-[13px] hover:underline",
-                style: { color: "var(--text-secondary)" },
-                children: "关闭"
-              }
-            )
-          ] }),
-          resultsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : results.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "该标签下暂无内容" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: results.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            Link$1,
-            {
-              to: item.type === "blog" ? `/blog/${item.id}` : "/knowledge",
-              className: "flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity",
-              style: { background: "var(--bg-primary)" },
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: item.type === "blog" ? "📝" : "📄" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1 truncate", style: { color: "var(--text-primary)" }, children: item.title }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "span",
-                  {
-                    className: "rounded-[3px] px-1.5 py-0.5 text-[11px]",
-                    style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-                    children: item.type === "blog" ? "博客" : "知识库"
-                  }
-                )
-              ]
-            },
-            `${item.type}-${item.id}`
-          )) })
-        ]
-      }
-    ),
+      }, title: tag.description || `查看标签"${tag.name}"关联的内容`, children: tag.name }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(Link$1, { to: `/blog?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`, className: "no-underline rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 hover:bg-blue-100 transition-colors", title: `${tag.blogCount ?? 0} 篇博客`, onClick: (e) => e.stopPropagation(), children: [
+        "📝 ",
+        tag.blogCount ?? 0
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(Link$1, { to: `/knowledge?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`, className: "no-underline rounded-full bg-green-50 px-2 py-0.5 text-[11px] text-green-600 hover:bg-green-100 transition-colors", title: `${tag.kbCount ?? 0} 个知识库文件`, onClick: (e) => e.stopPropagation(), children: [
+        "📁 ",
+        tag.kbCount ?? 0
+      ] }),
+      (tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-amber)" }, children: "⚠️ 未使用" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => startEdit(tag), className: "ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all", children: "编辑" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleDelete2(tag.id), className: "text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all", children: "删除" })
+    ] }) }, tag.id)) }),
+    state.selectedTag && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 rounded-[8px] border p-5", style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: [
+          "标签「",
+          state.selectedTag.name,
+          "」关联的内容 (",
+          state.results.length,
+          ")"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => {
+          dispatch({ type: "SELECT_TAG", tag: null });
+          dispatch({ type: "SET_RESULTS", results: [] });
+        }, className: "text-[13px] hover:underline", style: { color: "var(--text-secondary)" }, children: "关闭" })
+      ] }),
+      state.resultsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : state.results.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "该标签下暂无内容" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: state.results.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Link$1, { to: item.type === "blog" ? `/blog/${item.id}` : "/knowledge", className: "flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity", style: { background: "var(--bg-primary)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: item.type === "blog" ? "📝" : "📄" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1 truncate", style: { color: "var(--text-primary)" }, children: item.title }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-[3px] px-1.5 py-0.5 text-[11px]", style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" }, children: item.type === "blog" ? "博客" : "知识库" })
+      ] }, `${item.type}-${item.id}`)) })
+    ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-6 text-xs text-[var(--color-text-muted)]", children: "提示：点击标签名可查看关联的博客和知识库文件。悬停标签可编辑或删除。" })
   ] });
 }
 const TagManagePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  TagManagePage
+  TagManagePage,
+  tagManageReducer
 }, Symbol.toStringTag, { value: "Module" }));
 function TipBox({ children }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -55128,6 +55499,21 @@ function GuidePage() {
         className: "mb-6 rounded-[16px] border p-6 md:p-8",
         style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
         children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: "./assets/guide-architecture.svg",
+                alt: "Local Blog KB 系统架构图",
+                className: "w-full rounded-[8px]",
+                style: { border: "1px solid var(--border-default)" },
+                onError: (e) => {
+                  e.target.style.display = "none";
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ Local Blog KB 系统架构：Electron 桌面壳 + Express Web 服务器 + 双数据库后端 + FTS5 检索引擎" })
+          ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 text-center", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "h2",
@@ -55274,7 +55660,7 @@ function GuidePage() {
                 title: "编辑器功能",
                 items: [
                   "Markdown / 所见即所得双模式切换",
-                  "Ctrl+S 保存 + 30 秒自动草稿备份",
+                  "Ctrl+S 保存 + 30 秒自动草稿 + 恢复提示",
                   "专注模式 — 全屏无干扰沉浸写作",
                   "模板系统 — 复用常用文章结构",
                   "历史版本回滚 — 随时恢复到之前版本",
@@ -55288,15 +55674,30 @@ function GuidePage() {
                 icon: "🏗️",
                 title: "组织与发布",
                 items: [
-                  "标签系统 — 多标签分类 + 点击标签名查看关联",
+                  "标签系统 — 多标签分类 + 关联计数面板",
                   "系列链 — 设置系列 ID 自动生成上一篇/下一篇",
-                  "文件夹拖放 — 将文章拖入文件夹分类管理",
+                  "文件夹分类 — 多层嵌套树形结构管理",
                   "批量操作 — 多选删除 / 批量打标签",
                   "导出 PDF — 打印级质量排版",
                   "导出 Word (.docx) — 兼容 MS Office"
                 ]
               }
             )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: "./assets/guide-blog-editor.svg",
+                alt: "博客写作工作流",
+                className: "w-full rounded-[8px]",
+                style: { border: "1px solid var(--border-default)" },
+                onError: (e) => {
+                  e.target.style.display = "none";
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ 博客写作流程：编辑 → 整理 → 发布 + 辅助功能" })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-secondary)" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-3 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "写作流程" }),
@@ -55456,7 +55857,27 @@ function GuidePage() {
                     /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快捷便签 — Enter 保存 · 24h 自动清理" }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· MD 浮窗 — Ctrl+Shift+N · 独立写作窗口" }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 剪贴板一键转入便签" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 浮窗关闭自动保存为博客草稿" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Markdown 富文本渲染，编辑/预览切换" })
+                  ] })
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "rounded-[10px] p-5",
+                style: { background: "var(--bg-secondary)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "📑" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "博客标签条" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-blue)" }, children: "快速切换" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 阅读中一键最小化为浮动标签条" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 最多同时缩小 5 篇博客" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击标签即恢复，无缝跳转" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 位置记忆 + 标题截断显示" })
                   ] })
                 ]
               }
@@ -55501,42 +55922,59 @@ function GuidePage() {
         ]
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
       Section,
       {
         icon: "🔍",
         title: "全局搜索与回收站",
         subtitle: "快速检索所有内容 · 误删 30 天内可恢复",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            FeatureCard,
-            {
-              icon: "🔎",
-              title: "全局搜索",
-              items: [
-                "顶部搜索栏 — 任意页面可用",
-                "同时搜索博客标题/内容 + 知识库文件名",
-                "SQL LIKE 中文全文检索",
-                "搜索结果显示博客/知识库分类",
-                "点击结果直接跳转目标页面"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            FeatureCard,
-            {
-              icon: "♻️",
-              title: "回收站",
-              items: [
-                "删除 = 移入回收站（非永久删除）",
-                "30 天内可恢复 — 支持批量恢复",
-                "超过 30 天自动清理释放空间",
-                "清空回收站同时删除磁盘文件",
-                "删除账户时可选择保留或删除文件"
-              ]
-            }
-          )
-        ] })
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: "./assets/guide-search-system.svg",
+                alt: "FTS5 全文搜索系统",
+                className: "w-full rounded-[8px]",
+                style: { border: "1px solid var(--border-default)" },
+                onError: (e) => {
+                  e.target.style.display = "none";
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ FTS5 搜索系统：MySQL FULLTEXT + Worker 倒排索引双模式，Intl.Segmenter 中文分词 + TF-IDF 相关度排序" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "🔎",
+                title: "全局搜索",
+                items: [
+                  "顶部搜索栏 — 任意页面可用",
+                  "同时搜索博客标题/内容 + 知识库文件名",
+                  "FTS5 全文检索引擎 + Intl.Segmenter 中文分词",
+                  "Worker 线程倒排索引，TF-IDF 相关度排序",
+                  "MySQL FULLTEXT INDEX 数据库级加速"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "♻️",
+                title: "回收站",
+                items: [
+                  "删除 = 移入回收站（非永久删除）",
+                  "30 天内可恢复 — 支持批量恢复",
+                  "超过 30 天自动清理释放空间",
+                  "清空回收站同时删除磁盘文件",
+                  "删除账户时可选择保留或删除文件"
+                ]
+              }
+            )
+          ] })
+        ]
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -55577,6 +56015,47 @@ function GuidePage() {
             )
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "阅读主题在每个博客的预览页右上角切换，选择会自动记住。仪表盘「成就」标签页可查看所有已解锁和未解锁成就。" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Section,
+      {
+        icon: "📅",
+        title: "日历与备忘录",
+        subtitle: "时间管理 + 随手记事，一屏掌控",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "📆",
+                title: "日历视图",
+                items: [
+                  "月视图日历 — 替换传统热力图",
+                  "点击日期添加日程（标题+描述+时间）",
+                  "有日程的日期显示圆点标记",
+                  "日/周/月视图自由切换",
+                  "数据持久化存储，重启不丢失"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FeatureCard,
+              {
+                icon: "📝",
+                title: "备忘录",
+                items: [
+                  "Markdown 富文本编辑，所见即所得",
+                  "笔记/日程/待办三种类型自由切换",
+                  "置顶 + 归档 + 搜索 + 标签",
+                  "复用便签 IPC 通道，零新依赖",
+                  "列表视图 + 详情展开，高效浏览"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "日历和备忘录共用 notes 数据表。日程类型会自动在日历视图显示，笔记类型在备忘录列表展示。" })
         ]
       }
     ),
@@ -55671,27 +56150,35 @@ const GuidePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineP
   __proto__: null,
   GuidePage
 }, Symbol.toStringTag, { value: "Module" }));
+const md$1 = new MarkdownIt({ html: false, linkify: true, typographer: true });
 function NoteListPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const { toast } = useToast();
   const [notes, setNotes] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
+  const [error2, setError] = reactExports.useState(null);
+  const abortedRef = reactExports.useRef(false);
   const [input, setInput] = reactExports.useState("");
+  const [viewModeIds, setViewModeIds] = reactExports.useState(/* @__PURE__ */ new Set());
   const loadNotes = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
       const r = await window.api.noteList(user.id);
-      if (r.success && r.data) setNotes(r.data);
+      if (r.success && r.data && !abortedRef.current) setNotes(r.data);
     } catch (e) {
       console.error("[NoteList] Failed to load:", e);
+      setError("加载失败");
     } finally {
-      setLoading(false);
+      if (!abortedRef.current) setLoading(false);
     }
   }, [user]);
   reactExports.useEffect(() => {
     loadNotes();
+    return () => {
+      abortedRef.current = true;
+    };
   }, [loadNotes, location.pathname]);
   reactExports.useEffect(() => {
     const unsub = window.api.onNoteRefresh(() => {
@@ -55782,7 +56269,21 @@ function NoteListPage() {
         ]
       }
     ),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--accent-red)", textAlign: "center", padding: "3rem" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: error2 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            setError(null);
+            loadNotes();
+          },
+          style: { color: "var(--accent-blue)", marginTop: 8, background: "none", border: "none", cursor: "pointer", fontSize: 13 },
+          children: "重试"
+        }
+      )
+    ] }),
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "p",
       {
         className: "py-12 text-center text-[13px]",
@@ -55808,8 +56309,17 @@ function NoteListPage() {
           background: note.pinned ? "var(--bg-secondary)" : "var(--color-bg-card)"
         },
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+            viewModeIds.has(note.id) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "select-text text-[14px] leading-relaxed break-words prose prose-sm max-w-none",
+                style: { color: "var(--text-primary)" },
+                dangerouslySetInnerHTML: {
+                  __html: purify.sanitize(md$1.render(note.content))
+                }
+              }
+            ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
               "p",
               {
                 className: "select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words",
@@ -55831,14 +56341,37 @@ function NoteListPage() {
               "button",
               {
                 type: "button",
+                onClick: () => {
+                  setViewModeIds((prev) => {
+                    const next2 = new Set(prev);
+                    if (next2.has(note.id)) next2.delete(note.id);
+                    else next2.add(note.id);
+                    return next2;
+                  });
+                },
+                title: viewModeIds.has(note.id) ? "显示纯文本" : "预览渲染",
+                "aria-label": "编辑便签",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
+                style: {
+                  background: viewModeIds.has(note.id) ? "var(--accent-blue)" : "var(--bg-tertiary)",
+                  color: viewModeIds.has(note.id) ? "#fff" : "var(--text-secondary)"
+                },
+                children: viewModeIds.has(note.id) ? "✎" : "👁"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
                 onClick: () => handleTogglePin(note.id),
                 title: note.pinned ? "取消置顶" : "置顶",
+                "aria-label": note.pinned ? "取消置顶" : "置顶",
                 className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
                 style: {
                   background: note.pinned ? "var(--accent-amber)" : "var(--bg-tertiary)",
                   color: note.pinned ? "var(--text-on-accent)" : "var(--text-secondary)"
                 },
-                children: note.pinned ? "📌" : "📌"
+                children: "📌"
               }
             ),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -55847,6 +56380,7 @@ function NoteListPage() {
                 type: "button",
                 onClick: () => handleDelete2(note.id),
                 title: "删除",
+                "aria-label": "删除便签",
                 className: "rounded-[4px] px-2 py-0.5 text-[12px] text-red-400 transition-colors hover:text-red-600",
                 children: "✕"
               }
@@ -55872,6 +56406,7 @@ const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defi
 }, Symbol.toStringTag, { value: "Module" }));
 function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
+  const abortedRef = useRef(false);
   const [drafts, setDrafts] = reactExports.useState([]);
   const [draftsLoading, setDraftsLoading] = reactExports.useState(true);
   const [draftsError, setDraftsError] = reactExports.useState(null);
@@ -55883,30 +56418,46 @@ function ContinueWritingPage() {
   const [recentFilesError, setRecentFilesError] = reactExports.useState(null);
   reactExports.useEffect(() => {
     if (!user) return;
+    abortedRef.current = false;
     setDraftsLoading(true);
     setDraftsError(null);
     window.api.continueGetDrafts(user.id).then((r) => {
+      if (abortedRef.current) return;
       if (r.success && r.data) setDrafts(r.data);
     }).catch((e) => {
+      if (abortedRef.current) return;
       console.error("[Continue] Failed to get drafts:", e);
       setDraftsError("加载草稿失败");
-    }).finally(() => setDraftsLoading(false));
+    }).finally(() => {
+      if (!abortedRef.current) setDraftsLoading(false);
+    });
     setLastBlogLoading(true);
     setLastBlogError(null);
     window.api.continueGetLastBlog(user.id).then((r) => {
+      if (abortedRef.current) return;
       if (r.success && r.data) setLastBlog(r.data);
     }).catch((e) => {
+      if (abortedRef.current) return;
       console.error("[Continue] Failed to get last blog:", e);
       setLastBlogError("加载上次停留失败");
-    }).finally(() => setLastBlogLoading(false));
+    }).finally(() => {
+      if (!abortedRef.current) setLastBlogLoading(false);
+    });
     setRecentFilesLoading(true);
     setRecentFilesError(null);
     window.api.continueGetRecentFiles(user.id).then((r) => {
+      if (abortedRef.current) return;
       if (r.success && r.data) setRecentFiles(r.data);
     }).catch((e) => {
+      if (abortedRef.current) return;
       console.error("[Continue] Failed to get recent files:", e);
       setRecentFilesError("加载最近素材失败");
-    }).finally(() => setRecentFilesLoading(false));
+    }).finally(() => {
+      if (!abortedRef.current) setRecentFilesLoading(false);
+    });
+    return () => {
+      abortedRef.current = true;
+    };
   }, [user]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -56057,7 +56608,8 @@ const ContinueWritingPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Obje
 function SeriesListPage() {
   const user = useAuthStore((s) => s.user);
   const [series, setSeries] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
+  const [error2, setError] = reactExports.useState(null);
   const loadSeries = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -56066,6 +56618,7 @@ function SeriesListPage() {
       if (r.success && r.data) setSeries(r.data);
     } catch (e) {
       console.error("[SeriesList]", e);
+      setError("加载失败");
     } finally {
       setLoading(false);
     }
@@ -56082,7 +56635,21 @@ function SeriesListPage() {
         " 个系列"
       ] })
     ] }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : series.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--accent-red)", textAlign: "center", padding: "3rem" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: error2 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            setError(null);
+            loadSeries();
+          },
+          style: { color: "var(--accent-blue)", marginTop: 8, background: "none", border: "none", cursor: "pointer", fontSize: 13 },
+          children: "重试"
+        }
+      )
+    ] }),
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : series.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -56124,7 +56691,7 @@ function SeriesDetailPage() {
   const { seriesId } = useParams();
   const user = useAuthStore((s) => s.user);
   const [blogs, setBlogs] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [loading2, setLoading] = reactExports.useState(true);
   const [seriesName, setSeriesName] = reactExports.useState("");
   const [isEditing, setIsEditing] = reactExports.useState(false);
   const [editName, setEditName] = reactExports.useState("");
@@ -56230,7 +56797,7 @@ function SeriesDetailPage() {
         " 篇"
       ] })
     ] }),
-    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
         className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -56264,6 +56831,365 @@ function SeriesDetailPage() {
 const SeriesDetailPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   SeriesDetailPage
+}, Symbol.toStringTag, { value: "Module" }));
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const FILTERS = [
+  { id: "all", label: "全部" },
+  { id: "note", label: "笔记" },
+  { id: "schedule", label: "日程" },
+  { id: "todo", label: "待办" }
+];
+function MemoPage() {
+  const user = useAuthStore((s) => s.user);
+  const { toast } = useToast();
+  const [notes, setNotes] = reactExports.useState([]);
+  const [loading2, setLoading] = reactExports.useState(true);
+  const [filter, setFilter] = reactExports.useState("all");
+  const [showEditor, setShowEditor] = reactExports.useState(false);
+  const [editNote, setEditNote] = reactExports.useState(null);
+  const [formTitle, setFormTitle] = reactExports.useState("");
+  const [formContent, setFormContent] = reactExports.useState("");
+  const [formType, setFormType] = reactExports.useState("note");
+  const [saving, setSaving] = reactExports.useState(false);
+  const loadNotes = reactExports.useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const r = await window.api.noteList(user.id);
+      if (r.success && r.data) setNotes(r.data);
+    } catch (e) {
+      console.error("[MemoPage] Failed to load:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+  reactExports.useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onNoteRefresh(() => loadNotes());
+    return unsub;
+  }, [loadNotes]);
+  const filteredNotes = reactExports.useMemo(() => {
+    if (filter === "all") return notes;
+    return notes.filter((n) => n.memoType === filter);
+  }, [notes, filter]);
+  const sortedNotes = reactExports.useMemo(() => {
+    return [...filteredNotes].sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [filteredNotes]);
+  const handleCreate = () => {
+    setEditNote(null);
+    setFormTitle("");
+    setFormContent("");
+    setFormType("note");
+    setShowEditor(true);
+  };
+  const handleEdit = (note) => {
+    setEditNote(note);
+    setFormTitle(note.title);
+    setFormContent(note.content);
+    setFormType(note.memoType);
+    setShowEditor(true);
+  };
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (editNote) {
+        await window.api.noteCreate({
+          userId: user.id,
+          noteId: editNote.id,
+          title: formTitle,
+          content: formContent,
+          memoType: formType
+        });
+        toast("已更新", "success");
+      } else {
+        await window.api.noteCreate({
+          userId: user.id,
+          title: formTitle,
+          content: formContent,
+          memoType: formType
+        });
+        toast("已创建", "success");
+      }
+      setShowEditor(false);
+      loadNotes();
+    } catch (e) {
+      console.error("[MemoPage] Failed to save:", e);
+      toast("保存失败", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleTogglePin = async (noteId) => {
+    if (!user) return;
+    await window.api.notePin({ userId: user.id, noteId });
+    loadNotes();
+  };
+  const handleDelete2 = async (noteId) => {
+    if (!user) return;
+    await window.api.noteDelete({ userId: user.id, noteId });
+    toast("已删除", "success");
+    loadNotes();
+  };
+  const handleCancel = () => {
+    setShowEditor(false);
+    setEditNote(null);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto", style: { maxWidth: "var(--content-max)" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold", style: { color: "var(--text-primary)" }, children: "备忘录" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: handleCreate,
+          className: "rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80",
+          style: { background: "var(--color-primary)" },
+          children: "+ 新建"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 flex gap-1 border-b", style: { borderColor: "var(--border-default)" }, children: FILTERS.map((f) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => setFilter(f.id),
+        className: "px-4 py-2 text-[13px] font-medium transition-colors",
+        style: {
+          color: filter === f.id ? "var(--accent-blue)" : "var(--text-secondary)",
+          borderBottom: filter === f.id ? "2px solid var(--accent-blue)" : "2px solid transparent",
+          marginBottom: -1
+        },
+        children: f.label
+      },
+      f.id
+    )) }),
+    showEditor && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "fixed inset-0 z-50 flex items-center justify-center",
+        style: { background: "rgba(0,0,0,0.3)" },
+        onClick: handleCancel,
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "w-[540px] rounded-[8px] border p-5 shadow-lg",
+            style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+            onClick: (e) => e.stopPropagation(),
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-4 text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: editNote ? "编辑备忘录" : "新建备忘录" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "类型" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "select",
+                  {
+                    value: formType,
+                    onChange: (e) => setFormType(e.target.value),
+                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
+                    style: {
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-primary)"
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "note", children: "笔记" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "schedule", children: "日程" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "todo", children: "待办" })
+                    ]
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "标题" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "text",
+                    value: formTitle,
+                    onChange: (e) => setFormTitle(e.target.value),
+                    placeholder: "标题（可选）",
+                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
+                    style: {
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-primary)"
+                    },
+                    autoFocus: true
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "内容" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "textarea",
+                  {
+                    value: formContent,
+                    onChange: (e) => setFormContent(e.target.value),
+                    placeholder: "支持 Markdown 格式",
+                    rows: 8,
+                    className: "w-full resize-y rounded-[4px] border px-3 py-2 text-[13px] outline-none",
+                    style: {
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-primary)",
+                      fontFamily: "var(--font-mono)"
+                    }
+                  }
+                )
+              ] }),
+              formContent.trim() && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "mb-4 rounded-[4px] border p-3 text-[13px] leading-relaxed prose max-h-[200px] overflow-y-auto",
+                  style: {
+                    borderColor: "var(--border-default)",
+                    background: "var(--bg-primary)",
+                    color: "var(--text-primary)"
+                  },
+                  dangerouslySetInnerHTML: { __html: purify.sanitize(md.render(formContent)) }
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleSave,
+                    disabled: saving || !formTitle.trim() && !formContent.trim(),
+                    className: "flex-1 rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40",
+                    style: { background: "var(--color-primary)" },
+                    children: saving ? "保存中..." : "保存"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleCancel,
+                    className: "rounded-[4px] px-4 py-1.5 text-[13px] transition-opacity hover:opacity-80",
+                    style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+                    children: "取消"
+                  }
+                )
+              ] })
+            ]
+          }
+        )
+      }
+    ),
+    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-12 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : sortedNotes.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "rounded-[8px] border border-dashed p-12 text-center",
+        style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: filter === "all" ? '暂无备忘录。点击"新建"创建第一条。' : "此分类下暂无内容。" })
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3", children: sortedNotes.map((note) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "group flex items-start gap-4 rounded-[8px] border p-4 transition-shadow hover:shadow-md",
+        style: {
+          borderColor: note.pinned ? "var(--accent-amber)" : "var(--border-default)",
+          background: note.pinned ? "var(--bg-secondary)" : "var(--color-bg-card)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+            note.title && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "mb-1 cursor-pointer text-[15px] font-semibold leading-snug hover:underline",
+                style: { color: "var(--text-primary)" },
+                onClick: () => handleEdit(note),
+                children: note.title
+              }
+            ),
+            note.content ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "cursor-pointer select-text text-[13px] leading-relaxed prose line-clamp-3",
+                style: { color: "var(--text-secondary)" },
+                onClick: () => handleEdit(note),
+                dangerouslySetInnerHTML: {
+                  __html: purify.sanitize(md.render(note.content.slice(0, 500)))
+                }
+              }
+            ) : note.title ? null : /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "cursor-pointer select-text text-[13px] leading-relaxed",
+                style: { color: "var(--text-muted)" },
+                onClick: () => handleEdit(note),
+                children: "(无内容)"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-2 text-[11px]", style: { color: "var(--text-muted)" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "rounded-[3px] px-1.5 py-0.5 font-mono text-[10px]",
+                  style: { background: "var(--bg-tertiary)" },
+                  children: note.memoType === "note" ? "笔记" : note.memoType === "schedule" ? "日程" : "待办"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatDate(note.createdAt) }),
+              note.dueDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                "· 截止: ",
+                formatDate(note.dueDate)
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleTogglePin(note.id),
+                title: note.pinned ? "取消置顶" : "置顶",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
+                style: {
+                  background: note.pinned ? "var(--accent-amber)" : "var(--bg-tertiary)",
+                  color: note.pinned ? "var(--text-on-accent)" : "var(--text-secondary)"
+                },
+                children: "📌"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleEdit(note),
+                title: "编辑",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
+                style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+                children: "✎"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => handleDelete2(note.id),
+                title: "删除",
+                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
+                style: { color: "var(--accent-red)" },
+                children: "✕"
+              }
+            )
+          ] })
+        ]
+      },
+      note.id
+    )) })
+  ] });
+}
+const MemoPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  MemoPage
 }, Symbol.toStringTag, { value: "Module" }));
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 const DAY_LABELS = ["", "一", "", "三", "", "五", "日"];

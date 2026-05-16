@@ -70,7 +70,10 @@ async function getUserId(): Promise<number> {
 function ensurePetImages(): { static: string; drug: string } {
   const imgDir = path.join(petDir(), 'img');
   fs.mkdirSync(imgDir, { recursive: true });
-  const srcDir = path.join(__dirname, '..', '..', 'img');
+  // Production: extraResources → resourcesPath/img/; Dev: project root img/
+  const srcDir = fs.existsSync(path.join(process.resourcesPath || '', 'img'))
+    ? path.join(process.resourcesPath || '', 'img')
+    : path.join(__dirname, '..', '..', 'img');
   const files = ['static.png', 'drug.png'];
   for (const f of files) {
     const dest = path.join(imgDir, f);
@@ -396,7 +399,7 @@ function showScrapeWindow(): void {
         document.getElementById('status').innerHTML='<span class="spinner" style="display:inline-block"></span> 抓取中...';
         document.getElementById('scrape-btn').disabled=true;
         try{
-          const result=await window.miniApi.invoke('pet:scrape',url);
+          const result=await window.miniApi.invoke('${IPC.PET_SCRAPE}',url);
           if(result.success){
             lastResult=result.data;
             document.getElementById('status').textContent='✓ '+result.data.title;
@@ -414,7 +417,7 @@ function showScrapeWindow(): void {
         document.getElementById('import-btn').disabled=true;
         document.getElementById('import-btn').textContent='导入中...';
         try{
-          const result=await window.miniApi.invoke('pet:scrape-import',lastResult);
+          const result=await window.miniApi.invoke('${IPC.PET_SCRAPE_IMPORT}',lastResult);
           document.getElementById('status').textContent=result.success?'✓ 已导入':'✗ 导入失败';
           if(result.success)setTimeout(()=>window.close(),800);
         }catch(e){document.getElementById('status').textContent='✗ 导入失败';}
@@ -591,7 +594,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
     try { fs.writeFileSync(
       preloadPath,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}')});`,
     ); } catch { /* best-effort */ }
   }
 
@@ -663,7 +666,7 @@ function registerPetIpc(): void {
   _ipcRegistered = true;
 
   // Scrape IPC (mini window → main process)
-  ipcMain.handle('pet:scrape', async (_e, url: string) => {
+  ipcMain.handle(IPC.PET_SCRAPE, async (_e, url: string) => {
     try {
       const { WebScraperService } = await import('./services/web-scraper.service');
       return await WebScraperService.scrape(url);
@@ -672,7 +675,7 @@ function registerPetIpc(): void {
     }
   });
 
-  ipcMain.handle('pet:scrape-import', async (_e, data: { title: string; content: string }) => {
+  ipcMain.handle(IPC.PET_SCRAPE_IMPORT, async (_e, data: { title: string; content: string }) => {
     try {
       const { BlogService } = await import('./services/blog.service');
       const uid = await getUserId();
@@ -685,7 +688,7 @@ function registerPetIpc(): void {
   });
 
   // Pet Drag/Click IPC Handlers
-  ipcMain.on('pet:startDrag', () => {
+  ipcMain.on(IPC.PET_START_DRAG, () => {
     if (!petWin || petWin.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
     const [wx = 0, wy = 0] = petWin.getPosition();
@@ -703,12 +706,12 @@ function registerPetIpc(): void {
     dragLoop();
   });
 
-  ipcMain.on('pet:stopDrag', () => {
+  ipcMain.on(IPC.PET_STOP_DRAG, () => {
     isDragging = false;
     if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
   });
 
-  ipcMain.on('pet:savePosition', () => {
+  ipcMain.on(IPC.PET_SAVE_POSITION, () => {
     if (petWin && !petWin.isDestroyed()) {
       const [x, y] = petWin.getPosition();
       try {
@@ -719,7 +722,7 @@ function registerPetIpc(): void {
     }
   });
 
-  ipcMain.on('pet:click', () => {
+  ipcMain.on(IPC.PET_CLICK, () => {
     if (petWin && !petWin.isDestroyed()) {
       petMenu().popup({ window: petWin, x: 64, y: 64 });
     }

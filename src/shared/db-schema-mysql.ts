@@ -86,7 +86,11 @@ export const MYSQL_DDL = [
     user_id INT NOT NULL, content TEXT NOT NULL,
     pinned TINYINT NOT NULL DEFAULT 0,
     source VARCHAR(20) NOT NULL DEFAULT 'manual',
+    title VARCHAR(200) NOT NULL DEFAULT '',
+    memo_type VARCHAR(10) NOT NULL DEFAULT 'note',
+    due_date DATETIME DEFAULT NULL,
     created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
@@ -105,4 +109,10 @@ export const MYSQL_MIGRATIONS = [
   // T1801: MySQL FULLTEXT INDEX for full-text search
   'ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)',
   'ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)',
+
+  // T1906: notes +4 columns (title, memo_type, due_date, updated_at)
+  "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
+  "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
+  'ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL',
+  'ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
 ];

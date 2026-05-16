@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ACHIEVEMENTS } from '../../../shared/achievements';
 import type { UserStats } from '../../../shared/types';
+import { getRecentBlogs, type RecentBlogEntry } from '../../hooks/useRecentHistory';
 import { useAuthStore } from '../../stores/auth-store';
 
 const Heatmap = lazy(() => import('./Heatmap'));
@@ -23,6 +24,7 @@ export function DashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<string[]>([]);
+  const [recentBlogs, setRecentBlogs] = useState<RecentBlogEntry[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +63,9 @@ export function DashboardPage() {
       .finally(() => {
         if (!aborted) setStatsLoading(false);
       });
+
+    // T1917: Load recent browsing history
+    setRecentBlogs(getRecentBlogs());
 
     return () => {
       aborted = true;
@@ -171,6 +176,42 @@ export function DashboardPage() {
               ))}
             </div>
           )}
+          {/* T1917: Recent browsing history */}
+          {recentBlogs.length > 0 && (
+            <div className="mb-6">
+              <h3 className="mb-3 text-[14px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                最近浏览
+              </h3>
+              <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                {recentBlogs.slice(0, 5).map((entry) => (
+                  <Link
+                    key={entry.id}
+                    to={`/blog/${entry.id}`}
+                    className="no-underline shrink-0 rounded-[6px] border p-3 transition-all hover:border-[var(--accent-blue)]"
+                    style={{
+                      width: 180,
+                      borderColor: 'var(--border-default)',
+                      background: 'var(--bg-secondary)',
+                    }}
+                  >
+                    <div
+                      className="truncate text-[13px] font-medium"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {entry.title}
+                    </div>
+                    <div
+                      className="mt-1 text-[11px]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      {new Date(entry.timestamp).toLocaleDateString('zh-CN')}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           <h3 className="mb-3 text-[14px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             快捷操作
           </h3>

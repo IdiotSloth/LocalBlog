@@ -100,6 +100,24 @@ export function buildKnowledgeTagsDelete(fileId: number): SqlParams {
   return { sql: 'DELETE FROM knowledge_file_tags WHERE file_id = ?', params: [fileId] };
 }
 
+/** Map a snake_case DB row to a camelCase object */
+export function mapKnowledgeRow(f: Record<string, unknown>): {
+  id: number; userId: number; filename: string; filePath: string;
+  fileType: string; fileSize: number; status: string; createdAt: string; updatedAt: string;
+} {
+  return {
+    id: f.id as number,
+    userId: f.user_id as number,
+    filename: f.filename as string,
+    filePath: f.file_path as string,
+    fileType: f.file_type as string,
+    fileSize: f.file_size as number,
+    status: f.status as string,
+    createdAt: f.created_at as string,
+    updatedAt: f.updated_at as string,
+  };
+}
+
 /** SELECT id FROM knowledge_files WHERE id = ? AND user_id = ? (ownership check) */
 export function buildKnowledgeOwnershipCheck(fileId: number, userId: number): SqlParams {
   return { sql: 'SELECT id FROM knowledge_files WHERE id = ? AND user_id = ?', params: [fileId, userId] };

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import multer from 'multer';
+import { buildKnowledgeCreate } from '../../shared/handlers/knowledge-crud';
 import { getPool } from '../db';
 import { type AuthRequest, requireAuth } from '../middleware/auth';
 
@@ -45,8 +46,7 @@ uploadRouter.use(requireAuth);
 
 uploadRouter.post('/file', upload.array('files', 10), async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const files = req.files as Express.Multer.File[];
     if (!files?.length) return res.json({ success: false, error: '未选择文件' });
 
@@ -56,10 +56,8 @@ uploadRouter.post('/file', upload.array('files', 10), async (req: AuthRequest, r
     for (const f of files) {
       const ext = path.extname(f.originalname).toLowerCase().replace('.', '');
       const fileType = mapExtToType(ext);
-      const [result] = (await pool.execute(
-        'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, f.originalname, f.path, fileType, f.size, 'active'],
-      )) as any[];
+      const { sql, params } = buildKnowledgeCreate(userId, f.originalname, f.path, fileType, f.size, '');
+      const [result] = (await pool.execute(sql, params)) as any[];
       results.push({ filename: f.originalname, id: result.insertId });
     }
 

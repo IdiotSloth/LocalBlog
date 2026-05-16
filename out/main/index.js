@@ -32,7 +32,6 @@ const crypto = require("node:crypto");
 const ExcelJS = require("exceljs");
 const mammoth = require("mammoth");
 const TurndownService = require("turndown");
-const electronUpdater = require("electron-updater");
 const IPC = {
   // Auth
   AUTH_LOGIN: "auth:login",
@@ -104,6 +103,7 @@ const IPC = {
   FOLDER_RENAME: "folder:rename",
   FOLDER_DELETE: "folder:delete",
   FOLDER_MOVE_ITEM: "folder:move-item",
+  FOLDER_MOVE: "folder:move",
   // Web Scraping
   SCRAPE_WEBPAGE: "scrape:webpage",
   SCRAPE_EXTRACT_TOC: "scrape:extract-toc",
@@ -155,6 +155,13 @@ const IPC = {
   APP_GET_AUTO_START: "app:get-auto-start",
   APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
   APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut",
+  // Pet
+  PET_SCRAPE: "pet:scrape",
+  PET_SCRAPE_IMPORT: "pet:scrape-import",
+  PET_START_DRAG: "pet:startDrag",
+  PET_STOP_DRAG: "pet:stopDrag",
+  PET_SAVE_POSITION: "pet:savePosition",
+  PET_CLICK: "pet:click",
   // Events (main → renderer via webContents.send)
   EVT_TRAY_ACTION: "tray-action",
   EVT_PET_ACTION: "pet-action",
@@ -242,7 +249,11 @@ const MYSQL_DDL = [
     user_id INT NOT NULL, content TEXT NOT NULL,
     pinned TINYINT NOT NULL DEFAULT 0,
     source VARCHAR(20) NOT NULL DEFAULT 'manual',
+    title VARCHAR(200) NOT NULL DEFAULT '',
+    memo_type VARCHAR(10) NOT NULL DEFAULT 'note',
+    due_date DATETIME DEFAULT NULL,
     created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
@@ -257,7 +268,12 @@ const MYSQL_MIGRATIONS = [
   "ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
   // T1801: MySQL FULLTEXT INDEX for full-text search
   "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)",
-  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)"
+  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)",
+  // T1906: notes +4 columns (title, memo_type, due_date, updated_at)
+  "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
+  "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
+  "ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL",
+  "ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
 ];
 let pool = null;
 function getMySQLConfig() {
@@ -446,7 +462,11 @@ CREATE TABLE IF NOT EXISTS notes (
   content TEXT NOT NULL,
   pinned INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'manual',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  title TEXT NOT NULL DEFAULT '',
+  memo_type TEXT NOT NULL DEFAULT 'note' CHECK(memo_type IN ('note', 'schedule', 'todo')),
+  due_date TEXT DEFAULT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Performance indexes
@@ -531,6 +551,22 @@ async function initDatabase() {
       source TEXT NOT NULL DEFAULT 'manual',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`);
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE notes ADD COLUMN title TEXT DEFAULT ''");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE notes ADD COLUMN memo_type TEXT DEFAULT 'note'");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE notes ADD COLUMN due_date TEXT DEFAULT NULL");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
   } catch {
   }
   sqlJsSave();
@@ -698,6 +734,36 @@ async function migrateSqlJsToMySQL() {
         d.content,
         d.saved_at
       ]);
+    }
+    try {
+      const folders = sqlJsQuery(oldDb, "SELECT * FROM folders");
+      for (const f of folders) {
+        await run$1(
+          "INSERT INTO folders (id, user_id, name, parent_id, type, sort_order, created_at) VALUES (?,?,?,?,?,?,?)",
+          [f.id, f.user_id, f.name, f.parent_id ?? null, f.type, f.sort_order ?? 0, f.created_at]
+        );
+      }
+    } catch {
+    }
+    try {
+      const refs = sqlJsQuery(oldDb, "SELECT * FROM refs");
+      for (const r of refs) {
+        await run$1(
+          "INSERT INTO refs (id, source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?,?)",
+          [r.id, r.source_type, r.source_id, r.target_type, r.target_id, r.created_at]
+        );
+      }
+    } catch {
+    }
+    try {
+      const notes = sqlJsQuery(oldDb, "SELECT * FROM notes");
+      for (const n of notes) {
+        await run$1(
+          "INSERT INTO notes (id, user_id, content, pinned, source, created_at, title, memo_type, due_date, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+          [n.id, n.user_id, n.content ?? "", n.pinned ?? 0, n.source ?? "manual", n.created_at, n.title ?? "", n.memo_type ?? "note", n.due_date ?? null, n.updated_at ?? n.created_at]
+        );
+      }
+    } catch {
     }
     oldDb.close();
     console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);
@@ -1550,7 +1616,7 @@ async function getUserId() {
 function ensurePetImages() {
   const imgDir = path.join(petDir(), "img");
   fs.mkdirSync(imgDir, { recursive: true });
-  const srcDir = path.join(__dirname, "..", "..", "img");
+  const srcDir = fs.existsSync(path.join(process.resourcesPath || "", "img")) ? path.join(process.resourcesPath || "", "img") : path.join(__dirname, "..", "..", "img");
   const files = ["static.png", "drug.png"];
   for (const f of files) {
     const dest = path.join(imgDir, f);
@@ -1848,7 +1914,7 @@ function showScrapeWindow() {
         document.getElementById('status').innerHTML='<span class="spinner" style="display:inline-block"></span> 抓取中...';
         document.getElementById('scrape-btn').disabled=true;
         try{
-          const result=await window.miniApi.invoke('pet:scrape',url);
+          const result=await window.miniApi.invoke('${IPC.PET_SCRAPE}',url);
           if(result.success){
             lastResult=result.data;
             document.getElementById('status').textContent='✓ '+result.data.title;
@@ -1866,7 +1932,7 @@ function showScrapeWindow() {
         document.getElementById('import-btn').disabled=true;
         document.getElementById('import-btn').textContent='导入中...';
         try{
-          const result=await window.miniApi.invoke('pet:scrape-import',lastResult);
+          const result=await window.miniApi.invoke('${IPC.PET_SCRAPE_IMPORT}',lastResult);
           document.getElementById('status').textContent=result.success?'✓ 已导入':'✗ 导入失败';
           if(result.success)setTimeout(()=>window.close(),800);
         }catch(e){document.getElementById('status').textContent='✗ 导入失败';}
@@ -2029,7 +2095,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     try {
       fs.writeFileSync(
         preloadPath,
-        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('pet:startDrag'),stopDrag:()=>ipcRenderer.send('pet:stopDrag'),onClick:()=>ipcRenderer.send('pet:click'),savePosition:()=>ipcRenderer.send('pet:savePosition')});`
+        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}')});`
       );
     } catch {
     }
@@ -2092,7 +2158,7 @@ let _ipcRegistered = false;
 function registerPetIpc() {
   if (_ipcRegistered) return;
   _ipcRegistered = true;
-  electron.ipcMain.handle("pet:scrape", async (_e, url) => {
+  electron.ipcMain.handle(IPC.PET_SCRAPE, async (_e, url) => {
     try {
       const { WebScraperService: WebScraperService2 } = await Promise.resolve().then(() => webScraper_service);
       return await WebScraperService2.scrape(url);
@@ -2100,7 +2166,7 @@ function registerPetIpc() {
       return { success: false, error: e.message };
     }
   });
-  electron.ipcMain.handle("pet:scrape-import", async (_e, data) => {
+  electron.ipcMain.handle(IPC.PET_SCRAPE_IMPORT, async (_e, data) => {
     try {
       const { BlogService: BlogService2 } = await Promise.resolve().then(() => blog_service);
       const uid = await getUserId();
@@ -2111,7 +2177,7 @@ function registerPetIpc() {
       return { success: false, error: e.message };
     }
   });
-  electron.ipcMain.on("pet:startDrag", () => {
+  electron.ipcMain.on(IPC.PET_START_DRAG, () => {
     if (!petWin || petWin.isDestroyed()) return;
     const cursor = electron.screen.getCursorScreenPoint();
     const [wx = 0, wy = 0] = petWin.getPosition();
@@ -2131,14 +2197,14 @@ function registerPetIpc() {
     };
     dragLoop();
   });
-  electron.ipcMain.on("pet:stopDrag", () => {
+  electron.ipcMain.on(IPC.PET_STOP_DRAG, () => {
     isDragging = false;
     if (dragTimer) {
       clearTimeout(dragTimer);
       dragTimer = null;
     }
   });
-  electron.ipcMain.on("pet:savePosition", () => {
+  electron.ipcMain.on(IPC.PET_SAVE_POSITION, () => {
     if (petWin && !petWin.isDestroyed()) {
       const [x, y] = petWin.getPosition();
       try {
@@ -2147,7 +2213,7 @@ function registerPetIpc() {
       }
     }
   });
-  electron.ipcMain.on("pet:click", () => {
+  electron.ipcMain.on(IPC.PET_CLICK, () => {
     if (petWin && !petWin.isDestroyed()) {
       petMenu().popup({ window: petWin, x: 64, y: 64 });
     }
@@ -2350,6 +2416,8 @@ class TagService {
   static async listTags(userId) {
     return dbAll(
       `SELECT t.id, t.user_id, t.name, t.description,
+        (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) as blogCount,
+        (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as kbCount,
         (SELECT COUNT(*) FROM blog_tags bt WHERE bt.tag_id = t.id) +
         (SELECT COUNT(*) FROM knowledge_file_tags kft WHERE kft.tag_id = t.id) as count
        FROM tags t WHERE t.user_id = ? ORDER BY t.name ASC`,
@@ -2507,7 +2575,16 @@ class BlogService {
   }
   static async getHistory(blogId) {
     const { sql, params } = buildBlogHistorySelect(blogId);
-    return dbAll(sql, params);
+    const rows = await dbAll(sql, params);
+    const blogQuery = await dbGet("SELECT title FROM blogs WHERE id = ?", [blogId]);
+    const blogTitle = blogQuery?.title || "";
+    return rows.map((r) => ({
+      id: r.id,
+      blogId: r.blog_id,
+      blogTitle,
+      content: r.content,
+      savedAt: r.saved_at
+    }));
   }
   static async rollback(userId, blogId, draftId) {
     const { sql, params } = buildBlogDraftSelect(draftId, blogId);
@@ -2548,11 +2625,12 @@ class BlogService {
     });
   }
   static async deleteAttachment(blogId, filename) {
+    const safeName = BlogService.validateFilename(filename);
     const { sql, params } = buildBlogSelect(blogId);
     const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
     const assetsDir = await getBlogAssetsDir(blog.user_id, blogId);
-    const filePath = path.join(assetsDir, filename);
+    const filePath = path.join(assetsDir, safeName);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
   static async cleanupAttachments(blogId) {
@@ -2565,6 +2643,12 @@ class BlogService {
       }
     }
     return cleaned;
+  }
+  static validateFilename(name) {
+    const sanitized = path.basename(name);
+    if (!sanitized || sanitized === "." || sanitized === "..") throw new Error("Invalid filename");
+    if (sanitized.includes("\0")) throw new Error("Invalid filename");
+    return sanitized;
   }
   static async getBlogContent(blog) {
     try {
@@ -3081,6 +3165,9 @@ class FolderService {
   static async deleteFolder(userId, folderId) {
     await dbRun("DELETE FROM folders WHERE id = ? AND user_id = ?", [folderId, userId]);
   }
+  static async moveFolder(userId, folderId, newParentId) {
+    await dbRun("UPDATE folders SET parent_id = ? WHERE id = ? AND user_id = ?", [newParentId, folderId, userId]);
+  }
   static async moveToFolder(userId, itemType, itemId, folderId) {
     const table = itemType === "blog" ? "blogs" : "knowledge_files";
     await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowMySQL(), itemId, userId]);
@@ -3145,6 +3232,17 @@ function registerFolderHandlers() {
     }
   });
   electron.ipcMain.handle(
+    IPC.FOLDER_MOVE,
+    async (_event, data) => {
+      try {
+        await FolderService.moveFolder(data.userId, data.folderId, data.newParentId);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
+  );
+  electron.ipcMain.handle(
     IPC.FOLDER_MOVE_ITEM,
     async (_event, data) => {
       try {
@@ -3195,6 +3293,19 @@ function buildKnowledgeTagsSelect(fileId) {
 }
 function buildKnowledgeTagsDelete(fileId) {
   return { sql: "DELETE FROM knowledge_file_tags WHERE file_id = ?", params: [fileId] };
+}
+function mapKnowledgeRow(f) {
+  return {
+    id: f.id,
+    userId: f.user_id,
+    filename: f.filename,
+    filePath: f.file_path,
+    fileType: f.file_type,
+    fileSize: f.file_size,
+    status: f.status,
+    createdAt: f.created_at,
+    updatedAt: f.updated_at
+  };
 }
 function buildKnowledgeSelectTrash(id) {
   return { sql: "SELECT * FROM knowledge_files WHERE id = ? AND status = ?", params: [id, "trash"] };
@@ -3268,15 +3379,15 @@ class KnowledgeService {
     return imported;
   }
   static async listFiles(f) {
-    const { getSharedKnowledgeList } = await Promise.resolve().then(() => require("./knowledge-list-DbhdjYXp.js"));
+    const { getSharedKnowledgeList } = await Promise.resolve().then(() => require("./knowledge-list-D4GBU3Vw.js"));
     return getSharedKnowledgeList(
       (sql, params) => dbAll(sql, params),
       (sql, params) => dbGet(sql, params),
       f
     );
   }
-  static async getFile(fileId) {
-    const { sql, params } = buildKnowledgeSelect(fileId);
+  static async getFile(fileId, userId) {
+    const { sql, params } = userId ? buildKnowledgeSelectByUser(fileId, userId) : buildKnowledgeSelect(fileId);
     const row = await dbGet(sql, params);
     if (!row) return null;
     return { ...KnowledgeService.rowToFile(row), tags: await KnowledgeService.getFileTags(fileId) };
@@ -3300,12 +3411,19 @@ class KnowledgeService {
     const { sql: recycleSql, params: recycleParams } = buildRecycleDelete("knowledge_file", fileId, userId);
     await dbRun(recycleSql, recycleParams);
   }
+  static validateFilename(name) {
+    const sanitized = path.basename(name);
+    if (!sanitized || sanitized === "." || sanitized === "..") throw new Error("Invalid filename");
+    if (sanitized.includes("\0")) throw new Error("Invalid filename");
+    return sanitized;
+  }
   static async renameFile(userId, fileId, nf) {
     const { sql, params } = buildKnowledgeSelect(fileId);
     const row = await dbGet(sql, params);
     if (!row) throw new Error("文件不存在");
     if (!nf.trim()) throw new Error("文件名不能为空");
-    const np = path.join(path.dirname(row.file_path), nf);
+    const safeName = KnowledgeService.validateFilename(nf);
+    const np = path.join(path.dirname(row.file_path), safeName);
     if (fs.existsSync(row.file_path)) fs.renameSync(row.file_path, np);
     const { sql: renameSql, params: renameParams } = buildKnowledgeRename(fileId, userId, nf, np);
     await dbRun(renameSql, renameParams);
@@ -3358,12 +3476,22 @@ const knowledge_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.d
   __proto__: null,
   KnowledgeService
 }, Symbol.toStringTag, { value: "Module" }));
+async function withTimeout(promise, ms, label) {
+  const timeout = new Promise(
+    (_, reject) => setTimeout(() => reject(new Error(`${label} 解析超时 (${ms / 1e3}s)`)), ms)
+  );
+  try {
+    return await Promise.race([promise, timeout]);
+  } catch (err) {
+    return { error: err.message };
+  }
+}
 class PreviewService {
   /** Generate an HTML preview for a knowledge base file */
-  static async generatePreview(fileId) {
+  static async generatePreview(fileId, userId) {
     const row = await dbGet(
-      "SELECT * FROM knowledge_files WHERE id = ?",
-      [fileId]
+      userId ? "SELECT * FROM knowledge_files WHERE id = ? AND user_id = ?" : "SELECT * FROM knowledge_files WHERE id = ?",
+      userId ? [fileId, userId] : [fileId]
     );
     if (!row) return { error: "文件不存在" };
     const filePath = row.file_path;
@@ -3373,12 +3501,12 @@ class PreviewService {
       switch (ext) {
         case ".docx":
         case ".doc":
-          return await PreviewService.previewDocx(filePath);
+          return await withTimeout(PreviewService.previewDocx(filePath), 3e4, "DOCX");
         case ".xlsx":
         case ".xls":
-          return await PreviewService.previewXlsx(filePath);
+          return await withTimeout(PreviewService.previewXlsx(filePath), 3e4, "XLSX");
         case ".pdf":
-          return await PreviewService.previewPdf(filePath);
+          return await withTimeout(PreviewService.previewPdf(filePath), 3e4, "PDF");
         case ".txt":
           return PreviewService.previewText(filePath);
         case ".md":
@@ -3564,9 +3692,9 @@ function registerKnowledgeHandlers() {
       }
     }
   );
-  electron.ipcMain.handle(IPC.KB_GET, async (_event, fileId) => {
+  electron.ipcMain.handle(IPC.KB_GET, async (_event, data) => {
     try {
-      const f = await KnowledgeService.getFile(fileId);
+      const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: "文件不存在" };
       return { success: true, data: f };
     } catch (err) {
@@ -3611,16 +3739,16 @@ function registerKnowledgeHandlers() {
       return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.KB_PREVIEW, async (_event, fileId) => {
+  electron.ipcMain.handle(IPC.KB_PREVIEW, async (_event, data) => {
     try {
-      return await PreviewService.generatePreview(fileId);
+      return await PreviewService.generatePreview(data.fileId, data.userId);
     } catch (err) {
-      return { error: err.message };
+      return { success: false, error: err.message };
     }
   });
-  electron.ipcMain.handle(IPC.KB_OPEN_EXTERNAL, async (_event, fileId) => {
+  electron.ipcMain.handle(IPC.KB_OPEN_EXTERNAL, async (_event, data) => {
     try {
-      const f = await KnowledgeService.getFile(fileId);
+      const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: "文件不存在" };
       await PreviewService.openExternal(f.filePath);
       return { success: true };
@@ -3653,30 +3781,65 @@ function rowToNote(r) {
     content: r.content,
     pinned: r.pinned !== 0,
     source: r.source,
-    createdAt: r.created_at
+    title: r.title,
+    memoType: r.memo_type,
+    dueDate: r.due_date ?? void 0,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
   };
 }
 class NoteService {
-  static async listNotes(userId) {
-    const rows = await dbAll(
-      "SELECT * FROM notes WHERE user_id = ? ORDER BY pinned DESC, created_at DESC",
-      [userId]
-    );
+  static async listNotes(userId, memoType) {
+    let sql = "SELECT * FROM notes WHERE user_id = ?";
+    const params = [userId];
+    if (memoType) {
+      sql += " AND memo_type = ?";
+      params.push(memoType);
+    }
+    sql += " ORDER BY pinned DESC, updated_at DESC";
+    const rows = await dbAll(sql, params);
     return rows.map(rowToNote);
   }
-  static async createNote(userId, content, source = "manual") {
+  static async createNote(userId, content, source = "manual", title = "", memoType = "note", dueDate) {
     const now = nowMySQL();
-    await dbRun("INSERT INTO notes (user_id, content, source, created_at) VALUES (?, ?, ?, ?)", [
-      userId,
-      content,
-      source,
-      now
-    ]);
+    await dbRun(
+      "INSERT INTO notes (user_id, content, source, title, memo_type, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [userId, content, source, title, memoType, dueDate || null, now, now]
+    );
     const row = await dbGet(
       "SELECT * FROM notes WHERE user_id = ? ORDER BY id DESC LIMIT 1",
       [userId]
     );
     if (!row) throw new Error("创建便签失败");
+    return rowToNote(row);
+  }
+  static async updateNote(noteId, userId, data) {
+    const now = nowMySQL();
+    const sets = [];
+    const params = [];
+    if (data.title !== void 0) {
+      sets.push("title = ?");
+      params.push(data.title);
+    }
+    if (data.content !== void 0) {
+      sets.push("content = ?");
+      params.push(data.content);
+    }
+    if (data.memoType !== void 0) {
+      sets.push("memo_type = ?");
+      params.push(data.memoType);
+    }
+    if (data.dueDate !== void 0) {
+      sets.push("due_date = ?");
+      params.push(data.dueDate);
+    }
+    sets.push("updated_at = ?");
+    params.push(now);
+    params.push(noteId);
+    params.push(userId);
+    await dbRun(`UPDATE notes SET ${sets.join(", ")} WHERE id = ? AND user_id = ?`, params);
+    const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    if (!row) throw new Error("便签不存在");
     return rowToNote(row);
   }
   static async deleteNote(userId, noteId) {
@@ -3685,7 +3848,7 @@ class NoteService {
   static async togglePin(userId, noteId) {
     const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
     if (!row) return null;
-    await dbRun("UPDATE notes SET pinned = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, noteId, userId]);
+    await dbRun("UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, nowMySQL(), noteId, userId]);
     const updated = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
     return updated ? rowToNote(updated) : null;
   }
@@ -3705,10 +3868,13 @@ let noteRefreshTarget = null;
 function setNoteRefreshTarget(wc) {
   noteRefreshTarget = wc;
 }
+function broadcastRefresh() {
+  noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
+}
 function registerNoteHandlers() {
-  electron.ipcMain.handle(IPC.NOTE_LIST, async (_event, userId) => {
+  electron.ipcMain.handle(IPC.NOTE_LIST, async (_event, userId, memoType) => {
     try {
-      const notes = await NoteService.listNotes(userId);
+      const notes = await NoteService.listNotes(userId, memoType);
       return { success: true, data: notes };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3716,8 +3882,25 @@ function registerNoteHandlers() {
   });
   electron.ipcMain.handle(IPC.NOTE_CREATE, async (_event, data) => {
     try {
-      const note = await NoteService.createNote(data.userId, data.content, data.source || "manual");
-      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
+      if (data.noteId) {
+        const note2 = await NoteService.updateNote(data.noteId, data.userId, {
+          title: data.title,
+          content: data.content,
+          memoType: data.memoType,
+          dueDate: data.dueDate
+        });
+        broadcastRefresh();
+        return { success: true, data: note2 };
+      }
+      const note = await NoteService.createNote(
+        data.userId,
+        data.content,
+        data.source || "manual",
+        data.title || "",
+        data.memoType || "note",
+        data.dueDate
+      );
+      broadcastRefresh();
       return { success: true, data: note };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3726,7 +3909,7 @@ function registerNoteHandlers() {
   electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, data) => {
     try {
       await NoteService.deleteNote(data.userId, data.noteId);
-      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
+      broadcastRefresh();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3735,7 +3918,7 @@ function registerNoteHandlers() {
   electron.ipcMain.handle(IPC.NOTE_PIN, async (_event, data) => {
     try {
       const note = await NoteService.togglePin(data.userId, data.noteId);
-      noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
+      broadcastRefresh();
       return note ? { success: true, data: note } : { success: false, error: "便签不存在" };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3897,6 +4080,17 @@ function registerRecycleHandlers() {
   );
 }
 class ReferenceService {
+  static rowToReference(row, extra) {
+    return {
+      id: row.id,
+      sourceType: row.source_type,
+      sourceId: row.source_id,
+      targetType: row.target_type,
+      targetId: row.target_id,
+      createdAt: row.created_at,
+      ...extra
+    };
+  }
   static async addRef(sourceType, sourceId, targetType, targetId) {
     await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)", [
       sourceType,
@@ -3916,8 +4110,8 @@ class ReferenceService {
     );
     return Promise.all(
       rows.map(async (r) => {
-        const title = await ReferenceService.resolveTitle(r.target_type, r.target_id);
-        return { ...r, title };
+        const targetTitle = await ReferenceService.resolveTitle(r.target_type, r.target_id);
+        return ReferenceService.rowToReference(r, { targetTitle });
       })
     );
   }
@@ -3929,8 +4123,8 @@ class ReferenceService {
     );
     return Promise.all(
       rows.map(async (r) => {
-        const title = await ReferenceService.resolveTitle(r.source_type, r.source_id);
-        return { ...r, title };
+        const sourceTitle = await ReferenceService.resolveTitle(r.source_type, r.source_id);
+        return ReferenceService.rowToReference(r, { sourceTitle });
       })
     );
   }
@@ -4359,7 +4553,7 @@ class SearchService {
     if (isUsingMySQL()) {
       return SearchService.mysqlFulltextSearch(query, userId);
     }
-    return [];
+    return null;
   }
   /**
    * MySQL FULLTEXT search using MATCH ... AGAINST in natural language mode.
@@ -4550,7 +4744,11 @@ const SHORTCUTS = [
   { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" },
   { id: "clipboard-note", key: "Ctrl+Shift+M", label: "剪贴板→便签", description: "将剪贴板内容保存为便签", group: "global" }
 ];
+let shortcutActions = {};
 class ShortcutService {
+  static setActions(actions) {
+    shortcutActions = actions;
+  }
   static filePath() {
     return path.join(electron.app.getPath("userData"), "shortcuts.json");
   }
@@ -4584,6 +4782,25 @@ class ShortcutService {
     } catch {
     }
   }
+  /** Convert user-facing key (Ctrl+N) to Electron accelerator (CommandOrControl+N) */
+  static toAccelerator(key) {
+    return key.replace(/^Ctrl\+/, "CommandOrControl+");
+  }
+  /** Re-register all global shortcuts from saved config. Idempotent. */
+  static reregisterAll() {
+    electron.globalShortcut.unregisterAll();
+    const shortcuts = ShortcutService.load();
+    for (const s of shortcuts) {
+      if (s.group !== "global") continue;
+      const action = shortcutActions[s.id];
+      if (!action) continue;
+      try {
+        electron.globalShortcut.register(ShortcutService.toAccelerator(s.key), action);
+      } catch {
+        console.error(`[ShortcutService] Failed to register shortcut: ${s.id} → ${s.key}`);
+      }
+    }
+  }
 }
 function registerShortcutHandlers() {
   electron.ipcMain.handle(IPC.SHORTCUT_GET_ALL, async () => {
@@ -4596,6 +4813,7 @@ function registerShortcutHandlers() {
   electron.ipcMain.handle(IPC.SHORTCUT_UPDATE, async (_event, id, keys) => {
     try {
       ShortcutService.update(id, keys);
+      ShortcutService.reregisterAll();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -4604,6 +4822,7 @@ function registerShortcutHandlers() {
   electron.ipcMain.handle(IPC.SHORTCUT_RESET, async () => {
     try {
       ShortcutService.reset();
+      ShortcutService.reregisterAll();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -4719,16 +4938,24 @@ function registerAllIpcHandlers() {
   registerContinueHandlers();
 }
 function setupAutoUpdater(getMainWindow) {
-  if (!require("electron").app.isPackaged) return;
-  electronUpdater.autoUpdater.autoDownload = true;
-  electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
-  electronUpdater.autoUpdater.on("checking-for-update", () => {
+  const { app } = require("electron");
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try {
+    autoUpdater = require("electron-updater").autoUpdater;
+  } catch {
+    console.warn("[AutoUpdater] electron-updater not available — skipping update check");
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("checking-for-update", () => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "checking" });
     }
   });
-  electronUpdater.autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", (info) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.EVT_UPDATE_STATUS, {
@@ -4737,13 +4964,13 @@ function setupAutoUpdater(getMainWindow) {
       });
     }
   });
-  electronUpdater.autoUpdater.on("update-not-available", () => {
+  autoUpdater.on("update-not-available", () => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "not-available" });
     }
   });
-  electronUpdater.autoUpdater.on("download-progress", (progress) => {
+  autoUpdater.on("download-progress", (progress) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.EVT_UPDATE_STATUS, {
@@ -4752,7 +4979,7 @@ function setupAutoUpdater(getMainWindow) {
       });
     }
   });
-  electronUpdater.autoUpdater.on("update-downloaded", (info) => {
+  autoUpdater.on("update-downloaded", (info) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.EVT_UPDATE_STATUS, {
@@ -4761,11 +4988,11 @@ function setupAutoUpdater(getMainWindow) {
       });
     }
   });
-  electronUpdater.autoUpdater.on("error", (error) => {
+  autoUpdater.on("error", (error) => {
     console.error("[AutoUpdater] Error:", error.message);
   });
   setTimeout(() => {
-    electronUpdater.autoUpdater.checkForUpdates().catch(() => {
+    autoUpdater.checkForUpdates().catch(() => {
     });
   }, 5e3);
 }
@@ -4868,12 +5095,11 @@ if (!gotTheLock) {
       NoteService.cleanOldNotes().catch(() => {
       });
     }, 5 * 60 * 1e3);
-    electron.globalShortcut.register("CommandOrControl+Shift+N", () => {
-      showMdFloatWindow();
+    ShortcutService.setActions({
+      "md-float": () => showMdFloatWindow(),
+      "clipboard-note": () => handleClipboardNote()
     });
-    electron.globalShortcut.register("CommandOrControl+Shift+M", () => {
-      handleClipboardNote();
-    });
+    ShortcutService.reregisterAll();
     const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
     const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
     if (!fs.existsSync(shortcutPath)) {
@@ -4919,4 +5145,5 @@ start "" npm run dev\r
     if (process.platform !== "darwin") electron.app.quit();
   });
 }
+exports.mapKnowledgeRow = mapKnowledgeRow;
 exports.sanitizePagination = sanitizePagination;

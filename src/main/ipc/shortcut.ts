@@ -14,6 +14,7 @@ export function registerShortcutHandlers(): void {
   ipcMain.handle(IPC.SHORTCUT_UPDATE, async (_event, id: string, keys: string) => {
     try {
       ShortcutService.update(id, keys);
+      ShortcutService.reregisterAll();
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -23,6 +24,7 @@ export function registerShortcutHandlers(): void {
   ipcMain.handle(IPC.SHORTCUT_RESET, async () => {
     try {
       ShortcutService.reset();
+      ShortcutService.reregisterAll();
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

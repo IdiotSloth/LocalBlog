@@ -5,6 +5,7 @@ import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
+import { FloatingBlogTabs } from './components/blog/FloatingBlogTabs';
 import { useAuthStore } from './stores/auth-store';
 import { useThemeStore } from './stores/theme-store';
 
@@ -49,6 +50,9 @@ const SeriesListPage = lazy(() =>
 );
 const SeriesDetailPage = lazy(() =>
   import('./features/series/SeriesDetailPage').then((m) => ({ default: m.SeriesDetailPage })),
+);
+const MemoPage = lazy(() =>
+  import('./features/memo/MemoPage').then((m) => ({ default: m.MemoPage })),
 );
 
 function PageSkeleton() {
@@ -112,6 +116,7 @@ const router = createHashRouter([
           { path: '/recycle', element: lazyPage(RecycleBinPage) },
           { path: '/settings', element: lazyPage(SettingsPage) },
           { path: '/notes', element: lazyPage(NoteListPage) },
+          { path: '/memo', element: lazyPage(MemoPage) },
           { path: '/series', element: lazyPage(SeriesListPage) },
           { path: '/series/:seriesId', element: lazyPage(SeriesDetailPage) },
           { path: '/guide', element: lazyPage(GuidePage) },
@@ -146,9 +151,20 @@ export default function App() {
 
   return (
     <>
+      {/* T1911: Skip to main content link — first focusable element for keyboard users */}
+      <a
+        href="#main-content"
+        className="fixed top-2 left-2 z-[10000] rounded-[4px] px-3 py-2 text-[13px] font-medium transition-transform -translate-y-20 focus:translate-y-0"
+        style={{ background: 'var(--accent-blue)', color: '#fff' }}
+      >
+        跳到主要内容
+      </a>
+      <div id="main-content" />
       <RouterProvider router={router} />
       {/* T1803: Error Toast */}
       <ErrorToastContent state={errorToast} onDismiss={() => setErrorToast((prev) => ({ ...prev, visible: false }))} />
+      {/* T1907: Floating minimized blog tabs */}
+      <FloatingBlogTabs />
     </>
   );
 }

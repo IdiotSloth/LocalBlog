@@ -259,7 +259,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 1-16 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-18 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -281,6 +281,13 @@ Boss 裁决的工单你不再争议
 | **功能覆盖不完整** | TOC 选择器仅覆盖 4 框架，MkDocs/Hugo/Sphinx 等 7 种通用框架缺失 → 降级为单页 (R128)。`TOC_SELECTORS` 选择器集不应声称"完整" | 对选择器/白名单类配置：至少覆盖 Top 10 框架，加通用启发式降级规则 |
 | **交互入口位置违背功能核心价值** | 编辑按钮绑在页末，长文用户读中想改需翻到底部 → "阅读即编辑" 承诺落空 (R129) | 审查交互类 spec 时，验证关键操作入口在用户自然操作路径上（顶部工具栏 + 底部，双入口） |
 | **Server 路由 user_id 隔离缺失** | Server routes 仅用 `requireAuth` 中间件，但 folder delete/rename/move + blog saveDraft 的 SQL 无 `AND user_id = ?` → 认证用户可操作他人数据 (R203-R206) | 审计 server routes 时逐条检查 UPDATE/DELETE 是否带 user_id 过滤。`requireAuth` 只验证身份，不验证所有权 |
+| **Shared handler 硬编码业务值** | CRUD SQL 提取到 shared handler 后，调用方传入字面量而非动态值——`buildBlogUpdate(..., 'md')` 将 HTML 博客格式静默重置为 MD (R131) | 审计 shared handler 调用点时，检查参数是否来自数据库当前状态而非 hardcode 字面量。尤其 format/status/type 等枚举字段 |
+| **DDL 迁移错误被空 catch 吞掉** | `ALTER TABLE ADD FULLTEXT INDEX (title, content)` 引用不存在的列 → MySQL 抛错被 `try {} catch {}`（注释"migration already applied"）吞掉 → 索引永远未创建 (R130) | 审计 DDL 迁移的 catch 块：空 catch + 误导性注释 = 真实错误被静默丢弃。至少应 `console.warn` + 区分"已存在"vs"列不存在" |
+| **Worker 无 onerror 崩溃静默** | Worker 抛未处理异常 → 终止但 UI 无感知 → 所有后续 postMessage 变成 no-op → loading 永久 true (R133) | 审计 Worker 创建处：必须有 `worker.onerror` + `worker.onmessageerror`。onerror 至少设 ready=false |
+| **单槽 ref 异步 Promise 竞态** | `pendingRef.current = resolve` 被并发请求覆盖 → 先到的 Worker 响应 resolve 了后到的 Promise → 后到的响应永久挂起 (R132) | 审计 postMessage/MessageChannel 的 Promise 回调存储：并发场景必须用 `Map<correlationId, resolve>` + 递增计数器，禁止单槽 ref |
+| **async 闭包中类型收窄失效** | `useEffect` 内 `if (!userId) return;` 守卫后，内部 async 函数捕获的 `userId` 仍为 `number\|null` → web tsc 报 `not assignable to 'number'` (R141) | 审计 useEffect + async 内联函数：在 async 函数定义前用 `const uid = userId` 捕获收窄后的值。`noUncheckedIndexedAccess` 暴露此类问题 |
+| **共享 handler 迁移不完整** | shared handler 只迁移了 SQL builder，mapping 函数（mapFile, rowToFile）和 type-detection（detectFileType, typeMap）仍在 server 和 main 各写一份 (R139) | 审计 shared handler 迁移时：检查该 domain 的 mapper/detector/validator 是否也统一到了一处，不只 SQL |
+| **Worker 索引 HTML 污染** | Worker 分词器输入含原始 HTML 标记（`<div>`, `class` 等），倒排索引被 `<htmltag>` 词条污染 (R140) | 审计 Worker/分词器：索引前是否剥离 HTML 标签。`text.replace(/<[^>]*>/g, '')` 或等价操作 |
 
 ---
 
@@ -374,16 +381,21 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-08, Phase 16 审计后):
-- `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免)
-- `: any` 类型标注: renderer 15 处 (BlogListPage/KnowledgeListPage/BlogPreviewPage map 回调等)
-- `Record<string,unknown>` in WindowApi: 6 处 (blogGetHistory/blogSeriesGet/refAdd/refGetFrom/refGetTo/refSearch)
-- IPC 通道: 93 (handle) + 6 (EVT_ event channels)
-- CSS 变量: 3 项缺 `.light` 覆盖 (R220-R221 已修复)
-- 测试: 27/27 unit (auth/blog service only), 11/11 e2e。14/16 service 无单元测试
+**当前质量基线** (2026-05-14, Phase 18 审计后):
+- `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
+- `: any` 类型标注: renderer 5 处 (仅 reference 相关 `ref: any`, 有 TODO)
+- `Record<string,unknown>` in WindowApi: 2 处 (blogGetHistory/blogSeriesGet) — 从 Phase 16 的 6 处收敛
+- IPC 通道: 95 (handle) + 5 (EVT_ event channels) — 含 FTS5 search + error feedback
+- CSS 变量: 全部覆盖 ✅
+- 测试: **49/49** unit (6 files — blog/knowledge/note/tag/auth/service), 11/11 e2e
 - `noUncheckedIndexedAccess`: ✅ 永久启用 (Phase 15 T1502)
-- tsc: 项目级零错误；node 16 预存 + web 16 预存 (独立 tsconfig)
-- Server user_id 隔离: P1 5 项已修复 (Phase 16)
-- 构建: 47 main + 2 preload + 221 renderer
+- tsc: 项目级零错误；node 1 预存 + web 3 预存 (独立 tsconfig)
+- P0+P1+P2: **首次全部清零** ✅ (R130-R135 修复后)
+- CRUD 双写: ✅ shared handlers (blog-crud.ts 17 + knowledge-crud.ts 13), rowToBlog/mapBlog 已移除
+- Server user_id 隔离: ✅ P1 5 项已修复 (Phase 16) + Service 6 项已修复 (Phase 17)
+- FTS5 全文搜索: ✅ Worker 倒排索引 + MySQL FULLTEXT INDEX + correlation ID 竞态修复
+- 错误反馈: ✅ uncaughtException → IPC → Toast (Phase 18 T1803)
+- 构建: 49 main + 2 preload + 223 renderer
 - BlogEditorPage: ✅ 已收敛至 useReducer (Phase 14 T1402)
-- KnowledgeListPage 20 useState / BlogListPage 19 useState (待收敛)
+- KnowledgeListPage 20 useState / BlogListPage 19 useState (待收敛, R116)
+- 累计: 141 个工单 (R01-R141), 45 个决策点 (D01-D45), ~441.5h

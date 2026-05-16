@@ -169,6 +169,20 @@ export interface FolderTreeNode {
   children: FolderTreeNode[];
 }
 
+// ==================== Notes / Memo ====================
+export interface Note {
+  id: number;
+  userId: number;
+  content: string;
+  pinned: boolean;
+  source: string;
+  createdAt: string;
+  title: string;
+  memoType: 'note' | 'schedule' | 'todo';
+  dueDate?: string;
+  updatedAt: string;
+}
+
 // ==================== Continue Writing ====================
 export interface DraftItem {
   id: number;
@@ -188,4 +202,15 @@ export interface RecentFile {
   id: number;
   filename: string;
   createdAt: string;
+}
+
+export interface Reference {
+  id: number;
+  sourceType: 'blog' | 'knowledge';
+  sourceId: number;
+  targetType: 'blog' | 'knowledge';
+  targetId: number;
+  createdAt: string;
+  sourceTitle?: string;
+  targetTitle?: string;
 }

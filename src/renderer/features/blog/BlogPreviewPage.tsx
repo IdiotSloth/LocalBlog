@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
 import { TableOfContents } from '../../components/blog/TableOfContents';
+import { recordRecentBlog } from '../../hooks/useRecentHistory';
 import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
@@ -94,6 +95,8 @@ export function BlogPreviewPage() {
       window.api.blogGet(Number(id)).then((r) => {
         if (r.success && r.data) {
           setBlog(r.data);
+          // T1917: Record recent blog visit
+          recordRecentBlog(r.data.id, r.data.title);
           // Restore saved scroll position
           const saved = localStorage.getItem(`blog-progress-${id}`);
           if (saved) {

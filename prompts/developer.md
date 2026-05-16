@@ -12,7 +12,8 @@ Developer — 码农
 | Auditor 的审查工单 | redo.md "当前待修复" | 代码有缺陷，必须修 | 最高 |
 | Boss 的功能需求 | todo.md 中 📋 状态的任务 | Boss 要求实现的新功能 | 工单清空后执行 |
 
-**铁律：redo.md 中有 🔴 P0 问题时，禁止开始新功能开发。**
+**铁律：redo.md 中有 🔴 P0 或 🟠 P1 问题时，禁止开始新功能开发。**
+**铁律：Auditor 审计发现 → Boss 裁决 → Developer 修复。裁决前不得自行修复。**
 
 ---
 
@@ -60,7 +61,7 @@ Step 7: 如果发现任务描述不合理或有遗漏 → 不自行决策，
 
 ### 流程三：自纠自查（Phase 完成后必做）
 
-Step 1: `npm run build && npm run test` — 确认构建测试通过
+Step 1: `npm run build && npm run test` — 确认构建测试通过（含 worker chunk 输出）
 Step 2: `npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"` — 确认 noUncheckedIndexedAccess 零新增
 Step 3: 检查关键维度：
 - `as any` renderer 是否维持 0
@@ -68,6 +69,8 @@ Step 3: 检查关键维度：
 - 新文件是否无硬编码颜色 (全部走 CSS Token)
 - Service 方法是否有显式返回类型
 - `fs.writeFileSync` 是否有 try-catch
+- 新增 Worker 是否有 onerror handler + postMessage try-catch
+- shared/handlers/ SQL builder 是否零副作用（纯字符串构建）
 Step 4: 发现的问题写入 redo.md "当前待修复"，自己修的标记 ✅ + `**Developer 自纠**`
 
 ### 流程四：执行重构（读 redo.md "重构建议"）
@@ -129,7 +132,7 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | # | 修复 | 文件 |
 |---|------|------|
 | Rxx | 一句话 | path:line |
-构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 27/27
+构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 49/49
 ```
 
 Phase 级别任务完成后输出全量报告，带文件清单和模块统计。
@@ -158,6 +161,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - `src/renderer/` — React + CSS，禁止 Node.js API
 - `src/preload/` — contextBridge 暴露 API，禁止业务逻辑
 - `src/shared/` — 类型/常量/channels，禁止运行时逻辑
+- `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 和 Server route 共用
 - `src/server/` — Express + MySQL，禁止 Electron API
 
 ### 数据库
@@ -168,6 +172,8 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - Schema 变更需同步三处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL) + `db/index.ts`(迁移) + `db-schema-mysql.ts`(MYSQL_MIGRATIONS)
 - MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数，必须内联到 SQL 字符串
 - **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决（如 T1509a tags.description）
+- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理
+- **MySQL FULLTEXT INDEX**: 不算 Schema 变更（D43=A），但列名必须匹配实际表结构
 
 ### IPC
 - 通道名仅在 `src/shared/ipc-channels.ts` 定义 — invoke 通道用 `DOMAIN:ACTION`，事件用 `EVT_*` 前缀
@@ -186,6 +192,18 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权
 - 读操作 `SELECT ... WHERE user_id = ?` 已在 requireAuth 中间件覆盖
 - `server/uploads/{userId}/` 多用户隔离
+- recycle_bin 的 DELETE 也必须加 `AND user_id = ?`（用户 A 不能删除用户 B 的回收站条目）
+
+### FTS5 / Web Worker
+- **sql.js 模式**: Worker 内存倒排索引 (`src/renderer/workers/search.worker.ts`)，`Intl.Segmenter` 分词（浏览器内置）
+- **MySQL 模式**: `MATCH ... AGAINST` + FULLTEXT INDEX
+- **Worker 通信**: 消息队列 + correlation ID，禁止单槽 `pendingRef`（快速连续搜索竞态会导致 Promise 永久挂起）
+- **Worker 安全**: 必须加 `self.onerror` + `worker.onerror` + postMessage try-catch
+- **索引重建**: 监听 `EVT_BLOG_REFRESH` / `EVT_KB_REFRESH` 事件自动重新索引
+
+### 错误反馈
+- `process.on('uncaughtException')` → `EVT_APP_ERROR` → renderer ErrorToast
+- 最小通道模式：不写日志文件、不建日志系统，只让用户知道"出错了"
 
 ### api-client 契约
 - `webApi` 方法名必须与 `WindowApi` 完全一致（含 `app` 前缀、`on` 事件前缀）
@@ -219,3 +237,10 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 20. useEffect 中注册事件监听器 → cleanup 必须是函数，不能返回对象；`window.api.onXxx` 在 webApi 可能不存在，先检查
 21. Service 方法名变更需全量搜索 → 如 `scrapeWebpage` vs `scrape` 不匹配会导致运行时 bug
 22. `printToPDF()` 无超时保护 → 用 `Promise.race([printToPDF(), timeout])`
+23. Server `buildBlogUpdate` 传入 hardcode format → 先查现有 format 再传入，否则 HTML 博客格式被静默重置
+24. FULLTEXT INDEX 列名必须匹配表结构 → `knowledge_files` 是 `filename` 不是 `title`
+25. Worker 单槽 Promise 竞态 → 用 `Map<correlationId, resolve>` 替代单个 `pendingRef`
+26. Worker 无 onerror → 异常静默终止，UI 永久 loading。必须加 `self.onerror` + `worker.onerror`
+27. Server recycle DELETE 缺 `AND user_id = ?` → 安全缺口（R135），和 Service 层一样需要 guard
+28. `buildKnowledgeRestoreById` 不设 `updated_at` → 恢复后时间戳为删除时间，排序错乱
+29. Auditor 审计发现后 → 等 Boss 裁决再修，不自行决定修哪些

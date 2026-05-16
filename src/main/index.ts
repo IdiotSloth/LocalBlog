@@ -9,6 +9,7 @@ import { setNoteRefreshTarget } from './ipc/note';
 import { handleClipboardNote, initPetActions, showMdFloatWindow } from './pet';
 import { setBlogRefreshTarget } from './ipc/blog';
 import { setKbRefreshTarget } from './ipc/knowledge';
+import { ShortcutService } from './services/shortcut.service';
 import { BackupService } from './services/backup.service';
 import { NoteService } from './services/note.service';
 import { setupTray } from './tray';
@@ -123,15 +124,12 @@ app.whenReady().then(async () => {
     NoteService.cleanOldNotes().catch(() => { /* best-effort */ });
   }, 5 * 60 * 1000);
 
-  // T1209a: Global shortcut Ctrl+Shift+N → MD float window
-  globalShortcut.register('CommandOrControl+Shift+N', () => {
-    showMdFloatWindow();
+  // Register global shortcuts from saved config (not hardcoded)
+  ShortcutService.setActions({
+    'md-float': () => showMdFloatWindow(),
+    'clipboard-note': () => handleClipboardNote(),
   });
-
-  // T1507: Global shortcut Ctrl+Shift+M → clipboard to note
-  globalShortcut.register('CommandOrControl+Shift+M', () => {
-    handleClipboardNote();
-  });
+  ShortcutService.reregisterAll();
 
   // Auto-create Start Menu shortcut on first launch (uses .bat launcher to avoid ELECTRON_RUN_AS_NODE)
   const shortcutDir = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs');

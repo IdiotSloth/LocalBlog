@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { Router } from 'express';
 import { getSharedKnowledgeList } from '../../shared/handlers/knowledge-list';
 import {
@@ -10,6 +11,7 @@ import {
   buildKnowledgeSelectByUser,
   buildKnowledgeTagsDelete,
   buildKnowledgeTagsSelect,
+  mapKnowledgeRow,
 } from '../../shared/handlers/knowledge-crud';
 import { buildRecycleDeleteByType, buildRecycleInsert } from '../../shared/handlers/blog-crud';
 import { nowMySQL } from '../config';
@@ -19,25 +21,16 @@ import { type AuthRequest, requireAuth } from '../middleware/auth';
 export const knowledgeRouter = Router();
 knowledgeRouter.use(requireAuth);
 
-function mapFile(f: any, tags: any[] = []) {
+function mapFileWithTags(f: Record<string, unknown>, tags: { id: number; user_id: number; name: string }[] = []) {
   return {
-    id: f.id,
-    userId: f.user_id,
-    filename: f.filename,
-    filePath: f.file_path,
-    fileType: f.file_type,
-    fileSize: f.file_size,
-    status: f.status,
-    createdAt: f.created_at,
-    updatedAt: f.updated_at,
-    tags: tags.map((t: any) => ({ id: t.id, userId: t.user_id, name: t.name })),
+    ...mapKnowledgeRow(f),
+    tags: tags.map((t) => ({ id: t.id, userId: t.user_id, name: t.name })),
   };
 }
 
 knowledgeRouter.get('/list', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const dbAll = (sql: string, params: unknown[]) => pool.execute(sql, params).then(([rows]) => rows as any[]);
     const dbGet = (sql: string, params: unknown[]) => pool.execute(sql, params).then(([rows]) => (rows as any[])[0]);
@@ -60,8 +53,7 @@ knowledgeRouter.get('/list', async (req: AuthRequest, res) => {
 
 knowledgeRouter.get('/:id', async (req: AuthRequest, res) => {
   try {
-    const uid = req.userId;
-    if (!uid) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const pool = getPool();
     const { sql, params } = buildKnowledgeSelectByUser(Number(req.params.id), uid);
     const [rows] = (await pool.execute(sql, params)) as any[];
@@ -69,7 +61,7 @@ knowledgeRouter.get('/:id', async (req: AuthRequest, res) => {
     const f = rows[0];
     const { sql: tagSql, params: tagParams } = buildKnowledgeTagsSelect(f.id);
     const [tags] = (await pool.execute(tagSql, tagParams)) as any[];
-    return res.json({ success: true, data: mapFile(f, tags) });
+    return res.json({ success: true, data: mapFileWithTags(f, tags) });
   } catch (err) {
     return res.json({ success: false, error: (err as Error).message });
   }
@@ -77,9 +69,11 @@ knowledgeRouter.get('/:id', async (req: AuthRequest, res) => {
 
 knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { filePaths = [] } = req.body;
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      return res.json({ success: false, error: '请提供有效的文件路径列表' });
+    }
     const files = [];
     const pool = getPool();
     const typeMap: Record<string, string> = {
@@ -99,6 +93,14 @@ knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
     };
 
     for (const filePath of filePaths) {
+      // Validate filePath
+      if (typeof filePath !== 'string' || !filePath.trim()) {
+        continue;
+      }
+      if (filePath.includes('\0')) {
+        continue; // reject null bytes
+      }
+
       const filename = filePath.split(/[/\\]/).pop() || 'unknown';
       const ext = (filename.split('.').pop() || '').toLowerCase();
       const fileType = typeMap[ext] || 'other';
@@ -108,7 +110,38 @@ knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
       } catch {
         /* file may not exist on server */
       }
-      const { sql, params } = buildKnowledgeCreate(userId, filename, filePath, fileType, fileSize, '');
+      // Extract text content for searchable file types
+      let contentText = '';
+      try {
+        const extLower = ext;
+        if (extLower === 'docx' || extLower === 'doc') {
+          const mammoth = await import('mammoth');
+          const buffer = fs.readFileSync(filePath);
+          const result = await mammoth.extractRawText({ buffer });
+          contentText = result.value || '';
+        } else if (extLower === 'xlsx' || extLower === 'xls') {
+          const ExcelJS = await import('exceljs');
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.readFile(filePath);
+          const texts: string[] = [];
+          workbook.worksheets.forEach((sheet) => {
+            sheet.eachRow((row) => {
+              const vals: string[] = [];
+              row.eachCell((cell) => {
+                const v = cell.value?.toString() || '';
+                if (v) vals.push(v);
+              });
+              if (vals.length > 0) texts.push(vals.join(' '));
+            });
+          });
+          contentText = texts.join('\n');
+        } else if (extLower === 'txt' || extLower === 'md') {
+          contentText = fs.readFileSync(filePath, 'utf-8');
+        }
+      } catch {
+        /* text extraction failure is non-fatal */
+      }
+      const { sql, params } = buildKnowledgeCreate(userId, filename, filePath, fileType, fileSize, contentText);
       const [result] = (await pool.execute(sql, params)) as any[];
       files.push({
         id: result.insertId,
@@ -131,8 +164,7 @@ knowledgeRouter.post('/import', async (req: AuthRequest, res) => {
 
 knowledgeRouter.post('/:id/delete', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql: checkSql, params: checkParams } = buildKnowledgeSelectByUser(Number(req.params.id), userId);
     const [[f]] = (await pool.execute(checkSql, checkParams)) as any[];
@@ -149,8 +181,7 @@ knowledgeRouter.post('/:id/delete', async (req: AuthRequest, res) => {
 
 knowledgeRouter.post('/:id/restore', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql, params } = buildKnowledgeRestore(Number(req.params.id), userId);
     await pool.execute(sql, params);
@@ -164,8 +195,7 @@ knowledgeRouter.post('/:id/restore', async (req: AuthRequest, res) => {
 
 knowledgeRouter.post('/:id/rename', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const { newFilename } = req.body;
     if (!newFilename?.trim()) return res.json({ success: false, error: '文件名不能为空' });
     const pool = getPool();
@@ -179,8 +209,7 @@ knowledgeRouter.post('/:id/rename', async (req: AuthRequest, res) => {
 
 knowledgeRouter.get('/:id/preview', async (req: AuthRequest, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ success: false, error: '未登录' });
+    const userId = req.userId!;
     const pool = getPool();
     const { sql, params } = buildKnowledgeSelectByUser(Number(req.params.id), userId);
     const [rows] = (await pool.execute(sql, params)) as any[];
@@ -195,8 +224,7 @@ knowledgeRouter.get('/:id/preview', async (req: AuthRequest, res) => {
 
 knowledgeRouter.post('/:id/tags', async (req: AuthRequest, res) => {
   try {
-    const uid = req.userId;
-    if (!uid) return res.status(401).json({ success: false, error: '未登录' });
+    const uid = req.userId!;
     const { tagIds } = req.body;
     const pool = getPool();
     const { sql: checkSql, params: checkParams } = buildKnowledgeOwnershipCheck(Number(req.params.id), uid);

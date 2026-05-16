@@ -76,15 +76,19 @@ describe('TagService', () => {
   describe('listTags', () => {
     it('should return all tags with counts for user', async () => {
       mockDbAll.mockResolvedValueOnce([
-        { id: 1, user_id: 1, name: 'tag1', description: null, count: 3 },
-        { id: 2, user_id: 1, name: 'tag2', description: 'desc', count: 0 },
+        { id: 1, user_id: 1, name: 'tag1', description: null, blogCount: 2, kbCount: 1, count: 3 },
+        { id: 2, user_id: 1, name: 'tag2', description: 'desc', blogCount: 0, kbCount: 0, count: 0 },
       ]);
       const tags = await TagService.listTags(1);
       expect(tags).toHaveLength(2);
       expect(tags[0]?.name).toBe('tag1');
       expect(tags[0]?.count).toBe(3);
+      expect(tags[0]?.blogCount).toBe(2);
+      expect(tags[0]?.kbCount).toBe(1);
       expect(tags[1]?.name).toBe('tag2');
       expect(tags[1]?.count).toBe(0);
+      expect(tags[1]?.blogCount).toBe(0);
+      expect(tags[1]?.kbCount).toBe(0);
     });
   });
 });

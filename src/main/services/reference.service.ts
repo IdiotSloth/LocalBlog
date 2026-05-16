@@ -1,3 +1,4 @@
+import type { Reference } from '../../shared/types';
 import { dbAll, dbRun } from '../db';
 
 interface RefRow {
@@ -16,6 +17,17 @@ export interface RefTarget {
 }
 
 export class ReferenceService {
+  private static rowToReference(row: RefRow, extra?: { sourceTitle?: string; targetTitle?: string }): Reference {
+    return {
+      id: row.id,
+      sourceType: row.source_type as 'blog' | 'knowledge',
+      sourceId: row.source_id,
+      targetType: row.target_type as 'blog' | 'knowledge',
+      targetId: row.target_id,
+      createdAt: row.created_at,
+      ...extra,
+    };
+  }
   static async addRef(sourceType: string, sourceId: number, targetType: string, targetId: number): Promise<void> {
     await dbRun('INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)', [
       sourceType,
@@ -30,29 +42,29 @@ export class ReferenceService {
   }
 
   /** Get all items referenced BY a source */
-  static async getRefsFrom(sourceType: string, sourceId: number): Promise<(RefRow & { title: string })[]> {
+  static async getRefsFrom(sourceType: string, sourceId: number): Promise<Reference[]> {
     const rows = await dbAll<RefRow>(
       'SELECT * FROM refs WHERE source_type = ? AND source_id = ? ORDER BY created_at DESC',
       [sourceType, sourceId],
     );
     return Promise.all(
       rows.map(async (r) => {
-        const title = await ReferenceService.resolveTitle(r.target_type, r.target_id);
-        return { ...r, title };
+        const targetTitle = await ReferenceService.resolveTitle(r.target_type, r.target_id);
+        return ReferenceService.rowToReference(r, { targetTitle });
       }),
     );
   }
 
   /** Get all items that reference TO a target */
-  static async getRefsTo(targetType: string, targetId: number): Promise<(RefRow & { title: string })[]> {
+  static async getRefsTo(targetType: string, targetId: number): Promise<Reference[]> {
     const rows = await dbAll<RefRow>(
       'SELECT * FROM refs WHERE target_type = ? AND target_id = ? ORDER BY created_at DESC',
       [targetType, targetId],
     );
     return Promise.all(
       rows.map(async (r) => {
-        const title = await ReferenceService.resolveTitle(r.source_type, r.source_id);
-        return { ...r, title };
+        const sourceTitle = await ReferenceService.resolveTitle(r.source_type, r.source_id);
+        return ReferenceService.rowToReference(r, { sourceTitle });
       }),
     );
   }

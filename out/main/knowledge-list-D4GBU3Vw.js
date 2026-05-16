@@ -3,19 +3,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const index = require("./index.js");
 const VALID_SORT = ["created_at", "updated_at", "filename", "file_size"];
 const VALID_ORDER = ["asc", "desc"];
-function mapFileRow(row) {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    filename: row.filename,
-    filePath: row.file_path,
-    fileType: row.file_type,
-    fileSize: row.file_size,
-    status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
 async function getSharedKnowledgeList(dbAll, dbGet, filters) {
   const {
     userId,
@@ -58,7 +45,7 @@ async function getSharedKnowledgeList(dbAll, dbGet, filters) {
   );
   const files = await Promise.all(
     rows.map(async (row) => {
-      const file = mapFileRow(row);
+      const file = index.mapKnowledgeRow(row);
       const tags = await dbAll(
         "SELECT t.id, t.user_id, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ?",
         [file.id]

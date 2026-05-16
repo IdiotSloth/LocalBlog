@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import DOMPurify from 'dompurify';
+import MarkdownIt from 'markdown-it';
 import { useToast } from '../../components/common/Toast';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
 interface Note {
   id: number;
@@ -19,23 +23,28 @@ export function NoteListPage() {
   const { toast } = useToast();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const abortedRef = useRef(false);
   const [input, setInput] = useState('');
+  const [viewModeIds, setViewModeIds] = useState<Set<number>>(new Set()); // T1919: notes in rendered HTML view
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
       const r = await window.api.noteList(user.id);
-      if (r.success && r.data) setNotes(r.data);
+      if (r.success && r.data && !abortedRef.current) setNotes(r.data);
     } catch (e) {
       console.error('[NoteList] Failed to load:', e);
+      setError('加载失败');
     } finally {
-      setLoading(false);
+      if (!abortedRef.current) setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
     loadNotes();
+    return () => { abortedRef.current = true; };
   }, [loadNotes, location.pathname]);
 
   // Listen for note:refresh from main process (e.g., quick note save)
@@ -125,6 +134,19 @@ export function NoteListPage() {
         </button>
       </div>
 
+      {/* Error state */}
+      {error && (
+        <div style={{ color: 'var(--accent-red)', textAlign: 'center', padding: '3rem' }}>
+          <p>{error}</p>
+          <button
+            onClick={() => { setError(null); loadNotes(); }}
+            style={{ color: 'var(--accent-blue)', marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+          >
+            重试
+          </button>
+        </div>
+      )}
+
       {/* Note list */}
       {loading ? (
         <p
@@ -156,13 +178,23 @@ export function NoteListPage() {
                 background: note.pinned ? 'var(--bg-secondary)' : 'var(--color-bg-card)',
               }}
             >
-              <div className="flex-1">
-                <p
-                  className="select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {note.content}
-                </p>
+              <div className="flex-1 min-w-0">
+                {viewModeIds.has(note.id) ? (
+                  <div
+                    className="select-text text-[14px] leading-relaxed break-words prose prose-sm max-w-none"
+                    style={{ color: 'var(--text-primary)' }}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(md.render(note.content)),
+                    }}
+                  />
+                ) : (
+                  <p
+                    className="select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {note.content}
+                  </p>
+                )}
                 <p
                   className="mt-1.5 text-[11px]"
                   style={{ color: 'var(--text-muted)' }}
@@ -173,20 +205,42 @@ export function NoteListPage() {
               <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   type="button"
+                  onClick={() => {
+                    setViewModeIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(note.id)) next.delete(note.id);
+                      else next.add(note.id);
+                      return next;
+                    });
+                  }}
+                  title={viewModeIds.has(note.id) ? '显示纯文本' : '预览渲染'}
+                  aria-label="编辑便签"
+                  className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
+                  style={{
+                    background: viewModeIds.has(note.id) ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                    color: viewModeIds.has(note.id) ? '#fff' : 'var(--text-secondary)',
+                  }}
+                >
+                  {viewModeIds.has(note.id) ? '✎' : '👁'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleTogglePin(note.id)}
                   title={note.pinned ? '取消置顶' : '置顶'}
+                  aria-label={note.pinned ? '取消置顶' : '置顶'}
                   className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
                   style={{
                     background: note.pinned ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
                     color: note.pinned ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                   }}
                 >
-                  {note.pinned ? '📌' : '📌'}
+                  📌
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDelete(note.id)}
                   title="删除"
+                  aria-label="删除便签"
                   className="rounded-[4px] px-2 py-0.5 text-[12px] text-red-400 transition-colors hover:text-red-600"
                 >
                   ✕

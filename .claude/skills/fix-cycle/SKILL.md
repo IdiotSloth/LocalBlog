@@ -13,7 +13,8 @@ Core loop for processing Auditor findings (R items) from redo.md and implementin
 
 Read `redo.md` and scan the `## 当前待修复` section. Identify all items with 📋 status.
 
-**Iron rule**: If 🔴 P0 items exist, fix them ALL before starting any new feature work.
+**Iron rule**: If 🔴 P0 or 🟠 P1 items exist, fix them ALL before starting any new feature work.
+**Iron rule**: Audit findings → Boss ruling → Developer fix. Never fix before Boss rules.
 
 Sort by priority:
 - 🔴 P0 — blocking stability/security/crash, must fix first
@@ -62,14 +63,16 @@ npx tsc -p tsconfig.web.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"
 ```
 
 Checklist:
-- [ ] Build: three `✓ built` lines (main + preload + renderer)
-- [ ] Test: 27 passed (3 files)
+- [ ] Build: three `✓ built` lines (main + preload + renderer) + worker chunk output
+- [ ] Test: 49 passed (6 files)
 - [ ] `noUncheckedIndexedAccess`: 0 new errors
 - [ ] `as any` renderer: 0 (maintained)
 - [ ] New IPC channels: 7-file pattern completed
 - [ ] New code: no hardcoded colors (CSS Token only)
 - [ ] `fs.writeFileSync`: all wrapped in try-catch
 - [ ] api-client: all WindowApi methods have stubs
+- [ ] New Worker: onerror handler + postMessage try-catch
+- [ ] shared/handlers/: SQL builders are pure (zero side effects)
 
 Write findings to redo.md as a "Developer 自纠自查" section.
 
@@ -81,7 +84,7 @@ Output a summary table:
 | # | 等级 | 问题 | 修复 | 文件 |
 |---|------|------|------|------|
 | Rxx | 🔴 | ... | ✅ fixed — one-line summary | path:line |
-构建: ✅ (X main + Y preload + Z renderer) | 测试: 27/27
+构建: ✅ (X main + Y preload + Z renderer) | 测试: 49/49
 ```
 
 ---
@@ -116,6 +119,27 @@ Output a summary table:
 - **Dead code removal**: 7 reference points must be cleaned: IPC channel, WindowApi, preload, handler registration, service file, imports, api-client stub.
 - **Dead storage detection**: If a service has only writers and no readers (R102 pattern), the entire IPC + Service + JSON file chain is dead. Remove it.
 
+### Phase 17-18: Shared Handlers, FTS5, Error Feedback
+
+### Architecture
+- **shared/handlers/**: SQL builder functions shared by main services AND server routes. Pure functions (string + params only), zero side effects (D45). Callers handle file writes, drafts, etc.
+- **CRUD pattern**: `buildBlogCreate(...)` / `buildBlogUpdate(...)` / `buildBlogDelete(...)` → `{ sql, params }`. Service calls `dbRun(buildBlogCreate(...).sql, buildBlogCreate(...).params)`.
+- **Mapping unification**: One canonical `mapBlogRow(row)` in shared handler, consumed by both service and server. No duplicate `rowToBlog`/`mapBlog` functions.
+
+### FTS5 / Web Worker
+- **Worker file**: `src/renderer/workers/search.worker.ts`. Vite auto-chunks as `search.worker-*.js` in production build.
+- **Tokenization**: `Intl.Segmenter` for CJK (browser built-in, zero deps). TF-IDF scoring with title boost.
+- **Cache**: `localStorage` serialized index for warm restart.
+- **Dual mode**: MySQL uses `MATCH ... AGAINST` + FULLTEXT INDEX; sql.js uses Worker inverted index.
+- **Correlation ID**: Worker messaging MUST use `Map<correlationId, resolve>` — single-slot `pendingRef` causes race condition hang (R132).
+
+### Error Feedback
+- **Minimal channel**: `process.on('uncaughtException')` → `IPC.EVT_APP_ERROR` → renderer ErrorToast.
+- **Zero file I/O**: Don't write log files. Just tell the user something went wrong.
+
+### Audit Protocol
+- **裁决后再修**: Auditor findings → Boss ruling → Developer fix. Never skip the ruling step (Phase 18 pattern).
+
 ---
 
 ## Project Quick Reference
@@ -129,12 +153,16 @@ Output a summary table:
 - `src/shared/ipc-channels.ts` — IPC channel names + event names (add here first)
 - `src/shared/window-api.ts` — WindowApi interface
 - `src/shared/shortcuts.ts` — shortcut defaults
+- `src/shared/handlers/blog-crud.ts` — blog SQL builders (shared by service + server)
+- `src/shared/handlers/knowledge-crud.ts` — knowledge SQL builders (shared by service + server)
 - `src/shared/db-schema-mysql.ts` — MySQL DDL + MYSQL_MIGRATIONS
 - `src/main/db/schema.ts` — sql.js DDL
 - `src/main/db/index.ts` — sql.js init + ALTER TABLE migrations
 - `src/preload/index.ts` — contextBridge bindings
 - `src/main/ipc/index.ts` — handler registration hub
 - `src/renderer/lib/api-client.ts` — web-side stubs (add desktop-only stubs here)
+- `src/renderer/workers/search.worker.ts` — FTS5 inverted index Worker
+- `src/renderer/lib/use-search.ts` — React search hook (dual-mode: MySQL/Worker)
 - `src/server/routes/` — REST API (must validate user_id on writes)
 
 **Developer boundaries (from prompts/developer.md):**
