@@ -13,21 +13,35 @@ export function setPetActions(actions: Record<string, () => void>): void {
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 
-/** Find favicon path — resources/ in packaged, img/ in dev */
+/** Find favicon path — resources/ in packaged, img/ in dev. Checks ASAR-unpacked and nested paths. */
 function getFaviconPath(): string {
   const candidates = [
+    // 1. extraResources (real files outside ASAR)
     path.join(process.resourcesPath || '', 'img', 'favicon.ico'),
+    // 2. ASAR root (electron-builder files)
     path.join(app.getAppPath(), 'img', 'favicon.ico'),
+    // 3. ASAR nested via post-build.js
+    path.join(app.getAppPath(), 'out', 'renderer', 'img', 'favicon.ico'),
+    // 4. Dev fallback
     path.join(__dirname, '..', '..', 'img', 'favicon.ico'),
   ];
   for (const p of candidates) {
     try {
       if (require('node:fs').existsSync(p)) return p;
     } catch {
-      /* not found */
+      /* try next */
     }
   }
-  return candidates[1]!; // fallback to app path
+  // Fallback: try to find any PNG/ICO in img/ relative to resources
+  try {
+    const imgDir = path.join(process.resourcesPath || app.getAppPath(), 'img');
+    if (require('node:fs').existsSync(imgDir)) {
+      const files = require('node:fs').readdirSync(imgDir);
+      const ico = files.find((f: string) => f.endsWith('.ico') || f.endsWith('.png'));
+      if (ico) return path.join(imgDir, ico);
+    }
+  } catch { /* last resort */ }
+  return candidates[0]!;
 }
 
 /** Generate tray icon — uses favicon.ico for brand consistency */

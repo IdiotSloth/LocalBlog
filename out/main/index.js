@@ -1482,8 +1482,13 @@ let tray = null;
 let mainWindow$1 = null;
 function getFaviconPath() {
   const candidates = [
+    // 1. extraResources (real files outside ASAR)
     path.join(process.resourcesPath || "", "img", "favicon.ico"),
+    // 2. ASAR root (electron-builder files)
     path.join(electron.app.getAppPath(), "img", "favicon.ico"),
+    // 3. ASAR nested via post-build.js
+    path.join(electron.app.getAppPath(), "out", "renderer", "img", "favicon.ico"),
+    // 4. Dev fallback
     path.join(__dirname, "..", "..", "img", "favicon.ico")
   ];
   for (const p of candidates) {
@@ -1492,7 +1497,16 @@ function getFaviconPath() {
     } catch {
     }
   }
-  return candidates[1];
+  try {
+    const imgDir = path.join(process.resourcesPath || electron.app.getAppPath(), "img");
+    if (require("node:fs").existsSync(imgDir)) {
+      const files = require("node:fs").readdirSync(imgDir);
+      const ico = files.find((f) => f.endsWith(".ico") || f.endsWith(".png"));
+      if (ico) return path.join(imgDir, ico);
+    }
+  } catch {
+  }
+  return candidates[0];
 }
 function makeIcon(size) {
   const icoPath = getFaviconPath();

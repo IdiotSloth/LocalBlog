@@ -9,6 +9,8 @@ files:
   - img/**/*
   - node_modules/**/*
   - package.json
+asarUnpack:
+  - img/**
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
