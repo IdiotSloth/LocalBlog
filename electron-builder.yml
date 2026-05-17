@@ -6,7 +6,7 @@ directories:
   buildResources: build
 files:
   - out/**/*
-  - scripts/launcher.bat
+  - img/**/*
   - node_modules/**/*
   - package.json
 nsis:
