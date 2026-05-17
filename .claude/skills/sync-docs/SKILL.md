@@ -45,6 +45,7 @@ Verify these claims with a quick check:
 | `noUncheckedIndexedAccess` in tsconfig | `grep "noUncheckedIndexedAccess" tsconfig.node.json tsconfig.web.json` |
 | `suggest.md` existence | Should NOT exist after Boss processes proposals |
 | `.gitignore` covers dist2/ and .claude/worktrees/ | Check these entries exist |
+| `electron-builder.yml` config sanity | `buildResources` not overlapping with app resources; `files` includes `img/**/*`; `asarUnpack` includes `img/**` |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
 

@@ -262,5 +262,17 @@ sync-docs → ship
 **数据库**: sql.js (SQLite WASM) / MySQL 8.3 双后端
 **架构**: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456)
 **产品定位**: 离线可用的个人桌面应用，支持多用户博客撰写、知识库文件管理、网页收藏转化
-**项目状态**: Phase 1-19 ✅。P0+P1+P2+P3 首次全零。IPC 112 通道。测试 87/87 (12 files)。FTS5 ✅。NSIS 安装包 ✅。日历备忘录 ✅。指南配图 ✅。
+**项目状态**: Phase 1-19 ✅。P0+P1+P2+P3 全零。IPC 112 通道。测试 87/87 (12 files)。NSIS 安装包 ✅（带图片 + 自动升级）。日历备忘录 ✅。指南配图 ✅。
 **当前活跃 Phase**: 19 ✅。遗留：国际化 i18n (D18=C 否决)。
+
+### 安装包问题诊断经验 (Phase 19 followup)
+
+当用户报告"安装后图片/资源不显示"时，大概率不是代码 bug，而是 electron-builder 打包配置问题。排查顺序：
+
+1. **检查 `builder-debug.yml`**：看 `firstOrDefaultFilePatterns` 中有没有意外排除。常见陷阱：`directories.buildResources` 设为非默认目录时，electron-builder 自动添加 `!该目录{,/**/*}` 排除规则。
+2. **检查图片在 3 个位置是否都存在**：
+   - `resources/img/` ← `extraResources`（主进程 `process.resourcesPath` 路径）
+   - ASAR 根目录 `img/`（若 `files` 包含 `img/**/*`）或 ASAR `out/renderer/img/`（post-build.js 复制）
+   - `app.asar.unpacked/img/` ← `asarUnpack`（`nativeImage.createFromPath` 可能需要真实文件系统路径）
+3. **`asarUnpack` 必要性**：`nativeImage.createFromPath()` 依赖真实文件系统路径。单靠 `extraResources` + ASAR 虚拟路径不够，需 `asarUnpack: ["img/**"]`。
+4. **不要用 `buildResources` 指向 app 资源目录**：`buildResources` 是给 electron-builder 自身用的（icon.ico、installerSidebar.bmp），不是给 app 用的。app 资源用 `extraResources` + `files` + `asarUnpack`。

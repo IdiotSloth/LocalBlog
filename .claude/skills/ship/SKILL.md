@@ -15,6 +15,11 @@ Before starting, quick sanity check:
 - redo.md — any 🔴 P0 or 🟠 P1? If yes, warn before shipping. P0 blocks ship. P1 should be fixed or explicitly deferred.
 - redo.md — P2/P3 count. Phase 19+ targets P0+P1+P2+P3 all-zero. Non-zero P2/P3 should have explicit deferral reason.
 - `suggest.md` — should NOT exist. If it does, unprocessed proposals remain.
+- `electron-builder.yml` — quick sanity:
+  - `directories.buildResources` must NOT overlap with app resource directories (it gets auto-excluded via `!dir{,/**/*}`)
+  - `files` should include `img/**/*` if images are needed in ASAR root
+  - `asarUnpack: ["img/**"]` ensures `nativeImage.createFromPath` can read images
+  - `extraResources` should copy `img/` for main process access via `process.resourcesPath`
 
 ## Pipeline
 
@@ -66,9 +71,16 @@ rm -rf /tmp/fe
 | crossorigin = 0 | `grep "crossorigin" out/renderer/index.html \| wc -l` | 同 |
 | webviewTag ≥ 1 | `grep -c "webviewTag" out/main/index.js` | 同 |
 | autoUpdater ≥ 1 | `grep -c "autoUpdater\|electron-updater" out/main/index.js` | 同 |
-| search.worker 已打包 | `grep "search.worker" out/renderer/index.html` 或 ASAR list | 同 |
+| search.worker 已打包 | `grep "search.worker" out/renderer/assets/index-*.js` | 同 |
 | guide SVG ≥ 1 | `ls out/renderer/assets/guide-*.svg \| wc -l` | ASAR list `grep guide-` |
-| img/ 资源存在 | `ls out/renderer/img/` (drug.png/favicon.ico/static.png) | 安装版: `ls resources/img/` (extraResources) |
+| img/ 资源 (3 位置) | (1) `ls out/renderer/img/` (2) ASAR 根 `img/` | (1) `ls resources/img/` (extraResources) (2) `ls app.asar.unpacked/img/` (asarUnpack) (3) ASAR 内 `grep out/renderer/img/` |
+| img checksum 一致性 | `md5sum out/renderer/img/*` vs `md5sum img/*` | `md5sum resources/img/*` vs source |
+
+**img/ 三位置验证**（安装版必须全部通过）：
+1. `ls dist2/win-unpacked/resources/img/` — extraResources, 应有 drug.png / favicon.ico / static.png
+2. `ls dist2/win-unpacked/resources/app.asar.unpacked/img/` — asarUnpack, 同上
+3. `npx asar list dist2/win-unpacked/resources/app.asar | grep "out/renderer/img/"` — post-build.js 注入, 同上
+4. 可选：`md5sum` 对比源文件和打包文件，排除损坏
 
 ### Step 4: Commit
 
@@ -114,3 +126,5 @@ If packaging failed (network), note the reason and which artifacts are available
 - **Phase 结项 ship 确保归档完整** — AGENTS/README/phase-archive/history-audit 四处 Phase 状态一致
 - **打包产物不入 git** — `dist/`、`dist2/`、`release/` 在 .gitignore 中。安装包通过 GitHub Releases 分发
 - **Commit 前检查 .gitignore** — 确保 `dist2/` 和 `.claude/worktrees/` 已加入 `.gitignore`，防止 `git add -A` 混入大文件或嵌入仓库
+- **`directories.buildResources` 不能指向 app 资源目录** — 此目录会被 electron-builder 自动排除（`!dir{,/**/*}`）。app 图片资源用 `extraResources` + `files` + `asarUnpack` 三重覆盖，build 图标放 `build/` 目录
+- **图片资源必须 `asarUnpack`** — `nativeImage.createFromPath()` 依赖真实文件系统路径，ASAR 虚拟路径可能导致空图片。`asarUnpack: ["img/**"]` 确保图片提取到 `app.asar.unpacked/img/`
