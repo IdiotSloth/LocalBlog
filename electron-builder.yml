@@ -22,7 +22,7 @@ win:
 publish:
   provider: github
   owner: IdiotSloth
-  repo: web
+  repo: LocalBlog
 extraResources:
   - from: scripts/launcher.bat
     to: launcher.bat
