@@ -68,10 +68,12 @@ Check each of these concrete patterns:
 | Timestamp standardization | All INSERT/UPDATE must explicitly pass `new Date().toISOString()` — never rely on `NOW()` or `datetime('now')` or `CURRENT_TIMESTAMP` DB defaults. Grep for `NOW()`, `CURRENT_TIMESTAMP`, `datetime('now')` in non-schema files | 🟠 P1 |
 | Dialect isolation | SQLite-specific syntax (`datetime('now')`, `INSERT OR IGNORE INTO`, `strftime()`, `date('now')`) must go through `toMySQL()` translation in `mysql.ts`. Verify the translation is triggered for ALL such queries | 🔴 P0 |
 | Cascade delete correctness | Before DELETE FROM parent table, child table records must be cleaned up OR CASCADE must be configured. Before deleting DB records, disk file paths must be collected (since DB won't have them after deletion) | 🔴 P0 |
-| user_id isolation | Every SELECT/UPDATE/DELETE on user-owned data must include `AND user_id = ?` or equivalent. This is defense-in-depth even if the item is looked up by ID first | 🟠 P1 |
+| user_id isolation | Every SELECT/UPDATE/DELETE on user-owned data must include `AND user_id = ?` or equivalent. This is defense-in-depth even if the item is looked up by ID first. Shared handler `*ByUser` variants exist specifically for this — using `*ById` in IPC read paths (GET/PREVIEW/OPEN) bypasses ownership check (R145) | 🟠 P1 |
 | DB wrapper compliance | All DB calls must use `dbGet`/`dbAll`/`dbRun` (not deprecated `get`/`all`/`run`). Server-side must use `getPool()` + `pool.execute()`. Never import sync functions directly | 🟠 P1 |
 | INSERT completeness | INSERT statements must include ALL business-critical columns explicitly — especially `content_text`, `file_size`, `created_at`, `updated_at`. A missing column = a data gap between Electron and Web paths | 🟠 P1 |
 | Response format consistency | All API responses must use `{success: boolean, data?: T, error?: string}` format. Raw arrays (`res.json(rows)`) on success but `{success: false, error}` on failure creates inconsistent consumption patterns | 🟡 P2 |
+| sql.js→MySQL migration table coverage | When new tables are added to schema.ts, the `migrateSqlJsToMySQL()` function in `db/index.ts` must include migration loops for them. Missing tables = unrecoverable data loss when users upgrade from sql.js to MySQL (R144). Grep for CREATE TABLE in schema.ts, cross-reference against migrateSqlJsToMySQL() INSERT loops | 🟠 P1 |
+| Shared handler ByUser/ById variant audit | IPC read paths (GET, PREVIEW, OPEN_EXTERNAL) must use `*ByUser` shared handler variants. `*ById` variants lack `AND user_id = ?` and should only be used post-ownership-check. Finding: `buildKnowledgeSelect(id)` called from KB_GET/KB_PREVIEW/KB_OPEN_EXTERNAL enabled cross-user access (R145) | 🟠 P1 |
 
 ### 3. Type Safety
 
@@ -89,6 +91,7 @@ Check each of these concrete patterns:
 | `: any` type annotation density | Count `: any` type annotations (not `as any` casts) in renderer components. Goal: declining trend. Map callbacks, useState generics, filter predicates are common hotspots | 🟡 P2 |
 | IPC write-read symmetry | Every new IPC channel that writes persistent data must have a corresponding reader somewhere in the codebase. A channel with only a writer (IPC handler → service.save()) but no reader (page mount → service.get()) is dead storage. Audit each IPC channel by tracing both directions | 🟡 P2 |
 | camelCase vs snake_case | Frontend code must not access snake_case DB column names directly. Check for patterns like `row.user_id`, `row.created_at` in renderer files — these should be mapped to camelCase by the service/handler layer | 🟡 P2 |
+| Service→IPC→WindowApi type chain alignment | The full chain `service returns Row → IPC handler → WindowApi → renderer` must be type-consistent at every hop. Finding: `reference.service.ts` returned `RefRow`(snake) but `window-api.ts` declared `Reference[]`(camel), making the type system a lie that forced renderer `: any` escapes (R146) | 🟡 P2 |
 | React Router compatibility | `useBlocker`/`useBeforeUnload`/`usePrompt` require data router (`createHashRouter` + `<RouterProvider>`). Using these hooks inside legacy `<HashRouter>` throws `invariant` error at runtime. Check `App.tsx` router creation method | 🔴 P0 |
 
 ### 4. Redundancy
@@ -101,6 +104,7 @@ Check each of these concrete patterns:
 | Dead code | Unused imports, unused functions, unused variables, stale npm scripts (check `package.json` scripts against actually implemented commands) | 🟢 P3 |
 | Repeated try-catch templates | Adjacent route handlers with identical `try { ... } catch (err) { return res.json({success: false, error: (err as Error).message}) }` patterns — candidate for wrapper | 🟢 P3 |
 | Duplicated SQL fragments | Same WHERE clause, ORDER BY, or LIMIT logic appearing in multiple files for the same domain (e.g., blog search in both search service and blog service) | 🟡 P2 |
+| Partial convergence false security | When some domains (blog+knowledge) converge to shared handlers but others (folder/search/tag) remain dual-written, the partially-improved state creates false confidence. Always check which domains remain unconverged after a convergence phase (R151) | 🟡 P2 |
 
 ### 5. Maintainability
 
@@ -121,7 +125,7 @@ Check each of these concrete patterns:
 | Pattern | How to Check | Severity if Violated |
 |---------|-------------|---------------------|
 | Missing error boundaries | React app should have at least one `ErrorBoundary` component wrapping page content. Uncaught render errors crash the whole UI | 🟡 P2 |
-| Missing loading/empty/error states | Every data-fetching page/component must handle: loading (spinner/skeleton), empty (helpful message), error (retry button). Count pages missing any of these states | 🟡 P2 |
+| Missing loading/empty/error states | Every data-fetching page/component must handle: loading (spinner/skeleton), empty (helpful message), error (retry button). Count pages missing any of these states. New pages are the highest-risk — they often have loading+empty states but catch blocks only `console.error` without setting UI error state (R149) | 🟡 P2 |
 | No timeout on long operations | PDF export, web scraping, file import — operations that can hang must have timeout + AbortController. Check for `setTimeout` or `AbortController` usage | 🟡 P2 |
 | useEffect cleanup missing | useEffect with subscriptions, intervals, or async operations must return a cleanup function. Check for `setInterval` without corresponding `clearInterval` in cleanup | 🟡 P2 |
 | Graceful degradation | Web (browser) stubs in `api-client.ts` must return `{success: false, error: '网页版不支持XXX'}` — not undefined, not a thrown error, not a silently resolved Promise | 🟢 P3 |
@@ -215,8 +219,14 @@ Compare key metrics with previous audit (if data available):
 | FTS5 index correctness (MySQL FULLTEXT) | — | — | — |
 | Worker error handling coverage | N | M | — |
 | Promise concurrency safety | N | M | — |
-| P0+P1+P2 total count | N | M | ↓ |
+| P0+P1+P2+P3 total count | N | M | ↓ |
 | DDL migration catch block safety | N | M | — |
+| sql.js→MySQL migration table coverage | N | M | — |
+| Service→WindowApi type chain alignment | N | M | — |
+| Shared handler ByUser/ById variant usage correctness | N | M | — |
+| Partial convergence domains (remaining dual-write) | N | M | — |
+| New page error-state completeness | N | M | — |
+| AbortedRef coverage (new async components) | N | M | — |
 ```
 
 ### 5. New Findings Summary

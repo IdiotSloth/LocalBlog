@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Reference } from '../../../shared/types';
 
 interface RefItem {
   id: number;
@@ -22,7 +23,7 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
     const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
       setRefs(
-        r.data.map((ref: any) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id })), // TODO: define Reference type in shared/types.ts
+        r.data.map((ref: Reference) => ({ id: ref.targetId, type: ref.targetType, title: ref.targetTitle || ref.sourceTitle || '', refId: ref.id })),
       );
     }
     setLoading(false);

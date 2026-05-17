@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderTree } from '../../components/common/FolderTree';
 import { TagSelector } from '../../components/common/TagSelector';
@@ -6,7 +6,7 @@ import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { formatDate, formatFileSize } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
-import type { FolderTreeNode, KnowledgeFileWithTags, Tag } from '../../../shared/types';
+import type { FolderTreeNode, KnowledgeFileWithTags, Reference, Tag } from '../../../shared/types';
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   docx: { label: 'DOCX', color: 'var(--accent-blue)' },
@@ -37,7 +37,7 @@ export interface KnowledgeListState {
   previewing: boolean;
   previewFileId: number | null;
   previewFileType: string;
-  backRefs: any[];
+  backRefs: Reference[];
   dragOver: boolean;
   kbFolders: FolderTreeNode[];
 }
@@ -54,10 +54,10 @@ export type KnowledgeListAction =
   | { type: 'STOP_EDIT_TAGS' }
   | { type: 'SET_EDIT_TAG_IDS'; ids: number[] }
   | { type: 'PREVIEW_START'; title: string; fileId: number; fileType: string }
-  | { type: 'PREVIEW_LOADING' }
+  | { type: 'PREVIEW_LOADING'; v: boolean }
   | { type: 'PREVIEW_HTML'; html: string }
   | { type: 'PREVIEW_CLOSE' }
-  | { type: 'SET_BACKREFS'; refs: any[] }
+  | { type: 'SET_BACKREFS'; refs: Reference[] }
   | { type: 'SET_DRAG_OVER'; v: boolean }
   | { type: 'SET_KB_FOLDERS'; v: FolderTreeNode[] };
 
@@ -74,7 +74,7 @@ export function knowledgeListReducer(state: KnowledgeListState, action: Knowledg
     case 'STOP_EDIT_TAGS': return { ...state, editingTagsFileId: null, editingTagIds: [] };
     case 'SET_EDIT_TAG_IDS': return { ...state, editingTagIds: action.ids };
     case 'PREVIEW_START': return { ...state, previewing: true, previewTitle: action.title, previewFileId: action.fileId, previewFileType: action.fileType, backRefs: [], previewHtml: '' };
-    case 'PREVIEW_LOADING': return { ...state, previewing: true };
+    case 'PREVIEW_LOADING': return { ...state, previewing: action.v };
     case 'PREVIEW_HTML': return { ...state, previewHtml: action.html, previewing: false };
     case 'PREVIEW_CLOSE': return { ...state, previewHtml: '', previewTitle: '', previewFileId: null, previewFileType: '', backRefs: [] };
     case 'SET_BACKREFS': return { ...state, backRefs: action.refs };
@@ -108,6 +108,9 @@ export function KnowledgeListPage() {
     dragOver: false,
     kbFolders: [],
   });
+  const { query, fileType, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
+  const setFilterFolderId = (v: number | null) => dispatch({ type: 'SET_FOLDER_FILTER', v });
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batch = useBatchSelect(state.files as { id: number }[]);
   const pagination = usePagination(20, state.total);
@@ -136,11 +139,11 @@ export function KnowledgeListPage() {
         limit: pagination.limit,
       });
       if (r.success && r.data) {
-        setFiles(r.data.files);
-        setTotal(r.data.total);
+        dispatch({ type: 'SET_FILES', files: r.data.files, total: r.data.total });
       }
     } catch (e) {
       console.error(e);
+      setError('加载失败');
     } finally {
       dispatch({ type: 'SET_LOADING', v: false });
     }
@@ -232,7 +235,7 @@ export function KnowledgeListPage() {
             type="button"
             onClick={() => {
               const v = !showFolderSidebar;
-              setShowFolderSidebar(v);
+              dispatch({ type: 'TOGGLE_SIDEBAR', v });
               localStorage.setItem('sidebar_folder_knowledge', v ? '1' : '0');
             }}
             className="mb-2 rounded-[4px] px-2 py-1 text-[11px] hover:opacity-80 transition-opacity"
@@ -288,13 +291,16 @@ export function KnowledgeListPage() {
             </div>
           );
         })()}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-            知识库{' '}
-            <span className="text-[14px] font-normal" style={{ color: 'var(--text-secondary)' }}>
-              {total} 个文件
-            </span>
-          </h2>
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>资料库</p>
+            <h2 className="text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+              知识库{' '}
+              <span className="text-[14px] font-normal" style={{ color: 'var(--text-secondary)' }}>
+                {total} 个文件
+              </span>
+            </h2>
+          </div>
           <div className="flex gap-2">
             <input
               ref={fileInputRef}
@@ -328,7 +334,7 @@ export function KnowledgeListPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_QUERY', v: e.target.value })}
             placeholder="搜索文件名..."
             className="max-w-xs rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
             style={{
@@ -339,7 +345,7 @@ export function KnowledgeListPage() {
           />
           <select
             value={fileType}
-            onChange={(e) => setFileType(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_FILE_TYPE', v: e.target.value })}
             aria-label="筛选文件类型"
             title="筛选文件类型"
             className="max-w-[130px] rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
@@ -401,7 +407,13 @@ export function KnowledgeListPage() {
             </button>
           </div>
         )}
-        {loading ? (
+        {error && (
+          <div className="py-8 text-center">
+            <p className="text-[14px]" style={{ color: 'var(--accent-red)' }}>{error}</p>
+            <button type="button" onClick={() => { setError(null); loadFiles(); }} className="mt-3 text-[13px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>重试</button>
+          </div>
+        )}
+        {!error && loading ? (
           <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>
             加载中...
           </p>
@@ -437,8 +449,7 @@ export function KnowledgeListPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setFilterTagId(null);
-                    setFilterTagName('');
+                    dispatch({ type: 'SET_TAG_FILTER', id: null, name: '' });
                   }}
                   className="ml-auto text-[12px] hover:underline"
                   style={{ color: 'var(--accent-red)' }}
@@ -493,31 +504,26 @@ export function KnowledgeListPage() {
                           <button
                             type="button"
                             onClick={async () => {
-                              setPreviewing(true);
-                              setPreviewTitle(f.filename);
-                              setPreviewFileId(f.id);
-                              setPreviewFileType(f.fileType || '');
+                              dispatch({ type: 'PREVIEW_START', title: f.filename, fileId: f.id, fileType: f.fileType || '' });
                               window.api
                                 .refGetTo({ targetType: 'knowledge', targetId: f.id })
                                 .then((r) => {
                                   if (r.success && r.data)
-                                    setBackRefs(r.data.filter((ref: any) => ref.source_type === 'blog'));
+                                    dispatch({ type: 'SET_BACKREFS', refs: r.data.filter((ref: Reference) => ref.sourceType === 'blog') });
                                 })
-                                .catch(() => setBackRefs([]));
+                                .catch(() => dispatch({ type: 'SET_BACKREFS', refs: [] }));
                               try {
                                 const timeout = new Promise<string>((_, reject) =>
                                   setTimeout(() => reject(new Error('TIMEOUT')), 10000),
                                 );
-                                const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r: any) => (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>');
+                                const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r: { success?: boolean; data?: { html?: string }; html?: string }) => (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>');
                                 const html = await Promise.race([preview, timeout]);
-                                setPreviewHtml(html);
+                                dispatch({ type: 'PREVIEW_HTML', html });
                               } catch (e) {
                                 const msg = (e as Error).message === 'TIMEOUT'
                                   ? '<p style=color:var(--text-secondary)>文件较大,解析超时。请使用外部打开查看。</p>'
                                   : '<p style=color:var(--text-secondary)>预览失败</p>';
-                                setPreviewHtml(msg);
-                              } finally {
-                                setPreviewing(false);
+                                dispatch({ type: 'PREVIEW_HTML', html: msg });
                               }
                             }}
                             className="text-left hover:underline transition-colors duration-[0.15s] max-w-[300px] truncate block"
@@ -534,8 +540,7 @@ export function KnowledgeListPage() {
                                   className="tag text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setFilterTagId(tg.id);
-                                    setFilterTagName(tg.name);
+                                    dispatch({ type: 'SET_TAG_FILTER', id: tg.id, name: tg.name });
                                   }}
                                   title={`筛选标签: ${tg.name}`}
                                 >
@@ -551,7 +556,7 @@ export function KnowledgeListPage() {
                                 selectedTagIds={editingTagIds}
                                 openUp
                                 onChange={async (tagIds) => {
-                                  setEditingTagIds(tagIds);
+                                  dispatch({ type: 'SET_EDIT_TAG_IDS', ids: tagIds });
                                   try {
                                     await window.api.tagSetFile({ fileId: f.id, tagIds });
                                     loadFiles();
@@ -616,11 +621,9 @@ export function KnowledgeListPage() {
                             type="button"
                             onClick={() => {
                               if (isEditing) {
-                                setEditingTagsFileId(null);
-                                setEditingTagIds([]);
+                                dispatch({ type: 'STOP_EDIT_TAGS' });
                               } else {
-                                setEditingTagsFileId(f.id);
-                                setEditingTagIds((f.tags || []).map((tg: Tag) => tg.id));
+                                dispatch({ type: 'START_EDIT_TAGS', fileId: f.id, tagIds: (f.tags || []).map((tg: Tag) => tg.id) });
                               }
                             }}
                             className="mr-2 text-[12px] hover:underline"
@@ -728,8 +731,7 @@ export function KnowledgeListPage() {
             <button
               type="button"
               onClick={() => {
-                setPreviewTitle('');
-                setPreviewHtml('');
+                dispatch({ type: 'PREVIEW_CLOSE' });
               }}
               className="text-[13px]"
               style={{ color: 'var(--text-secondary)' }}
@@ -754,7 +756,7 @@ export function KnowledgeListPage() {
                 ref={(el) => {
                   if (el && previewFileId) {
                     const kbId = previewFileId;
-                    window.api.kbGet({ fileId: kbId, userId: user.id }).then((r: any) => {
+                    window.api.kbGet({ fileId: kbId, userId: user.id }).then((r: { success?: boolean; data?: { filePath?: string } }) => {
                       if (r.success && r.data?.filePath)
                         el.setAttribute('src', `file:///${r.data.filePath.replace(/\\/g, '/')}`);
                     });
@@ -775,7 +777,7 @@ export function KnowledgeListPage() {
               <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 📝 引用了此文件的博客 ({backRefs.length})
               </p>
-              {backRefs.map((ref: any) => (
+              {backRefs.map((ref: Reference) => (
                 <Link
                   key={ref.id}
                   to={`/blog/${ref.source_id}`}

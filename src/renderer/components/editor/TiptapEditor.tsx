@@ -1,7 +1,5 @@
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import DOMPurify from 'dompurify';
@@ -24,9 +22,10 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
-      Underline,
-      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4] },
+        link: { openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } },
+      }),
       Placeholder.configure({ placeholder }),
       Image.configure({ allowBase64: true, inline: true }),
     ],

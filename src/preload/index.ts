@@ -158,7 +158,7 @@ const api: WindowApi = {
   },
 
   // Notes
-  noteList: (userId, memoType) => ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType),
+  noteList: (userId, memoType, dueDateFrom, dueDateTo) => ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType, dueDateFrom, dueDateTo),
   noteCreate: (data) => ipcRenderer.invoke(IPC.NOTE_CREATE, data),
   noteDelete: (data) => ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => ipcRenderer.invoke(IPC.NOTE_PIN, data),

@@ -276,7 +276,7 @@ const api = {
     return () => electron.ipcRenderer.removeListener(IPC.EVT_KB_REFRESH, handler);
   },
   // Notes
-  noteList: (userId, memoType) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType),
+  noteList: (userId, memoType, dueDateFrom, dueDateTo) => electron.ipcRenderer.invoke(IPC.NOTE_LIST, userId, memoType, dueDateFrom, dueDateTo),
   noteCreate: (data) => electron.ipcRenderer.invoke(IPC.NOTE_CREATE, data),
   noteDelete: (data) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, data),

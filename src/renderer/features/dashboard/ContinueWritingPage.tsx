@@ -1,26 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import type { DraftItem, LastBlog, RecentFile } from '../../../shared/types';
 import { useAuthStore } from '../../stores/auth-store';
-
-interface DraftItem {
-  id: number;
-  blogId: number;
-  blogTitle: string;
-  content: string;
-  savedAt: string;
-}
-
-interface RecentBlog {
-  id: number;
-  title: string;
-  updatedAt: string;
-}
-
-interface KnowledgeItem {
-  id: number;
-  filename: string;
-  createdAt: string;
-}
 
 export function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
@@ -28,10 +9,10 @@ export function ContinueWritingPage() {
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
   const [draftsError, setDraftsError] = useState<string | null>(null);
-  const [lastBlog, setLastBlog] = useState<RecentBlog | null>(null);
+  const [lastBlog, setLastBlog] = useState<LastBlog | null>(null);
   const [lastBlogLoading, setLastBlogLoading] = useState(true);
   const [lastBlogError, setLastBlogError] = useState<string | null>(null);
-  const [recentFiles, setRecentFiles] = useState<KnowledgeItem[]>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesLoading, setRecentFilesLoading] = useState(true);
   const [recentFilesError, setRecentFilesError] = useState<string | null>(null);
 
@@ -51,7 +32,7 @@ export function ContinueWritingPage() {
     setLastBlogError(null);
     window.api
       .continueGetLastBlog(user.id)
-      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setLastBlog(r.data as RecentBlog); })
+      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setLastBlog(r.data as LastBlog); })
       .catch((e) => { if (abortedRef.current) return; console.error('[Continue] Failed to get last blog:', e); setLastBlogError('加载上次停留失败'); })
       .finally(() => { if (!abortedRef.current) setLastBlogLoading(false); });
 
@@ -59,7 +40,7 @@ export function ContinueWritingPage() {
     setRecentFilesError(null);
     window.api
       .continueGetRecentFiles(user.id)
-      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setRecentFiles(r.data as KnowledgeItem[]); })
+      .then((r) => { if (abortedRef.current) return; if (r.success && r.data) setRecentFiles(r.data as RecentFile[]); })
       .catch((e) => { if (abortedRef.current) return; console.error('[Continue] Failed to get recent files:', e); setRecentFilesError('加载最近素材失败'); })
       .finally(() => { if (!abortedRef.current) setRecentFilesLoading(false); });
 

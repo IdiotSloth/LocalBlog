@@ -8,6 +8,13 @@ interface SeriesItem {
   count: number;
 }
 
+const ACCENTS = [
+  'var(--accent-blue)',
+  'var(--accent-green)',
+  'var(--accent-amber)',
+  'var(--accent-red)',
+] as const;
+
 export function SeriesListPage() {
   const user = useAuthStore((s) => s.user);
   const [series, setSeries] = useState<SeriesItem[]>([]);
@@ -34,12 +41,19 @@ export function SeriesListPage() {
 
   return (
     <div className="mx-auto max-w-[780px]">
-      <h2 className="mb-6 text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-        系列{' '}
-        <span className="text-[14px] font-normal" style={{ color: 'var(--text-secondary)' }}>
-          {series.length} 个系列
-        </span>
-      </h2>
+      {/* Hero header */}
+      <div className="mb-8">
+        <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          博客系列
+        </p>
+        <h2 className="mt-1 text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>
+          系列
+        </h2>
+        <p className="mt-2 text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          将相关博客串联成系列，自动生成上一篇/下一篇导航。
+          {series.length > 0 && <span> 共 {series.length} 个系列。</span>}
+        </p>
+      </div>
 
       {/* Error state */}
       {error && (
@@ -54,39 +68,63 @@ export function SeriesListPage() {
         </div>
       )}
 
-      {loading ? (
+      {/* Loading */}
+      {loading && (
         <p className="py-12 text-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-      ) : series.length === 0 ? (
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && series.length === 0 && (
         <div
-          className="rounded-[6px] border border-dashed p-12 text-center"
+          className="rounded-[12px] border border-dashed p-12 text-center"
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
         >
-          <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>
-            暂无系列
-          </p>
-          <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>暂无系列</p>
+          <p className="mt-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>
             在编辑器中为博客设置系列ID和系列名即可创建系列
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {series.map((s) => (
-            <Link
-              key={s.seriesId}
-              to={`/series/${encodeURIComponent(s.seriesId)}`}
-              className="card !p-5 !no-underline"
-            >
-              <h3
-                className="mb-1 text-[15px] font-medium"
-                style={{ color: 'var(--text-primary)' }}
+      )}
+
+      {/* Series cards */}
+      {!loading && !error && series.length > 0 && (
+        <div className="space-y-3">
+          {series.map((s, idx) => {
+            const accent = ACCENTS[idx % ACCENTS.length];
+            return (
+              <Link
+                key={s.seriesId}
+                to={`/series/${encodeURIComponent(s.seriesId)}`}
+                className="group flex items-center gap-5 rounded-[10px] border p-5 no-underline transition-all duration-[0.15s] hover:-translate-y-0.5 hover:border-[var(--accent-blue)]"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
               >
-                {s.seriesName || s.seriesId}
-              </h3>
-              <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                {s.count} 篇
-              </p>
-            </Link>
-          ))}
+                {/* Color bar */}
+                <div
+                  className="h-14 w-1 shrink-0 rounded-full"
+                  style={{ background: accent }}
+                />
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3
+                    className="truncate text-[16px] font-semibold transition-colors group-hover:text-[var(--accent-blue)]"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {s.seriesName || s.seriesId}
+                  </h3>
+                  <p className="mt-0.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                    {s.count} 篇文章
+                  </p>
+                </div>
+                {/* Arrow */}
+                <span
+                  className="shrink-0 text-[16px] opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  →
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

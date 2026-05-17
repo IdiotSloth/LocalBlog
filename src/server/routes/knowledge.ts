@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { getSharedKnowledgeList } from '../../shared/handlers/knowledge-list';
 import {
   buildKnowledgeCreate,
-  buildKnowledgeDeleteById,
+  buildKnowledgeDelete,
   buildKnowledgeOwnershipCheck,
   buildKnowledgeRenameFilename,
   buildKnowledgeRestore,
@@ -169,7 +169,7 @@ knowledgeRouter.post('/:id/delete', async (req: AuthRequest, res) => {
     const { sql: checkSql, params: checkParams } = buildKnowledgeSelectByUser(Number(req.params.id), userId);
     const [[f]] = (await pool.execute(checkSql, checkParams)) as any[];
     if (!f) return res.json({ success: false, error: '文件不存在' });
-    const { sql: delSql, params: delParams } = buildKnowledgeDeleteById(Number(req.params.id));
+    const { sql: delSql, params: delParams } = buildKnowledgeDelete(Number(req.params.id), userId);
     await pool.execute(delSql, delParams);
     const { sql: recycleSql, params: recycleParams } = buildRecycleInsert(userId, 'knowledge_file', Number(req.params.id));
     await pool.execute(recycleSql, recycleParams);

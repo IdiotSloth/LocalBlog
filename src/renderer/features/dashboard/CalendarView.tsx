@@ -23,13 +23,18 @@ export function CalendarView() {
   const abortedRef = useRef(false);
   const [popup, setPopup] = useState<SchedulePopup | null>(null);
   const [saving, setSaving] = useState(false);
+  const pad = (n: number) => String(n).padStart(2, '0');
 
   // Load schedule-type notes for the current month
   const loadSchedules = useCallback(async () => {
     if (!user) return;
+    abortedRef.current = false;
     setLoading(true);
     try {
-      const r = await window.api.noteList(user.id, 'schedule');
+      const monthStart = `${currentYear}-${pad(currentMonth + 1)}-01`;
+      const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const monthEnd = `${currentYear}-${pad(currentMonth + 1)}-${pad(lastDay)}`;
+      const r = await window.api.noteList(user.id, 'schedule', monthStart, monthEnd);
       if (r.success && r.data && !abortedRef.current) {
         setSchedules(r.data);
       }
@@ -39,7 +44,7 @@ export function CalendarView() {
     } finally {
       if (!abortedRef.current) setLoading(false);
     }
-  }, [user]);
+  }, [user, currentYear, currentMonth]);
 
   useEffect(() => {
     loadSchedules();
@@ -80,8 +85,6 @@ export function CalendarView() {
     }
     return map;
   }, [schedules]);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {

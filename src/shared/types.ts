@@ -18,6 +18,7 @@ export interface Blog {
   status: ItemStatus;
   seriesId?: string;
   seriesName?: string;
+  folderId?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +46,7 @@ export interface KnowledgeFile {
   fileType: FileType;
   fileSize: number; // bytes
   status: ItemStatus;
+  folderId?: number | null;
   createdAt: string;
   updatedAt: string;
 }

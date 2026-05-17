@@ -51,10 +51,6 @@ const SeriesListPage = lazy(() =>
 const SeriesDetailPage = lazy(() =>
   import('./features/series/SeriesDetailPage').then((m) => ({ default: m.SeriesDetailPage })),
 );
-const MemoPage = lazy(() =>
-  import('./features/memo/MemoPage').then((m) => ({ default: m.MemoPage })),
-);
-
 function PageSkeleton() {
   return (
     <div className="animate-pulse space-y-4 p-6">
@@ -116,7 +112,6 @@ const router = createHashRouter([
           { path: '/recycle', element: lazyPage(RecycleBinPage) },
           { path: '/settings', element: lazyPage(SettingsPage) },
           { path: '/notes', element: lazyPage(NoteListPage) },
-          { path: '/memo', element: lazyPage(MemoPage) },
           { path: '/series', element: lazyPage(SeriesListPage) },
           { path: '/series/:seriesId', element: lazyPage(SeriesDetailPage) },
           { path: '/guide', element: lazyPage(GuidePage) },

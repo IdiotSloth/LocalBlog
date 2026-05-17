@@ -13,9 +13,9 @@ function broadcastRefresh(): void {
 }
 
 export function registerNoteHandlers(): void {
-  ipcMain.handle(IPC.NOTE_LIST, async (_event, userId: number, memoType?: string) => {
+  ipcMain.handle(IPC.NOTE_LIST, async (_event, userId: number, memoType?: string, dueDateFrom?: string, dueDateTo?: string) => {
     try {
-      const notes = await NoteService.listNotes(userId, memoType);
+      const notes = await NoteService.listNotes(userId, memoType, dueDateFrom, dueDateTo);
       return { success: true, data: notes };
     } catch (err) {
       return { success: false, error: (err as Error).message };

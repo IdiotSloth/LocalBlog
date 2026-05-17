@@ -17437,7 +17437,7 @@ function ShortcutHelpPanel({ onClose }) {
 }
 function useSearch(userId) {
   const [results, setResults] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(false);
+  const [loading, setLoading] = reactExports.useState(false);
   const [ready, setReady] = reactExports.useState(false);
   const workerRef = reactExports.useRef(null);
   const modeRef = reactExports.useRef("init");
@@ -17527,9 +17527,9 @@ function useSearch(userId) {
     };
   }, [userId]);
   const search = reactExports.useCallback(
-    async (query2) => {
+    async (query) => {
       if (!userId) return;
-      if (query2.trim().length < 2) {
+      if (query.trim().length < 2) {
         setResults([]);
         return;
       }
@@ -17537,7 +17537,7 @@ function useSearch(userId) {
       setLoading(true);
       if (modeRef.current === "mysql") {
         try {
-          const resp = await window.api.searchQuery({ query: query2.trim(), userId: uid });
+          const resp = await window.api.searchQuery({ query: query.trim(), userId: uid });
           if (resp.success && resp.data) {
             setResults(resp.data);
           } else {
@@ -17551,7 +17551,7 @@ function useSearch(userId) {
         const workerResults = await new Promise((resolve) => {
           const cid = ++correlationIdRef.current;
           pendingSearchesRef.current.set(cid, resolve);
-          workerRef.current.postMessage({ type: "search", query: query2.trim(), limit: 20, correlationId: cid });
+          workerRef.current.postMessage({ type: "search", query: query.trim(), limit: 20, correlationId: cid });
           safetyTimeoutRef.current = setTimeout(() => {
             if (pendingSearchesRef.current.has(cid)) {
               pendingSearchesRef.current.delete(cid);
@@ -17592,7 +17592,7 @@ function useSearch(userId) {
       }
     }
   }, []);
-  return { search, results, loading: loading2, ready, refreshIndex, addDocument, removeDocument };
+  return { search, results, loading, ready, refreshIndex, addDocument, removeDocument };
 }
 async function fetchAndBuildIndex(worker, userId) {
   try {
@@ -17607,7 +17607,7 @@ async function fetchAndBuildIndex(worker, userId) {
 function GlobalSearch() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const [query2, setQuery2] = reactExports.useState("");
+  const [query, setQuery] = reactExports.useState("");
   const [open, setOpen] = reactExports.useState(false);
   const [selectedIdx, setSelectedIdx] = reactExports.useState(-1);
   const inputRef = reactExports.useRef(null);
@@ -17633,13 +17633,13 @@ function GlobalSearch() {
     [search]
   );
   const handleChange = (val) => {
-    setQuery2(val);
+    setQuery(val);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => doSearch(val), 300);
   };
   const handleNavigate = (type, id) => {
     setOpen(false);
-    setQuery2("");
+    setQuery("");
     if (type === "blog") navigate(`/blog/${id}/edit`);
     else navigate("/knowledge");
   };
@@ -17663,7 +17663,7 @@ function GlobalSearch() {
       }
     } else if (e.key === "Escape") {
       setOpen(false);
-      setQuery2("");
+      setQuery("");
     }
   };
   reactExports.useEffect(() => {
@@ -17691,7 +17691,7 @@ function GlobalSearch() {
       {
         ref: inputRef,
         type: "text",
-        value: query2,
+        value: query,
         onChange: (e) => handleChange(e.target.value),
         onKeyDown: handleKeyDown2,
         onFocus: () => {
@@ -17874,7 +17874,6 @@ const navGroups = [
     label: "写作",
     items: [
       { to: "/notes", label: "便签", icon: "📝" },
-      { to: "/memo", label: "备忘录", icon: "📋" },
       { to: "/blog", label: "博客", icon: "✎" }
     ]
   },
@@ -18041,7 +18040,7 @@ function LoginPage() {
   const [password, setPassword] = reactExports.useState("");
   const [rememberMe, setRememberMe] = reactExports.useState(true);
   const [error2, setError] = reactExports.useState("");
-  const [loading2, setLoading] = reactExports.useState(false);
+  const [loading, setLoading] = reactExports.useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
@@ -18112,7 +18111,7 @@ function LoginPage() {
         ]
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading2, className: "btn-primary w-full py-2.5 text-[15px]", children: loading2 ? "登录中..." : "登录" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading, className: "btn-primary w-full py-2.5 text-[15px]", children: loading ? "登录中..." : "登录" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: [
       "还没有账户？",
       " ",
@@ -18134,7 +18133,7 @@ function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = reactExports.useState("");
   const [workspacePath, setWorkspacePath] = reactExports.useState("");
   const [error2, setError] = reactExports.useState("");
-  const [loading2, setLoading] = reactExports.useState(false);
+  const [loading, setLoading] = reactExports.useState(false);
   const register = useAuthStore((s) => s.register);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
@@ -18247,7 +18246,7 @@ function RegisterPage() {
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading2, className: "btn-primary w-full py-2.5 text-[15px]", children: loading2 ? "注册中..." : "创建账户" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", disabled: loading, className: "btn-primary w-full py-2.5 text-[15px]", children: loading ? "注册中..." : "创建账户" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-center text-[13px]", style: { color: "var(--text-secondary)" }, children: [
       "已有账户？",
       " ",
@@ -18270,6 +18269,13 @@ function getTabs() {
   } catch {
     return [];
   }
+}
+function addTab(tab) {
+  const tabs = getTabs().filter((t) => t.id !== tab.id);
+  tabs.push(tab);
+  const trimmed = tabs.slice(-5);
+  localStorage.setItem(STORAGE_KEY$1, JSON.stringify(trimmed));
+  notify();
 }
 function removeTab(id) {
   const tabs = getTabs().filter((t) => t.id !== id);
@@ -18406,9 +18412,6 @@ const SeriesListPage$2 = reactExports.lazy(
 const SeriesDetailPage$2 = reactExports.lazy(
   () => __vitePreload(() => Promise.resolve().then(() => SeriesDetailPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.SeriesDetailPage }))
 );
-const MemoPage$2 = reactExports.lazy(
-  () => __vitePreload(() => Promise.resolve().then(() => MemoPage$1), true ? void 0 : void 0, import.meta.url).then((m) => ({ default: m.MemoPage }))
-);
 function PageSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "animate-pulse space-y-4 p-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-8 w-1/3 rounded", style: { background: "var(--bg-tertiary)" } }),
@@ -18455,7 +18458,6 @@ const router = createHashRouter([
           { path: "/recycle", element: lazyPage(RecycleBinPage$2) },
           { path: "/settings", element: lazyPage(SettingsPage$2) },
           { path: "/notes", element: lazyPage(NoteListPage$2) },
-          { path: "/memo", element: lazyPage(MemoPage$2) },
           { path: "/series", element: lazyPage(SeriesListPage$2) },
           { path: "/series/:seriesId", element: lazyPage(SeriesDetailPage$2) },
           { path: "/guide", element: lazyPage(GuidePage$2) }
@@ -18656,11 +18658,19 @@ const webApi = {
   noteDelete: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   notePin: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
   noteClipboard: () => Promise.resolve({ success: false, error: "便签为桌面专属功能" }),
+  onBlogRefresh: () => () => {
+  },
   onNoteRefresh: () => () => {
   },
   onAppError: () => () => {
   },
   onKbRefresh: () => () => {
+  },
+  onTrayAction: () => () => {
+  },
+  onPetAction: () => () => {
+  },
+  onUpdateStatus: () => () => {
   },
   // Continue Writing
   continueGetDrafts: () => Promise.resolve({ success: false, error: "续写视图为桌面专属功能" }),
@@ -18682,59 +18692,6 @@ const root$1 = clientExports.createRoot(container);
 root$1.render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(React4.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(ToastProvider, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) }) }) })
 );
-const ACHIEVEMENTS = [
-  // Production milestones
-  {
-    id: "first-blog",
-    name: "初出茅庐",
-    description: "发布第一篇博客",
-    emoji: "✍️",
-    tier: "bronze",
-    condition: (s) => s.totalBlogs >= 1
-  },
-  {
-    id: "ten-blogs",
-    name: "笔耕不辍",
-    description: "发布 10 篇博客",
-    emoji: "📚",
-    tier: "silver",
-    condition: (s) => s.totalBlogs >= 10
-  },
-  {
-    id: "fifty-blogs",
-    name: "著作等身",
-    description: "发布 50 篇博客",
-    emoji: "📖",
-    tier: "gold",
-    condition: (s) => s.totalBlogs >= 50
-  },
-  // Wordcount milestones
-  {
-    id: "total-10k",
-    name: "万字长城",
-    description: "累计写作 10,000 字",
-    emoji: "📜",
-    tier: "silver",
-    condition: (s) => s.totalWords >= 1e4
-  },
-  {
-    id: "total-100k",
-    name: "十万伏特",
-    description: "累计写作 100,000 字",
-    emoji: "⚡",
-    tier: "gold",
-    condition: (s) => s.totalWords >= 1e5
-  },
-  // Streak milestone
-  {
-    id: "streak-7",
-    name: "一周战士",
-    description: "连续 7 天写作",
-    emoji: "🔥",
-    tier: "silver",
-    condition: (s) => s.currentStreak >= 7
-  }
-];
 const STORAGE_KEY = "lbkb_recent_blogs";
 const MAX_ITEMS = 10;
 function readStorage() {
@@ -18762,229 +18719,320 @@ function recordRecentBlog(blogId, title) {
 function getRecentBlogs() {
   return readStorage();
 }
-const Heatmap$2 = reactExports.lazy(() => __vitePreload(() => Promise.resolve().then(() => Heatmap$1), true ? void 0 : void 0, import.meta.url));
-const TABS = [
-  { id: "overview", label: "概览" },
-  { id: "heatmap", label: "热力图" },
-  { id: "achievements", label: "成就" }
-];
-function DashboardPage() {
+const WEEKDAY_HEADERS = ["一", "二", "三", "四", "五", "六", "日"];
+function CalendarView() {
   const user = useAuthStore((s) => s.user);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "overview";
-  const [ws, setWs] = reactExports.useState(null);
-  const [wsLoading, setWsLoading] = reactExports.useState(true);
-  const [wsError, setWsError] = reactExports.useState(null);
-  const [stats, setStats] = reactExports.useState(null);
-  const [statsLoading, setStatsLoading] = reactExports.useState(true);
-  const [statsError, setStatsError] = reactExports.useState(null);
-  const [achievements, setAchievements] = reactExports.useState([]);
-  const [recentBlogs, setRecentBlogs] = reactExports.useState([]);
-  reactExports.useEffect(() => {
+  const [today] = reactExports.useState(() => /* @__PURE__ */ new Date());
+  const [currentMonth, setCurrentMonth] = reactExports.useState(() => today.getMonth());
+  const [currentYear, setCurrentYear] = reactExports.useState(() => today.getFullYear());
+  const [schedules, setSchedules] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [error2, setError] = reactExports.useState(null);
+  const abortedRef = reactExports.useRef(false);
+  const [popup, setPopup] = reactExports.useState(null);
+  const [saving, setSaving] = reactExports.useState(false);
+  const pad = (n) => String(n).padStart(2, "0");
+  const loadSchedules = reactExports.useCallback(async () => {
     if (!user) return;
-    let aborted = false;
-    setWsLoading(true);
-    setWsError(null);
-    window.api.workspaceGetInfo(user.id).then((info) => {
-      if (!aborted) setWs(info);
-    }).catch((e) => {
-      console.error("[Dashboard] Failed to get workspace info:", e);
-      if (!aborted) setWsError("加载失败");
-    }).finally(() => {
-      if (!aborted) setWsLoading(false);
-    });
-    setStatsLoading(true);
-    setStatsError(null);
-    window.api.statsGet(user.id).then((r) => {
-      if (aborted) return;
-      if (r.success && r.data) {
-        setStats(r.data);
-        setAchievements(ACHIEVEMENTS.filter((a) => a.condition(r.data)).map((a) => a.id));
+    abortedRef.current = false;
+    setLoading(true);
+    try {
+      const monthStart = `${currentYear}-${pad(currentMonth + 1)}-01`;
+      const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const monthEnd = `${currentYear}-${pad(currentMonth + 1)}-${pad(lastDay)}`;
+      const r = await window.api.noteList(user.id, "schedule", monthStart, monthEnd);
+      if (r.success && r.data && !abortedRef.current) {
+        setSchedules(r.data);
       }
-    }).catch((e) => {
-      console.error("[Dashboard] Failed to get stats:", e);
-      if (!aborted) setStatsError("加载失败");
-    }).finally(() => {
-      if (!aborted) setStatsLoading(false);
-    });
-    setRecentBlogs(getRecentBlogs());
+    } catch (e) {
+      console.error("[CalendarView] Failed to load schedules:", e);
+      setError("加载失败");
+    } finally {
+      if (!abortedRef.current) setLoading(false);
+    }
+  }, [user, currentYear, currentMonth]);
+  reactExports.useEffect(() => {
+    loadSchedules();
     return () => {
-      aborted = true;
+      abortedRef.current = true;
     };
-  }, [user]);
-  const allAchievements = ACHIEVEMENTS.map((a) => ({
-    ...a,
-    unlocked: achievements.includes(a.id)
-  }));
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
-    activeTab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8", style: { fontFamily: "var(--font-mono)" }, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "var(--text-secondary)", fontSize: 14 }, children: "> whoami" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mt-1 text-[40px] font-bold leading-tight", style: { color: "var(--text-primary)" }, children: user?.username || "..." }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[18px]", style: { color: "var(--text-secondary)" }, children: "本地博客与知识库" }),
-      statsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : statsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 text-[13px]", style: { color: "var(--accent-red)" }, children: "加载失败" }) : stats && (stats.currentStreak > 0 || stats.totalWords > 0) ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex flex-wrap gap-2", children: [
-        stats.currentStreak > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "span",
-          {
-            className: "rounded-[12px] px-3 py-1 text-[12px]",
-            style: { background: "rgba(211,153,34,0.15)", color: "var(--accent-amber)" },
-            children: [
-              "🔥 连续 ",
-              stats.currentStreak,
-              " 天"
-            ]
-          }
-        ),
-        stats.totalWords > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "span",
-          {
-            className: "rounded-[12px] px-3 py-1 text-[12px]",
-            style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-            children: [
-              "累计 ",
-              (stats.totalWords / 1e3).toFixed(1),
-              "k 字"
-            ]
-          }
-        ),
-        stats.totalBlogs > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "span",
-          {
-            className: "rounded-[12px] px-3 py-1 text-[12px]",
-            style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-            children: [
-              stats.totalBlogs,
-              " 篇文章"
-            ]
-          }
-        )
-      ] }) : null
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-6 flex gap-1 border-b", style: { borderColor: "var(--border-default)" }, children: TABS.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "button",
-      {
-        type: "button",
-        onClick: () => setSearchParams({ tab: t.id }),
-        className: "px-4 py-2 text-[13px] font-medium transition-colors",
-        style: {
-          color: activeTab === t.id ? "var(--accent-blue)" : "var(--text-secondary)",
-          borderBottom: activeTab === t.id ? "2px solid var(--accent-blue)" : "2px solid transparent",
-          marginBottom: -1
-        },
-        children: t.label
-      },
-      t.id
-    )) }),
-    activeTab === "overview" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      wsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : wsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-4 gap-3", children: [
-        { label: "博客", val: ws?.blogCount ?? 0, sub: stats ? `本月 +${stats.monthlyCount}` : "", c: "--accent-blue" },
-        { label: "知识库", val: ws?.knowledgeCount ?? 0, c: "--accent-green" },
-        { label: "标签", val: ws?.tagCount ?? 0, c: "--accent-amber" },
-        { label: "存储占用", val: ws ? fmt(ws.storageSize || 0) : "0 B", c: "--text-secondary" }
-      ].map((card) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "div",
+  }, [loadSchedules]);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onNoteRefresh(() => loadSchedules());
+    return () => {
+      unsub();
+      abortedRef.current = true;
+    };
+  }, [loadSchedules]);
+  const calendarDays = reactExports.useMemo(() => {
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    let startDow = firstDay.getDay();
+    startDow = startDow === 0 ? 6 : startDow - 1;
+    const days = [];
+    for (let i = 0; i < startDow; i++) days.push(null);
+    for (let d = 1; d <= daysInMonth; d++) days.push(d);
+    return days;
+  }, [currentYear, currentMonth]);
+  const scheduleMap = reactExports.useMemo(() => {
+    const map3 = /* @__PURE__ */ new Map();
+    for (const s of schedules) {
+      const dateKey = s.dueDate ? s.dueDate.slice(0, 10) : s.createdAt.slice(0, 10);
+      const list2 = map3.get(dateKey) || [];
+      list2.push(s);
+      map3.set(dateKey, list2);
+    }
+    return map3;
+  }, [schedules]);
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+    setPopup(null);
+  };
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+    setPopup(null);
+  };
+  const handleDayClick = (day) => {
+    const dateStr = `${currentYear}-${pad(currentMonth + 1)}-${pad(day)}`;
+    const existingSchedules = scheduleMap.get(dateStr) || [];
+    const existing = existingSchedules[0];
+    if (existing) {
+      setPopup({
+        date: dateStr,
+        note: existing,
+        title: existing.title,
+        time: existing.dueDate ? existing.dueDate.slice(11, 16) : ""
+      });
+    } else {
+      setPopup({
+        date: dateStr,
+        title: "",
+        time: ""
+      });
+    }
+  };
+  const handleSaveSchedule = async () => {
+    if (!user || !popup) return;
+    setSaving(true);
+    try {
+      const dueDate = `${popup.date} ${popup.time || "00:00"}:00`;
+      if (popup.note) {
+        await window.api.noteCreate({
+          userId: user.id,
+          noteId: popup.note.id,
+          content: popup.note.content,
+          title: popup.title || popup.note.title,
+          dueDate,
+          memoType: "schedule"
+        });
+      } else {
+        await window.api.noteCreate({
+          userId: user.id,
+          content: popup.title || popup.date,
+          title: popup.title || "",
+          memoType: "schedule",
+          dueDate
+        });
+      }
+      setPopup(null);
+      loadSchedules();
+    } catch (e) {
+      console.error("[CalendarView] Failed to save schedule:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleDeleteSchedule = async () => {
+    if (!user || !popup?.note) return;
+    await window.api.noteDelete({ userId: user.id, noteId: popup.note.id });
+    setPopup(null);
+    loadSchedules();
+  };
+  const isToday = (day) => {
+    return day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+  };
+  const monthLabel = `${currentYear} 年 ${currentMonth + 1} 月`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
         {
-          className: "rounded-[6px] border p-4",
-          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+          type: "button",
+          onClick: handlePrevMonth,
+          "aria-label": "上个月",
+          className: "rounded-[4px] px-3 py-1 text-[14px] hover:opacity-80",
+          style: { color: "var(--text-secondary)" },
+          children: "←"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: monthLabel }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: handleNextMonth,
+          "aria-label": "下个月",
+          className: "rounded-[4px] px-3 py-1 text-[14px] hover:opacity-80",
+          style: { color: "var(--text-secondary)" },
+          children: "→"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-1 grid grid-cols-7 gap-0.5 text-center text-[11px] font-medium", style: { color: "var(--text-muted)" }, children: WEEKDAY_HEADERS.map((h2) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-1", children: h2 }, h2)) }),
+    error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--accent-red)", textAlign: "center", padding: "3rem" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: error2 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            setError(null);
+            loadSchedules();
+          },
+          style: { color: "var(--accent-blue)", marginTop: 8, background: "none", border: "none", cursor: "pointer", fontSize: 13 },
+          children: "重试"
+        }
+      )
+    ] }),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-7 gap-0.5", children: calendarDays.map((day, idx) => {
+      if (day === null) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", {}, `empty-${idx}`);
+      const dateStr = `${currentYear}-${pad(currentMonth + 1)}-${pad(day)}`;
+      const daySchedules = scheduleMap.get(dateStr) || [];
+      const isTodayDay = isToday(day);
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          onClick: () => handleDayClick(day),
+          className: "relative flex flex-col items-center rounded-[4px] py-2 text-[13px] transition-colors hover:opacity-80",
+          style: {
+            background: isTodayDay ? "var(--bg-tertiary)" : "transparent",
+            color: isTodayDay ? "var(--accent-blue)" : "var(--text-primary)",
+            fontWeight: isTodayDay ? 700 : 400
+          },
           children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[28px] font-bold", style: { color: `var(${card.c})` }, children: card.val }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1 flex items-center gap-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: [
-              card.label,
-              card.sub && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-green)" }, children: card.sub })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: day }),
+            daySchedules.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-0.5 flex gap-0.5", children: [
+              daySchedules.slice(0, 3).map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "h-1.5 w-1.5 rounded-full",
+                  style: { background: "var(--accent-blue)" }
+                },
+                i
+              )),
+              daySchedules.length > 3 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[9px]", style: { color: "var(--text-muted)" }, children: [
+                "+",
+                daySchedules.length - 3
+              ] })
             ] })
           ]
         },
-        card.label
-      )) }),
-      recentBlogs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: "最近浏览" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto", style: { scrollbarWidth: "thin" }, children: recentBlogs.slice(0, 5).map((entry) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          Link$1,
+        dateStr
+      );
+    }) }),
+    popup && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "fixed inset-0 z-50 flex items-center justify-center",
+        style: { background: "rgba(0,0,0,0.3)" },
+        onClick: () => setPopup(null),
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
           {
-            to: `/blog/${entry.id}`,
-            className: "no-underline shrink-0 rounded-[6px] border p-3 transition-all hover:border-[var(--accent-blue)]",
-            style: {
-              width: 180,
-              borderColor: "var(--border-default)",
-              background: "var(--bg-secondary)"
-            },
+            className: "w-[320px] rounded-[8px] border p-5 shadow-lg",
+            style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+            onClick: (e) => e.stopPropagation(),
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "div",
-                {
-                  className: "truncate text-[13px] font-medium",
-                  style: { color: "var(--text-primary)" },
-                  children: entry.title
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "div",
-                {
-                  className: "mt-1 text-[11px]",
-                  style: { color: "var(--text-muted)" },
-                  children: new Date(entry.timestamp).toLocaleDateString("zh-CN")
-                }
-              )
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("h4", { className: "mb-4 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: [
+                popup.note ? "编辑日程" : "新建日程",
+                " — ",
+                popup.date
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "标题" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "text",
+                    value: popup.title,
+                    onChange: (e) => setPopup((p) => p ? { ...p, title: e.target.value } : null),
+                    placeholder: "日程标题",
+                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
+                    style: {
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-primary)"
+                    },
+                    autoFocus: true
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "时间" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "time",
+                    value: popup.time,
+                    onChange: (e) => setPopup((p) => p ? { ...p, time: e.target.value } : null),
+                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
+                    style: {
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--border-default)",
+                      color: "var(--text-primary)"
+                    }
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleSaveSchedule,
+                    disabled: saving,
+                    className: "flex-1 rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40",
+                    style: { background: "var(--color-primary)" },
+                    children: saving ? "保存中..." : "保存"
+                  }
+                ),
+                popup.note && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleDeleteSchedule,
+                    className: "rounded-[4px] px-4 py-1.5 text-[13px] transition-opacity hover:opacity-80",
+                    style: { background: "var(--accent-red)", color: "white" },
+                    children: "删除"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => setPopup(null),
+                    className: "rounded-[4px] px-4 py-1.5 text-[13px] transition-opacity hover:opacity-80",
+                    style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
+                    children: "取消"
+                  }
+                )
+              ] })
             ]
-          },
-          entry.id
-        )) })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: "快捷操作" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-4 gap-3", children: [
-        { to: "/blog/new", label: "写博客", k: "✍", desc: "创建一篇新文章" },
-        { to: "/knowledge", label: "知识库", k: "📁", desc: "导入与管理文件" },
-        { to: "/tags", label: "标签", k: "#", desc: "整理分类标签" },
-        { to: "/blog", label: "看博客", k: "→", desc: "浏览全部文章" }
-      ].map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        Link$1,
-        {
-          to: a.to,
-          className: "rounded-[6px] border p-4 transition-all duration-[0.2s]",
-          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
-          onMouseEnter: (e) => {
-            e.currentTarget.style.borderColor = "var(--accent-blue)";
-            e.currentTarget.style.transform = "translateY(-2px)";
-          },
-          onMouseLeave: (e) => {
-            e.currentTarget.style.borderColor = "var(--border-default)";
-            e.currentTarget.style.transform = "";
-          },
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xl", children: a.k }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-[15px] font-medium", style: { color: "var(--text-primary)" }, children: a.label }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[12px]", style: { color: "var(--text-secondary)" }, children: a.desc })
-          ]
-        },
-        a.to
-      )) })
-    ] }),
-    activeTab === "achievements" && /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: statsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : statsError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8", style: { color: "var(--accent-red)" }, children: "加载失败，请刷新重试" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("h3", { className: "mb-3 text-[14px] font-semibold uppercase tracking-wider", style: { color: "var(--text-secondary)" }, children: [
-        "成就 (",
-        achievements.length,
-        "/",
-        ACHIEVEMENTS.length,
-        ")"
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-8 grid grid-cols-3 gap-2", children: allAchievements.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "div",
-        {
-          className: "flex flex-col items-center rounded-[6px] border p-2 text-center transition-opacity",
-          style: {
-            background: a.unlocked ? "var(--bg-secondary)" : "var(--bg-primary)",
-            borderColor: a.unlocked ? "var(--accent-amber)" : "var(--border-default)",
-            opacity: a.unlocked ? 1 : 0.4
-          },
-          title: a.unlocked ? `${a.name}: ${a.description}` : "???",
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: a.unlocked ? a.emoji : "🔒" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-0.5 text-[10px] truncate w-full", style: { color: a.unlocked ? "var(--text-primary)" : "var(--text-placeholder)" }, children: a.name })
-          ]
-        },
-        a.id
-      )) })
-    ] }) }),
-    activeTab === "heatmap" && user && /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-[140px] rounded-[6px]", style: { background: "var(--bg-secondary)" } }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap$2, { userId: user.id }) })
+          }
+        )
+      }
+    )
   ] });
 }
 function fmt(bytes) {
@@ -18992,6 +19040,335 @@ function fmt(bytes) {
   const u = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / 1024 ** i).toFixed(1)} ${u[i]}`;
+}
+function getGreeting() {
+  const h2 = (/* @__PURE__ */ new Date()).getHours();
+  if (h2 < 12) return "早上好";
+  if (h2 < 18) return "下午好";
+  return "晚上好";
+}
+function DashboardPage() {
+  const user = useAuthStore((s) => s.user);
+  const [ws, setWs] = reactExports.useState(null);
+  const [wsLoading, setWsLoading] = reactExports.useState(true);
+  const [stats, setStats] = reactExports.useState(null);
+  const [statsLoading, setStatsLoading] = reactExports.useState(true);
+  const [recentBlogs, setRecentBlogs] = reactExports.useState([]);
+  const [todos, setTodos] = reactExports.useState([]);
+  const [todosLoading, setTodosLoading] = reactExports.useState(true);
+  const [todoInput, setTodoInput] = reactExports.useState("");
+  const [todoSaving, setTodoSaving] = reactExports.useState(false);
+  const abortedRef = reactExports.useRef(false);
+  const [loadError, setLoadError] = reactExports.useState(null);
+  const loadData = reactExports.useCallback(async () => {
+    if (!user) return;
+    abortedRef.current = false;
+    setLoadError(null);
+    setWsLoading(true);
+    window.api.workspaceGetInfo(user.id).then((info) => {
+      if (!abortedRef.current) setWs(info);
+    }).catch((e) => {
+      console.error("[Dashboard] workspace:", e);
+      if (!abortedRef.current) setLoadError("加载工作区数据失败");
+    }).finally(() => {
+      if (!abortedRef.current) setWsLoading(false);
+    });
+    setStatsLoading(true);
+    window.api.statsGet(user.id).then((r) => {
+      if (!abortedRef.current && r.success && r.data) setStats(r.data);
+    }).catch((e) => {
+      console.error("[Dashboard] stats:", e);
+      if (!abortedRef.current) setLoadError("加载统计数据失败");
+    }).finally(() => {
+      if (!abortedRef.current) setStatsLoading(false);
+    });
+    setRecentBlogs(getRecentBlogs());
+    setTodosLoading(true);
+    window.api.noteList(user.id, "todo").then((r) => {
+      if (!abortedRef.current && r.success && r.data) setTodos(r.data);
+    }).catch((e) => {
+      console.error("[Dashboard] todos:", e);
+      if (!abortedRef.current) setLoadError("加载待办失败");
+    }).finally(() => {
+      if (!abortedRef.current) setTodosLoading(false);
+    });
+  }, [user]);
+  reactExports.useEffect(() => {
+    loadData();
+    return () => {
+      abortedRef.current = true;
+    };
+  }, [loadData]);
+  reactExports.useEffect(() => {
+    const unsub = window.api.onNoteRefresh(() => loadData());
+    return unsub;
+  }, [loadData]);
+  const handleAddTodo = async () => {
+    if (!user || !todoInput.trim() || todoSaving) return;
+    setTodoSaving(true);
+    try {
+      await window.api.noteCreate({
+        userId: user.id,
+        content: todoInput.trim(),
+        title: todoInput.trim(),
+        memoType: "todo"
+      });
+      setTodoInput("");
+      loadData();
+    } catch (e) {
+      console.error("[Dashboard] add todo:", e);
+    } finally {
+      setTodoSaving(false);
+    }
+  };
+  const handleDeleteTodo = async (noteId) => {
+    if (!user) return;
+    try {
+      await window.api.noteDelete({ userId: user.id, noteId });
+      loadData();
+    } catch (e) {
+      console.error("[Dashboard] delete todo:", e);
+    }
+  };
+  const handleCompleteTodo = async (todo) => {
+    if (!user) return;
+    try {
+      await window.api.noteCreate({
+        userId: user.id,
+        noteId: todo.id,
+        content: todo.content,
+        title: todo.title,
+        memoType: "note",
+        dueDate: todo.dueDate
+      });
+      loadData();
+    } catch (e) {
+      console.error("[Dashboard] complete todo:", e);
+    }
+  };
+  const hasStats = !wsLoading && !statsLoading && ws;
+  const statCards = hasStats ? [
+    { label: "博客", val: ws?.blogCount ?? 0, sub: stats?.monthlyCount ? `本月 +${stats.monthlyCount}` : "", icon: "✍", c: "var(--accent-blue)" },
+    { label: "知识库", val: ws?.knowledgeCount ?? 0, icon: "📁", c: "var(--accent-green)" },
+    { label: "标签", val: ws?.tagCount ?? 0, icon: "#", c: "var(--accent-amber)" },
+    { label: "存储", val: fmt(ws?.storageSize || 0), icon: "💾", c: "var(--text-secondary)" }
+  ] : [];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "var(--content-max)", margin: "0 auto" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "relative mb-8 overflow-hidden rounded-[16px] border p-8 md:p-10",
+        style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "absolute -right-8 -top-8 h-[120px] w-[120px] rounded-full opacity-15",
+              style: { background: "radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)" }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "absolute -bottom-6 -left-6 h-[100px] w-[100px] rounded-full opacity-10",
+              style: { background: "radial-gradient(circle, var(--accent-green) 0%, transparent 70%)" }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] tracking-wide", style: { color: "var(--text-muted)", fontFamily: "var(--font-mono)" }, children: getGreeting() }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mt-1 text-[38px] font-bold leading-tight tracking-tight", style: { color: "var(--text-primary)" }, children: user?.username || "..." }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-[16px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: "本地博客与知识库" })
+          ] }),
+          statsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative mt-5 h-8 rounded-[6px] animate-pulse", style: { background: "var(--bg-tertiary)", width: 200 } }) : stats ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative mt-5 flex flex-wrap gap-2", children: [
+            stats.currentStreak > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-amber)" }, children: [
+              "🔥 连续 ",
+              stats.currentStreak,
+              " 天"
+            ] }),
+            stats.totalWords > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" }, children: [
+              "累计 ",
+              (stats.totalWords / 1e3).toFixed(1),
+              "k 字"
+            ] }),
+            stats.totalBlogs > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" }, children: [
+              stats.totalBlogs,
+              " 篇文章"
+            ] })
+          ] }) : null
+        ]
+      }
+    ),
+    loadError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 rounded-[10px] border p-8 text-center", style: { borderColor: "var(--accent-red)", background: "var(--bg-secondary)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--accent-red)" }, children: loadError }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: loadData, className: "mt-3 text-[13px] hover:underline", style: { color: "var(--accent-blue)", background: "none", border: "none", cursor: "pointer" }, children: "重试" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8 grid gap-6", style: { gridTemplateColumns: "1fr 1fr" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-3", children: statCards.map((card) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "rounded-[10px] border p-5 transition-all duration-[0.2s] hover:border-[var(--accent-blue)] hover:-translate-y-0.5",
+          style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[20px]", children: card.icon }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-[28px] font-bold", style: { color: card.c }, children: card.val }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-0.5 flex items-center gap-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: [
+              card.label,
+              card.sub && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px]", style: { color: "var(--accent-green)" }, children: card.sub })
+            ] })
+          ]
+        },
+        card.label
+      )) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] border p-5 flex-1", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-4 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "快捷操作" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: [
+            { to: "/blog/new", label: "写博客", detail: "创建一篇新文章", icon: "✍", c: "var(--accent-blue)" },
+            { to: "/knowledge", label: "知识库", detail: "导入与管理文件", icon: "📁", c: "var(--accent-green)" },
+            { to: "/tags", label: "标签管理", detail: "整理分类标签", icon: "#", c: "var(--accent-amber)" },
+            { to: "/blog", label: "看博客", detail: "浏览全部文章", icon: "→", c: "var(--text-secondary)" }
+          ].map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            Link$1,
+            {
+              to: a.to,
+              className: "flex items-center gap-3 rounded-[6px] px-3 py-2.5 text-[14px] no-underline transition-all duration-[0.15s] hover:translate-x-1",
+              style: { background: "var(--bg-primary)", color: "var(--text-primary)" },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex h-8 w-8 items-center justify-center rounded-[6px] text-[16px]", style: { background: "var(--bg-tertiary)" }, children: a.icon }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", style: { color: a.c }, children: a.label }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2 text-[11px]", style: { color: "var(--text-muted)" }, children: a.detail })
+                ] })
+              ]
+            },
+            a.to
+          )) })
+        ] }),
+        recentBlogs.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] border p-5", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "最近浏览" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2 overflow-x-auto", style: { scrollbarWidth: "thin" }, children: recentBlogs.slice(0, 5).map((entry) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            Link$1,
+            {
+              to: `/blog/${entry.id}`,
+              className: "no-underline shrink-0 rounded-[6px] border px-3 py-2 text-[13px] font-medium transition-all hover:border-[var(--accent-blue)]",
+              style: { borderColor: "var(--border-default)", background: "var(--bg-primary)", color: "var(--text-primary)", maxWidth: 160 },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "line-clamp-2 block", children: entry.title }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-1 block text-[11px]", style: { color: "var(--text-muted)" }, children: new Date(entry.timestamp).toLocaleDateString("zh-CN") })
+              ]
+            },
+            entry.id
+          )) })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "section",
+      {
+        className: "mb-8 rounded-[14px] border p-6 md:p-8",
+        style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex h-10 w-10 items-center justify-center rounded-[10px] text-[20px]", style: { background: "var(--bg-tertiary)" }, children: "📅" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold", style: { color: "var(--text-primary)" }, children: "日程" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: "点击日期添加日程安排" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarView, {})
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "section",
+      {
+        className: "mb-8 rounded-[14px] border p-6 md:p-8",
+        style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex h-10 w-10 items-center justify-center rounded-[10px] text-[20px]", style: { background: "var(--bg-tertiary)" }, children: "✅" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold", style: { color: "var(--text-primary)" }, children: "待办" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: todos.length > 0 ? `${todos.length} 项待完成` : "暂无待办事项" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                type: "text",
+                value: todoInput,
+                onChange: (e) => setTodoInput(e.target.value),
+                onKeyDown: (e) => e.key === "Enter" && handleAddTodo(),
+                placeholder: "添加待办事项...",
+                "aria-label": "添加待办事项",
+                className: "flex-1 rounded-[6px] border px-4 py-2.5 text-[14px] outline-none transition-all focus:border-[var(--accent-blue)]",
+                style: {
+                  background: "var(--bg-primary)",
+                  borderColor: "var(--border-default)",
+                  color: "var(--text-primary)"
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: handleAddTodo,
+                disabled: !todoInput.trim() || todoSaving,
+                className: "rounded-[6px] px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-85 disabled:opacity-40",
+                style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
+                children: todoSaving ? "..." : "添加"
+              }
+            )
+          ] }),
+          todosLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-8 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : todos.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "rounded-[8px] border border-dashed p-8 text-center",
+              style: { borderColor: "var(--border-default)" },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--text-muted)" }, children: "暂无待办事项 — 在上方输入框添加" })
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: todos.map((todo) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "group flex items-center gap-3 rounded-[6px] px-4 py-3 transition-colors duration-[0.15s] hover:bg-[var(--bg-primary)]",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => handleCompleteTodo(todo),
+                    title: "标记为已完成",
+                    "aria-label": "标记为已完成",
+                    className: "shrink-0 text-[18px] transition-all duration-[0.15s] hover:scale-125 hover:text-[var(--accent-green)]",
+                    style: { color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", lineHeight: 1 },
+                    children: "☐"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-[14px]", style: { color: "var(--text-primary)" }, children: todo.title || todo.content }),
+                  todo.dueDate && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px]", style: { color: "var(--text-muted)" }, children: todo.dueDate.slice(0, 10) })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => handleDeleteTodo(todo.id),
+                    "aria-label": "删除待办",
+                    className: "shrink-0 rounded-[4px] px-2 py-1 text-[12px] opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--accent-red)] hover:text-white",
+                    style: { color: "var(--text-muted)" },
+                    children: "删除"
+                  }
+                )
+              ]
+            },
+            todo.id
+          )) })
+        ]
+      }
+    )
+  ] });
 }
 const DashboardPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
@@ -19374,14 +19751,14 @@ function useBatchSelect(items) {
     selectedCount: selectedIds.size
   };
 }
-function usePagination(pageSize = 20, total2) {
+function usePagination(pageSize = 20, total) {
   const [page, setPage] = reactExports.useState(1);
   const offset = (page - 1) * pageSize;
   const limit = pageSize;
   const totalPages = reactExports.useMemo(() => {
-    if (total2 === void 0) return 0;
-    return Math.max(1, Math.ceil(total2 / pageSize));
-  }, [total2, pageSize]);
+    if (total === void 0) return 0;
+    return Math.max(1, Math.ceil(total / pageSize));
+  }, [total, pageSize]);
   const goTo = reactExports.useCallback((p) => setPage(Math.max(1, Math.min(p, totalPages || Infinity))), [totalPages]);
   const next2 = reactExports.useCallback(() => setPage((p) => Math.min(p + 1, totalPages || Infinity)), [totalPages]);
   const prev = reactExports.useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
@@ -19578,7 +19955,7 @@ function ManualCollectTab() {
 }
 function TimelineView({ userId }) {
   const [groups, setGroups] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const abortedRef = reactExports.useRef(false);
   const navigate = useNavigate();
   reactExports.useEffect(() => {
@@ -19600,7 +19977,7 @@ function TimelineView({ userId }) {
       abortedRef.current = true;
     };
   }, [userId]);
-  if (loading2)
+  if (loading)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
   if (groups.length === 0)
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -19739,14 +20116,14 @@ function BlogListPage() {
   }));
   const {
     blogs,
-    total: total2,
-    loading: loading2,
-    query: query2,
+    total,
+    loading,
+    query,
     sortBy,
-    filterTagId: filterTagId2,
-    filterTagName: filterTagName2,
-    filterFolderId: filterFolderId2,
-    showFolderSidebar: showFolderSidebar2,
+    filterTagId,
+    filterTagName,
+    filterFolderId,
+    showFolderSidebar,
     viewMode,
     importing,
     scrapeOpen,
@@ -19760,7 +20137,8 @@ function BlogListPage() {
   } = state;
   const fileInputRef = reactExports.useRef(null);
   const batch = useBatchSelect(blogs);
-  const pagination = usePagination(20, total2);
+  const pagination = usePagination(20, total);
+  const [error2, setError] = reactExports.useState(null);
   const loadFolders = reactExports.useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: "blog" });
@@ -19782,9 +20160,9 @@ function BlogListPage() {
     try {
       const r = await window.api.blogList({
         userId: user.id,
-        query: query2 || void 0,
-        tagId: filterTagId2 || void 0,
-        folderId: filterFolderId2 || void 0,
+        query: query || void 0,
+        tagId: filterTagId || void 0,
+        folderId: filterFolderId || void 0,
         sortBy,
         sortOrder: "desc",
         offset: pagination.offset,
@@ -19796,10 +20174,11 @@ function BlogListPage() {
       }
     } catch (e) {
       console.error(e);
+      setError("加载失败");
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [user, query2, sortBy, filterTagId2, filterFolderId2, pagination.offset, pagination.limit, excludeSeries]);
+  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
   reactExports.useEffect(() => {
     const tagId = searchParams.get("tagId");
     const tagName = searchParams.get("tagName");
@@ -19831,11 +20210,11 @@ function BlogListPage() {
       return;
     }
     try {
-      const files2 = await window.api.selectFiles(["md", "txt", "html"]);
-      if (files2?.length) {
+      const files = await window.api.selectFiles(["md", "txt", "html"]);
+      if (files?.length) {
         dispatch({ type: "SET_IMPORTING", payload: true });
         try {
-          const r = await window.api.blogImportMd({ userId: user.id, filePaths: files2 });
+          const r = await window.api.blogImportMd({ userId: user.id, filePaths: files });
           if (r?.success === false) {
             alert(`导入失败: ${r.error || "未知错误"}`);
           } else loadBlogs();
@@ -19891,27 +20270,27 @@ function BlogListPage() {
         {
           type: "button",
           onClick: () => {
-            const v = !showFolderSidebar2;
+            const v = !showFolderSidebar;
             dispatch({ type: "TOGGLE_FOLDER_SIDEBAR", payload: v });
             localStorage.setItem("sidebar_folder_blog", v ? "1" : "0");
           },
           className: "mb-2 rounded-[4px] px-2 py-1 text-[11px] hover:opacity-80 transition-opacity",
           style: {
             color: "var(--text-secondary)",
-            background: showFolderSidebar2 ? "var(--bg-tertiary)" : "transparent"
+            background: showFolderSidebar ? "var(--bg-tertiary)" : "transparent"
           },
           children: [
             "📂 ",
-            showFolderSidebar2 ? "收起" : "文件夹"
+            showFolderSidebar ? "收起" : "文件夹"
           ]
         }
       ),
-      showFolderSidebar2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 170 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      showFolderSidebar && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 170 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         FolderTree,
         {
           userId: user.id,
           type: "blog",
-          selectedFolderId: filterFolderId2,
+          selectedFolderId: filterFolderId,
           onSelectFolder: (id) => dispatch({ type: "SET_FOLDER_FILTER", payload: id })
         }
       ) })
@@ -19994,7 +20373,7 @@ function BlogListPage() {
             /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold text-primary", children: [
               "博客 ",
               /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal text-secondary", children: [
-                total2,
+                total,
                 " 篇"
               ] })
             ] }),
@@ -20058,7 +20437,7 @@ function BlogListPage() {
             "input",
             {
               type: "text",
-              value: query2,
+              value: query,
               onChange: (e) => dispatch({ type: "SET_QUERY", payload: e.target.value }),
               placeholder: "搜索博客标题...",
               className: "max-w-xs surface-input px-3 py-1.5 text-[13px]"
@@ -20079,12 +20458,19 @@ function BlogListPage() {
             }
           )
         ] }),
-        viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-8 text-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--accent-red)" }, children: error2 }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => {
+            setError(null);
+            loadBlogs();
+          }, className: "mt-3 text-[13px] hover:underline", style: { color: "var(--accent-blue)", background: "none", border: "none", cursor: "pointer" }, children: "重试" })
+        ] }),
+        !error2 && viewMode === "timeline" && user ? /* @__PURE__ */ jsxRuntimeExports.jsx(TimelineView, { userId: user.id }) : !error2 && loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px] text-secondary", children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
             className: "rounded-[6px] border border-dashed p-12 text-center",
             style: { borderColor: "var(--border-default)" },
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query2 ? "没有找到匹配的博客" : filterTagId2 ? "该标签下暂无博客" : "还没有博客" })
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] text-secondary", children: query ? "没有找到匹配的博客" : filterTagId ? "该标签下暂无博客" : "还没有博客" })
           }
         ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
           batch.isBatchMode && /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -20140,14 +20526,14 @@ function BlogListPage() {
               ]
             }
           ),
-          filterTagId2 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          filterTagId && /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
               className: "flex items-center gap-2 rounded-[6px] border p-3",
               style: { borderColor: "var(--accent-blue)", background: "var(--bg-secondary)" },
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-secondary", children: "筛选标签:" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName2 }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tag !text-[13px]", style: { cursor: "default" }, children: filterTagName }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "button",
                   {
@@ -20234,6 +20620,7 @@ function BlogListPage() {
                         try {
                           await window.api.folderMoveItem({ userId: user.id, itemType: "blog", itemId: blog.id, folderId: fid });
                           loadBlogs();
+                          loadFolders();
                         } catch (e2) {
                           console.error(e2);
                         }
@@ -20277,7 +20664,7 @@ function BlogListPage() {
             blog.id
           ))
         ] }),
-        total2 > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
+        total > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -20289,8 +20676,8 @@ function BlogListPage() {
               children: "←"
             }
           ),
-          Array.from({ length: Math.min(5, Math.ceil(total2 / pagination.limit)) }, (_, i) => {
-            const totalPages = Math.ceil(total2 / pagination.limit);
+          Array.from({ length: Math.min(5, Math.ceil(total / pagination.limit)) }, (_, i) => {
+            const totalPages = Math.ceil(total / pagination.limit);
             let p;
             if (totalPages <= 5) {
               p = i + 1;
@@ -20321,7 +20708,7 @@ function BlogListPage() {
             {
               type: "button",
               onClick: pagination.next,
-              disabled: pagination.page >= Math.ceil(total2 / pagination.limit),
+              disabled: pagination.page >= Math.ceil(total / pagination.limit),
               className: "rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80",
               style: { borderColor: "var(--border-default)", color: "var(--text-secondary)" },
               children: "→"
@@ -26298,15 +26685,14 @@ function canConvert(input) {
 function ReferencePicker({ userId, sourceType, sourceId }) {
   const [refs, setRefs] = reactExports.useState([]);
   const [searchOpen, setSearchOpen] = reactExports.useState(false);
-  const [query2, setQuery2] = reactExports.useState("");
+  const [query, setQuery] = reactExports.useState("");
   const [results, setResults] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const loadRefs = reactExports.useCallback(async () => {
     const r = await window.api.refGetFrom({ sourceType, sourceId });
     if (r.success && r.data) {
       setRefs(
-        r.data.map((ref) => ({ id: ref.target_id, type: ref.target_type, title: ref.title, refId: ref.id }))
-        // TODO: define Reference type in shared/types.ts
+        r.data.map((ref) => ({ id: ref.targetId, type: ref.targetType, title: ref.targetTitle || ref.sourceTitle || "", refId: ref.id }))
       );
     }
     setLoading(false);
@@ -26315,18 +26701,18 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
     loadRefs();
   }, [loadRefs]);
   const handleSearch = reactExports.useCallback(async () => {
-    if (!query2.trim()) return;
+    if (!query.trim()) return;
     const r = await window.api.refSearch({
       userId,
       scope: sourceType === "blog" ? "knowledge" : "all",
-      query: query2.trim()
+      query: query.trim()
     });
     if (r.success) setResults(r.data);
-  }, [userId, query2, sourceType]);
+  }, [userId, query, sourceType]);
   const handleAdd = async (targetType, targetId) => {
     await window.api.refAdd({ sourceType, sourceId, targetType, targetId });
     setSearchOpen(false);
-    setQuery2("");
+    setQuery("");
     setResults([]);
     loadRefs();
   };
@@ -26349,7 +26735,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
         }
       )
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : refs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无关联" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: refs.map((ref) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : refs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无关联" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: refs.map((ref) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-1.5 rounded-[3px] px-1.5 py-0.5 text-[12px]",
@@ -26393,8 +26779,8 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
                   "input",
                   {
                     type: "text",
-                    value: query2,
-                    onChange: (e) => setQuery2(e.target.value),
+                    value: query,
+                    onChange: (e) => setQuery(e.target.value),
                     onKeyDown: (e) => e.key === "Enter" && handleSearch(),
                     placeholder: "搜索博客或知识库文件...",
                     className: "input-dark flex-1"
@@ -26417,7 +26803,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
                   },
                   `${item.type}-${item.id}`
                 )),
-                query2 && results.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-center text-[12px] py-3", style: { color: "var(--text-secondary)" }, children: "未找到匹配项" })
+                query && results.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-center text-[12px] py-3", style: { color: "var(--text-secondary)" }, children: "未找到匹配项" })
               ] })
             ]
           }
@@ -26428,7 +26814,7 @@ function ReferencePicker({ userId, sourceType, sourceId }) {
 }
 function TagSelector({ userId, selectedTagIds, onChange }) {
   const [tags, setTags] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [open, setOpen] = reactExports.useState(false);
   const [newName, setNewName] = reactExports.useState("");
   const [creating, setCreating] = reactExports.useState(false);
@@ -26571,7 +26957,7 @@ function TagSelector({ userId, selectedTagIds, onChange }) {
             )
           ] }),
           error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2 text-[11px]", style: { color: "var(--accent-red)" }, children: error2 }),
-          loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
+          loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
             const sel = selectedTagIds.includes(t.id);
             return /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "button",
@@ -45877,7 +46263,3193 @@ var Image = Node3.create({
     ];
   }
 });
-var index_default$4 = Image;
+var index_default$2 = Image;
+function dropCursor(options = {}) {
+  return new Plugin({
+    view(editorView) {
+      return new DropCursorView(editorView, options);
+    }
+  });
+}
+class DropCursorView {
+  constructor(editorView, options) {
+    var _a2;
+    this.editorView = editorView;
+    this.cursorPos = null;
+    this.element = null;
+    this.timeout = -1;
+    this.width = (_a2 = options.width) !== null && _a2 !== void 0 ? _a2 : 1;
+    this.color = options.color === false ? void 0 : options.color || "black";
+    this.class = options.class;
+    this.handlers = ["dragover", "dragend", "drop", "dragleave"].map((name) => {
+      let handler = (e) => {
+        this[name](e);
+      };
+      editorView.dom.addEventListener(name, handler);
+      return { name, handler };
+    });
+  }
+  destroy() {
+    this.handlers.forEach(({ name, handler }) => this.editorView.dom.removeEventListener(name, handler));
+  }
+  update(editorView, prevState) {
+    if (this.cursorPos != null && prevState.doc != editorView.state.doc) {
+      if (this.cursorPos > editorView.state.doc.content.size)
+        this.setCursor(null);
+      else
+        this.updateOverlay();
+    }
+  }
+  setCursor(pos) {
+    if (pos == this.cursorPos)
+      return;
+    this.cursorPos = pos;
+    if (pos == null) {
+      this.element.parentNode.removeChild(this.element);
+      this.element = null;
+    } else {
+      this.updateOverlay();
+    }
+  }
+  updateOverlay() {
+    let $pos = this.editorView.state.doc.resolve(this.cursorPos);
+    let isBlock2 = !$pos.parent.inlineContent, rect;
+    let editorDOM = this.editorView.dom, editorRect = editorDOM.getBoundingClientRect();
+    let scaleX = editorRect.width / editorDOM.offsetWidth, scaleY = editorRect.height / editorDOM.offsetHeight;
+    if (isBlock2) {
+      let before = $pos.nodeBefore, after = $pos.nodeAfter;
+      if (before || after) {
+        let node = this.editorView.nodeDOM(this.cursorPos - (before ? before.nodeSize : 0));
+        if (node) {
+          let nodeRect = node.getBoundingClientRect();
+          let top = before ? nodeRect.bottom : nodeRect.top;
+          if (before && after)
+            top = (top + this.editorView.nodeDOM(this.cursorPos).getBoundingClientRect().top) / 2;
+          let halfWidth = this.width / 2 * scaleY;
+          rect = { left: nodeRect.left, right: nodeRect.right, top: top - halfWidth, bottom: top + halfWidth };
+        }
+      }
+    }
+    if (!rect) {
+      let coords = this.editorView.coordsAtPos(this.cursorPos);
+      let halfWidth = this.width / 2 * scaleX;
+      rect = { left: coords.left - halfWidth, right: coords.left + halfWidth, top: coords.top, bottom: coords.bottom };
+    }
+    let parent = this.editorView.dom.offsetParent;
+    if (!this.element) {
+      this.element = parent.appendChild(document.createElement("div"));
+      if (this.class)
+        this.element.className = this.class;
+      this.element.style.cssText = "position: absolute; z-index: 50; pointer-events: none;";
+      if (this.color) {
+        this.element.style.backgroundColor = this.color;
+      }
+    }
+    this.element.classList.toggle("prosemirror-dropcursor-block", isBlock2);
+    this.element.classList.toggle("prosemirror-dropcursor-inline", !isBlock2);
+    let parentLeft, parentTop;
+    if (!parent || parent == document.body && getComputedStyle(parent).position == "static") {
+      parentLeft = -pageXOffset;
+      parentTop = -pageYOffset;
+    } else {
+      let rect2 = parent.getBoundingClientRect();
+      let parentScaleX = rect2.width / parent.offsetWidth, parentScaleY = rect2.height / parent.offsetHeight;
+      parentLeft = rect2.left - parent.scrollLeft * parentScaleX;
+      parentTop = rect2.top - parent.scrollTop * parentScaleY;
+    }
+    this.element.style.left = (rect.left - parentLeft) / scaleX + "px";
+    this.element.style.top = (rect.top - parentTop) / scaleY + "px";
+    this.element.style.width = (rect.right - rect.left) / scaleX + "px";
+    this.element.style.height = (rect.bottom - rect.top) / scaleY + "px";
+  }
+  scheduleRemoval(timeout) {
+    clearTimeout(this.timeout);
+    this.timeout = setTimeout(() => this.setCursor(null), timeout);
+  }
+  dragover(event) {
+    if (!this.editorView.editable)
+      return;
+    let pos = this.editorView.posAtCoords({ left: event.clientX, top: event.clientY });
+    let node = pos && pos.inside >= 0 && this.editorView.state.doc.nodeAt(pos.inside);
+    let disableDropCursor = node && node.type.spec.disableDropCursor;
+    let disabled = typeof disableDropCursor == "function" ? disableDropCursor(this.editorView, pos, event) : disableDropCursor;
+    if (pos && !disabled) {
+      let target = pos.pos;
+      if (this.editorView.dragging && this.editorView.dragging.slice) {
+        let point = dropPoint(this.editorView.state.doc, target, this.editorView.dragging.slice);
+        if (point != null)
+          target = point;
+      }
+      this.setCursor(target);
+      this.scheduleRemoval(5e3);
+    }
+  }
+  dragend() {
+    this.scheduleRemoval(20);
+  }
+  drop() {
+    this.scheduleRemoval(20);
+  }
+  dragleave(event) {
+    if (!this.editorView.dom.contains(event.relatedTarget))
+      this.setCursor(null);
+  }
+}
+class GapCursor extends Selection {
+  /**
+  Create a gap cursor.
+  */
+  constructor($pos) {
+    super($pos, $pos);
+  }
+  map(doc2, mapping) {
+    let $pos = doc2.resolve(mapping.map(this.head));
+    return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
+  }
+  content() {
+    return Slice.empty;
+  }
+  eq(other) {
+    return other instanceof GapCursor && other.head == this.head;
+  }
+  toJSON() {
+    return { type: "gapcursor", pos: this.head };
+  }
+  /**
+  @internal
+  */
+  static fromJSON(doc2, json) {
+    if (typeof json.pos != "number")
+      throw new RangeError("Invalid input for GapCursor.fromJSON");
+    return new GapCursor(doc2.resolve(json.pos));
+  }
+  /**
+  @internal
+  */
+  getBookmark() {
+    return new GapBookmark(this.anchor);
+  }
+  /**
+  @internal
+  */
+  static valid($pos) {
+    let parent = $pos.parent;
+    if (parent.inlineContent || !closedBefore($pos) || !closedAfter($pos))
+      return false;
+    let override = parent.type.spec.allowGapCursor;
+    if (override != null)
+      return override;
+    let deflt = parent.contentMatchAt($pos.index()).defaultType;
+    return deflt && deflt.isTextblock;
+  }
+  /**
+  @internal
+  */
+  static findGapCursorFrom($pos, dir, mustMove = false) {
+    search: for (; ; ) {
+      if (!mustMove && GapCursor.valid($pos))
+        return $pos;
+      let pos = $pos.pos, next2 = null;
+      for (let d = $pos.depth; ; d--) {
+        let parent = $pos.node(d);
+        if (dir > 0 ? $pos.indexAfter(d) < parent.childCount : $pos.index(d) > 0) {
+          next2 = parent.child(dir > 0 ? $pos.indexAfter(d) : $pos.index(d) - 1);
+          break;
+        } else if (d == 0) {
+          return null;
+        }
+        pos += dir;
+        let $cur = $pos.doc.resolve(pos);
+        if (GapCursor.valid($cur))
+          return $cur;
+      }
+      for (; ; ) {
+        let inside = dir > 0 ? next2.firstChild : next2.lastChild;
+        if (!inside) {
+          if (next2.isAtom && !next2.isText && !NodeSelection.isSelectable(next2)) {
+            $pos = $pos.doc.resolve(pos + next2.nodeSize * dir);
+            mustMove = false;
+            continue search;
+          }
+          break;
+        }
+        next2 = inside;
+        pos += dir;
+        let $cur = $pos.doc.resolve(pos);
+        if (GapCursor.valid($cur))
+          return $cur;
+      }
+      return null;
+    }
+  }
+}
+GapCursor.prototype.visible = false;
+GapCursor.findFrom = GapCursor.findGapCursorFrom;
+Selection.jsonID("gapcursor", GapCursor);
+class GapBookmark {
+  constructor(pos) {
+    this.pos = pos;
+  }
+  map(mapping) {
+    return new GapBookmark(mapping.map(this.pos));
+  }
+  resolve(doc2) {
+    let $pos = doc2.resolve(this.pos);
+    return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
+  }
+}
+function needsGap(type) {
+  return type.isAtom || type.spec.isolating || type.spec.createGapCursor;
+}
+function closedBefore($pos) {
+  for (let d = $pos.depth; d >= 0; d--) {
+    let index = $pos.index(d), parent = $pos.node(d);
+    if (index == 0) {
+      if (parent.type.spec.isolating)
+        return true;
+      continue;
+    }
+    for (let before = parent.child(index - 1); ; before = before.lastChild) {
+      if (before.childCount == 0 && !before.inlineContent || needsGap(before.type))
+        return true;
+      if (before.inlineContent)
+        return false;
+    }
+  }
+  return true;
+}
+function closedAfter($pos) {
+  for (let d = $pos.depth; d >= 0; d--) {
+    let index = $pos.indexAfter(d), parent = $pos.node(d);
+    if (index == parent.childCount) {
+      if (parent.type.spec.isolating)
+        return true;
+      continue;
+    }
+    for (let after = parent.child(index); ; after = after.firstChild) {
+      if (after.childCount == 0 && !after.inlineContent || needsGap(after.type))
+        return true;
+      if (after.inlineContent)
+        return false;
+    }
+  }
+  return true;
+}
+function gapCursor() {
+  return new Plugin({
+    props: {
+      decorations: drawGapCursor,
+      createSelectionBetween(_view, $anchor, $head) {
+        return $anchor.pos == $head.pos && GapCursor.valid($head) ? new GapCursor($head) : null;
+      },
+      handleClick,
+      handleKeyDown,
+      handleDOMEvents: { beforeinput }
+    }
+  });
+}
+const handleKeyDown = keydownHandler({
+  "ArrowLeft": arrow("horiz", -1),
+  "ArrowRight": arrow("horiz", 1),
+  "ArrowUp": arrow("vert", -1),
+  "ArrowDown": arrow("vert", 1)
+});
+function arrow(axis, dir) {
+  const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
+  return function(state, dispatch, view) {
+    let sel = state.selection;
+    let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
+    if (sel instanceof TextSelection) {
+      if (!view.endOfTextblock(dirStr) || $start.depth == 0)
+        return false;
+      mustMove = false;
+      $start = state.doc.resolve(dir > 0 ? $start.after() : $start.before());
+    }
+    let $found = GapCursor.findGapCursorFrom($start, dir, mustMove);
+    if (!$found)
+      return false;
+    if (dispatch)
+      dispatch(state.tr.setSelection(new GapCursor($found)));
+    return true;
+  };
+}
+function handleClick(view, pos, event) {
+  if (!view || !view.editable)
+    return false;
+  let $pos = view.state.doc.resolve(pos);
+  if (!GapCursor.valid($pos))
+    return false;
+  let clickPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (clickPos && clickPos.inside > -1 && NodeSelection.isSelectable(view.state.doc.nodeAt(clickPos.inside)))
+    return false;
+  view.dispatch(view.state.tr.setSelection(new GapCursor($pos)));
+  return true;
+}
+function beforeinput(view, event) {
+  if (event.inputType != "insertCompositionText" || !(view.state.selection instanceof GapCursor))
+    return false;
+  let { $from } = view.state.selection;
+  let insert = $from.parent.contentMatchAt($from.index()).findWrapping(view.state.schema.nodes.text);
+  if (!insert)
+    return false;
+  let frag = Fragment.empty;
+  for (let i = insert.length - 1; i >= 0; i--)
+    frag = Fragment.from(insert[i].createAndFill(null, frag));
+  let tr2 = view.state.tr.replace($from.pos, $from.pos, new Slice(frag, 0, 0));
+  tr2.setSelection(TextSelection.near(tr2.doc.resolve($from.pos + 1)));
+  view.dispatch(tr2);
+  return false;
+}
+function drawGapCursor(state) {
+  if (!(state.selection instanceof GapCursor))
+    return null;
+  let node = document.createElement("div");
+  node.className = "ProseMirror-gapcursor";
+  return DecorationSet.create(state.doc, [Decoration.widget(state.selection.head, node, { key: "gapcursor" })]);
+}
+var GOOD_LEAF_SIZE = 200;
+var RopeSequence = function RopeSequence2() {
+};
+RopeSequence.prototype.append = function append(other) {
+  if (!other.length) {
+    return this;
+  }
+  other = RopeSequence.from(other);
+  return !this.length && other || other.length < GOOD_LEAF_SIZE && this.leafAppend(other) || this.length < GOOD_LEAF_SIZE && other.leafPrepend(this) || this.appendInner(other);
+};
+RopeSequence.prototype.prepend = function prepend(other) {
+  if (!other.length) {
+    return this;
+  }
+  return RopeSequence.from(other).append(this);
+};
+RopeSequence.prototype.appendInner = function appendInner(other) {
+  return new Append(this, other);
+};
+RopeSequence.prototype.slice = function slice(from2, to) {
+  if (from2 === void 0) from2 = 0;
+  if (to === void 0) to = this.length;
+  if (from2 >= to) {
+    return RopeSequence.empty;
+  }
+  return this.sliceInner(Math.max(0, from2), Math.min(this.length, to));
+};
+RopeSequence.prototype.get = function get(i) {
+  if (i < 0 || i >= this.length) {
+    return void 0;
+  }
+  return this.getInner(i);
+};
+RopeSequence.prototype.forEach = function forEach2(f, from2, to) {
+  if (from2 === void 0) from2 = 0;
+  if (to === void 0) to = this.length;
+  if (from2 <= to) {
+    this.forEachInner(f, from2, to, 0);
+  } else {
+    this.forEachInvertedInner(f, from2, to, 0);
+  }
+};
+RopeSequence.prototype.map = function map2(f, from2, to) {
+  if (from2 === void 0) from2 = 0;
+  if (to === void 0) to = this.length;
+  var result = [];
+  this.forEach(function(elt, i) {
+    return result.push(f(elt, i));
+  }, from2, to);
+  return result;
+};
+RopeSequence.from = function from(values) {
+  if (values instanceof RopeSequence) {
+    return values;
+  }
+  return values && values.length ? new Leaf(values) : RopeSequence.empty;
+};
+var Leaf = /* @__PURE__ */ (function(RopeSequence3) {
+  function Leaf2(values) {
+    RopeSequence3.call(this);
+    this.values = values;
+  }
+  if (RopeSequence3) Leaf2.__proto__ = RopeSequence3;
+  Leaf2.prototype = Object.create(RopeSequence3 && RopeSequence3.prototype);
+  Leaf2.prototype.constructor = Leaf2;
+  var prototypeAccessors = { length: { configurable: true }, depth: { configurable: true } };
+  Leaf2.prototype.flatten = function flatten() {
+    return this.values;
+  };
+  Leaf2.prototype.sliceInner = function sliceInner(from2, to) {
+    if (from2 == 0 && to == this.length) {
+      return this;
+    }
+    return new Leaf2(this.values.slice(from2, to));
+  };
+  Leaf2.prototype.getInner = function getInner(i) {
+    return this.values[i];
+  };
+  Leaf2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
+    for (var i = from2; i < to; i++) {
+      if (f(this.values[i], start + i) === false) {
+        return false;
+      }
+    }
+  };
+  Leaf2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
+    for (var i = from2 - 1; i >= to; i--) {
+      if (f(this.values[i], start + i) === false) {
+        return false;
+      }
+    }
+  };
+  Leaf2.prototype.leafAppend = function leafAppend(other) {
+    if (this.length + other.length <= GOOD_LEAF_SIZE) {
+      return new Leaf2(this.values.concat(other.flatten()));
+    }
+  };
+  Leaf2.prototype.leafPrepend = function leafPrepend(other) {
+    if (this.length + other.length <= GOOD_LEAF_SIZE) {
+      return new Leaf2(other.flatten().concat(this.values));
+    }
+  };
+  prototypeAccessors.length.get = function() {
+    return this.values.length;
+  };
+  prototypeAccessors.depth.get = function() {
+    return 0;
+  };
+  Object.defineProperties(Leaf2.prototype, prototypeAccessors);
+  return Leaf2;
+})(RopeSequence);
+RopeSequence.empty = new Leaf([]);
+var Append = /* @__PURE__ */ (function(RopeSequence3) {
+  function Append2(left, right) {
+    RopeSequence3.call(this);
+    this.left = left;
+    this.right = right;
+    this.length = left.length + right.length;
+    this.depth = Math.max(left.depth, right.depth) + 1;
+  }
+  if (RopeSequence3) Append2.__proto__ = RopeSequence3;
+  Append2.prototype = Object.create(RopeSequence3 && RopeSequence3.prototype);
+  Append2.prototype.constructor = Append2;
+  Append2.prototype.flatten = function flatten() {
+    return this.left.flatten().concat(this.right.flatten());
+  };
+  Append2.prototype.getInner = function getInner(i) {
+    return i < this.left.length ? this.left.get(i) : this.right.get(i - this.left.length);
+  };
+  Append2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
+    var leftLen = this.left.length;
+    if (from2 < leftLen && this.left.forEachInner(f, from2, Math.min(to, leftLen), start) === false) {
+      return false;
+    }
+    if (to > leftLen && this.right.forEachInner(f, Math.max(from2 - leftLen, 0), Math.min(this.length, to) - leftLen, start + leftLen) === false) {
+      return false;
+    }
+  };
+  Append2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
+    var leftLen = this.left.length;
+    if (from2 > leftLen && this.right.forEachInvertedInner(f, from2 - leftLen, Math.max(to, leftLen) - leftLen, start + leftLen) === false) {
+      return false;
+    }
+    if (to < leftLen && this.left.forEachInvertedInner(f, Math.min(from2, leftLen), to, start) === false) {
+      return false;
+    }
+  };
+  Append2.prototype.sliceInner = function sliceInner(from2, to) {
+    if (from2 == 0 && to == this.length) {
+      return this;
+    }
+    var leftLen = this.left.length;
+    if (to <= leftLen) {
+      return this.left.slice(from2, to);
+    }
+    if (from2 >= leftLen) {
+      return this.right.slice(from2 - leftLen, to - leftLen);
+    }
+    return this.left.slice(from2, leftLen).append(this.right.slice(0, to - leftLen));
+  };
+  Append2.prototype.leafAppend = function leafAppend(other) {
+    var inner = this.right.leafAppend(other);
+    if (inner) {
+      return new Append2(this.left, inner);
+    }
+  };
+  Append2.prototype.leafPrepend = function leafPrepend(other) {
+    var inner = this.left.leafPrepend(other);
+    if (inner) {
+      return new Append2(inner, this.right);
+    }
+  };
+  Append2.prototype.appendInner = function appendInner2(other) {
+    if (this.left.depth >= Math.max(this.right.depth, other.depth) + 1) {
+      return new Append2(this.left, new Append2(this.right, other));
+    }
+    return new Append2(this, other);
+  };
+  return Append2;
+})(RopeSequence);
+const max_empty_items = 500;
+class Branch {
+  constructor(items, eventCount) {
+    this.items = items;
+    this.eventCount = eventCount;
+  }
+  // Pop the latest event off the branch's history and apply it
+  // to a document transform.
+  popEvent(state, preserveItems) {
+    if (this.eventCount == 0)
+      return null;
+    let end = this.items.length;
+    for (; ; end--) {
+      let next2 = this.items.get(end - 1);
+      if (next2.selection) {
+        --end;
+        break;
+      }
+    }
+    let remap, mapFrom;
+    if (preserveItems) {
+      remap = this.remapping(end, this.items.length);
+      mapFrom = remap.maps.length;
+    }
+    let transform = state.tr;
+    let selection, remaining;
+    let addAfter = [], addBefore = [];
+    this.items.forEach((item, i) => {
+      if (!item.step) {
+        if (!remap) {
+          remap = this.remapping(end, i + 1);
+          mapFrom = remap.maps.length;
+        }
+        mapFrom--;
+        addBefore.push(item);
+        return;
+      }
+      if (remap) {
+        addBefore.push(new Item(item.map));
+        let step = item.step.map(remap.slice(mapFrom)), map3;
+        if (step && transform.maybeStep(step).doc) {
+          map3 = transform.mapping.maps[transform.mapping.maps.length - 1];
+          addAfter.push(new Item(map3, void 0, void 0, addAfter.length + addBefore.length));
+        }
+        mapFrom--;
+        if (map3)
+          remap.appendMap(map3, mapFrom);
+      } else {
+        transform.maybeStep(item.step);
+      }
+      if (item.selection) {
+        selection = remap ? item.selection.map(remap.slice(mapFrom)) : item.selection;
+        remaining = new Branch(this.items.slice(0, end).append(addBefore.reverse().concat(addAfter)), this.eventCount - 1);
+        return false;
+      }
+    }, this.items.length, 0);
+    return { remaining, transform, selection };
+  }
+  // Create a new branch with the given transform added.
+  addTransform(transform, selection, histOptions, preserveItems) {
+    let newItems = [], eventCount = this.eventCount;
+    let oldItems = this.items, lastItem = !preserveItems && oldItems.length ? oldItems.get(oldItems.length - 1) : null;
+    for (let i = 0; i < transform.steps.length; i++) {
+      let step = transform.steps[i].invert(transform.docs[i]);
+      let item = new Item(transform.mapping.maps[i], step, selection), merged;
+      if (merged = lastItem && lastItem.merge(item)) {
+        item = merged;
+        if (i)
+          newItems.pop();
+        else
+          oldItems = oldItems.slice(0, oldItems.length - 1);
+      }
+      newItems.push(item);
+      if (selection) {
+        eventCount++;
+        selection = void 0;
+      }
+      if (!preserveItems)
+        lastItem = item;
+    }
+    let overflow = eventCount - histOptions.depth;
+    if (overflow > DEPTH_OVERFLOW) {
+      oldItems = cutOffEvents(oldItems, overflow);
+      eventCount -= overflow;
+    }
+    return new Branch(oldItems.append(newItems), eventCount);
+  }
+  remapping(from2, to) {
+    let maps = new Mapping();
+    this.items.forEach((item, i) => {
+      let mirrorPos = item.mirrorOffset != null && i - item.mirrorOffset >= from2 ? maps.maps.length - item.mirrorOffset : void 0;
+      maps.appendMap(item.map, mirrorPos);
+    }, from2, to);
+    return maps;
+  }
+  addMaps(array) {
+    if (this.eventCount == 0)
+      return this;
+    return new Branch(this.items.append(array.map((map3) => new Item(map3))), this.eventCount);
+  }
+  // When the collab module receives remote changes, the history has
+  // to know about those, so that it can adjust the steps that were
+  // rebased on top of the remote changes, and include the position
+  // maps for the remote changes in its array of items.
+  rebased(rebasedTransform, rebasedCount) {
+    if (!this.eventCount)
+      return this;
+    let rebasedItems = [], start = Math.max(0, this.items.length - rebasedCount);
+    let mapping = rebasedTransform.mapping;
+    let newUntil = rebasedTransform.steps.length;
+    let eventCount = this.eventCount;
+    this.items.forEach((item) => {
+      if (item.selection)
+        eventCount--;
+    }, start);
+    let iRebased = rebasedCount;
+    this.items.forEach((item) => {
+      let pos = mapping.getMirror(--iRebased);
+      if (pos == null)
+        return;
+      newUntil = Math.min(newUntil, pos);
+      let map3 = mapping.maps[pos];
+      if (item.step) {
+        let step = rebasedTransform.steps[pos].invert(rebasedTransform.docs[pos]);
+        let selection = item.selection && item.selection.map(mapping.slice(iRebased + 1, pos));
+        if (selection)
+          eventCount++;
+        rebasedItems.push(new Item(map3, step, selection));
+      } else {
+        rebasedItems.push(new Item(map3));
+      }
+    }, start);
+    let newMaps = [];
+    for (let i = rebasedCount; i < newUntil; i++)
+      newMaps.push(new Item(mapping.maps[i]));
+    let items = this.items.slice(0, start).append(newMaps).append(rebasedItems);
+    let branch = new Branch(items, eventCount);
+    if (branch.emptyItemCount() > max_empty_items)
+      branch = branch.compress(this.items.length - rebasedItems.length);
+    return branch;
+  }
+  emptyItemCount() {
+    let count = 0;
+    this.items.forEach((item) => {
+      if (!item.step)
+        count++;
+    });
+    return count;
+  }
+  // Compressing a branch means rewriting it to push the air (map-only
+  // items) out. During collaboration, these naturally accumulate
+  // because each remote change adds one. The `upto` argument is used
+  // to ensure that only the items below a given level are compressed,
+  // because `rebased` relies on a clean, untouched set of items in
+  // order to associate old items with rebased steps.
+  compress(upto = this.items.length) {
+    let remap = this.remapping(0, upto), mapFrom = remap.maps.length;
+    let items = [], events = 0;
+    this.items.forEach((item, i) => {
+      if (i >= upto) {
+        items.push(item);
+        if (item.selection)
+          events++;
+      } else if (item.step) {
+        let step = item.step.map(remap.slice(mapFrom)), map3 = step && step.getMap();
+        mapFrom--;
+        if (map3)
+          remap.appendMap(map3, mapFrom);
+        if (step) {
+          let selection = item.selection && item.selection.map(remap.slice(mapFrom));
+          if (selection)
+            events++;
+          let newItem = new Item(map3.invert(), step, selection), merged, last = items.length - 1;
+          if (merged = items.length && items[last].merge(newItem))
+            items[last] = merged;
+          else
+            items.push(newItem);
+        }
+      } else if (item.map) {
+        mapFrom--;
+      }
+    }, this.items.length, 0);
+    return new Branch(RopeSequence.from(items.reverse()), events);
+  }
+}
+Branch.empty = new Branch(RopeSequence.empty, 0);
+function cutOffEvents(items, n) {
+  let cutPoint;
+  items.forEach((item, i) => {
+    if (item.selection && n-- == 0) {
+      cutPoint = i;
+      return false;
+    }
+  });
+  return items.slice(cutPoint);
+}
+class Item {
+  constructor(map3, step, selection, mirrorOffset) {
+    this.map = map3;
+    this.step = step;
+    this.selection = selection;
+    this.mirrorOffset = mirrorOffset;
+  }
+  merge(other) {
+    if (this.step && other.step && !other.selection) {
+      let step = other.step.merge(this.step);
+      if (step)
+        return new Item(step.getMap().invert(), step, this.selection);
+    }
+  }
+}
+class HistoryState {
+  constructor(done, undone, prevRanges, prevTime, prevComposition) {
+    this.done = done;
+    this.undone = undone;
+    this.prevRanges = prevRanges;
+    this.prevTime = prevTime;
+    this.prevComposition = prevComposition;
+  }
+}
+const DEPTH_OVERFLOW = 20;
+function applyTransaction(history2, state, tr2, options) {
+  let historyTr = tr2.getMeta(historyKey), rebased;
+  if (historyTr)
+    return historyTr.historyState;
+  if (tr2.getMeta(closeHistoryKey))
+    history2 = new HistoryState(history2.done, history2.undone, null, 0, -1);
+  let appended = tr2.getMeta("appendedTransaction");
+  if (tr2.steps.length == 0) {
+    return history2;
+  } else if (appended && appended.getMeta(historyKey)) {
+    if (appended.getMeta(historyKey).redo)
+      return new HistoryState(history2.done.addTransform(tr2, void 0, options, mustPreserveItems(state)), history2.undone, rangesFor(tr2.mapping.maps), history2.prevTime, history2.prevComposition);
+    else
+      return new HistoryState(history2.done, history2.undone.addTransform(tr2, void 0, options, mustPreserveItems(state)), null, history2.prevTime, history2.prevComposition);
+  } else if (tr2.getMeta("addToHistory") !== false && !(appended && appended.getMeta("addToHistory") === false)) {
+    let composition = tr2.getMeta("composition");
+    let newGroup = history2.prevTime == 0 || !appended && history2.prevComposition != composition && (history2.prevTime < (tr2.time || 0) - options.newGroupDelay || !isAdjacentTo(tr2, history2.prevRanges));
+    let prevRanges = appended ? mapRanges(history2.prevRanges, tr2.mapping) : rangesFor(tr2.mapping.maps);
+    return new HistoryState(history2.done.addTransform(tr2, newGroup ? state.selection.getBookmark() : void 0, options, mustPreserveItems(state)), Branch.empty, prevRanges, tr2.time, composition == null ? history2.prevComposition : composition);
+  } else if (rebased = tr2.getMeta("rebased")) {
+    return new HistoryState(history2.done.rebased(tr2, rebased), history2.undone.rebased(tr2, rebased), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
+  } else {
+    return new HistoryState(history2.done.addMaps(tr2.mapping.maps), history2.undone.addMaps(tr2.mapping.maps), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
+  }
+}
+function isAdjacentTo(transform, prevRanges) {
+  if (!prevRanges)
+    return false;
+  if (!transform.docChanged)
+    return true;
+  let adjacent = false;
+  transform.mapping.maps[0].forEach((start, end) => {
+    for (let i = 0; i < prevRanges.length; i += 2)
+      if (start <= prevRanges[i + 1] && end >= prevRanges[i])
+        adjacent = true;
+  });
+  return adjacent;
+}
+function rangesFor(maps) {
+  let result = [];
+  for (let i = maps.length - 1; i >= 0 && result.length == 0; i--)
+    maps[i].forEach((_from, _to, from2, to) => result.push(from2, to));
+  return result;
+}
+function mapRanges(ranges, mapping) {
+  if (!ranges)
+    return null;
+  let result = [];
+  for (let i = 0; i < ranges.length; i += 2) {
+    let from2 = mapping.map(ranges[i], 1), to = mapping.map(ranges[i + 1], -1);
+    if (from2 <= to)
+      result.push(from2, to);
+  }
+  return result;
+}
+function histTransaction(history2, state, redo2) {
+  let preserveItems = mustPreserveItems(state);
+  let histOptions = historyKey.get(state).spec.config;
+  let pop = (redo2 ? history2.undone : history2.done).popEvent(state, preserveItems);
+  if (!pop)
+    return null;
+  let selection = pop.selection.resolve(pop.transform.doc);
+  let added = (redo2 ? history2.done : history2.undone).addTransform(pop.transform, state.selection.getBookmark(), histOptions, preserveItems);
+  let newHist = new HistoryState(redo2 ? added : pop.remaining, redo2 ? pop.remaining : added, null, 0, -1);
+  return pop.transform.setSelection(selection).setMeta(historyKey, { redo: redo2, historyState: newHist });
+}
+let cachedPreserveItems = false, cachedPreserveItemsPlugins = null;
+function mustPreserveItems(state) {
+  let plugins = state.plugins;
+  if (cachedPreserveItemsPlugins != plugins) {
+    cachedPreserveItems = false;
+    cachedPreserveItemsPlugins = plugins;
+    for (let i = 0; i < plugins.length; i++)
+      if (plugins[i].spec.historyPreserveItems) {
+        cachedPreserveItems = true;
+        break;
+      }
+  }
+  return cachedPreserveItems;
+}
+const historyKey = new PluginKey("history");
+const closeHistoryKey = new PluginKey("closeHistory");
+function history(config2 = {}) {
+  config2 = {
+    depth: config2.depth || 100,
+    newGroupDelay: config2.newGroupDelay || 500
+  };
+  return new Plugin({
+    key: historyKey,
+    state: {
+      init() {
+        return new HistoryState(Branch.empty, Branch.empty, null, 0, -1);
+      },
+      apply(tr2, hist, state) {
+        return applyTransaction(hist, state, tr2, config2);
+      }
+    },
+    config: config2,
+    props: {
+      handleDOMEvents: {
+        beforeinput(view, e) {
+          let inputType = e.inputType;
+          let command2 = inputType == "historyUndo" ? undo : inputType == "historyRedo" ? redo : null;
+          if (!command2 || !view.editable)
+            return false;
+          e.preventDefault();
+          return command2(view.state, view.dispatch);
+        }
+      }
+    }
+  });
+}
+function buildCommand(redo2, scroll) {
+  return (state, dispatch) => {
+    let hist = historyKey.getState(state);
+    if (!hist || (redo2 ? hist.undone : hist.done).eventCount == 0)
+      return false;
+    if (dispatch) {
+      let tr2 = histTransaction(hist, state, redo2);
+      if (tr2)
+        dispatch(scroll ? tr2.scrollIntoView() : tr2);
+    }
+    return true;
+  };
+}
+const undo = buildCommand(false, true);
+const redo = buildCommand(true, true);
+Extension.create({
+  name: "characterCount",
+  addOptions() {
+    return {
+      limit: null,
+      mode: "textSize",
+      textCounter: (text2) => text2.length,
+      wordCounter: (text2) => text2.split(" ").filter((word) => word !== "").length
+    };
+  },
+  addStorage() {
+    return {
+      characters: () => 0,
+      words: () => 0
+    };
+  },
+  onBeforeCreate() {
+    this.storage.characters = (options) => {
+      const node = (options == null ? void 0 : options.node) || this.editor.state.doc;
+      const mode = (options == null ? void 0 : options.mode) || this.options.mode;
+      if (mode === "textSize") {
+        const text2 = node.textBetween(0, node.content.size, void 0, " ");
+        return this.options.textCounter(text2);
+      }
+      return node.nodeSize;
+    };
+    this.storage.words = (options) => {
+      const node = (options == null ? void 0 : options.node) || this.editor.state.doc;
+      const text2 = node.textBetween(0, node.content.size, " ", " ");
+      return this.options.wordCounter(text2);
+    };
+  },
+  addProseMirrorPlugins() {
+    let initialEvaluationDone = false;
+    return [
+      new Plugin({
+        key: new PluginKey("characterCount"),
+        appendTransaction: (transactions, oldState, newState) => {
+          if (initialEvaluationDone) {
+            return;
+          }
+          const limit = this.options.limit;
+          if (limit === null || limit === void 0 || limit === 0) {
+            initialEvaluationDone = true;
+            return;
+          }
+          const initialContentSize = this.storage.characters({ node: newState.doc });
+          if (initialContentSize > limit) {
+            const over = initialContentSize - limit;
+            const from2 = 0;
+            const to = over;
+            console.warn(
+              `[CharacterCount] Initial content exceeded limit of ${limit} characters. Content was automatically trimmed.`
+            );
+            const tr2 = newState.tr.deleteRange(from2, to);
+            initialEvaluationDone = true;
+            return tr2;
+          }
+          initialEvaluationDone = true;
+        },
+        filterTransaction: (transaction, state) => {
+          const limit = this.options.limit;
+          if (!transaction.docChanged || limit === 0 || limit === null || limit === void 0) {
+            return true;
+          }
+          const oldSize = this.storage.characters({ node: state.doc });
+          const newSize = this.storage.characters({ node: transaction.doc });
+          if (newSize <= limit) {
+            return true;
+          }
+          if (oldSize > limit && newSize > limit && newSize <= oldSize) {
+            return true;
+          }
+          if (oldSize > limit && newSize > limit && newSize > oldSize) {
+            return false;
+          }
+          const isPaste = transaction.getMeta("paste");
+          if (!isPaste) {
+            return false;
+          }
+          const pos = transaction.selection.$head.pos;
+          const over = newSize - limit;
+          const from2 = pos - over;
+          const to = pos;
+          transaction.deleteRange(from2, to);
+          const updatedSize = this.storage.characters({ node: transaction.doc });
+          if (updatedSize > limit) {
+            return false;
+          }
+          return true;
+        }
+      })
+    ];
+  }
+});
+var Dropcursor = Extension.create({
+  name: "dropCursor",
+  addOptions() {
+    return {
+      color: "currentColor",
+      width: 1,
+      class: void 0
+    };
+  },
+  addProseMirrorPlugins() {
+    return [dropCursor(this.options)];
+  }
+});
+Extension.create({
+  name: "focus",
+  addOptions() {
+    return {
+      className: "has-focus",
+      mode: "all"
+    };
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("focus"),
+        props: {
+          decorations: ({ doc: doc2, selection }) => {
+            const { isEditable, isFocused } = this.editor;
+            const { anchor } = selection;
+            const decorations = [];
+            if (!isEditable || !isFocused) {
+              return DecorationSet.create(doc2, []);
+            }
+            let maxLevels = 0;
+            if (this.options.mode === "deepest") {
+              doc2.descendants((node, pos) => {
+                if (node.isText) {
+                  return;
+                }
+                const isCurrent = anchor >= pos && anchor <= pos + node.nodeSize - 1;
+                if (!isCurrent) {
+                  return false;
+                }
+                maxLevels += 1;
+              });
+            }
+            let currentLevel = 0;
+            doc2.descendants((node, pos) => {
+              if (node.isText) {
+                return false;
+              }
+              const isCurrent = anchor >= pos && anchor <= pos + node.nodeSize - 1;
+              if (!isCurrent) {
+                return false;
+              }
+              currentLevel += 1;
+              const outOfScope = this.options.mode === "deepest" && maxLevels - currentLevel > 0 || this.options.mode === "shallowest" && currentLevel > 1;
+              if (outOfScope) {
+                return this.options.mode === "deepest";
+              }
+              decorations.push(
+                Decoration.node(pos, pos + node.nodeSize, {
+                  class: this.options.className
+                })
+              );
+            });
+            return DecorationSet.create(doc2, decorations);
+          }
+        }
+      })
+    ];
+  }
+});
+var Gapcursor = Extension.create({
+  name: "gapCursor",
+  addProseMirrorPlugins() {
+    return [gapCursor()];
+  },
+  extendNodeSchema(extension) {
+    var _a2;
+    const context = {
+      name: extension.name,
+      options: extension.options,
+      storage: extension.storage
+    };
+    return {
+      allowGapCursor: (_a2 = callOrReturn(getExtensionField(extension, "allowGapCursor", context))) != null ? _a2 : null
+    };
+  }
+});
+var DEFAULT_DATA_ATTRIBUTE = "placeholder";
+function preparePlaceholderAttribute(attr) {
+  return attr.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "").replace(/^[0-9-]+/, "").replace(/^-+/, "").toLowerCase();
+}
+var Placeholder = Extension.create({
+  name: "placeholder",
+  addOptions() {
+    return {
+      emptyEditorClass: "is-editor-empty",
+      emptyNodeClass: "is-empty",
+      dataAttribute: DEFAULT_DATA_ATTRIBUTE,
+      placeholder: "Write something …",
+      showOnlyWhenEditable: true,
+      showOnlyCurrent: true,
+      includeChildren: false
+    };
+  },
+  addProseMirrorPlugins() {
+    const dataAttribute = this.options.dataAttribute ? `data-${preparePlaceholderAttribute(this.options.dataAttribute)}` : `data-${DEFAULT_DATA_ATTRIBUTE}`;
+    return [
+      new Plugin({
+        key: new PluginKey("placeholder"),
+        props: {
+          decorations: ({ doc: doc2, selection }) => {
+            const active = this.editor.isEditable || !this.options.showOnlyWhenEditable;
+            const { anchor } = selection;
+            const decorations = [];
+            if (!active) {
+              return null;
+            }
+            const isEmptyDoc = this.editor.isEmpty;
+            doc2.descendants((node, pos) => {
+              const hasAnchor = anchor >= pos && anchor <= pos + node.nodeSize;
+              const isEmpty2 = !node.isLeaf && isNodeEmpty(node);
+              if (!node.type.isTextblock) {
+                return this.options.includeChildren;
+              }
+              if ((hasAnchor || !this.options.showOnlyCurrent) && isEmpty2) {
+                const classes = [this.options.emptyNodeClass];
+                if (isEmptyDoc) {
+                  classes.push(this.options.emptyEditorClass);
+                }
+                const decoration = Decoration.node(pos, pos + node.nodeSize, {
+                  class: classes.join(" "),
+                  [dataAttribute]: typeof this.options.placeholder === "function" ? this.options.placeholder({
+                    editor: this.editor,
+                    node,
+                    pos,
+                    hasAnchor
+                  }) : this.options.placeholder
+                });
+                decorations.push(decoration);
+              }
+              return this.options.includeChildren;
+            });
+            return DecorationSet.create(doc2, decorations);
+          }
+        }
+      })
+    ];
+  }
+});
+Extension.create({
+  name: "selection",
+  addOptions() {
+    return {
+      className: "selection"
+    };
+  },
+  addProseMirrorPlugins() {
+    const { editor, options } = this;
+    return [
+      new Plugin({
+        key: new PluginKey("selection"),
+        props: {
+          decorations(state) {
+            if (state.selection.empty || editor.isFocused || !editor.isEditable || isNodeSelection(state.selection) || editor.view.dragging) {
+              return null;
+            }
+            return DecorationSet.create(state.doc, [
+              Decoration.inline(state.selection.from, state.selection.to, {
+                class: options.className
+              })
+            ]);
+          }
+        }
+      })
+    ];
+  }
+});
+var skipTrailingNodeMeta = "skipTrailingNode";
+function nodeEqualsType({ types, node }) {
+  return node && Array.isArray(types) && types.includes(node.type) || (node == null ? void 0 : node.type) === types;
+}
+var TrailingNode = Extension.create({
+  name: "trailingNode",
+  addOptions() {
+    return {
+      node: void 0,
+      notAfter: []
+    };
+  },
+  addProseMirrorPlugins() {
+    var _a2;
+    const plugin = new PluginKey(this.name);
+    const defaultNode = this.options.node || ((_a2 = this.editor.schema.topNodeType.contentMatch.defaultType) == null ? void 0 : _a2.name) || "paragraph";
+    const disabledNodes = Object.entries(this.editor.schema.nodes).map(([, value]) => value).filter((node) => (this.options.notAfter || []).concat(defaultNode).includes(node.name));
+    return [
+      new Plugin({
+        key: plugin,
+        appendTransaction: (transactions, __, state) => {
+          const { doc: doc2, tr: tr2, schema } = state;
+          const shouldInsertNodeAtEnd = plugin.getState(state);
+          const endPosition = doc2.content.size;
+          const type = schema.nodes[defaultNode];
+          if (transactions.some((transaction) => transaction.getMeta(skipTrailingNodeMeta))) {
+            return;
+          }
+          if (!shouldInsertNodeAtEnd) {
+            return;
+          }
+          return tr2.insert(endPosition, type.create());
+        },
+        state: {
+          init: (_, state) => {
+            const lastNode = state.tr.doc.lastChild;
+            return !nodeEqualsType({ node: lastNode, types: disabledNodes });
+          },
+          apply: (tr2, value) => {
+            if (!tr2.docChanged) {
+              return value;
+            }
+            if (tr2.getMeta("__uniqueIDTransaction")) {
+              return value;
+            }
+            const lastNode = tr2.doc.lastChild;
+            return !nodeEqualsType({ node: lastNode, types: disabledNodes });
+          }
+        }
+      })
+    ];
+  }
+});
+var UndoRedo = Extension.create({
+  name: "undoRedo",
+  addOptions() {
+    return {
+      depth: 100,
+      newGroupDelay: 500
+    };
+  },
+  addCommands() {
+    return {
+      undo: () => ({ state, dispatch }) => {
+        return undo(state, dispatch);
+      },
+      redo: () => ({ state, dispatch }) => {
+        return redo(state, dispatch);
+      }
+    };
+  },
+  addProseMirrorPlugins() {
+    return [history(this.options)];
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-z": () => this.editor.commands.undo(),
+      "Shift-Mod-z": () => this.editor.commands.redo(),
+      "Mod-y": () => this.editor.commands.redo(),
+      // Russian keyboard layouts
+      "Mod-я": () => this.editor.commands.undo(),
+      "Shift-Mod-я": () => this.editor.commands.redo()
+    };
+  }
+});
+var index_default$1 = Placeholder;
+var shim = { exports: {} };
+var useSyncExternalStoreShim_production = {};
+var hasRequiredUseSyncExternalStoreShim_production;
+function requireUseSyncExternalStoreShim_production() {
+  if (hasRequiredUseSyncExternalStoreShim_production) return useSyncExternalStoreShim_production;
+  hasRequiredUseSyncExternalStoreShim_production = 1;
+  var React2 = requireReact();
+  function is2(x, y) {
+    return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
+  }
+  var objectIs = "function" === typeof Object.is ? Object.is : is2, useState = React2.useState, useEffect = React2.useEffect, useLayoutEffect = React2.useLayoutEffect, useDebugValue = React2.useDebugValue;
+  function useSyncExternalStore$2(subscribe2, getSnapshot) {
+    var value = getSnapshot(), _useState = useState({ inst: { value, getSnapshot } }), inst = _useState[0].inst, forceUpdate = _useState[1];
+    useLayoutEffect(
+      function() {
+        inst.value = value;
+        inst.getSnapshot = getSnapshot;
+        checkIfSnapshotChanged(inst) && forceUpdate({ inst });
+      },
+      [subscribe2, value, getSnapshot]
+    );
+    useEffect(
+      function() {
+        checkIfSnapshotChanged(inst) && forceUpdate({ inst });
+        return subscribe2(function() {
+          checkIfSnapshotChanged(inst) && forceUpdate({ inst });
+        });
+      },
+      [subscribe2]
+    );
+    useDebugValue(value);
+    return value;
+  }
+  function checkIfSnapshotChanged(inst) {
+    var latestGetSnapshot = inst.getSnapshot;
+    inst = inst.value;
+    try {
+      var nextValue = latestGetSnapshot();
+      return !objectIs(inst, nextValue);
+    } catch (error2) {
+      return true;
+    }
+  }
+  function useSyncExternalStore$1(subscribe2, getSnapshot) {
+    return getSnapshot();
+  }
+  var shim2 = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
+  useSyncExternalStoreShim_production.useSyncExternalStore = void 0 !== React2.useSyncExternalStore ? React2.useSyncExternalStore : shim2;
+  return useSyncExternalStoreShim_production;
+}
+var hasRequiredShim;
+function requireShim() {
+  if (hasRequiredShim) return shim.exports;
+  hasRequiredShim = 1;
+  {
+    shim.exports = requireUseSyncExternalStoreShim_production();
+  }
+  return shim.exports;
+}
+var shimExports = requireShim();
+const { getOwnPropertyNames, getOwnPropertySymbols } = Object;
+const { hasOwnProperty } = Object.prototype;
+function combineComparators(comparatorA, comparatorB) {
+  return function isEqual(a, b, state) {
+    return comparatorA(a, b, state) && comparatorB(a, b, state);
+  };
+}
+function createIsCircular(areItemsEqual) {
+  return function isCircular(a, b, state) {
+    if (!a || !b || typeof a !== "object" || typeof b !== "object") {
+      return areItemsEqual(a, b, state);
+    }
+    const { cache } = state;
+    const cachedA = cache.get(a);
+    const cachedB = cache.get(b);
+    if (cachedA && cachedB) {
+      return cachedA === b && cachedB === a;
+    }
+    cache.set(a, b);
+    cache.set(b, a);
+    const result = areItemsEqual(a, b, state);
+    cache.delete(a);
+    cache.delete(b);
+    return result;
+  };
+}
+function getShortTag(value) {
+  return value != null ? value[Symbol.toStringTag] : void 0;
+}
+function getStrictProperties(object) {
+  return getOwnPropertyNames(object).concat(getOwnPropertySymbols(object));
+}
+const hasOwn = (
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  Object.hasOwn || ((object, property) => hasOwnProperty.call(object, property))
+);
+function sameValueZeroEqual(a, b) {
+  return a === b || !a && !b && a !== a && b !== b;
+}
+const PREACT_VNODE = "__v";
+const PREACT_OWNER = "__o";
+const REACT_OWNER = "_owner";
+const { getOwnPropertyDescriptor, keys } = Object;
+function areArrayBuffersEqual(a, b) {
+  return a.byteLength === b.byteLength && areTypedArraysEqual(new Uint8Array(a), new Uint8Array(b));
+}
+function areArraysEqual(a, b, state) {
+  let index = a.length;
+  if (b.length !== index) {
+    return false;
+  }
+  while (index-- > 0) {
+    if (!state.equals(a[index], b[index], index, index, a, b, state)) {
+      return false;
+    }
+  }
+  return true;
+}
+function areDataViewsEqual(a, b) {
+  return a.byteLength === b.byteLength && areTypedArraysEqual(new Uint8Array(a.buffer, a.byteOffset, a.byteLength), new Uint8Array(b.buffer, b.byteOffset, b.byteLength));
+}
+function areDatesEqual(a, b) {
+  return sameValueZeroEqual(a.getTime(), b.getTime());
+}
+function areErrorsEqual(a, b) {
+  return a.name === b.name && a.message === b.message && a.cause === b.cause && a.stack === b.stack;
+}
+function areFunctionsEqual(a, b) {
+  return a === b;
+}
+function areMapsEqual(a, b, state) {
+  const size = a.size;
+  if (size !== b.size) {
+    return false;
+  }
+  if (!size) {
+    return true;
+  }
+  const matchedIndices = new Array(size);
+  const aIterable = a.entries();
+  let aResult;
+  let bResult;
+  let index = 0;
+  while (aResult = aIterable.next()) {
+    if (aResult.done) {
+      break;
+    }
+    const bIterable = b.entries();
+    let hasMatch = false;
+    let matchIndex = 0;
+    while (bResult = bIterable.next()) {
+      if (bResult.done) {
+        break;
+      }
+      if (matchedIndices[matchIndex]) {
+        matchIndex++;
+        continue;
+      }
+      const aEntry = aResult.value;
+      const bEntry = bResult.value;
+      if (state.equals(aEntry[0], bEntry[0], index, matchIndex, a, b, state) && state.equals(aEntry[1], bEntry[1], aEntry[0], bEntry[0], a, b, state)) {
+        hasMatch = matchedIndices[matchIndex] = true;
+        break;
+      }
+      matchIndex++;
+    }
+    if (!hasMatch) {
+      return false;
+    }
+    index++;
+  }
+  return true;
+}
+const areNumbersEqual = sameValueZeroEqual;
+function areObjectsEqual(a, b, state) {
+  const properties = keys(a);
+  let index = properties.length;
+  if (keys(b).length !== index) {
+    return false;
+  }
+  while (index-- > 0) {
+    if (!isPropertyEqual(a, b, state, properties[index])) {
+      return false;
+    }
+  }
+  return true;
+}
+function areObjectsEqualStrict(a, b, state) {
+  const properties = getStrictProperties(a);
+  let index = properties.length;
+  if (getStrictProperties(b).length !== index) {
+    return false;
+  }
+  let property;
+  let descriptorA;
+  let descriptorB;
+  while (index-- > 0) {
+    property = properties[index];
+    if (!isPropertyEqual(a, b, state, property)) {
+      return false;
+    }
+    descriptorA = getOwnPropertyDescriptor(a, property);
+    descriptorB = getOwnPropertyDescriptor(b, property);
+    if ((descriptorA || descriptorB) && (!descriptorA || !descriptorB || descriptorA.configurable !== descriptorB.configurable || descriptorA.enumerable !== descriptorB.enumerable || descriptorA.writable !== descriptorB.writable)) {
+      return false;
+    }
+  }
+  return true;
+}
+function arePrimitiveWrappersEqual(a, b) {
+  return sameValueZeroEqual(a.valueOf(), b.valueOf());
+}
+function areRegExpsEqual(a, b) {
+  return a.source === b.source && a.flags === b.flags;
+}
+function areSetsEqual(a, b, state) {
+  const size = a.size;
+  if (size !== b.size) {
+    return false;
+  }
+  if (!size) {
+    return true;
+  }
+  const matchedIndices = new Array(size);
+  const aIterable = a.values();
+  let aResult;
+  let bResult;
+  while (aResult = aIterable.next()) {
+    if (aResult.done) {
+      break;
+    }
+    const bIterable = b.values();
+    let hasMatch = false;
+    let matchIndex = 0;
+    while (bResult = bIterable.next()) {
+      if (bResult.done) {
+        break;
+      }
+      if (!matchedIndices[matchIndex] && state.equals(aResult.value, bResult.value, aResult.value, bResult.value, a, b, state)) {
+        hasMatch = matchedIndices[matchIndex] = true;
+        break;
+      }
+      matchIndex++;
+    }
+    if (!hasMatch) {
+      return false;
+    }
+  }
+  return true;
+}
+function areTypedArraysEqual(a, b) {
+  let index = a.byteLength;
+  if (b.byteLength !== index || a.byteOffset !== b.byteOffset) {
+    return false;
+  }
+  while (index-- > 0) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+function areUrlsEqual(a, b) {
+  return a.hostname === b.hostname && a.pathname === b.pathname && a.protocol === b.protocol && a.port === b.port && a.hash === b.hash && a.username === b.username && a.password === b.password;
+}
+function isPropertyEqual(a, b, state, property) {
+  if ((property === REACT_OWNER || property === PREACT_OWNER || property === PREACT_VNODE) && (a.$$typeof || b.$$typeof)) {
+    return true;
+  }
+  return hasOwn(b, property) && state.equals(a[property], b[property], property, property, a, b, state);
+}
+const ARRAY_BUFFER_TAG = "[object ArrayBuffer]";
+const ARGUMENTS_TAG = "[object Arguments]";
+const BOOLEAN_TAG = "[object Boolean]";
+const DATA_VIEW_TAG = "[object DataView]";
+const DATE_TAG = "[object Date]";
+const ERROR_TAG = "[object Error]";
+const MAP_TAG = "[object Map]";
+const NUMBER_TAG = "[object Number]";
+const OBJECT_TAG = "[object Object]";
+const REG_EXP_TAG = "[object RegExp]";
+const SET_TAG = "[object Set]";
+const STRING_TAG = "[object String]";
+const TYPED_ARRAY_TAGS = {
+  "[object Int8Array]": true,
+  "[object Uint8Array]": true,
+  "[object Uint8ClampedArray]": true,
+  "[object Int16Array]": true,
+  "[object Uint16Array]": true,
+  "[object Int32Array]": true,
+  "[object Uint32Array]": true,
+  "[object Float16Array]": true,
+  "[object Float32Array]": true,
+  "[object Float64Array]": true,
+  "[object BigInt64Array]": true,
+  "[object BigUint64Array]": true
+};
+const URL_TAG = "[object URL]";
+const toString = Object.prototype.toString;
+function createEqualityComparator({ areArrayBuffersEqual: areArrayBuffersEqual2, areArraysEqual: areArraysEqual2, areDataViewsEqual: areDataViewsEqual2, areDatesEqual: areDatesEqual2, areErrorsEqual: areErrorsEqual2, areFunctionsEqual: areFunctionsEqual2, areMapsEqual: areMapsEqual2, areNumbersEqual: areNumbersEqual2, areObjectsEqual: areObjectsEqual2, arePrimitiveWrappersEqual: arePrimitiveWrappersEqual2, areRegExpsEqual: areRegExpsEqual2, areSetsEqual: areSetsEqual2, areTypedArraysEqual: areTypedArraysEqual2, areUrlsEqual: areUrlsEqual2, unknownTagComparators }) {
+  return function comparator(a, b, state) {
+    if (a === b) {
+      return true;
+    }
+    if (a == null || b == null) {
+      return false;
+    }
+    const type = typeof a;
+    if (type !== typeof b) {
+      return false;
+    }
+    if (type !== "object") {
+      if (type === "number") {
+        return areNumbersEqual2(a, b, state);
+      }
+      if (type === "function") {
+        return areFunctionsEqual2(a, b, state);
+      }
+      return false;
+    }
+    const constructor = a.constructor;
+    if (constructor !== b.constructor) {
+      return false;
+    }
+    if (constructor === Object) {
+      return areObjectsEqual2(a, b, state);
+    }
+    if (Array.isArray(a)) {
+      return areArraysEqual2(a, b, state);
+    }
+    if (constructor === Date) {
+      return areDatesEqual2(a, b, state);
+    }
+    if (constructor === RegExp) {
+      return areRegExpsEqual2(a, b, state);
+    }
+    if (constructor === Map) {
+      return areMapsEqual2(a, b, state);
+    }
+    if (constructor === Set) {
+      return areSetsEqual2(a, b, state);
+    }
+    const tag = toString.call(a);
+    if (tag === DATE_TAG) {
+      return areDatesEqual2(a, b, state);
+    }
+    if (tag === REG_EXP_TAG) {
+      return areRegExpsEqual2(a, b, state);
+    }
+    if (tag === MAP_TAG) {
+      return areMapsEqual2(a, b, state);
+    }
+    if (tag === SET_TAG) {
+      return areSetsEqual2(a, b, state);
+    }
+    if (tag === OBJECT_TAG) {
+      return typeof a.then !== "function" && typeof b.then !== "function" && areObjectsEqual2(a, b, state);
+    }
+    if (tag === URL_TAG) {
+      return areUrlsEqual2(a, b, state);
+    }
+    if (tag === ERROR_TAG) {
+      return areErrorsEqual2(a, b, state);
+    }
+    if (tag === ARGUMENTS_TAG) {
+      return areObjectsEqual2(a, b, state);
+    }
+    if (TYPED_ARRAY_TAGS[tag]) {
+      return areTypedArraysEqual2(a, b, state);
+    }
+    if (tag === ARRAY_BUFFER_TAG) {
+      return areArrayBuffersEqual2(a, b, state);
+    }
+    if (tag === DATA_VIEW_TAG) {
+      return areDataViewsEqual2(a, b, state);
+    }
+    if (tag === BOOLEAN_TAG || tag === NUMBER_TAG || tag === STRING_TAG) {
+      return arePrimitiveWrappersEqual2(a, b, state);
+    }
+    if (unknownTagComparators) {
+      let unknownTagComparator = unknownTagComparators[tag];
+      if (!unknownTagComparator) {
+        const shortTag = getShortTag(a);
+        if (shortTag) {
+          unknownTagComparator = unknownTagComparators[shortTag];
+        }
+      }
+      if (unknownTagComparator) {
+        return unknownTagComparator(a, b, state);
+      }
+    }
+    return false;
+  };
+}
+function createEqualityComparatorConfig({ circular, createCustomConfig, strict }) {
+  let config2 = {
+    areArrayBuffersEqual,
+    areArraysEqual: strict ? areObjectsEqualStrict : areArraysEqual,
+    areDataViewsEqual,
+    areDatesEqual,
+    areErrorsEqual,
+    areFunctionsEqual,
+    areMapsEqual: strict ? combineComparators(areMapsEqual, areObjectsEqualStrict) : areMapsEqual,
+    areNumbersEqual,
+    areObjectsEqual: strict ? areObjectsEqualStrict : areObjectsEqual,
+    arePrimitiveWrappersEqual,
+    areRegExpsEqual,
+    areSetsEqual: strict ? combineComparators(areSetsEqual, areObjectsEqualStrict) : areSetsEqual,
+    areTypedArraysEqual: strict ? combineComparators(areTypedArraysEqual, areObjectsEqualStrict) : areTypedArraysEqual,
+    areUrlsEqual,
+    unknownTagComparators: void 0
+  };
+  if (createCustomConfig) {
+    config2 = Object.assign({}, config2, createCustomConfig(config2));
+  }
+  if (circular) {
+    const areArraysEqual2 = createIsCircular(config2.areArraysEqual);
+    const areMapsEqual2 = createIsCircular(config2.areMapsEqual);
+    const areObjectsEqual2 = createIsCircular(config2.areObjectsEqual);
+    const areSetsEqual2 = createIsCircular(config2.areSetsEqual);
+    config2 = Object.assign({}, config2, {
+      areArraysEqual: areArraysEqual2,
+      areMapsEqual: areMapsEqual2,
+      areObjectsEqual: areObjectsEqual2,
+      areSetsEqual: areSetsEqual2
+    });
+  }
+  return config2;
+}
+function createInternalEqualityComparator(compare) {
+  return function(a, b, _indexOrKeyA, _indexOrKeyB, _parentA, _parentB, state) {
+    return compare(a, b, state);
+  };
+}
+function createIsEqual({ circular, comparator, createState, equals, strict }) {
+  if (createState) {
+    return function isEqual(a, b) {
+      const { cache = circular ? /* @__PURE__ */ new WeakMap() : void 0, meta } = createState();
+      return comparator(a, b, {
+        cache,
+        equals,
+        meta,
+        strict
+      });
+    };
+  }
+  if (circular) {
+    return function isEqual(a, b) {
+      return comparator(a, b, {
+        cache: /* @__PURE__ */ new WeakMap(),
+        equals,
+        meta: void 0,
+        strict
+      });
+    };
+  }
+  const state = {
+    cache: void 0,
+    equals,
+    meta: void 0,
+    strict
+  };
+  return function isEqual(a, b) {
+    return comparator(a, b, state);
+  };
+}
+const deepEqual = createCustomEqual();
+createCustomEqual({ strict: true });
+createCustomEqual({ circular: true });
+createCustomEqual({
+  circular: true,
+  strict: true
+});
+createCustomEqual({
+  createInternalComparator: () => sameValueZeroEqual
+});
+createCustomEqual({
+  strict: true,
+  createInternalComparator: () => sameValueZeroEqual
+});
+createCustomEqual({
+  circular: true,
+  createInternalComparator: () => sameValueZeroEqual
+});
+createCustomEqual({
+  circular: true,
+  createInternalComparator: () => sameValueZeroEqual,
+  strict: true
+});
+function createCustomEqual(options = {}) {
+  const { circular = false, createInternalComparator: createCustomInternalComparator, createState, strict = false } = options;
+  const config2 = createEqualityComparatorConfig(options);
+  const comparator = createEqualityComparator(config2);
+  const equals = createCustomInternalComparator ? createCustomInternalComparator(comparator) : createInternalEqualityComparator(comparator);
+  return createIsEqual({ circular, comparator, createState, equals, strict });
+}
+var withSelector = { exports: {} };
+var withSelector_production = {};
+var hasRequiredWithSelector_production;
+function requireWithSelector_production() {
+  if (hasRequiredWithSelector_production) return withSelector_production;
+  hasRequiredWithSelector_production = 1;
+  var React2 = requireReact(), shim2 = requireShim();
+  function is2(x, y) {
+    return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
+  }
+  var objectIs = "function" === typeof Object.is ? Object.is : is2, useSyncExternalStore = shim2.useSyncExternalStore, useRef = React2.useRef, useEffect = React2.useEffect, useMemo = React2.useMemo, useDebugValue = React2.useDebugValue;
+  withSelector_production.useSyncExternalStoreWithSelector = function(subscribe2, getSnapshot, getServerSnapshot, selector, isEqual) {
+    var instRef = useRef(null);
+    if (null === instRef.current) {
+      var inst = { hasValue: false, value: null };
+      instRef.current = inst;
+    } else inst = instRef.current;
+    instRef = useMemo(
+      function() {
+        function memoizedSelector(nextSnapshot) {
+          if (!hasMemo) {
+            hasMemo = true;
+            memoizedSnapshot = nextSnapshot;
+            nextSnapshot = selector(nextSnapshot);
+            if (void 0 !== isEqual && inst.hasValue) {
+              var currentSelection = inst.value;
+              if (isEqual(currentSelection, nextSnapshot))
+                return memoizedSelection = currentSelection;
+            }
+            return memoizedSelection = nextSnapshot;
+          }
+          currentSelection = memoizedSelection;
+          if (objectIs(memoizedSnapshot, nextSnapshot)) return currentSelection;
+          var nextSelection = selector(nextSnapshot);
+          if (void 0 !== isEqual && isEqual(currentSelection, nextSelection))
+            return memoizedSnapshot = nextSnapshot, currentSelection;
+          memoizedSnapshot = nextSnapshot;
+          return memoizedSelection = nextSelection;
+        }
+        var hasMemo = false, memoizedSnapshot, memoizedSelection, maybeGetServerSnapshot = void 0 === getServerSnapshot ? null : getServerSnapshot;
+        return [
+          function() {
+            return memoizedSelector(getSnapshot());
+          },
+          null === maybeGetServerSnapshot ? void 0 : function() {
+            return memoizedSelector(maybeGetServerSnapshot());
+          }
+        ];
+      },
+      [getSnapshot, getServerSnapshot, selector, isEqual]
+    );
+    var value = useSyncExternalStore(subscribe2, instRef[0], instRef[1]);
+    useEffect(
+      function() {
+        inst.hasValue = true;
+        inst.value = value;
+      },
+      [value]
+    );
+    useDebugValue(value);
+    return value;
+  };
+  return withSelector_production;
+}
+var hasRequiredWithSelector;
+function requireWithSelector() {
+  if (hasRequiredWithSelector) return withSelector.exports;
+  hasRequiredWithSelector = 1;
+  {
+    withSelector.exports = requireWithSelector_production();
+  }
+  return withSelector.exports;
+}
+var withSelectorExports = requireWithSelector();
+var mergeRefs = (...refs) => {
+  return (node) => {
+    refs.forEach((ref) => {
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    });
+  };
+};
+var Portals = ({ contentComponent }) => {
+  const renderers = shimExports.useSyncExternalStore(
+    contentComponent.subscribe,
+    contentComponent.getSnapshot,
+    contentComponent.getServerSnapshot
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: Object.values(renderers) });
+};
+function getInstance() {
+  const subscribers = /* @__PURE__ */ new Set();
+  let renderers = {};
+  return {
+    /**
+     * Subscribe to the editor instance's changes.
+     */
+    subscribe(callback) {
+      subscribers.add(callback);
+      return () => {
+        subscribers.delete(callback);
+      };
+    },
+    getSnapshot() {
+      return renderers;
+    },
+    getServerSnapshot() {
+      return renderers;
+    },
+    /**
+     * Adds a new NodeView Renderer to the editor.
+     */
+    setRenderer(id, renderer) {
+      renderers = {
+        ...renderers,
+        [id]: ReactDOM.createPortal(renderer.reactElement, renderer.element, id)
+      };
+      subscribers.forEach((subscriber) => subscriber());
+    },
+    /**
+     * Removes a NodeView Renderer from the editor.
+     */
+    removeRenderer(id) {
+      const nextRenderers = { ...renderers };
+      delete nextRenderers[id];
+      renderers = nextRenderers;
+      subscribers.forEach((subscriber) => subscriber());
+    }
+  };
+}
+var PureEditorContent = class extends React4.Component {
+  constructor(props) {
+    super(props);
+    this.editorContentRef = React4.createRef();
+  }
+  componentDidMount() {
+    this.init();
+  }
+  componentDidUpdate() {
+    this.init();
+  }
+  init() {
+    var _a2;
+    const editor = this.props.editor;
+    if (editor && !editor.isDestroyed && ((_a2 = editor.view.dom) == null ? void 0 : _a2.parentNode)) {
+      if (editor.contentComponent) {
+        return;
+      }
+      const element = this.editorContentRef.current;
+      element.append(...editor.view.dom.parentNode.childNodes);
+      editor.setOptions({
+        element
+      });
+      editor.contentComponent = getInstance();
+      editor.createNodeViews();
+      editor.isEditorContentInitialized = true;
+      this.forceUpdate();
+    }
+  }
+  componentWillUnmount() {
+    var _a2;
+    const editor = this.props.editor;
+    if (!editor) {
+      return;
+    }
+    editor.isEditorContentInitialized = false;
+    if (!editor.isDestroyed) {
+      editor.view.setProps({
+        nodeViews: {}
+      });
+    }
+    editor.contentComponent = null;
+    try {
+      if (!((_a2 = editor.view.dom) == null ? void 0 : _a2.parentNode)) {
+        return;
+      }
+      const newElement = document.createElement("div");
+      newElement.append(...editor.view.dom.parentNode.childNodes);
+      editor.setOptions({
+        element: newElement
+      });
+    } catch {
+    }
+  }
+  render() {
+    const { editor, innerRef, ...rest } = this.props;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: mergeRefs(innerRef, this.editorContentRef), ...rest }),
+      (editor == null ? void 0 : editor.contentComponent) && /* @__PURE__ */ jsxRuntimeExports.jsx(Portals, { contentComponent: editor.contentComponent })
+    ] });
+  }
+};
+var EditorContentWithKey = reactExports.forwardRef(
+  (props, ref) => {
+    const key = React4.useMemo(() => {
+      return Math.floor(Math.random() * 4294967295).toString();
+    }, [props.editor]);
+    return React4.createElement(PureEditorContent, {
+      key,
+      innerRef: ref,
+      ...props
+    });
+  }
+);
+var EditorContent = React4.memo(EditorContentWithKey);
+var useIsomorphicLayoutEffect = typeof window !== "undefined" ? reactExports.useLayoutEffect : reactExports.useEffect;
+var EditorStateManager = class {
+  constructor(initialEditor) {
+    this.transactionNumber = 0;
+    this.lastTransactionNumber = 0;
+    this.subscribers = /* @__PURE__ */ new Set();
+    this.editor = initialEditor;
+    this.lastSnapshot = { editor: initialEditor, transactionNumber: 0 };
+    this.getSnapshot = this.getSnapshot.bind(this);
+    this.getServerSnapshot = this.getServerSnapshot.bind(this);
+    this.watch = this.watch.bind(this);
+    this.subscribe = this.subscribe.bind(this);
+  }
+  /**
+   * Get the current editor instance.
+   */
+  getSnapshot() {
+    if (this.transactionNumber === this.lastTransactionNumber) {
+      return this.lastSnapshot;
+    }
+    this.lastTransactionNumber = this.transactionNumber;
+    this.lastSnapshot = { editor: this.editor, transactionNumber: this.transactionNumber };
+    return this.lastSnapshot;
+  }
+  /**
+   * Always disable the editor on the server-side.
+   */
+  getServerSnapshot() {
+    return { editor: null, transactionNumber: 0 };
+  }
+  /**
+   * Subscribe to the editor instance's changes.
+   */
+  subscribe(callback) {
+    this.subscribers.add(callback);
+    return () => {
+      this.subscribers.delete(callback);
+    };
+  }
+  /**
+   * Watch the editor instance for changes.
+   */
+  watch(nextEditor) {
+    this.editor = nextEditor;
+    if (this.editor) {
+      const fn = () => {
+        this.transactionNumber += 1;
+        this.subscribers.forEach((callback) => callback());
+      };
+      const currentEditor = this.editor;
+      currentEditor.on("transaction", fn);
+      return () => {
+        currentEditor.off("transaction", fn);
+      };
+    }
+    return void 0;
+  }
+};
+function useEditorState(options) {
+  var _a2;
+  const [editorStateManager] = reactExports.useState(() => new EditorStateManager(options.editor));
+  const selectedState = withSelectorExports.useSyncExternalStoreWithSelector(
+    editorStateManager.subscribe,
+    editorStateManager.getSnapshot,
+    editorStateManager.getServerSnapshot,
+    options.selector,
+    (_a2 = options.equalityFn) != null ? _a2 : deepEqual
+  );
+  useIsomorphicLayoutEffect(() => {
+    return editorStateManager.watch(options.editor);
+  }, [options.editor, editorStateManager]);
+  reactExports.useDebugValue(selectedState);
+  return selectedState;
+}
+var isDev = false;
+var isSSR = typeof window === "undefined";
+var isNext = isSSR || Boolean(typeof window !== "undefined" && window.next);
+var EditorInstanceManager = class _EditorInstanceManager {
+  constructor(options) {
+    this.editor = null;
+    this.subscriptions = /* @__PURE__ */ new Set();
+    this.isComponentMounted = false;
+    this.previousDeps = null;
+    this.instanceId = "";
+    this.options = options;
+    this.subscriptions = /* @__PURE__ */ new Set();
+    this.setEditor(this.getInitialEditor());
+    this.scheduleDestroy();
+    this.getEditor = this.getEditor.bind(this);
+    this.getServerSnapshot = this.getServerSnapshot.bind(this);
+    this.subscribe = this.subscribe.bind(this);
+    this.refreshEditorInstance = this.refreshEditorInstance.bind(this);
+    this.scheduleDestroy = this.scheduleDestroy.bind(this);
+    this.onRender = this.onRender.bind(this);
+    this.createEditor = this.createEditor.bind(this);
+  }
+  setEditor(editor) {
+    this.editor = editor;
+    this.instanceId = Math.random().toString(36).slice(2, 9);
+    this.subscriptions.forEach((cb) => cb());
+  }
+  getInitialEditor() {
+    if (this.options.current.immediatelyRender === void 0) {
+      if (isSSR || isNext) {
+        return null;
+      }
+      return this.createEditor();
+    }
+    if (this.options.current.immediatelyRender && isSSR && isDev) ;
+    if (this.options.current.immediatelyRender) {
+      return this.createEditor();
+    }
+    return null;
+  }
+  /**
+   * Create a new editor instance. And attach event listeners.
+   */
+  createEditor() {
+    const optionsToApply = {
+      ...this.options.current,
+      // Always call the most recent version of the callback function by default
+      onBeforeCreate: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onBeforeCreate) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onBlur: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onBlur) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onCreate: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onCreate) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onDestroy: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onDestroy) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onFocus: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onFocus) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onSelectionUpdate: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onSelectionUpdate) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onTransaction: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onTransaction) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onUpdate: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onUpdate) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onContentError: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onContentError) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onDrop: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onDrop) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onPaste: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onPaste) == null ? void 0 : _b.call(_a2, ...args);
+      },
+      onDelete: (...args) => {
+        var _a2, _b;
+        return (_b = (_a2 = this.options.current).onDelete) == null ? void 0 : _b.call(_a2, ...args);
+      }
+    };
+    const editor = new Editor(optionsToApply);
+    return editor;
+  }
+  /**
+   * Get the current editor instance.
+   */
+  getEditor() {
+    return this.editor;
+  }
+  /**
+   * Always disable the editor on the server-side.
+   */
+  getServerSnapshot() {
+    return null;
+  }
+  /**
+   * Subscribe to the editor instance's changes.
+   */
+  subscribe(onStoreChange) {
+    this.subscriptions.add(onStoreChange);
+    return () => {
+      this.subscriptions.delete(onStoreChange);
+    };
+  }
+  static compareOptions(a, b) {
+    return Object.keys(a).every((key) => {
+      if ([
+        "onCreate",
+        "onBeforeCreate",
+        "onDestroy",
+        "onUpdate",
+        "onTransaction",
+        "onFocus",
+        "onBlur",
+        "onSelectionUpdate",
+        "onContentError",
+        "onDrop",
+        "onPaste"
+      ].includes(key)) {
+        return true;
+      }
+      if (key === "extensions" && a.extensions && b.extensions) {
+        if (a.extensions.length !== b.extensions.length) {
+          return false;
+        }
+        return a.extensions.every((extension, index) => {
+          var _a2;
+          if (extension !== ((_a2 = b.extensions) == null ? void 0 : _a2[index])) {
+            return false;
+          }
+          return true;
+        });
+      }
+      if (a[key] !== b[key]) {
+        return false;
+      }
+      return true;
+    });
+  }
+  /**
+   * On each render, we will create, update, or destroy the editor instance.
+   * @param deps The dependencies to watch for changes
+   * @returns A cleanup function
+   */
+  onRender(deps) {
+    return () => {
+      this.isComponentMounted = true;
+      clearTimeout(this.scheduledDestructionTimeout);
+      if (this.editor && !this.editor.isDestroyed && deps.length === 0) {
+        if (!_EditorInstanceManager.compareOptions(this.options.current, this.editor.options)) {
+          this.editor.setOptions({
+            ...this.options.current,
+            editable: this.editor.isEditable
+          });
+        }
+      } else {
+        this.refreshEditorInstance(deps);
+      }
+      return () => {
+        this.isComponentMounted = false;
+        this.scheduleDestroy();
+      };
+    };
+  }
+  /**
+   * Recreate the editor instance if the dependencies have changed.
+   */
+  refreshEditorInstance(deps) {
+    if (this.editor && !this.editor.isDestroyed) {
+      if (this.previousDeps === null) {
+        this.previousDeps = deps;
+        return;
+      }
+      const depsAreEqual = this.previousDeps.length === deps.length && this.previousDeps.every((dep, index) => dep === deps[index]);
+      if (depsAreEqual) {
+        return;
+      }
+    }
+    if (this.editor && !this.editor.isDestroyed) {
+      this.editor.destroy();
+    }
+    this.setEditor(this.createEditor());
+    this.previousDeps = deps;
+  }
+  /**
+   * Schedule the destruction of the editor instance.
+   * This will only destroy the editor if it was not mounted on the next tick.
+   * This is to avoid destroying the editor instance when it's actually still mounted.
+   */
+  scheduleDestroy() {
+    const currentInstanceId = this.instanceId;
+    const currentEditor = this.editor;
+    this.scheduledDestructionTimeout = setTimeout(() => {
+      if (this.isComponentMounted && this.instanceId === currentInstanceId) {
+        if (currentEditor) {
+          currentEditor.setOptions(this.options.current);
+        }
+        return;
+      }
+      if (currentEditor && !currentEditor.isDestroyed) {
+        currentEditor.destroy();
+        if (this.instanceId === currentInstanceId) {
+          this.setEditor(null);
+        }
+      }
+    }, 1);
+  }
+};
+function useEditor(options = {}, deps = []) {
+  const mostRecentOptions = reactExports.useRef(options);
+  mostRecentOptions.current = options;
+  const [instanceManager] = reactExports.useState(() => new EditorInstanceManager(mostRecentOptions));
+  const editor = shimExports.useSyncExternalStore(
+    instanceManager.subscribe,
+    instanceManager.getEditor,
+    instanceManager.getServerSnapshot
+  );
+  reactExports.useDebugValue(editor);
+  reactExports.useEffect(instanceManager.onRender(deps));
+  useEditorState({
+    editor,
+    selector: ({ transactionNumber }) => {
+      if (options.shouldRerenderOnTransaction === false || options.shouldRerenderOnTransaction === void 0) {
+        return null;
+      }
+      if (options.immediatelyRender && transactionNumber === 0) {
+        return 0;
+      }
+      return transactionNumber + 1;
+    }
+  });
+  return editor;
+}
+var EditorContext = reactExports.createContext({
+  editor: null
+});
+EditorContext.Consumer;
+var ReactNodeViewContext = reactExports.createContext({
+  onDragStart: () => {
+  },
+  nodeViewContentChildren: void 0,
+  nodeViewContentRef: () => {
+  }
+});
+var useReactNodeView = () => reactExports.useContext(ReactNodeViewContext);
+React4.forwardRef((props, ref) => {
+  const { onDragStart } = useReactNodeView();
+  const Tag = props.as || "div";
+  return (
+    // @ts-ignore
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      Tag,
+      {
+        ...props,
+        ref,
+        "data-node-view-wrapper": "",
+        onDragStart,
+        style: {
+          whiteSpace: "normal",
+          ...props.style
+        }
+      }
+    )
+  );
+});
+React4.createContext({
+  markViewContentRef: () => {
+  }
+});
+var TiptapContext = reactExports.createContext({
+  get editor() {
+    throw new Error("useTiptap must be used within a <Tiptap> provider");
+  }
+});
+TiptapContext.displayName = "TiptapContext";
+var useTiptap = () => reactExports.useContext(TiptapContext);
+function TiptapWrapper({ editor, instance, children }) {
+  const resolvedEditor = editor != null ? editor : instance;
+  if (!resolvedEditor) {
+    throw new Error("Tiptap: An editor instance is required. Pass a non-null `editor` prop.");
+  }
+  const tiptapContextValue = reactExports.useMemo(() => ({ editor: resolvedEditor }), [resolvedEditor]);
+  const legacyContextValue = reactExports.useMemo(() => ({ editor: resolvedEditor }), [resolvedEditor]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(EditorContext.Provider, { value: legacyContextValue, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TiptapContext.Provider, { value: tiptapContextValue, children }) });
+}
+TiptapWrapper.displayName = "Tiptap";
+function TiptapContent({ ...rest }) {
+  const { editor } = useTiptap();
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(EditorContent, { editor, ...rest });
+}
+TiptapContent.displayName = "Tiptap.Content";
+Object.assign(TiptapWrapper, {
+  /**
+   * The Tiptap Content component that renders the EditorContent with the editor instance from the context.
+   * @see TiptapContent
+   */
+  Content: TiptapContent
+});
+var h = (tag, attributes) => {
+  if (tag === "slot") {
+    return 0;
+  }
+  if (tag instanceof Function) {
+    return tag(attributes);
+  }
+  const { children, ...rest } = attributes != null ? attributes : {};
+  if (tag === "svg") {
+    throw new Error("SVG elements are not supported in the JSX syntax, use the array syntax instead");
+  }
+  return [tag, rest, children];
+};
+var inputRegex$3 = /^\s*>\s$/;
+var Blockquote = Node3.create({
+  name: "blockquote",
+  addOptions() {
+    return {
+      HTMLAttributes: {}
+    };
+  },
+  content: "block+",
+  group: "block",
+  defining: true,
+  parseHTML() {
+    return [{ tag: "blockquote" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return /* @__PURE__ */ h("blockquote", { ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), children: /* @__PURE__ */ h("slot", {}) });
+  },
+  parseMarkdown: (token, helpers2) => {
+    var _a2;
+    const parseBlockChildren = (_a2 = helpers2.parseBlockChildren) != null ? _a2 : helpers2.parseChildren;
+    return helpers2.createNode("blockquote", void 0, parseBlockChildren(token.tokens || []));
+  },
+  renderMarkdown: (node, h2) => {
+    if (!node.content) {
+      return "";
+    }
+    const prefix = ">";
+    const result = [];
+    node.content.forEach((child, index) => {
+      var _a2, _b;
+      const childContent = (_b = (_a2 = h2.renderChild) == null ? void 0 : _a2.call(h2, child, index)) != null ? _b : h2.renderChildren([child]);
+      const lines = childContent.split("\n");
+      const linesWithPrefix = lines.map((line) => {
+        if (line.trim() === "") {
+          return prefix;
+        }
+        return `${prefix} ${line}`;
+      });
+      result.push(linesWithPrefix.join("\n"));
+    });
+    return result.join(`
+${prefix}
+`);
+  },
+  addCommands() {
+    return {
+      setBlockquote: () => ({ commands }) => {
+        return commands.wrapIn(this.name);
+      },
+      toggleBlockquote: () => ({ commands }) => {
+        return commands.toggleWrap(this.name);
+      },
+      unsetBlockquote: () => ({ commands }) => {
+        return commands.lift(this.name);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Shift-b": () => this.editor.commands.toggleBlockquote()
+    };
+  },
+  addInputRules() {
+    return [
+      wrappingInputRule({
+        find: inputRegex$3,
+        type: this.type
+      })
+    ];
+  }
+});
+var starInputRegex$1 = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))$/;
+var starPasteRegex$1 = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
+var underscoreInputRegex$1 = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/;
+var underscorePasteRegex$1 = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g;
+var Bold = Mark2.create({
+  name: "bold",
+  addOptions() {
+    return {
+      HTMLAttributes: {}
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: "strong"
+      },
+      {
+        tag: "b",
+        getAttrs: (node) => node.style.fontWeight !== "normal" && null
+      },
+      {
+        style: "font-weight=400",
+        clearMark: (mark) => mark.type.name === this.name
+      },
+      {
+        style: "font-weight",
+        getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null
+      }
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return /* @__PURE__ */ h("strong", { ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), children: /* @__PURE__ */ h("slot", {}) });
+  },
+  markdownTokenName: "strong",
+  parseMarkdown: (token, helpers2) => {
+    return helpers2.applyMark("bold", helpers2.parseInline(token.tokens || []));
+  },
+  markdownOptions: {
+    htmlReopen: {
+      open: "<strong>",
+      close: "</strong>"
+    }
+  },
+  renderMarkdown: (node, h2) => {
+    return `**${h2.renderChildren(node)}**`;
+  },
+  addCommands() {
+    return {
+      setBold: () => ({ commands }) => {
+        return commands.setMark(this.name);
+      },
+      toggleBold: () => ({ commands }) => {
+        return commands.toggleMark(this.name);
+      },
+      unsetBold: () => ({ commands }) => {
+        return commands.unsetMark(this.name);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-b": () => this.editor.commands.toggleBold(),
+      "Mod-B": () => this.editor.commands.toggleBold()
+    };
+  },
+  addInputRules() {
+    return [
+      markInputRule({
+        find: starInputRegex$1,
+        type: this.type
+      }),
+      markInputRule({
+        find: underscoreInputRegex$1,
+        type: this.type
+      })
+    ];
+  },
+  addPasteRules() {
+    return [
+      markPasteRule({
+        find: starPasteRegex$1,
+        type: this.type
+      }),
+      markPasteRule({
+        find: underscorePasteRegex$1,
+        type: this.type
+      })
+    ];
+  }
+});
+var inputRegex$2 = /(^|[^`])`([^`]+)`(?!`)$/;
+var pasteRegex$1 = /(^|[^`])`([^`]+)`(?!`)/g;
+var Code = Mark2.create({
+  name: "code",
+  addOptions() {
+    return {
+      HTMLAttributes: {}
+    };
+  },
+  excludes: "_",
+  code: true,
+  exitable: true,
+  parseHTML() {
+    return [{ tag: "code" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["code", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+  },
+  markdownTokenName: "codespan",
+  parseMarkdown: (token, helpers2) => {
+    return helpers2.applyMark("code", [{ type: "text", text: token.text || "" }]);
+  },
+  renderMarkdown: (node, h2) => {
+    if (!node.content) {
+      return "";
+    }
+    return `\`${h2.renderChildren(node.content)}\``;
+  },
+  addCommands() {
+    return {
+      setCode: () => ({ commands }) => {
+        return commands.setMark(this.name);
+      },
+      toggleCode: () => ({ commands }) => {
+        return commands.toggleMark(this.name);
+      },
+      unsetCode: () => ({ commands }) => {
+        return commands.unsetMark(this.name);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-e": () => this.editor.commands.toggleCode()
+    };
+  },
+  addInputRules() {
+    return [
+      markInputRule({
+        find: inputRegex$2,
+        type: this.type
+      })
+    ];
+  },
+  addPasteRules() {
+    return [
+      markPasteRule({
+        find: pasteRegex$1,
+        type: this.type
+      })
+    ];
+  }
+});
+var DEFAULT_TAB_SIZE = 4;
+var backtickInputRegex = /^```([a-z]+)?[\s\n]$/;
+var tildeInputRegex = /^~~~([a-z]+)?[\s\n]$/;
+var CodeBlock = Node3.create({
+  name: "codeBlock",
+  addOptions() {
+    return {
+      languageClassPrefix: "language-",
+      exitOnTripleEnter: true,
+      exitOnArrowDown: true,
+      defaultLanguage: null,
+      enableTabIndentation: false,
+      tabSize: DEFAULT_TAB_SIZE,
+      HTMLAttributes: {}
+    };
+  },
+  content: "text*",
+  marks: "",
+  group: "block",
+  code: true,
+  defining: true,
+  addAttributes() {
+    return {
+      language: {
+        default: this.options.defaultLanguage,
+        parseHTML: (element) => {
+          var _a2;
+          const { languageClassPrefix } = this.options;
+          if (!languageClassPrefix) {
+            return null;
+          }
+          const classNames = [...((_a2 = element.firstElementChild) == null ? void 0 : _a2.classList) || []];
+          const languages = classNames.filter((className) => className.startsWith(languageClassPrefix)).map((className) => className.replace(languageClassPrefix, ""));
+          const language = languages[0];
+          if (!language) {
+            return null;
+          }
+          return language;
+        },
+        rendered: false
+      }
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: "pre",
+        preserveWhitespace: "full"
+      }
+    ];
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      "pre",
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+      [
+        "code",
+        {
+          class: node.attrs.language ? this.options.languageClassPrefix + node.attrs.language : null
+        },
+        0
+      ]
+    ];
+  },
+  markdownTokenName: "code",
+  parseMarkdown: (token, helpers2) => {
+    var _a2, _b;
+    if (((_a2 = token.raw) == null ? void 0 : _a2.startsWith("```")) === false && ((_b = token.raw) == null ? void 0 : _b.startsWith("~~~")) === false && token.codeBlockStyle !== "indented") {
+      return [];
+    }
+    return helpers2.createNode(
+      "codeBlock",
+      { language: token.lang || null },
+      token.text ? [helpers2.createTextNode(token.text)] : []
+    );
+  },
+  renderMarkdown: (node, h2) => {
+    var _a2;
+    let output = "";
+    const language = ((_a2 = node.attrs) == null ? void 0 : _a2.language) || "";
+    if (!node.content) {
+      output = `\`\`\`${language}
+
+\`\`\``;
+    } else {
+      const lines = [`\`\`\`${language}`, h2.renderChildren(node.content), "```"];
+      output = lines.join("\n");
+    }
+    return output;
+  },
+  addCommands() {
+    return {
+      setCodeBlock: (attributes) => ({ commands }) => {
+        return commands.setNode(this.name, attributes);
+      },
+      toggleCodeBlock: (attributes) => ({ commands }) => {
+        return commands.toggleNode(this.name, "paragraph", attributes);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Alt-c": () => this.editor.commands.toggleCodeBlock(),
+      // remove code block when at start of document or code block is empty
+      Backspace: () => {
+        const { empty: empty2, $anchor } = this.editor.state.selection;
+        const isAtStart = $anchor.pos === 1;
+        if (!empty2 || $anchor.parent.type.name !== this.name) {
+          return false;
+        }
+        if (isAtStart || !$anchor.parent.textContent.length) {
+          return this.editor.commands.clearNodes();
+        }
+        return false;
+      },
+      // handle tab indentation
+      Tab: ({ editor }) => {
+        var _a2;
+        if (!this.options.enableTabIndentation) {
+          return false;
+        }
+        const tabSize = (_a2 = this.options.tabSize) != null ? _a2 : DEFAULT_TAB_SIZE;
+        const { state } = editor;
+        const { selection } = state;
+        const { $from, empty: empty2 } = selection;
+        if ($from.parent.type !== this.type) {
+          return false;
+        }
+        const indent = " ".repeat(tabSize);
+        if (empty2) {
+          return editor.commands.insertContent(indent);
+        }
+        return editor.commands.command(({ tr: tr2 }) => {
+          const { from: from2, to } = selection;
+          const text2 = state.doc.textBetween(from2, to, "\n", "\n");
+          const lines = text2.split("\n");
+          const indentedText = lines.map((line) => indent + line).join("\n");
+          tr2.replaceWith(from2, to, state.schema.text(indentedText));
+          return true;
+        });
+      },
+      // handle shift+tab reverse indentation
+      "Shift-Tab": ({ editor }) => {
+        var _a2;
+        if (!this.options.enableTabIndentation) {
+          return false;
+        }
+        const tabSize = (_a2 = this.options.tabSize) != null ? _a2 : DEFAULT_TAB_SIZE;
+        const { state } = editor;
+        const { selection } = state;
+        const { $from, empty: empty2 } = selection;
+        if ($from.parent.type !== this.type) {
+          return false;
+        }
+        if (empty2) {
+          return editor.commands.command(({ tr: tr2 }) => {
+            var _a22;
+            const { pos } = $from;
+            const codeBlockStart = $from.start();
+            const codeBlockEnd = $from.end();
+            const allText = state.doc.textBetween(codeBlockStart, codeBlockEnd, "\n", "\n");
+            const lines = allText.split("\n");
+            let currentLineIndex = 0;
+            let charCount = 0;
+            const relativeCursorPos = pos - codeBlockStart;
+            for (let i = 0; i < lines.length; i += 1) {
+              if (charCount + lines[i].length >= relativeCursorPos) {
+                currentLineIndex = i;
+                break;
+              }
+              charCount += lines[i].length + 1;
+            }
+            const currentLine = lines[currentLineIndex];
+            const leadingSpaces = ((_a22 = currentLine.match(/^ */)) == null ? void 0 : _a22[0]) || "";
+            const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
+            if (spacesToRemove === 0) {
+              return true;
+            }
+            let lineStartPos = codeBlockStart;
+            for (let i = 0; i < currentLineIndex; i += 1) {
+              lineStartPos += lines[i].length + 1;
+            }
+            tr2.delete(lineStartPos, lineStartPos + spacesToRemove);
+            const cursorPosInLine = pos - lineStartPos;
+            if (cursorPosInLine <= spacesToRemove) {
+              tr2.setSelection(TextSelection.create(tr2.doc, lineStartPos));
+            }
+            return true;
+          });
+        }
+        return editor.commands.command(({ tr: tr2 }) => {
+          const { from: from2, to } = selection;
+          const text2 = state.doc.textBetween(from2, to, "\n", "\n");
+          const lines = text2.split("\n");
+          const reverseIndentText = lines.map((line) => {
+            var _a22;
+            const leadingSpaces = ((_a22 = line.match(/^ */)) == null ? void 0 : _a22[0]) || "";
+            const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
+            return line.slice(spacesToRemove);
+          }).join("\n");
+          tr2.replaceWith(from2, to, state.schema.text(reverseIndentText));
+          return true;
+        });
+      },
+      // exit node on triple enter
+      Enter: ({ editor }) => {
+        if (!this.options.exitOnTripleEnter) {
+          return false;
+        }
+        const { state } = editor;
+        const { selection } = state;
+        const { $from, empty: empty2 } = selection;
+        if (!empty2 || $from.parent.type !== this.type) {
+          return false;
+        }
+        const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
+        const endsWithDoubleNewline = $from.parent.textContent.endsWith("\n\n");
+        if (!isAtEnd || !endsWithDoubleNewline) {
+          return false;
+        }
+        return editor.chain().command(({ tr: tr2 }) => {
+          tr2.delete($from.pos - 2, $from.pos);
+          return true;
+        }).exitCode().run();
+      },
+      // exit node on arrow down
+      ArrowDown: ({ editor }) => {
+        if (!this.options.exitOnArrowDown) {
+          return false;
+        }
+        const { state } = editor;
+        const { selection, doc: doc2 } = state;
+        const { $from, empty: empty2 } = selection;
+        if (!empty2 || $from.parent.type !== this.type) {
+          return false;
+        }
+        const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
+        if (!isAtEnd) {
+          return false;
+        }
+        const after = $from.after();
+        if (after === void 0) {
+          return false;
+        }
+        const nodeAfter = doc2.nodeAt(after);
+        if (nodeAfter) {
+          return editor.commands.command(({ tr: tr2 }) => {
+            tr2.setSelection(Selection.near(doc2.resolve(after)));
+            return true;
+          });
+        }
+        return editor.commands.exitCode();
+      }
+    };
+  },
+  addInputRules() {
+    return [
+      textblockTypeInputRule({
+        find: backtickInputRegex,
+        type: this.type,
+        getAttributes: (match2) => ({
+          language: match2[1]
+        })
+      }),
+      textblockTypeInputRule({
+        find: tildeInputRegex,
+        type: this.type,
+        getAttributes: (match2) => ({
+          language: match2[1]
+        })
+      })
+    ];
+  },
+  addProseMirrorPlugins() {
+    return [
+      // this plugin creates a code block for pasted content from VS Code
+      // we can also detect the copied code language
+      new Plugin({
+        key: new PluginKey("codeBlockVSCodeHandler"),
+        props: {
+          handlePaste: (view, event) => {
+            if (!event.clipboardData) {
+              return false;
+            }
+            if (this.editor.isActive(this.type.name)) {
+              return false;
+            }
+            const text2 = event.clipboardData.getData("text/plain");
+            const vscode = event.clipboardData.getData("vscode-editor-data");
+            const vscodeData = vscode ? JSON.parse(vscode) : void 0;
+            const language = vscodeData == null ? void 0 : vscodeData.mode;
+            if (!text2 || !language) {
+              return false;
+            }
+            const { tr: tr2, schema } = view.state;
+            const textNode = schema.text(text2.replace(/\r\n?/g, "\n"));
+            tr2.replaceSelectionWith(this.type.create({ language }, textNode));
+            if (tr2.selection.$from.parent.type !== this.type) {
+              tr2.setSelection(TextSelection.near(tr2.doc.resolve(Math.max(0, tr2.selection.from - 2))));
+            }
+            tr2.setMeta("paste", true);
+            view.dispatch(tr2);
+            return true;
+          }
+        }
+      })
+    ];
+  }
+});
+var Document = Node3.create({
+  name: "doc",
+  topNode: true,
+  content: "block+",
+  renderMarkdown: (node, h2) => {
+    if (!node.content) {
+      return "";
+    }
+    return h2.renderChildren(node.content, "\n\n");
+  }
+});
+var HardBreak = Node3.create({
+  name: "hardBreak",
+  markdownTokenName: "br",
+  addOptions() {
+    return {
+      keepMarks: true,
+      HTMLAttributes: {}
+    };
+  },
+  inline: true,
+  group: "inline",
+  selectable: false,
+  linebreakReplacement: true,
+  parseHTML() {
+    return [{ tag: "br" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["br", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
+  },
+  renderText() {
+    return "\n";
+  },
+  renderMarkdown: () => `  
+`,
+  parseMarkdown: () => {
+    return {
+      type: "hardBreak"
+    };
+  },
+  addCommands() {
+    return {
+      setHardBreak: () => ({ commands, chain, state, editor }) => {
+        return commands.first([
+          () => commands.exitCode(),
+          () => commands.command(() => {
+            const { selection, storedMarks } = state;
+            if (selection.$from.parent.type.spec.isolating) {
+              return false;
+            }
+            const { keepMarks } = this.options;
+            const { splittableMarks } = editor.extensionManager;
+            const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
+            return chain().insertContent({ type: this.name }).command(({ tr: tr2, dispatch }) => {
+              if (dispatch && marks && keepMarks) {
+                const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
+                tr2.ensureMarks(filteredMarks);
+              }
+              return true;
+            }).run();
+          })
+        ]);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Enter": () => this.editor.commands.setHardBreak(),
+      "Shift-Enter": () => this.editor.commands.setHardBreak()
+    };
+  }
+});
+var Heading = Node3.create({
+  name: "heading",
+  addOptions() {
+    return {
+      levels: [1, 2, 3, 4, 5, 6],
+      HTMLAttributes: {}
+    };
+  },
+  content: "inline*",
+  group: "block",
+  defining: true,
+  addAttributes() {
+    return {
+      level: {
+        default: 1,
+        rendered: false
+      }
+    };
+  },
+  parseHTML() {
+    return this.options.levels.map((level) => ({
+      tag: `h${level}`,
+      attrs: { level }
+    }));
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    const hasLevel = this.options.levels.includes(node.attrs.level);
+    const level = hasLevel ? node.attrs.level : this.options.levels[0];
+    return [`h${level}`, mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+  },
+  parseMarkdown: (token, helpers2) => {
+    return helpers2.createNode("heading", { level: token.depth || 1 }, helpers2.parseInline(token.tokens || []));
+  },
+  renderMarkdown: (node, h2) => {
+    var _a2;
+    const level = ((_a2 = node.attrs) == null ? void 0 : _a2.level) ? parseInt(node.attrs.level, 10) : 1;
+    const headingChars = "#".repeat(level);
+    if (!node.content) {
+      return "";
+    }
+    return `${headingChars} ${h2.renderChildren(node.content)}`;
+  },
+  addCommands() {
+    return {
+      setHeading: (attributes) => ({ commands }) => {
+        if (!this.options.levels.includes(attributes.level)) {
+          return false;
+        }
+        return commands.setNode(this.name, attributes);
+      },
+      toggleHeading: (attributes) => ({ commands }) => {
+        if (!this.options.levels.includes(attributes.level)) {
+          return false;
+        }
+        return commands.toggleNode(this.name, "paragraph", attributes);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return this.options.levels.reduce(
+      (items, level) => ({
+        ...items,
+        ...{
+          [`Mod-Alt-${level}`]: () => this.editor.commands.toggleHeading({ level })
+        }
+      }),
+      {}
+    );
+  },
+  addInputRules() {
+    return this.options.levels.map((level) => {
+      return textblockTypeInputRule({
+        find: new RegExp(`^(#{${Math.min(...this.options.levels)},${level}})\\s$`),
+        type: this.type,
+        getAttributes: {
+          level
+        }
+      });
+    });
+  }
+});
+var HorizontalRule = Node3.create({
+  name: "horizontalRule",
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+      nextNodeType: "paragraph"
+    };
+  },
+  group: "block",
+  parseHTML() {
+    return [{ tag: "hr" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["hr", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
+  },
+  markdownTokenName: "hr",
+  parseMarkdown: (token, helpers2) => {
+    return helpers2.createNode("horizontalRule");
+  },
+  renderMarkdown: () => {
+    return "---";
+  },
+  addCommands() {
+    return {
+      setHorizontalRule: () => ({ chain, state }) => {
+        if (!canInsertNode(state, state.schema.nodes[this.name])) {
+          return false;
+        }
+        const { selection } = state;
+        const { $to: $originTo } = selection;
+        const currentChain = chain();
+        if (isNodeSelection(selection)) {
+          currentChain.insertContentAt($originTo.pos, {
+            type: this.name
+          });
+        } else {
+          currentChain.insertContent({ type: this.name });
+        }
+        return currentChain.command(({ state: chainState, tr: tr2, dispatch }) => {
+          if (dispatch) {
+            const { $to } = tr2.selection;
+            const posAfter = $to.end();
+            if ($to.nodeAfter) {
+              if ($to.nodeAfter.isTextblock) {
+                tr2.setSelection(TextSelection.create(tr2.doc, $to.pos + 1));
+              } else if ($to.nodeAfter.isBlock) {
+                tr2.setSelection(NodeSelection.create(tr2.doc, $to.pos));
+              } else {
+                tr2.setSelection(TextSelection.create(tr2.doc, $to.pos));
+              }
+            } else {
+              const nodeType = chainState.schema.nodes[this.options.nextNodeType] || $to.parent.type.contentMatch.defaultType;
+              const node = nodeType == null ? void 0 : nodeType.create();
+              if (node) {
+                tr2.insert(posAfter, node);
+                tr2.setSelection(TextSelection.create(tr2.doc, posAfter + 1));
+              }
+            }
+            tr2.scrollIntoView();
+          }
+          return true;
+        }).run();
+      }
+    };
+  },
+  addInputRules() {
+    return [
+      nodeInputRule({
+        find: /^(?:---|—-|___\s|\*\*\*\s)$/,
+        type: this.type
+      })
+    ];
+  }
+});
+var starInputRegex = /(?:^|\s)(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))$/;
+var starPasteRegex = /(?:^|\s)(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))/g;
+var underscoreInputRegex = /(?:^|\s)(_(?!\s+_)((?:[^_]+))_(?!\s+_))$/;
+var underscorePasteRegex = /(?:^|\s)(_(?!\s+_)((?:[^_]+))_(?!\s+_))/g;
+var Italic = Mark2.create({
+  name: "italic",
+  addOptions() {
+    return {
+      HTMLAttributes: {}
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: "em"
+      },
+      {
+        tag: "i",
+        getAttrs: (node) => node.style.fontStyle !== "normal" && null
+      },
+      {
+        style: "font-style=normal",
+        clearMark: (mark) => mark.type.name === this.name
+      },
+      {
+        style: "font-style=italic"
+      }
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["em", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+  },
+  addCommands() {
+    return {
+      setItalic: () => ({ commands }) => {
+        return commands.setMark(this.name);
+      },
+      toggleItalic: () => ({ commands }) => {
+        return commands.toggleMark(this.name);
+      },
+      unsetItalic: () => ({ commands }) => {
+        return commands.unsetMark(this.name);
+      }
+    };
+  },
+  markdownTokenName: "em",
+  parseMarkdown: (token, helpers2) => {
+    return helpers2.applyMark("italic", helpers2.parseInline(token.tokens || []));
+  },
+  markdownOptions: {
+    htmlReopen: {
+      open: "<em>",
+      close: "</em>"
+    }
+  },
+  renderMarkdown: (node, h2) => {
+    return `*${h2.renderChildren(node)}*`;
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-i": () => this.editor.commands.toggleItalic(),
+      "Mod-I": () => this.editor.commands.toggleItalic()
+    };
+  },
+  addInputRules() {
+    return [
+      markInputRule({
+        find: starInputRegex,
+        type: this.type
+      }),
+      markInputRule({
+        find: underscoreInputRegex,
+        type: this.type
+      })
+    ];
+  },
+  addPasteRules() {
+    return [
+      markPasteRule({
+        find: starPasteRegex,
+        type: this.type
+      }),
+      markPasteRule({
+        find: underscorePasteRegex,
+        type: this.type
+      })
+    ];
+  }
+});
 const encodedTlds = "aaa1rp3bb0ott3vie4c1le2ogado5udhabi7c0ademy5centure6ountant0s9o1tor4d0s1ult4e0g1ro2tna4f0l1rica5g0akhan5ency5i0g1rbus3force5tel5kdn3l0ibaba4pay4lfinanz6state5y2sace3tom5m0azon4ericanexpress7family11x2fam3ica3sterdam8nalytics7droid5quan4z2o0l2partments8p0le4q0uarelle8r0ab1mco4chi3my2pa2t0e3s0da2ia2sociates9t0hleta5torney7u0ction5di0ble3o3spost5thor3o0s4w0s2x0a2z0ure5ba0by2idu3namex4d1k2r0celona5laycard4s5efoot5gains6seball5ketball8uhaus5yern5b0c1t1va3cg1n2d1e0ats2uty4er2rlin4st0buy5t2f1g1h0arti5i0ble3d1ke2ng0o3o1z2j1lack0friday9ockbuster8g1omberg7ue3m0s1w2n0pparibas9o0ats3ehringer8fa2m1nd2o0k0ing5sch2tik2on4t1utique6x2r0adesco6idgestone9oadway5ker3ther5ussels7s1t1uild0ers6siness6y1zz3v1w1y1z0h3ca0b1fe2l0l1vinklein9m0era3p2non3petown5ital0one8r0avan4ds2e0er0s4s2sa1e1h1ino4t0ering5holic7ba1n1re3c1d1enter4o1rn3f0a1d2g1h0anel2nel4rity4se2t2eap3intai5ristmas6ome4urch5i0priani6rcle4sco3tadel4i0c2y3k1l0aims4eaning6ick2nic1que6othing5ud3ub0med6m1n1o0ach3des3ffee4llege4ogne5m0mbank4unity6pany2re3uter5sec4ndos3struction8ulting7tact3ractors9oking4l1p2rsica5untry4pon0s4rses6pa2r0edit0card4union9icket5own3s1uise0s6u0isinella9v1w1x1y0mru3ou3z2dad1nce3ta1e1ing3sun4y2clk3ds2e0al0er2s3gree4livery5l1oitte5ta3mocrat6ntal2ist5si0gn4v2hl2iamonds6et2gital5rect0ory7scount3ver5h2y2j1k1m1np2o0cs1tor4g1mains5t1wnload7rive4tv2ubai3nlop4pont4rban5vag2r2z2earth3t2c0o2deka3u0cation8e1g1mail3erck5nergy4gineer0ing9terprises10pson4quipment8r0icsson6ni3s0q1tate5t1u0rovision8s2vents5xchange6pert3osed4ress5traspace10fage2il1rwinds6th3mily4n0s2rm0ers5shion4t3edex3edback6rrari3ero6i0delity5o2lm2nal1nce1ial7re0stone6mdale6sh0ing5t0ness6j1k1lickr3ghts4r2orist4wers5y2m1o0o0d1tball6rd1ex2sale4um3undation8x2r0ee1senius7l1ogans4ntier7tr2ujitsu5n0d2rniture7tbol5yi3ga0l0lery3o1up4me0s3p1rden4y2b0iz3d0n2e0a1nt0ing5orge5f1g0ee3h1i0ft0s3ves2ing5l0ass3e1obal2o4m0ail3bh2o1x2n1odaddy5ld0point6f2o0dyear5g0le4p1t1v2p1q1r0ainger5phics5tis4een3ipe3ocery4up4s1t1u0cci3ge2ide2tars5ru3w1y2hair2mburg5ngout5us3bo2dfc0bank7ealth0care8lp1sinki6re1mes5iphop4samitsu7tachi5v2k0t2m1n1ockey4ldings5iday5medepot5goods5s0ense7nda3rse3spital5t0ing5t0els3mail5use3w2r1sbc3t1u0ghes5yatt3undai7ibm2cbc2e1u2d1e0ee3fm2kano4l1m0amat4db2mo0bilien9n0c1dustries8finiti5o2g1k1stitute6urance4e4t0ernational10uit4vestments10o1piranga7q1r0ish4s0maili5t0anbul7t0au2v3jaguar4va3cb2e0ep2tzt3welry6io2ll2m0p2nj2o0bs1urg4t1y2p0morgan6rs3uegos4niper7kaufen5ddi3e0rryhotels6properties14fh2g1h1i0a1ds2m1ndle4tchen5wi3m1n1oeln3matsu5sher5p0mg2n2r0d1ed3uokgroup8w1y0oto4z2la0caixa5mborghini8er3nd0rover6xess5salle5t0ino3robe5w0yer5b1c1ds2ease3clerc5frak4gal2o2xus4gbt3i0dl2fe0insurance9style7ghting6ke2lly3mited4o2ncoln4k2ve1ing5k1lc1p2oan0s3cker3us3l1ndon4tte1o3ve3pl0financial11r1s1t0d0a3u0ndbeck6xe1ury5v1y2ma0drid4if1son4keup4n0agement7go3p1rket0ing3s4riott5shalls7ttel5ba2c0kinsey7d1e0d0ia3et2lbourne7me1orial6n0u2rckmsd7g1h1iami3crosoft7l1ni1t2t0subishi9k1l0b1s2m0a2n1o0bi0le4da2e1i1m1nash3ey2ster5rmon3tgage6scow4to0rcycles9v0ie4p1q1r1s0d2t0n1r2u0seum3ic4v1w1x1y1z2na0b1goya4me2vy3ba2c1e0c1t0bank4flix4work5ustar5w0s2xt0direct7us4f0l2g0o2hk2i0co2ke1on3nja3ssan1y5l1o0kia3rton4w0ruz3tv4p1r0a1w2tt2u1yc2z2obi1server7ffice5kinawa6layan0group9lo3m0ega4ne1g1l0ine5oo2pen3racle3nge4g0anic5igins6saka4tsuka4t2vh3pa0ge2nasonic7ris2s1tners4s1y3y2ccw3e0t2f0izer5g1h0armacy6d1ilips5one2to0graphy6s4ysio5ics1tet2ures6d1n0g1k2oneer5zza4k1l0ace2y0station9umbing5s3m1n0c2ohl2ker3litie5rn2st3r0axi3ess3ime3o0d0uctions8f1gressive8mo2perties3y5tection8u0dential9s1t1ub2w0c2y2qa1pon3uebec3st5racing4dio4e0ad1lestate6tor2y4cipes5d0stone5umbrella9hab3ise0n3t2liance6n0t0als5pair3ort3ublican8st0aurant8view0s5xroth6ich0ardli6oh3l1o1p2o0cks3deo3gers4om3s0vp3u0gby3hr2n2w0e2yukyu6sa0arland6fe0ty4kura4le1on3msclub4ung5ndvik0coromant12ofi4p1rl2s1ve2xo3b0i1s2c0b1haeffler7midt4olarships8ol3ule3warz5ience5ot3d1e0arch3t2cure1ity6ek2lect4ner3rvices6ven3w1x0y3fr2g1h0angrila6rp3ell3ia1ksha5oes2p0ping5uji3w3i0lk2na1gles5te3j1k0i0n2y0pe4l0ing4m0art3ile4n0cf3o0ccer3ial4ftbank4ware6hu2lar2utions7ng1y2y2pa0ce3ort2t3r0l2s1t0ada2ples4r1tebank4farm7c0group6ockholm6rage3e3ream4udio2y3yle4u0cks3pplies3y2ort5rf1gery5zuki5v1watch4iss4x1y0dney4stems6z2tab1ipei4lk2obao4rget4tamotors6r2too4x0i3c0i2d0k2eam2ch0nology8l1masek5nnis4va3f1g1h0d1eater2re6iaa2ckets5enda4ps2res2ol4j0maxx4x2k0maxx5l1m0all4n1o0day3kyo3ols3p1ray3shiba5tal3urs3wn2yota3s3r0ade1ing4ining5vel0ers0insurance16ust3v2t1ube2i1nes3shu4v0s2w1z2ua1bank3s2g1k1nicom3versity8o2ol2ps2s1y1z2va0cations7na1guard7c1e0gas3ntures6risign5mögensberater2ung14sicherung10t2g1i0ajes4deo3g1king4llas4n1p1rgin4sa1ion4va1o3laanderen9n1odka3lvo3te1ing3o2yage5u2wales2mart4ter4ng0gou5tch0es6eather0channel12bcam3er2site5d0ding5ibo2r3f1hoswho6ien2ki2lliamhill9n0dows4e1ners6me2olterskluwer11odside6rk0s2ld3w2s1tc1f3xbox3erox4ihuan4n2xx2yz3yachts4hoo3maxun5ndex5e1odobashi7ga2kohama6u0tube6t1un3za0ppos4ra3ero3ip2m1one3uerich6w2";
 const encodedUtlds = "ελ1υ2бг1ел3дети4ею2католик6ом3мкд2он1сква6онлайн5рг3рус2ф2сайт3рб3укр3қаз3հայ3ישראל5קום3ابوظبي5رامكو5لاردن4بحرين5جزائر5سعودية6عليان5مغرب5مارات5یران5بارت2زار4يتك3ھارت5تونس4سودان3رية5شبكة4عراق2ب2مان4فلسطين6قطر3كاثوليك6وم3مصر2ليسيا5وريتانيا7قع4همراه5پاکستان7ڀارت4कॉम3नेट3भारत0म्3ोत5संगठन5বাংলা5ভারত2ৰত4ਭਾਰਤ4ભારત4ଭାରତ4இந்தியா6லங்கை6சிங்கப்பூர்11భారత్5ಭಾರತ4ഭാരതം5ලංකා4คอม3ไทย3ລາວ3გე2みんな3アマゾン4クラウド4グーグル4コム2ストア3セール3ファッション6ポイント4世界2中信1国1國1文网3亚马逊3企业2佛山2信息2健康2八卦2公司1益2台湾1灣2商城1店1标2嘉里0大酒店5在线2大拿2天主教3娱乐2家電2广东2微博2慈善2我爱你3手机2招聘2政务1府2新加坡2闻2时尚2書籍2机构2淡马锡3游戏2澳門2点看2移动2组织机构4网址1店1站1络2联通2谷歌2购物2通販2集团2電訊盈科4飞利浦3食品2餐厅2香格里拉3港2닷넷1컴2삼성2한국2";
 const numeric = "numeric";
@@ -47437,3263 +51009,6 @@ var Link = Mark2.create({
     return plugins;
   }
 });
-var index_default$3 = Link;
-function dropCursor(options = {}) {
-  return new Plugin({
-    view(editorView) {
-      return new DropCursorView(editorView, options);
-    }
-  });
-}
-class DropCursorView {
-  constructor(editorView, options) {
-    var _a2;
-    this.editorView = editorView;
-    this.cursorPos = null;
-    this.element = null;
-    this.timeout = -1;
-    this.width = (_a2 = options.width) !== null && _a2 !== void 0 ? _a2 : 1;
-    this.color = options.color === false ? void 0 : options.color || "black";
-    this.class = options.class;
-    this.handlers = ["dragover", "dragend", "drop", "dragleave"].map((name) => {
-      let handler = (e) => {
-        this[name](e);
-      };
-      editorView.dom.addEventListener(name, handler);
-      return { name, handler };
-    });
-  }
-  destroy() {
-    this.handlers.forEach(({ name, handler }) => this.editorView.dom.removeEventListener(name, handler));
-  }
-  update(editorView, prevState) {
-    if (this.cursorPos != null && prevState.doc != editorView.state.doc) {
-      if (this.cursorPos > editorView.state.doc.content.size)
-        this.setCursor(null);
-      else
-        this.updateOverlay();
-    }
-  }
-  setCursor(pos) {
-    if (pos == this.cursorPos)
-      return;
-    this.cursorPos = pos;
-    if (pos == null) {
-      this.element.parentNode.removeChild(this.element);
-      this.element = null;
-    } else {
-      this.updateOverlay();
-    }
-  }
-  updateOverlay() {
-    let $pos = this.editorView.state.doc.resolve(this.cursorPos);
-    let isBlock2 = !$pos.parent.inlineContent, rect;
-    let editorDOM = this.editorView.dom, editorRect = editorDOM.getBoundingClientRect();
-    let scaleX = editorRect.width / editorDOM.offsetWidth, scaleY = editorRect.height / editorDOM.offsetHeight;
-    if (isBlock2) {
-      let before = $pos.nodeBefore, after = $pos.nodeAfter;
-      if (before || after) {
-        let node = this.editorView.nodeDOM(this.cursorPos - (before ? before.nodeSize : 0));
-        if (node) {
-          let nodeRect = node.getBoundingClientRect();
-          let top = before ? nodeRect.bottom : nodeRect.top;
-          if (before && after)
-            top = (top + this.editorView.nodeDOM(this.cursorPos).getBoundingClientRect().top) / 2;
-          let halfWidth = this.width / 2 * scaleY;
-          rect = { left: nodeRect.left, right: nodeRect.right, top: top - halfWidth, bottom: top + halfWidth };
-        }
-      }
-    }
-    if (!rect) {
-      let coords = this.editorView.coordsAtPos(this.cursorPos);
-      let halfWidth = this.width / 2 * scaleX;
-      rect = { left: coords.left - halfWidth, right: coords.left + halfWidth, top: coords.top, bottom: coords.bottom };
-    }
-    let parent = this.editorView.dom.offsetParent;
-    if (!this.element) {
-      this.element = parent.appendChild(document.createElement("div"));
-      if (this.class)
-        this.element.className = this.class;
-      this.element.style.cssText = "position: absolute; z-index: 50; pointer-events: none;";
-      if (this.color) {
-        this.element.style.backgroundColor = this.color;
-      }
-    }
-    this.element.classList.toggle("prosemirror-dropcursor-block", isBlock2);
-    this.element.classList.toggle("prosemirror-dropcursor-inline", !isBlock2);
-    let parentLeft, parentTop;
-    if (!parent || parent == document.body && getComputedStyle(parent).position == "static") {
-      parentLeft = -pageXOffset;
-      parentTop = -pageYOffset;
-    } else {
-      let rect2 = parent.getBoundingClientRect();
-      let parentScaleX = rect2.width / parent.offsetWidth, parentScaleY = rect2.height / parent.offsetHeight;
-      parentLeft = rect2.left - parent.scrollLeft * parentScaleX;
-      parentTop = rect2.top - parent.scrollTop * parentScaleY;
-    }
-    this.element.style.left = (rect.left - parentLeft) / scaleX + "px";
-    this.element.style.top = (rect.top - parentTop) / scaleY + "px";
-    this.element.style.width = (rect.right - rect.left) / scaleX + "px";
-    this.element.style.height = (rect.bottom - rect.top) / scaleY + "px";
-  }
-  scheduleRemoval(timeout) {
-    clearTimeout(this.timeout);
-    this.timeout = setTimeout(() => this.setCursor(null), timeout);
-  }
-  dragover(event) {
-    if (!this.editorView.editable)
-      return;
-    let pos = this.editorView.posAtCoords({ left: event.clientX, top: event.clientY });
-    let node = pos && pos.inside >= 0 && this.editorView.state.doc.nodeAt(pos.inside);
-    let disableDropCursor = node && node.type.spec.disableDropCursor;
-    let disabled = typeof disableDropCursor == "function" ? disableDropCursor(this.editorView, pos, event) : disableDropCursor;
-    if (pos && !disabled) {
-      let target = pos.pos;
-      if (this.editorView.dragging && this.editorView.dragging.slice) {
-        let point = dropPoint(this.editorView.state.doc, target, this.editorView.dragging.slice);
-        if (point != null)
-          target = point;
-      }
-      this.setCursor(target);
-      this.scheduleRemoval(5e3);
-    }
-  }
-  dragend() {
-    this.scheduleRemoval(20);
-  }
-  drop() {
-    this.scheduleRemoval(20);
-  }
-  dragleave(event) {
-    if (!this.editorView.dom.contains(event.relatedTarget))
-      this.setCursor(null);
-  }
-}
-class GapCursor extends Selection {
-  /**
-  Create a gap cursor.
-  */
-  constructor($pos) {
-    super($pos, $pos);
-  }
-  map(doc2, mapping) {
-    let $pos = doc2.resolve(mapping.map(this.head));
-    return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
-  }
-  content() {
-    return Slice.empty;
-  }
-  eq(other) {
-    return other instanceof GapCursor && other.head == this.head;
-  }
-  toJSON() {
-    return { type: "gapcursor", pos: this.head };
-  }
-  /**
-  @internal
-  */
-  static fromJSON(doc2, json) {
-    if (typeof json.pos != "number")
-      throw new RangeError("Invalid input for GapCursor.fromJSON");
-    return new GapCursor(doc2.resolve(json.pos));
-  }
-  /**
-  @internal
-  */
-  getBookmark() {
-    return new GapBookmark(this.anchor);
-  }
-  /**
-  @internal
-  */
-  static valid($pos) {
-    let parent = $pos.parent;
-    if (parent.inlineContent || !closedBefore($pos) || !closedAfter($pos))
-      return false;
-    let override = parent.type.spec.allowGapCursor;
-    if (override != null)
-      return override;
-    let deflt = parent.contentMatchAt($pos.index()).defaultType;
-    return deflt && deflt.isTextblock;
-  }
-  /**
-  @internal
-  */
-  static findGapCursorFrom($pos, dir, mustMove = false) {
-    search: for (; ; ) {
-      if (!mustMove && GapCursor.valid($pos))
-        return $pos;
-      let pos = $pos.pos, next2 = null;
-      for (let d = $pos.depth; ; d--) {
-        let parent = $pos.node(d);
-        if (dir > 0 ? $pos.indexAfter(d) < parent.childCount : $pos.index(d) > 0) {
-          next2 = parent.child(dir > 0 ? $pos.indexAfter(d) : $pos.index(d) - 1);
-          break;
-        } else if (d == 0) {
-          return null;
-        }
-        pos += dir;
-        let $cur = $pos.doc.resolve(pos);
-        if (GapCursor.valid($cur))
-          return $cur;
-      }
-      for (; ; ) {
-        let inside = dir > 0 ? next2.firstChild : next2.lastChild;
-        if (!inside) {
-          if (next2.isAtom && !next2.isText && !NodeSelection.isSelectable(next2)) {
-            $pos = $pos.doc.resolve(pos + next2.nodeSize * dir);
-            mustMove = false;
-            continue search;
-          }
-          break;
-        }
-        next2 = inside;
-        pos += dir;
-        let $cur = $pos.doc.resolve(pos);
-        if (GapCursor.valid($cur))
-          return $cur;
-      }
-      return null;
-    }
-  }
-}
-GapCursor.prototype.visible = false;
-GapCursor.findFrom = GapCursor.findGapCursorFrom;
-Selection.jsonID("gapcursor", GapCursor);
-class GapBookmark {
-  constructor(pos) {
-    this.pos = pos;
-  }
-  map(mapping) {
-    return new GapBookmark(mapping.map(this.pos));
-  }
-  resolve(doc2) {
-    let $pos = doc2.resolve(this.pos);
-    return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
-  }
-}
-function needsGap(type) {
-  return type.isAtom || type.spec.isolating || type.spec.createGapCursor;
-}
-function closedBefore($pos) {
-  for (let d = $pos.depth; d >= 0; d--) {
-    let index = $pos.index(d), parent = $pos.node(d);
-    if (index == 0) {
-      if (parent.type.spec.isolating)
-        return true;
-      continue;
-    }
-    for (let before = parent.child(index - 1); ; before = before.lastChild) {
-      if (before.childCount == 0 && !before.inlineContent || needsGap(before.type))
-        return true;
-      if (before.inlineContent)
-        return false;
-    }
-  }
-  return true;
-}
-function closedAfter($pos) {
-  for (let d = $pos.depth; d >= 0; d--) {
-    let index = $pos.indexAfter(d), parent = $pos.node(d);
-    if (index == parent.childCount) {
-      if (parent.type.spec.isolating)
-        return true;
-      continue;
-    }
-    for (let after = parent.child(index); ; after = after.firstChild) {
-      if (after.childCount == 0 && !after.inlineContent || needsGap(after.type))
-        return true;
-      if (after.inlineContent)
-        return false;
-    }
-  }
-  return true;
-}
-function gapCursor() {
-  return new Plugin({
-    props: {
-      decorations: drawGapCursor,
-      createSelectionBetween(_view, $anchor, $head) {
-        return $anchor.pos == $head.pos && GapCursor.valid($head) ? new GapCursor($head) : null;
-      },
-      handleClick,
-      handleKeyDown,
-      handleDOMEvents: { beforeinput }
-    }
-  });
-}
-const handleKeyDown = keydownHandler({
-  "ArrowLeft": arrow("horiz", -1),
-  "ArrowRight": arrow("horiz", 1),
-  "ArrowUp": arrow("vert", -1),
-  "ArrowDown": arrow("vert", 1)
-});
-function arrow(axis, dir) {
-  const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
-  return function(state, dispatch, view) {
-    let sel = state.selection;
-    let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
-    if (sel instanceof TextSelection) {
-      if (!view.endOfTextblock(dirStr) || $start.depth == 0)
-        return false;
-      mustMove = false;
-      $start = state.doc.resolve(dir > 0 ? $start.after() : $start.before());
-    }
-    let $found = GapCursor.findGapCursorFrom($start, dir, mustMove);
-    if (!$found)
-      return false;
-    if (dispatch)
-      dispatch(state.tr.setSelection(new GapCursor($found)));
-    return true;
-  };
-}
-function handleClick(view, pos, event) {
-  if (!view || !view.editable)
-    return false;
-  let $pos = view.state.doc.resolve(pos);
-  if (!GapCursor.valid($pos))
-    return false;
-  let clickPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-  if (clickPos && clickPos.inside > -1 && NodeSelection.isSelectable(view.state.doc.nodeAt(clickPos.inside)))
-    return false;
-  view.dispatch(view.state.tr.setSelection(new GapCursor($pos)));
-  return true;
-}
-function beforeinput(view, event) {
-  if (event.inputType != "insertCompositionText" || !(view.state.selection instanceof GapCursor))
-    return false;
-  let { $from } = view.state.selection;
-  let insert = $from.parent.contentMatchAt($from.index()).findWrapping(view.state.schema.nodes.text);
-  if (!insert)
-    return false;
-  let frag = Fragment.empty;
-  for (let i = insert.length - 1; i >= 0; i--)
-    frag = Fragment.from(insert[i].createAndFill(null, frag));
-  let tr2 = view.state.tr.replace($from.pos, $from.pos, new Slice(frag, 0, 0));
-  tr2.setSelection(TextSelection.near(tr2.doc.resolve($from.pos + 1)));
-  view.dispatch(tr2);
-  return false;
-}
-function drawGapCursor(state) {
-  if (!(state.selection instanceof GapCursor))
-    return null;
-  let node = document.createElement("div");
-  node.className = "ProseMirror-gapcursor";
-  return DecorationSet.create(state.doc, [Decoration.widget(state.selection.head, node, { key: "gapcursor" })]);
-}
-var GOOD_LEAF_SIZE = 200;
-var RopeSequence = function RopeSequence2() {
-};
-RopeSequence.prototype.append = function append(other) {
-  if (!other.length) {
-    return this;
-  }
-  other = RopeSequence.from(other);
-  return !this.length && other || other.length < GOOD_LEAF_SIZE && this.leafAppend(other) || this.length < GOOD_LEAF_SIZE && other.leafPrepend(this) || this.appendInner(other);
-};
-RopeSequence.prototype.prepend = function prepend(other) {
-  if (!other.length) {
-    return this;
-  }
-  return RopeSequence.from(other).append(this);
-};
-RopeSequence.prototype.appendInner = function appendInner(other) {
-  return new Append(this, other);
-};
-RopeSequence.prototype.slice = function slice(from2, to) {
-  if (from2 === void 0) from2 = 0;
-  if (to === void 0) to = this.length;
-  if (from2 >= to) {
-    return RopeSequence.empty;
-  }
-  return this.sliceInner(Math.max(0, from2), Math.min(this.length, to));
-};
-RopeSequence.prototype.get = function get(i) {
-  if (i < 0 || i >= this.length) {
-    return void 0;
-  }
-  return this.getInner(i);
-};
-RopeSequence.prototype.forEach = function forEach2(f, from2, to) {
-  if (from2 === void 0) from2 = 0;
-  if (to === void 0) to = this.length;
-  if (from2 <= to) {
-    this.forEachInner(f, from2, to, 0);
-  } else {
-    this.forEachInvertedInner(f, from2, to, 0);
-  }
-};
-RopeSequence.prototype.map = function map2(f, from2, to) {
-  if (from2 === void 0) from2 = 0;
-  if (to === void 0) to = this.length;
-  var result = [];
-  this.forEach(function(elt, i) {
-    return result.push(f(elt, i));
-  }, from2, to);
-  return result;
-};
-RopeSequence.from = function from(values) {
-  if (values instanceof RopeSequence) {
-    return values;
-  }
-  return values && values.length ? new Leaf(values) : RopeSequence.empty;
-};
-var Leaf = /* @__PURE__ */ (function(RopeSequence3) {
-  function Leaf2(values) {
-    RopeSequence3.call(this);
-    this.values = values;
-  }
-  if (RopeSequence3) Leaf2.__proto__ = RopeSequence3;
-  Leaf2.prototype = Object.create(RopeSequence3 && RopeSequence3.prototype);
-  Leaf2.prototype.constructor = Leaf2;
-  var prototypeAccessors = { length: { configurable: true }, depth: { configurable: true } };
-  Leaf2.prototype.flatten = function flatten() {
-    return this.values;
-  };
-  Leaf2.prototype.sliceInner = function sliceInner(from2, to) {
-    if (from2 == 0 && to == this.length) {
-      return this;
-    }
-    return new Leaf2(this.values.slice(from2, to));
-  };
-  Leaf2.prototype.getInner = function getInner(i) {
-    return this.values[i];
-  };
-  Leaf2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
-    for (var i = from2; i < to; i++) {
-      if (f(this.values[i], start + i) === false) {
-        return false;
-      }
-    }
-  };
-  Leaf2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
-    for (var i = from2 - 1; i >= to; i--) {
-      if (f(this.values[i], start + i) === false) {
-        return false;
-      }
-    }
-  };
-  Leaf2.prototype.leafAppend = function leafAppend(other) {
-    if (this.length + other.length <= GOOD_LEAF_SIZE) {
-      return new Leaf2(this.values.concat(other.flatten()));
-    }
-  };
-  Leaf2.prototype.leafPrepend = function leafPrepend(other) {
-    if (this.length + other.length <= GOOD_LEAF_SIZE) {
-      return new Leaf2(other.flatten().concat(this.values));
-    }
-  };
-  prototypeAccessors.length.get = function() {
-    return this.values.length;
-  };
-  prototypeAccessors.depth.get = function() {
-    return 0;
-  };
-  Object.defineProperties(Leaf2.prototype, prototypeAccessors);
-  return Leaf2;
-})(RopeSequence);
-RopeSequence.empty = new Leaf([]);
-var Append = /* @__PURE__ */ (function(RopeSequence3) {
-  function Append2(left, right) {
-    RopeSequence3.call(this);
-    this.left = left;
-    this.right = right;
-    this.length = left.length + right.length;
-    this.depth = Math.max(left.depth, right.depth) + 1;
-  }
-  if (RopeSequence3) Append2.__proto__ = RopeSequence3;
-  Append2.prototype = Object.create(RopeSequence3 && RopeSequence3.prototype);
-  Append2.prototype.constructor = Append2;
-  Append2.prototype.flatten = function flatten() {
-    return this.left.flatten().concat(this.right.flatten());
-  };
-  Append2.prototype.getInner = function getInner(i) {
-    return i < this.left.length ? this.left.get(i) : this.right.get(i - this.left.length);
-  };
-  Append2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
-    var leftLen = this.left.length;
-    if (from2 < leftLen && this.left.forEachInner(f, from2, Math.min(to, leftLen), start) === false) {
-      return false;
-    }
-    if (to > leftLen && this.right.forEachInner(f, Math.max(from2 - leftLen, 0), Math.min(this.length, to) - leftLen, start + leftLen) === false) {
-      return false;
-    }
-  };
-  Append2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
-    var leftLen = this.left.length;
-    if (from2 > leftLen && this.right.forEachInvertedInner(f, from2 - leftLen, Math.max(to, leftLen) - leftLen, start + leftLen) === false) {
-      return false;
-    }
-    if (to < leftLen && this.left.forEachInvertedInner(f, Math.min(from2, leftLen), to, start) === false) {
-      return false;
-    }
-  };
-  Append2.prototype.sliceInner = function sliceInner(from2, to) {
-    if (from2 == 0 && to == this.length) {
-      return this;
-    }
-    var leftLen = this.left.length;
-    if (to <= leftLen) {
-      return this.left.slice(from2, to);
-    }
-    if (from2 >= leftLen) {
-      return this.right.slice(from2 - leftLen, to - leftLen);
-    }
-    return this.left.slice(from2, leftLen).append(this.right.slice(0, to - leftLen));
-  };
-  Append2.prototype.leafAppend = function leafAppend(other) {
-    var inner = this.right.leafAppend(other);
-    if (inner) {
-      return new Append2(this.left, inner);
-    }
-  };
-  Append2.prototype.leafPrepend = function leafPrepend(other) {
-    var inner = this.left.leafPrepend(other);
-    if (inner) {
-      return new Append2(inner, this.right);
-    }
-  };
-  Append2.prototype.appendInner = function appendInner2(other) {
-    if (this.left.depth >= Math.max(this.right.depth, other.depth) + 1) {
-      return new Append2(this.left, new Append2(this.right, other));
-    }
-    return new Append2(this, other);
-  };
-  return Append2;
-})(RopeSequence);
-const max_empty_items = 500;
-class Branch {
-  constructor(items, eventCount) {
-    this.items = items;
-    this.eventCount = eventCount;
-  }
-  // Pop the latest event off the branch's history and apply it
-  // to a document transform.
-  popEvent(state, preserveItems) {
-    if (this.eventCount == 0)
-      return null;
-    let end = this.items.length;
-    for (; ; end--) {
-      let next2 = this.items.get(end - 1);
-      if (next2.selection) {
-        --end;
-        break;
-      }
-    }
-    let remap, mapFrom;
-    if (preserveItems) {
-      remap = this.remapping(end, this.items.length);
-      mapFrom = remap.maps.length;
-    }
-    let transform = state.tr;
-    let selection, remaining;
-    let addAfter = [], addBefore = [];
-    this.items.forEach((item, i) => {
-      if (!item.step) {
-        if (!remap) {
-          remap = this.remapping(end, i + 1);
-          mapFrom = remap.maps.length;
-        }
-        mapFrom--;
-        addBefore.push(item);
-        return;
-      }
-      if (remap) {
-        addBefore.push(new Item(item.map));
-        let step = item.step.map(remap.slice(mapFrom)), map3;
-        if (step && transform.maybeStep(step).doc) {
-          map3 = transform.mapping.maps[transform.mapping.maps.length - 1];
-          addAfter.push(new Item(map3, void 0, void 0, addAfter.length + addBefore.length));
-        }
-        mapFrom--;
-        if (map3)
-          remap.appendMap(map3, mapFrom);
-      } else {
-        transform.maybeStep(item.step);
-      }
-      if (item.selection) {
-        selection = remap ? item.selection.map(remap.slice(mapFrom)) : item.selection;
-        remaining = new Branch(this.items.slice(0, end).append(addBefore.reverse().concat(addAfter)), this.eventCount - 1);
-        return false;
-      }
-    }, this.items.length, 0);
-    return { remaining, transform, selection };
-  }
-  // Create a new branch with the given transform added.
-  addTransform(transform, selection, histOptions, preserveItems) {
-    let newItems = [], eventCount = this.eventCount;
-    let oldItems = this.items, lastItem = !preserveItems && oldItems.length ? oldItems.get(oldItems.length - 1) : null;
-    for (let i = 0; i < transform.steps.length; i++) {
-      let step = transform.steps[i].invert(transform.docs[i]);
-      let item = new Item(transform.mapping.maps[i], step, selection), merged;
-      if (merged = lastItem && lastItem.merge(item)) {
-        item = merged;
-        if (i)
-          newItems.pop();
-        else
-          oldItems = oldItems.slice(0, oldItems.length - 1);
-      }
-      newItems.push(item);
-      if (selection) {
-        eventCount++;
-        selection = void 0;
-      }
-      if (!preserveItems)
-        lastItem = item;
-    }
-    let overflow = eventCount - histOptions.depth;
-    if (overflow > DEPTH_OVERFLOW) {
-      oldItems = cutOffEvents(oldItems, overflow);
-      eventCount -= overflow;
-    }
-    return new Branch(oldItems.append(newItems), eventCount);
-  }
-  remapping(from2, to) {
-    let maps = new Mapping();
-    this.items.forEach((item, i) => {
-      let mirrorPos = item.mirrorOffset != null && i - item.mirrorOffset >= from2 ? maps.maps.length - item.mirrorOffset : void 0;
-      maps.appendMap(item.map, mirrorPos);
-    }, from2, to);
-    return maps;
-  }
-  addMaps(array) {
-    if (this.eventCount == 0)
-      return this;
-    return new Branch(this.items.append(array.map((map3) => new Item(map3))), this.eventCount);
-  }
-  // When the collab module receives remote changes, the history has
-  // to know about those, so that it can adjust the steps that were
-  // rebased on top of the remote changes, and include the position
-  // maps for the remote changes in its array of items.
-  rebased(rebasedTransform, rebasedCount) {
-    if (!this.eventCount)
-      return this;
-    let rebasedItems = [], start = Math.max(0, this.items.length - rebasedCount);
-    let mapping = rebasedTransform.mapping;
-    let newUntil = rebasedTransform.steps.length;
-    let eventCount = this.eventCount;
-    this.items.forEach((item) => {
-      if (item.selection)
-        eventCount--;
-    }, start);
-    let iRebased = rebasedCount;
-    this.items.forEach((item) => {
-      let pos = mapping.getMirror(--iRebased);
-      if (pos == null)
-        return;
-      newUntil = Math.min(newUntil, pos);
-      let map3 = mapping.maps[pos];
-      if (item.step) {
-        let step = rebasedTransform.steps[pos].invert(rebasedTransform.docs[pos]);
-        let selection = item.selection && item.selection.map(mapping.slice(iRebased + 1, pos));
-        if (selection)
-          eventCount++;
-        rebasedItems.push(new Item(map3, step, selection));
-      } else {
-        rebasedItems.push(new Item(map3));
-      }
-    }, start);
-    let newMaps = [];
-    for (let i = rebasedCount; i < newUntil; i++)
-      newMaps.push(new Item(mapping.maps[i]));
-    let items = this.items.slice(0, start).append(newMaps).append(rebasedItems);
-    let branch = new Branch(items, eventCount);
-    if (branch.emptyItemCount() > max_empty_items)
-      branch = branch.compress(this.items.length - rebasedItems.length);
-    return branch;
-  }
-  emptyItemCount() {
-    let count = 0;
-    this.items.forEach((item) => {
-      if (!item.step)
-        count++;
-    });
-    return count;
-  }
-  // Compressing a branch means rewriting it to push the air (map-only
-  // items) out. During collaboration, these naturally accumulate
-  // because each remote change adds one. The `upto` argument is used
-  // to ensure that only the items below a given level are compressed,
-  // because `rebased` relies on a clean, untouched set of items in
-  // order to associate old items with rebased steps.
-  compress(upto = this.items.length) {
-    let remap = this.remapping(0, upto), mapFrom = remap.maps.length;
-    let items = [], events = 0;
-    this.items.forEach((item, i) => {
-      if (i >= upto) {
-        items.push(item);
-        if (item.selection)
-          events++;
-      } else if (item.step) {
-        let step = item.step.map(remap.slice(mapFrom)), map3 = step && step.getMap();
-        mapFrom--;
-        if (map3)
-          remap.appendMap(map3, mapFrom);
-        if (step) {
-          let selection = item.selection && item.selection.map(remap.slice(mapFrom));
-          if (selection)
-            events++;
-          let newItem = new Item(map3.invert(), step, selection), merged, last = items.length - 1;
-          if (merged = items.length && items[last].merge(newItem))
-            items[last] = merged;
-          else
-            items.push(newItem);
-        }
-      } else if (item.map) {
-        mapFrom--;
-      }
-    }, this.items.length, 0);
-    return new Branch(RopeSequence.from(items.reverse()), events);
-  }
-}
-Branch.empty = new Branch(RopeSequence.empty, 0);
-function cutOffEvents(items, n) {
-  let cutPoint;
-  items.forEach((item, i) => {
-    if (item.selection && n-- == 0) {
-      cutPoint = i;
-      return false;
-    }
-  });
-  return items.slice(cutPoint);
-}
-class Item {
-  constructor(map3, step, selection, mirrorOffset) {
-    this.map = map3;
-    this.step = step;
-    this.selection = selection;
-    this.mirrorOffset = mirrorOffset;
-  }
-  merge(other) {
-    if (this.step && other.step && !other.selection) {
-      let step = other.step.merge(this.step);
-      if (step)
-        return new Item(step.getMap().invert(), step, this.selection);
-    }
-  }
-}
-class HistoryState {
-  constructor(done, undone, prevRanges, prevTime, prevComposition) {
-    this.done = done;
-    this.undone = undone;
-    this.prevRanges = prevRanges;
-    this.prevTime = prevTime;
-    this.prevComposition = prevComposition;
-  }
-}
-const DEPTH_OVERFLOW = 20;
-function applyTransaction(history2, state, tr2, options) {
-  let historyTr = tr2.getMeta(historyKey), rebased;
-  if (historyTr)
-    return historyTr.historyState;
-  if (tr2.getMeta(closeHistoryKey))
-    history2 = new HistoryState(history2.done, history2.undone, null, 0, -1);
-  let appended = tr2.getMeta("appendedTransaction");
-  if (tr2.steps.length == 0) {
-    return history2;
-  } else if (appended && appended.getMeta(historyKey)) {
-    if (appended.getMeta(historyKey).redo)
-      return new HistoryState(history2.done.addTransform(tr2, void 0, options, mustPreserveItems(state)), history2.undone, rangesFor(tr2.mapping.maps), history2.prevTime, history2.prevComposition);
-    else
-      return new HistoryState(history2.done, history2.undone.addTransform(tr2, void 0, options, mustPreserveItems(state)), null, history2.prevTime, history2.prevComposition);
-  } else if (tr2.getMeta("addToHistory") !== false && !(appended && appended.getMeta("addToHistory") === false)) {
-    let composition = tr2.getMeta("composition");
-    let newGroup = history2.prevTime == 0 || !appended && history2.prevComposition != composition && (history2.prevTime < (tr2.time || 0) - options.newGroupDelay || !isAdjacentTo(tr2, history2.prevRanges));
-    let prevRanges = appended ? mapRanges(history2.prevRanges, tr2.mapping) : rangesFor(tr2.mapping.maps);
-    return new HistoryState(history2.done.addTransform(tr2, newGroup ? state.selection.getBookmark() : void 0, options, mustPreserveItems(state)), Branch.empty, prevRanges, tr2.time, composition == null ? history2.prevComposition : composition);
-  } else if (rebased = tr2.getMeta("rebased")) {
-    return new HistoryState(history2.done.rebased(tr2, rebased), history2.undone.rebased(tr2, rebased), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
-  } else {
-    return new HistoryState(history2.done.addMaps(tr2.mapping.maps), history2.undone.addMaps(tr2.mapping.maps), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
-  }
-}
-function isAdjacentTo(transform, prevRanges) {
-  if (!prevRanges)
-    return false;
-  if (!transform.docChanged)
-    return true;
-  let adjacent = false;
-  transform.mapping.maps[0].forEach((start, end) => {
-    for (let i = 0; i < prevRanges.length; i += 2)
-      if (start <= prevRanges[i + 1] && end >= prevRanges[i])
-        adjacent = true;
-  });
-  return adjacent;
-}
-function rangesFor(maps) {
-  let result = [];
-  for (let i = maps.length - 1; i >= 0 && result.length == 0; i--)
-    maps[i].forEach((_from, _to, from2, to) => result.push(from2, to));
-  return result;
-}
-function mapRanges(ranges, mapping) {
-  if (!ranges)
-    return null;
-  let result = [];
-  for (let i = 0; i < ranges.length; i += 2) {
-    let from2 = mapping.map(ranges[i], 1), to = mapping.map(ranges[i + 1], -1);
-    if (from2 <= to)
-      result.push(from2, to);
-  }
-  return result;
-}
-function histTransaction(history2, state, redo2) {
-  let preserveItems = mustPreserveItems(state);
-  let histOptions = historyKey.get(state).spec.config;
-  let pop = (redo2 ? history2.undone : history2.done).popEvent(state, preserveItems);
-  if (!pop)
-    return null;
-  let selection = pop.selection.resolve(pop.transform.doc);
-  let added = (redo2 ? history2.done : history2.undone).addTransform(pop.transform, state.selection.getBookmark(), histOptions, preserveItems);
-  let newHist = new HistoryState(redo2 ? added : pop.remaining, redo2 ? pop.remaining : added, null, 0, -1);
-  return pop.transform.setSelection(selection).setMeta(historyKey, { redo: redo2, historyState: newHist });
-}
-let cachedPreserveItems = false, cachedPreserveItemsPlugins = null;
-function mustPreserveItems(state) {
-  let plugins = state.plugins;
-  if (cachedPreserveItemsPlugins != plugins) {
-    cachedPreserveItems = false;
-    cachedPreserveItemsPlugins = plugins;
-    for (let i = 0; i < plugins.length; i++)
-      if (plugins[i].spec.historyPreserveItems) {
-        cachedPreserveItems = true;
-        break;
-      }
-  }
-  return cachedPreserveItems;
-}
-const historyKey = new PluginKey("history");
-const closeHistoryKey = new PluginKey("closeHistory");
-function history(config2 = {}) {
-  config2 = {
-    depth: config2.depth || 100,
-    newGroupDelay: config2.newGroupDelay || 500
-  };
-  return new Plugin({
-    key: historyKey,
-    state: {
-      init() {
-        return new HistoryState(Branch.empty, Branch.empty, null, 0, -1);
-      },
-      apply(tr2, hist, state) {
-        return applyTransaction(hist, state, tr2, config2);
-      }
-    },
-    config: config2,
-    props: {
-      handleDOMEvents: {
-        beforeinput(view, e) {
-          let inputType = e.inputType;
-          let command2 = inputType == "historyUndo" ? undo : inputType == "historyRedo" ? redo : null;
-          if (!command2 || !view.editable)
-            return false;
-          e.preventDefault();
-          return command2(view.state, view.dispatch);
-        }
-      }
-    }
-  });
-}
-function buildCommand(redo2, scroll) {
-  return (state, dispatch) => {
-    let hist = historyKey.getState(state);
-    if (!hist || (redo2 ? hist.undone : hist.done).eventCount == 0)
-      return false;
-    if (dispatch) {
-      let tr2 = histTransaction(hist, state, redo2);
-      if (tr2)
-        dispatch(scroll ? tr2.scrollIntoView() : tr2);
-    }
-    return true;
-  };
-}
-const undo = buildCommand(false, true);
-const redo = buildCommand(true, true);
-Extension.create({
-  name: "characterCount",
-  addOptions() {
-    return {
-      limit: null,
-      mode: "textSize",
-      textCounter: (text2) => text2.length,
-      wordCounter: (text2) => text2.split(" ").filter((word) => word !== "").length
-    };
-  },
-  addStorage() {
-    return {
-      characters: () => 0,
-      words: () => 0
-    };
-  },
-  onBeforeCreate() {
-    this.storage.characters = (options) => {
-      const node = (options == null ? void 0 : options.node) || this.editor.state.doc;
-      const mode = (options == null ? void 0 : options.mode) || this.options.mode;
-      if (mode === "textSize") {
-        const text2 = node.textBetween(0, node.content.size, void 0, " ");
-        return this.options.textCounter(text2);
-      }
-      return node.nodeSize;
-    };
-    this.storage.words = (options) => {
-      const node = (options == null ? void 0 : options.node) || this.editor.state.doc;
-      const text2 = node.textBetween(0, node.content.size, " ", " ");
-      return this.options.wordCounter(text2);
-    };
-  },
-  addProseMirrorPlugins() {
-    let initialEvaluationDone = false;
-    return [
-      new Plugin({
-        key: new PluginKey("characterCount"),
-        appendTransaction: (transactions, oldState, newState) => {
-          if (initialEvaluationDone) {
-            return;
-          }
-          const limit = this.options.limit;
-          if (limit === null || limit === void 0 || limit === 0) {
-            initialEvaluationDone = true;
-            return;
-          }
-          const initialContentSize = this.storage.characters({ node: newState.doc });
-          if (initialContentSize > limit) {
-            const over = initialContentSize - limit;
-            const from2 = 0;
-            const to = over;
-            console.warn(
-              `[CharacterCount] Initial content exceeded limit of ${limit} characters. Content was automatically trimmed.`
-            );
-            const tr2 = newState.tr.deleteRange(from2, to);
-            initialEvaluationDone = true;
-            return tr2;
-          }
-          initialEvaluationDone = true;
-        },
-        filterTransaction: (transaction, state) => {
-          const limit = this.options.limit;
-          if (!transaction.docChanged || limit === 0 || limit === null || limit === void 0) {
-            return true;
-          }
-          const oldSize = this.storage.characters({ node: state.doc });
-          const newSize = this.storage.characters({ node: transaction.doc });
-          if (newSize <= limit) {
-            return true;
-          }
-          if (oldSize > limit && newSize > limit && newSize <= oldSize) {
-            return true;
-          }
-          if (oldSize > limit && newSize > limit && newSize > oldSize) {
-            return false;
-          }
-          const isPaste = transaction.getMeta("paste");
-          if (!isPaste) {
-            return false;
-          }
-          const pos = transaction.selection.$head.pos;
-          const over = newSize - limit;
-          const from2 = pos - over;
-          const to = pos;
-          transaction.deleteRange(from2, to);
-          const updatedSize = this.storage.characters({ node: transaction.doc });
-          if (updatedSize > limit) {
-            return false;
-          }
-          return true;
-        }
-      })
-    ];
-  }
-});
-var Dropcursor = Extension.create({
-  name: "dropCursor",
-  addOptions() {
-    return {
-      color: "currentColor",
-      width: 1,
-      class: void 0
-    };
-  },
-  addProseMirrorPlugins() {
-    return [dropCursor(this.options)];
-  }
-});
-Extension.create({
-  name: "focus",
-  addOptions() {
-    return {
-      className: "has-focus",
-      mode: "all"
-    };
-  },
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey("focus"),
-        props: {
-          decorations: ({ doc: doc2, selection }) => {
-            const { isEditable, isFocused } = this.editor;
-            const { anchor } = selection;
-            const decorations = [];
-            if (!isEditable || !isFocused) {
-              return DecorationSet.create(doc2, []);
-            }
-            let maxLevels = 0;
-            if (this.options.mode === "deepest") {
-              doc2.descendants((node, pos) => {
-                if (node.isText) {
-                  return;
-                }
-                const isCurrent = anchor >= pos && anchor <= pos + node.nodeSize - 1;
-                if (!isCurrent) {
-                  return false;
-                }
-                maxLevels += 1;
-              });
-            }
-            let currentLevel = 0;
-            doc2.descendants((node, pos) => {
-              if (node.isText) {
-                return false;
-              }
-              const isCurrent = anchor >= pos && anchor <= pos + node.nodeSize - 1;
-              if (!isCurrent) {
-                return false;
-              }
-              currentLevel += 1;
-              const outOfScope = this.options.mode === "deepest" && maxLevels - currentLevel > 0 || this.options.mode === "shallowest" && currentLevel > 1;
-              if (outOfScope) {
-                return this.options.mode === "deepest";
-              }
-              decorations.push(
-                Decoration.node(pos, pos + node.nodeSize, {
-                  class: this.options.className
-                })
-              );
-            });
-            return DecorationSet.create(doc2, decorations);
-          }
-        }
-      })
-    ];
-  }
-});
-var Gapcursor = Extension.create({
-  name: "gapCursor",
-  addProseMirrorPlugins() {
-    return [gapCursor()];
-  },
-  extendNodeSchema(extension) {
-    var _a2;
-    const context = {
-      name: extension.name,
-      options: extension.options,
-      storage: extension.storage
-    };
-    return {
-      allowGapCursor: (_a2 = callOrReturn(getExtensionField(extension, "allowGapCursor", context))) != null ? _a2 : null
-    };
-  }
-});
-var DEFAULT_DATA_ATTRIBUTE = "placeholder";
-function preparePlaceholderAttribute(attr) {
-  return attr.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "").replace(/^[0-9-]+/, "").replace(/^-+/, "").toLowerCase();
-}
-var Placeholder = Extension.create({
-  name: "placeholder",
-  addOptions() {
-    return {
-      emptyEditorClass: "is-editor-empty",
-      emptyNodeClass: "is-empty",
-      dataAttribute: DEFAULT_DATA_ATTRIBUTE,
-      placeholder: "Write something …",
-      showOnlyWhenEditable: true,
-      showOnlyCurrent: true,
-      includeChildren: false
-    };
-  },
-  addProseMirrorPlugins() {
-    const dataAttribute = this.options.dataAttribute ? `data-${preparePlaceholderAttribute(this.options.dataAttribute)}` : `data-${DEFAULT_DATA_ATTRIBUTE}`;
-    return [
-      new Plugin({
-        key: new PluginKey("placeholder"),
-        props: {
-          decorations: ({ doc: doc2, selection }) => {
-            const active = this.editor.isEditable || !this.options.showOnlyWhenEditable;
-            const { anchor } = selection;
-            const decorations = [];
-            if (!active) {
-              return null;
-            }
-            const isEmptyDoc = this.editor.isEmpty;
-            doc2.descendants((node, pos) => {
-              const hasAnchor = anchor >= pos && anchor <= pos + node.nodeSize;
-              const isEmpty2 = !node.isLeaf && isNodeEmpty(node);
-              if (!node.type.isTextblock) {
-                return this.options.includeChildren;
-              }
-              if ((hasAnchor || !this.options.showOnlyCurrent) && isEmpty2) {
-                const classes = [this.options.emptyNodeClass];
-                if (isEmptyDoc) {
-                  classes.push(this.options.emptyEditorClass);
-                }
-                const decoration = Decoration.node(pos, pos + node.nodeSize, {
-                  class: classes.join(" "),
-                  [dataAttribute]: typeof this.options.placeholder === "function" ? this.options.placeholder({
-                    editor: this.editor,
-                    node,
-                    pos,
-                    hasAnchor
-                  }) : this.options.placeholder
-                });
-                decorations.push(decoration);
-              }
-              return this.options.includeChildren;
-            });
-            return DecorationSet.create(doc2, decorations);
-          }
-        }
-      })
-    ];
-  }
-});
-Extension.create({
-  name: "selection",
-  addOptions() {
-    return {
-      className: "selection"
-    };
-  },
-  addProseMirrorPlugins() {
-    const { editor, options } = this;
-    return [
-      new Plugin({
-        key: new PluginKey("selection"),
-        props: {
-          decorations(state) {
-            if (state.selection.empty || editor.isFocused || !editor.isEditable || isNodeSelection(state.selection) || editor.view.dragging) {
-              return null;
-            }
-            return DecorationSet.create(state.doc, [
-              Decoration.inline(state.selection.from, state.selection.to, {
-                class: options.className
-              })
-            ]);
-          }
-        }
-      })
-    ];
-  }
-});
-var skipTrailingNodeMeta = "skipTrailingNode";
-function nodeEqualsType({ types, node }) {
-  return node && Array.isArray(types) && types.includes(node.type) || (node == null ? void 0 : node.type) === types;
-}
-var TrailingNode = Extension.create({
-  name: "trailingNode",
-  addOptions() {
-    return {
-      node: void 0,
-      notAfter: []
-    };
-  },
-  addProseMirrorPlugins() {
-    var _a2;
-    const plugin = new PluginKey(this.name);
-    const defaultNode = this.options.node || ((_a2 = this.editor.schema.topNodeType.contentMatch.defaultType) == null ? void 0 : _a2.name) || "paragraph";
-    const disabledNodes = Object.entries(this.editor.schema.nodes).map(([, value]) => value).filter((node) => (this.options.notAfter || []).concat(defaultNode).includes(node.name));
-    return [
-      new Plugin({
-        key: plugin,
-        appendTransaction: (transactions, __, state) => {
-          const { doc: doc2, tr: tr2, schema } = state;
-          const shouldInsertNodeAtEnd = plugin.getState(state);
-          const endPosition = doc2.content.size;
-          const type = schema.nodes[defaultNode];
-          if (transactions.some((transaction) => transaction.getMeta(skipTrailingNodeMeta))) {
-            return;
-          }
-          if (!shouldInsertNodeAtEnd) {
-            return;
-          }
-          return tr2.insert(endPosition, type.create());
-        },
-        state: {
-          init: (_, state) => {
-            const lastNode = state.tr.doc.lastChild;
-            return !nodeEqualsType({ node: lastNode, types: disabledNodes });
-          },
-          apply: (tr2, value) => {
-            if (!tr2.docChanged) {
-              return value;
-            }
-            if (tr2.getMeta("__uniqueIDTransaction")) {
-              return value;
-            }
-            const lastNode = tr2.doc.lastChild;
-            return !nodeEqualsType({ node: lastNode, types: disabledNodes });
-          }
-        }
-      })
-    ];
-  }
-});
-var UndoRedo = Extension.create({
-  name: "undoRedo",
-  addOptions() {
-    return {
-      depth: 100,
-      newGroupDelay: 500
-    };
-  },
-  addCommands() {
-    return {
-      undo: () => ({ state, dispatch }) => {
-        return undo(state, dispatch);
-      },
-      redo: () => ({ state, dispatch }) => {
-        return redo(state, dispatch);
-      }
-    };
-  },
-  addProseMirrorPlugins() {
-    return [history(this.options)];
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-z": () => this.editor.commands.undo(),
-      "Shift-Mod-z": () => this.editor.commands.redo(),
-      "Mod-y": () => this.editor.commands.redo(),
-      // Russian keyboard layouts
-      "Mod-я": () => this.editor.commands.undo(),
-      "Shift-Mod-я": () => this.editor.commands.redo()
-    };
-  }
-});
-var index_default$2 = Placeholder;
-var Underline = Mark2.create({
-  name: "underline",
-  addOptions() {
-    return {
-      HTMLAttributes: {}
-    };
-  },
-  parseHTML() {
-    return [
-      {
-        tag: "u"
-      },
-      {
-        style: "text-decoration",
-        consuming: false,
-        getAttrs: (style2) => style2.includes("underline") ? {} : false
-      }
-    ];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["u", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-  },
-  parseMarkdown(token, helpers2) {
-    return helpers2.applyMark(this.name || "underline", helpers2.parseInline(token.tokens || []));
-  },
-  renderMarkdown(node, helpers2) {
-    return `++${helpers2.renderChildren(node)}++`;
-  },
-  markdownTokenizer: {
-    name: "underline",
-    level: "inline",
-    start(src) {
-      return src.indexOf("++");
-    },
-    tokenize(src, _tokens, lexer) {
-      const rule = /^(\+\+)([\s\S]+?)(\+\+)/;
-      const match2 = rule.exec(src);
-      if (!match2) {
-        return void 0;
-      }
-      const innerContent = match2[2].trim();
-      return {
-        type: "underline",
-        raw: match2[0],
-        text: innerContent,
-        tokens: lexer.inlineTokens(innerContent)
-      };
-    }
-  },
-  addCommands() {
-    return {
-      setUnderline: () => ({ commands }) => {
-        return commands.setMark(this.name);
-      },
-      toggleUnderline: () => ({ commands }) => {
-        return commands.toggleMark(this.name);
-      },
-      unsetUnderline: () => ({ commands }) => {
-        return commands.unsetMark(this.name);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-u": () => this.editor.commands.toggleUnderline(),
-      "Mod-U": () => this.editor.commands.toggleUnderline()
-    };
-  }
-});
-var index_default$1 = Underline;
-var shim = { exports: {} };
-var useSyncExternalStoreShim_production = {};
-var hasRequiredUseSyncExternalStoreShim_production;
-function requireUseSyncExternalStoreShim_production() {
-  if (hasRequiredUseSyncExternalStoreShim_production) return useSyncExternalStoreShim_production;
-  hasRequiredUseSyncExternalStoreShim_production = 1;
-  var React2 = requireReact();
-  function is2(x, y) {
-    return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
-  }
-  var objectIs = "function" === typeof Object.is ? Object.is : is2, useState2 = React2.useState, useEffect = React2.useEffect, useLayoutEffect = React2.useLayoutEffect, useDebugValue = React2.useDebugValue;
-  function useSyncExternalStore$2(subscribe2, getSnapshot) {
-    var value = getSnapshot(), _useState = useState2({ inst: { value, getSnapshot } }), inst = _useState[0].inst, forceUpdate = _useState[1];
-    useLayoutEffect(
-      function() {
-        inst.value = value;
-        inst.getSnapshot = getSnapshot;
-        checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-      },
-      [subscribe2, value, getSnapshot]
-    );
-    useEffect(
-      function() {
-        checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-        return subscribe2(function() {
-          checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-        });
-      },
-      [subscribe2]
-    );
-    useDebugValue(value);
-    return value;
-  }
-  function checkIfSnapshotChanged(inst) {
-    var latestGetSnapshot = inst.getSnapshot;
-    inst = inst.value;
-    try {
-      var nextValue = latestGetSnapshot();
-      return !objectIs(inst, nextValue);
-    } catch (error2) {
-      return true;
-    }
-  }
-  function useSyncExternalStore$1(subscribe2, getSnapshot) {
-    return getSnapshot();
-  }
-  var shim2 = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
-  useSyncExternalStoreShim_production.useSyncExternalStore = void 0 !== React2.useSyncExternalStore ? React2.useSyncExternalStore : shim2;
-  return useSyncExternalStoreShim_production;
-}
-var hasRequiredShim;
-function requireShim() {
-  if (hasRequiredShim) return shim.exports;
-  hasRequiredShim = 1;
-  {
-    shim.exports = requireUseSyncExternalStoreShim_production();
-  }
-  return shim.exports;
-}
-var shimExports = requireShim();
-const { getOwnPropertyNames, getOwnPropertySymbols } = Object;
-const { hasOwnProperty } = Object.prototype;
-function combineComparators(comparatorA, comparatorB) {
-  return function isEqual(a, b, state) {
-    return comparatorA(a, b, state) && comparatorB(a, b, state);
-  };
-}
-function createIsCircular(areItemsEqual) {
-  return function isCircular(a, b, state) {
-    if (!a || !b || typeof a !== "object" || typeof b !== "object") {
-      return areItemsEqual(a, b, state);
-    }
-    const { cache } = state;
-    const cachedA = cache.get(a);
-    const cachedB = cache.get(b);
-    if (cachedA && cachedB) {
-      return cachedA === b && cachedB === a;
-    }
-    cache.set(a, b);
-    cache.set(b, a);
-    const result = areItemsEqual(a, b, state);
-    cache.delete(a);
-    cache.delete(b);
-    return result;
-  };
-}
-function getShortTag(value) {
-  return value != null ? value[Symbol.toStringTag] : void 0;
-}
-function getStrictProperties(object) {
-  return getOwnPropertyNames(object).concat(getOwnPropertySymbols(object));
-}
-const hasOwn = (
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  Object.hasOwn || ((object, property) => hasOwnProperty.call(object, property))
-);
-function sameValueZeroEqual(a, b) {
-  return a === b || !a && !b && a !== a && b !== b;
-}
-const PREACT_VNODE = "__v";
-const PREACT_OWNER = "__o";
-const REACT_OWNER = "_owner";
-const { getOwnPropertyDescriptor, keys } = Object;
-function areArrayBuffersEqual(a, b) {
-  return a.byteLength === b.byteLength && areTypedArraysEqual(new Uint8Array(a), new Uint8Array(b));
-}
-function areArraysEqual(a, b, state) {
-  let index = a.length;
-  if (b.length !== index) {
-    return false;
-  }
-  while (index-- > 0) {
-    if (!state.equals(a[index], b[index], index, index, a, b, state)) {
-      return false;
-    }
-  }
-  return true;
-}
-function areDataViewsEqual(a, b) {
-  return a.byteLength === b.byteLength && areTypedArraysEqual(new Uint8Array(a.buffer, a.byteOffset, a.byteLength), new Uint8Array(b.buffer, b.byteOffset, b.byteLength));
-}
-function areDatesEqual(a, b) {
-  return sameValueZeroEqual(a.getTime(), b.getTime());
-}
-function areErrorsEqual(a, b) {
-  return a.name === b.name && a.message === b.message && a.cause === b.cause && a.stack === b.stack;
-}
-function areFunctionsEqual(a, b) {
-  return a === b;
-}
-function areMapsEqual(a, b, state) {
-  const size = a.size;
-  if (size !== b.size) {
-    return false;
-  }
-  if (!size) {
-    return true;
-  }
-  const matchedIndices = new Array(size);
-  const aIterable = a.entries();
-  let aResult;
-  let bResult;
-  let index = 0;
-  while (aResult = aIterable.next()) {
-    if (aResult.done) {
-      break;
-    }
-    const bIterable = b.entries();
-    let hasMatch = false;
-    let matchIndex = 0;
-    while (bResult = bIterable.next()) {
-      if (bResult.done) {
-        break;
-      }
-      if (matchedIndices[matchIndex]) {
-        matchIndex++;
-        continue;
-      }
-      const aEntry = aResult.value;
-      const bEntry = bResult.value;
-      if (state.equals(aEntry[0], bEntry[0], index, matchIndex, a, b, state) && state.equals(aEntry[1], bEntry[1], aEntry[0], bEntry[0], a, b, state)) {
-        hasMatch = matchedIndices[matchIndex] = true;
-        break;
-      }
-      matchIndex++;
-    }
-    if (!hasMatch) {
-      return false;
-    }
-    index++;
-  }
-  return true;
-}
-const areNumbersEqual = sameValueZeroEqual;
-function areObjectsEqual(a, b, state) {
-  const properties = keys(a);
-  let index = properties.length;
-  if (keys(b).length !== index) {
-    return false;
-  }
-  while (index-- > 0) {
-    if (!isPropertyEqual(a, b, state, properties[index])) {
-      return false;
-    }
-  }
-  return true;
-}
-function areObjectsEqualStrict(a, b, state) {
-  const properties = getStrictProperties(a);
-  let index = properties.length;
-  if (getStrictProperties(b).length !== index) {
-    return false;
-  }
-  let property;
-  let descriptorA;
-  let descriptorB;
-  while (index-- > 0) {
-    property = properties[index];
-    if (!isPropertyEqual(a, b, state, property)) {
-      return false;
-    }
-    descriptorA = getOwnPropertyDescriptor(a, property);
-    descriptorB = getOwnPropertyDescriptor(b, property);
-    if ((descriptorA || descriptorB) && (!descriptorA || !descriptorB || descriptorA.configurable !== descriptorB.configurable || descriptorA.enumerable !== descriptorB.enumerable || descriptorA.writable !== descriptorB.writable)) {
-      return false;
-    }
-  }
-  return true;
-}
-function arePrimitiveWrappersEqual(a, b) {
-  return sameValueZeroEqual(a.valueOf(), b.valueOf());
-}
-function areRegExpsEqual(a, b) {
-  return a.source === b.source && a.flags === b.flags;
-}
-function areSetsEqual(a, b, state) {
-  const size = a.size;
-  if (size !== b.size) {
-    return false;
-  }
-  if (!size) {
-    return true;
-  }
-  const matchedIndices = new Array(size);
-  const aIterable = a.values();
-  let aResult;
-  let bResult;
-  while (aResult = aIterable.next()) {
-    if (aResult.done) {
-      break;
-    }
-    const bIterable = b.values();
-    let hasMatch = false;
-    let matchIndex = 0;
-    while (bResult = bIterable.next()) {
-      if (bResult.done) {
-        break;
-      }
-      if (!matchedIndices[matchIndex] && state.equals(aResult.value, bResult.value, aResult.value, bResult.value, a, b, state)) {
-        hasMatch = matchedIndices[matchIndex] = true;
-        break;
-      }
-      matchIndex++;
-    }
-    if (!hasMatch) {
-      return false;
-    }
-  }
-  return true;
-}
-function areTypedArraysEqual(a, b) {
-  let index = a.byteLength;
-  if (b.byteLength !== index || a.byteOffset !== b.byteOffset) {
-    return false;
-  }
-  while (index-- > 0) {
-    if (a[index] !== b[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-function areUrlsEqual(a, b) {
-  return a.hostname === b.hostname && a.pathname === b.pathname && a.protocol === b.protocol && a.port === b.port && a.hash === b.hash && a.username === b.username && a.password === b.password;
-}
-function isPropertyEqual(a, b, state, property) {
-  if ((property === REACT_OWNER || property === PREACT_OWNER || property === PREACT_VNODE) && (a.$$typeof || b.$$typeof)) {
-    return true;
-  }
-  return hasOwn(b, property) && state.equals(a[property], b[property], property, property, a, b, state);
-}
-const ARRAY_BUFFER_TAG = "[object ArrayBuffer]";
-const ARGUMENTS_TAG = "[object Arguments]";
-const BOOLEAN_TAG = "[object Boolean]";
-const DATA_VIEW_TAG = "[object DataView]";
-const DATE_TAG = "[object Date]";
-const ERROR_TAG = "[object Error]";
-const MAP_TAG = "[object Map]";
-const NUMBER_TAG = "[object Number]";
-const OBJECT_TAG = "[object Object]";
-const REG_EXP_TAG = "[object RegExp]";
-const SET_TAG = "[object Set]";
-const STRING_TAG = "[object String]";
-const TYPED_ARRAY_TAGS = {
-  "[object Int8Array]": true,
-  "[object Uint8Array]": true,
-  "[object Uint8ClampedArray]": true,
-  "[object Int16Array]": true,
-  "[object Uint16Array]": true,
-  "[object Int32Array]": true,
-  "[object Uint32Array]": true,
-  "[object Float16Array]": true,
-  "[object Float32Array]": true,
-  "[object Float64Array]": true,
-  "[object BigInt64Array]": true,
-  "[object BigUint64Array]": true
-};
-const URL_TAG = "[object URL]";
-const toString = Object.prototype.toString;
-function createEqualityComparator({ areArrayBuffersEqual: areArrayBuffersEqual2, areArraysEqual: areArraysEqual2, areDataViewsEqual: areDataViewsEqual2, areDatesEqual: areDatesEqual2, areErrorsEqual: areErrorsEqual2, areFunctionsEqual: areFunctionsEqual2, areMapsEqual: areMapsEqual2, areNumbersEqual: areNumbersEqual2, areObjectsEqual: areObjectsEqual2, arePrimitiveWrappersEqual: arePrimitiveWrappersEqual2, areRegExpsEqual: areRegExpsEqual2, areSetsEqual: areSetsEqual2, areTypedArraysEqual: areTypedArraysEqual2, areUrlsEqual: areUrlsEqual2, unknownTagComparators }) {
-  return function comparator(a, b, state) {
-    if (a === b) {
-      return true;
-    }
-    if (a == null || b == null) {
-      return false;
-    }
-    const type = typeof a;
-    if (type !== typeof b) {
-      return false;
-    }
-    if (type !== "object") {
-      if (type === "number") {
-        return areNumbersEqual2(a, b, state);
-      }
-      if (type === "function") {
-        return areFunctionsEqual2(a, b, state);
-      }
-      return false;
-    }
-    const constructor = a.constructor;
-    if (constructor !== b.constructor) {
-      return false;
-    }
-    if (constructor === Object) {
-      return areObjectsEqual2(a, b, state);
-    }
-    if (Array.isArray(a)) {
-      return areArraysEqual2(a, b, state);
-    }
-    if (constructor === Date) {
-      return areDatesEqual2(a, b, state);
-    }
-    if (constructor === RegExp) {
-      return areRegExpsEqual2(a, b, state);
-    }
-    if (constructor === Map) {
-      return areMapsEqual2(a, b, state);
-    }
-    if (constructor === Set) {
-      return areSetsEqual2(a, b, state);
-    }
-    const tag = toString.call(a);
-    if (tag === DATE_TAG) {
-      return areDatesEqual2(a, b, state);
-    }
-    if (tag === REG_EXP_TAG) {
-      return areRegExpsEqual2(a, b, state);
-    }
-    if (tag === MAP_TAG) {
-      return areMapsEqual2(a, b, state);
-    }
-    if (tag === SET_TAG) {
-      return areSetsEqual2(a, b, state);
-    }
-    if (tag === OBJECT_TAG) {
-      return typeof a.then !== "function" && typeof b.then !== "function" && areObjectsEqual2(a, b, state);
-    }
-    if (tag === URL_TAG) {
-      return areUrlsEqual2(a, b, state);
-    }
-    if (tag === ERROR_TAG) {
-      return areErrorsEqual2(a, b, state);
-    }
-    if (tag === ARGUMENTS_TAG) {
-      return areObjectsEqual2(a, b, state);
-    }
-    if (TYPED_ARRAY_TAGS[tag]) {
-      return areTypedArraysEqual2(a, b, state);
-    }
-    if (tag === ARRAY_BUFFER_TAG) {
-      return areArrayBuffersEqual2(a, b, state);
-    }
-    if (tag === DATA_VIEW_TAG) {
-      return areDataViewsEqual2(a, b, state);
-    }
-    if (tag === BOOLEAN_TAG || tag === NUMBER_TAG || tag === STRING_TAG) {
-      return arePrimitiveWrappersEqual2(a, b, state);
-    }
-    if (unknownTagComparators) {
-      let unknownTagComparator = unknownTagComparators[tag];
-      if (!unknownTagComparator) {
-        const shortTag = getShortTag(a);
-        if (shortTag) {
-          unknownTagComparator = unknownTagComparators[shortTag];
-        }
-      }
-      if (unknownTagComparator) {
-        return unknownTagComparator(a, b, state);
-      }
-    }
-    return false;
-  };
-}
-function createEqualityComparatorConfig({ circular, createCustomConfig, strict }) {
-  let config2 = {
-    areArrayBuffersEqual,
-    areArraysEqual: strict ? areObjectsEqualStrict : areArraysEqual,
-    areDataViewsEqual,
-    areDatesEqual,
-    areErrorsEqual,
-    areFunctionsEqual,
-    areMapsEqual: strict ? combineComparators(areMapsEqual, areObjectsEqualStrict) : areMapsEqual,
-    areNumbersEqual,
-    areObjectsEqual: strict ? areObjectsEqualStrict : areObjectsEqual,
-    arePrimitiveWrappersEqual,
-    areRegExpsEqual,
-    areSetsEqual: strict ? combineComparators(areSetsEqual, areObjectsEqualStrict) : areSetsEqual,
-    areTypedArraysEqual: strict ? combineComparators(areTypedArraysEqual, areObjectsEqualStrict) : areTypedArraysEqual,
-    areUrlsEqual,
-    unknownTagComparators: void 0
-  };
-  if (createCustomConfig) {
-    config2 = Object.assign({}, config2, createCustomConfig(config2));
-  }
-  if (circular) {
-    const areArraysEqual2 = createIsCircular(config2.areArraysEqual);
-    const areMapsEqual2 = createIsCircular(config2.areMapsEqual);
-    const areObjectsEqual2 = createIsCircular(config2.areObjectsEqual);
-    const areSetsEqual2 = createIsCircular(config2.areSetsEqual);
-    config2 = Object.assign({}, config2, {
-      areArraysEqual: areArraysEqual2,
-      areMapsEqual: areMapsEqual2,
-      areObjectsEqual: areObjectsEqual2,
-      areSetsEqual: areSetsEqual2
-    });
-  }
-  return config2;
-}
-function createInternalEqualityComparator(compare) {
-  return function(a, b, _indexOrKeyA, _indexOrKeyB, _parentA, _parentB, state) {
-    return compare(a, b, state);
-  };
-}
-function createIsEqual({ circular, comparator, createState, equals, strict }) {
-  if (createState) {
-    return function isEqual(a, b) {
-      const { cache = circular ? /* @__PURE__ */ new WeakMap() : void 0, meta } = createState();
-      return comparator(a, b, {
-        cache,
-        equals,
-        meta,
-        strict
-      });
-    };
-  }
-  if (circular) {
-    return function isEqual(a, b) {
-      return comparator(a, b, {
-        cache: /* @__PURE__ */ new WeakMap(),
-        equals,
-        meta: void 0,
-        strict
-      });
-    };
-  }
-  const state = {
-    cache: void 0,
-    equals,
-    meta: void 0,
-    strict
-  };
-  return function isEqual(a, b) {
-    return comparator(a, b, state);
-  };
-}
-const deepEqual = createCustomEqual();
-createCustomEqual({ strict: true });
-createCustomEqual({ circular: true });
-createCustomEqual({
-  circular: true,
-  strict: true
-});
-createCustomEqual({
-  createInternalComparator: () => sameValueZeroEqual
-});
-createCustomEqual({
-  strict: true,
-  createInternalComparator: () => sameValueZeroEqual
-});
-createCustomEqual({
-  circular: true,
-  createInternalComparator: () => sameValueZeroEqual
-});
-createCustomEqual({
-  circular: true,
-  createInternalComparator: () => sameValueZeroEqual,
-  strict: true
-});
-function createCustomEqual(options = {}) {
-  const { circular = false, createInternalComparator: createCustomInternalComparator, createState, strict = false } = options;
-  const config2 = createEqualityComparatorConfig(options);
-  const comparator = createEqualityComparator(config2);
-  const equals = createCustomInternalComparator ? createCustomInternalComparator(comparator) : createInternalEqualityComparator(comparator);
-  return createIsEqual({ circular, comparator, createState, equals, strict });
-}
-var withSelector = { exports: {} };
-var withSelector_production = {};
-var hasRequiredWithSelector_production;
-function requireWithSelector_production() {
-  if (hasRequiredWithSelector_production) return withSelector_production;
-  hasRequiredWithSelector_production = 1;
-  var React2 = requireReact(), shim2 = requireShim();
-  function is2(x, y) {
-    return x === y && (0 !== x || 1 / x === 1 / y) || x !== x && y !== y;
-  }
-  var objectIs = "function" === typeof Object.is ? Object.is : is2, useSyncExternalStore = shim2.useSyncExternalStore, useRef2 = React2.useRef, useEffect = React2.useEffect, useMemo = React2.useMemo, useDebugValue = React2.useDebugValue;
-  withSelector_production.useSyncExternalStoreWithSelector = function(subscribe2, getSnapshot, getServerSnapshot, selector, isEqual) {
-    var instRef = useRef2(null);
-    if (null === instRef.current) {
-      var inst = { hasValue: false, value: null };
-      instRef.current = inst;
-    } else inst = instRef.current;
-    instRef = useMemo(
-      function() {
-        function memoizedSelector(nextSnapshot) {
-          if (!hasMemo) {
-            hasMemo = true;
-            memoizedSnapshot = nextSnapshot;
-            nextSnapshot = selector(nextSnapshot);
-            if (void 0 !== isEqual && inst.hasValue) {
-              var currentSelection = inst.value;
-              if (isEqual(currentSelection, nextSnapshot))
-                return memoizedSelection = currentSelection;
-            }
-            return memoizedSelection = nextSnapshot;
-          }
-          currentSelection = memoizedSelection;
-          if (objectIs(memoizedSnapshot, nextSnapshot)) return currentSelection;
-          var nextSelection = selector(nextSnapshot);
-          if (void 0 !== isEqual && isEqual(currentSelection, nextSelection))
-            return memoizedSnapshot = nextSnapshot, currentSelection;
-          memoizedSnapshot = nextSnapshot;
-          return memoizedSelection = nextSelection;
-        }
-        var hasMemo = false, memoizedSnapshot, memoizedSelection, maybeGetServerSnapshot = void 0 === getServerSnapshot ? null : getServerSnapshot;
-        return [
-          function() {
-            return memoizedSelector(getSnapshot());
-          },
-          null === maybeGetServerSnapshot ? void 0 : function() {
-            return memoizedSelector(maybeGetServerSnapshot());
-          }
-        ];
-      },
-      [getSnapshot, getServerSnapshot, selector, isEqual]
-    );
-    var value = useSyncExternalStore(subscribe2, instRef[0], instRef[1]);
-    useEffect(
-      function() {
-        inst.hasValue = true;
-        inst.value = value;
-      },
-      [value]
-    );
-    useDebugValue(value);
-    return value;
-  };
-  return withSelector_production;
-}
-var hasRequiredWithSelector;
-function requireWithSelector() {
-  if (hasRequiredWithSelector) return withSelector.exports;
-  hasRequiredWithSelector = 1;
-  {
-    withSelector.exports = requireWithSelector_production();
-  }
-  return withSelector.exports;
-}
-var withSelectorExports = requireWithSelector();
-var mergeRefs = (...refs) => {
-  return (node) => {
-    refs.forEach((ref) => {
-      if (typeof ref === "function") {
-        ref(node);
-      } else if (ref) {
-        ref.current = node;
-      }
-    });
-  };
-};
-var Portals = ({ contentComponent }) => {
-  const renderers = shimExports.useSyncExternalStore(
-    contentComponent.subscribe,
-    contentComponent.getSnapshot,
-    contentComponent.getServerSnapshot
-  );
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: Object.values(renderers) });
-};
-function getInstance() {
-  const subscribers = /* @__PURE__ */ new Set();
-  let renderers = {};
-  return {
-    /**
-     * Subscribe to the editor instance's changes.
-     */
-    subscribe(callback) {
-      subscribers.add(callback);
-      return () => {
-        subscribers.delete(callback);
-      };
-    },
-    getSnapshot() {
-      return renderers;
-    },
-    getServerSnapshot() {
-      return renderers;
-    },
-    /**
-     * Adds a new NodeView Renderer to the editor.
-     */
-    setRenderer(id, renderer) {
-      renderers = {
-        ...renderers,
-        [id]: ReactDOM.createPortal(renderer.reactElement, renderer.element, id)
-      };
-      subscribers.forEach((subscriber) => subscriber());
-    },
-    /**
-     * Removes a NodeView Renderer from the editor.
-     */
-    removeRenderer(id) {
-      const nextRenderers = { ...renderers };
-      delete nextRenderers[id];
-      renderers = nextRenderers;
-      subscribers.forEach((subscriber) => subscriber());
-    }
-  };
-}
-var PureEditorContent = class extends React4.Component {
-  constructor(props) {
-    super(props);
-    this.editorContentRef = React4.createRef();
-  }
-  componentDidMount() {
-    this.init();
-  }
-  componentDidUpdate() {
-    this.init();
-  }
-  init() {
-    var _a2;
-    const editor = this.props.editor;
-    if (editor && !editor.isDestroyed && ((_a2 = editor.view.dom) == null ? void 0 : _a2.parentNode)) {
-      if (editor.contentComponent) {
-        return;
-      }
-      const element = this.editorContentRef.current;
-      element.append(...editor.view.dom.parentNode.childNodes);
-      editor.setOptions({
-        element
-      });
-      editor.contentComponent = getInstance();
-      editor.createNodeViews();
-      editor.isEditorContentInitialized = true;
-      this.forceUpdate();
-    }
-  }
-  componentWillUnmount() {
-    var _a2;
-    const editor = this.props.editor;
-    if (!editor) {
-      return;
-    }
-    editor.isEditorContentInitialized = false;
-    if (!editor.isDestroyed) {
-      editor.view.setProps({
-        nodeViews: {}
-      });
-    }
-    editor.contentComponent = null;
-    try {
-      if (!((_a2 = editor.view.dom) == null ? void 0 : _a2.parentNode)) {
-        return;
-      }
-      const newElement = document.createElement("div");
-      newElement.append(...editor.view.dom.parentNode.childNodes);
-      editor.setOptions({
-        element: newElement
-      });
-    } catch {
-    }
-  }
-  render() {
-    const { editor, innerRef, ...rest } = this.props;
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: mergeRefs(innerRef, this.editorContentRef), ...rest }),
-      (editor == null ? void 0 : editor.contentComponent) && /* @__PURE__ */ jsxRuntimeExports.jsx(Portals, { contentComponent: editor.contentComponent })
-    ] });
-  }
-};
-var EditorContentWithKey = reactExports.forwardRef(
-  (props, ref) => {
-    const key = React4.useMemo(() => {
-      return Math.floor(Math.random() * 4294967295).toString();
-    }, [props.editor]);
-    return React4.createElement(PureEditorContent, {
-      key,
-      innerRef: ref,
-      ...props
-    });
-  }
-);
-var EditorContent = React4.memo(EditorContentWithKey);
-var useIsomorphicLayoutEffect = typeof window !== "undefined" ? reactExports.useLayoutEffect : reactExports.useEffect;
-var EditorStateManager = class {
-  constructor(initialEditor) {
-    this.transactionNumber = 0;
-    this.lastTransactionNumber = 0;
-    this.subscribers = /* @__PURE__ */ new Set();
-    this.editor = initialEditor;
-    this.lastSnapshot = { editor: initialEditor, transactionNumber: 0 };
-    this.getSnapshot = this.getSnapshot.bind(this);
-    this.getServerSnapshot = this.getServerSnapshot.bind(this);
-    this.watch = this.watch.bind(this);
-    this.subscribe = this.subscribe.bind(this);
-  }
-  /**
-   * Get the current editor instance.
-   */
-  getSnapshot() {
-    if (this.transactionNumber === this.lastTransactionNumber) {
-      return this.lastSnapshot;
-    }
-    this.lastTransactionNumber = this.transactionNumber;
-    this.lastSnapshot = { editor: this.editor, transactionNumber: this.transactionNumber };
-    return this.lastSnapshot;
-  }
-  /**
-   * Always disable the editor on the server-side.
-   */
-  getServerSnapshot() {
-    return { editor: null, transactionNumber: 0 };
-  }
-  /**
-   * Subscribe to the editor instance's changes.
-   */
-  subscribe(callback) {
-    this.subscribers.add(callback);
-    return () => {
-      this.subscribers.delete(callback);
-    };
-  }
-  /**
-   * Watch the editor instance for changes.
-   */
-  watch(nextEditor) {
-    this.editor = nextEditor;
-    if (this.editor) {
-      const fn = () => {
-        this.transactionNumber += 1;
-        this.subscribers.forEach((callback) => callback());
-      };
-      const currentEditor = this.editor;
-      currentEditor.on("transaction", fn);
-      return () => {
-        currentEditor.off("transaction", fn);
-      };
-    }
-    return void 0;
-  }
-};
-function useEditorState(options) {
-  var _a2;
-  const [editorStateManager] = reactExports.useState(() => new EditorStateManager(options.editor));
-  const selectedState = withSelectorExports.useSyncExternalStoreWithSelector(
-    editorStateManager.subscribe,
-    editorStateManager.getSnapshot,
-    editorStateManager.getServerSnapshot,
-    options.selector,
-    (_a2 = options.equalityFn) != null ? _a2 : deepEqual
-  );
-  useIsomorphicLayoutEffect(() => {
-    return editorStateManager.watch(options.editor);
-  }, [options.editor, editorStateManager]);
-  reactExports.useDebugValue(selectedState);
-  return selectedState;
-}
-var isDev = false;
-var isSSR = typeof window === "undefined";
-var isNext = isSSR || Boolean(typeof window !== "undefined" && window.next);
-var EditorInstanceManager = class _EditorInstanceManager {
-  constructor(options) {
-    this.editor = null;
-    this.subscriptions = /* @__PURE__ */ new Set();
-    this.isComponentMounted = false;
-    this.previousDeps = null;
-    this.instanceId = "";
-    this.options = options;
-    this.subscriptions = /* @__PURE__ */ new Set();
-    this.setEditor(this.getInitialEditor());
-    this.scheduleDestroy();
-    this.getEditor = this.getEditor.bind(this);
-    this.getServerSnapshot = this.getServerSnapshot.bind(this);
-    this.subscribe = this.subscribe.bind(this);
-    this.refreshEditorInstance = this.refreshEditorInstance.bind(this);
-    this.scheduleDestroy = this.scheduleDestroy.bind(this);
-    this.onRender = this.onRender.bind(this);
-    this.createEditor = this.createEditor.bind(this);
-  }
-  setEditor(editor) {
-    this.editor = editor;
-    this.instanceId = Math.random().toString(36).slice(2, 9);
-    this.subscriptions.forEach((cb) => cb());
-  }
-  getInitialEditor() {
-    if (this.options.current.immediatelyRender === void 0) {
-      if (isSSR || isNext) {
-        return null;
-      }
-      return this.createEditor();
-    }
-    if (this.options.current.immediatelyRender && isSSR && isDev) ;
-    if (this.options.current.immediatelyRender) {
-      return this.createEditor();
-    }
-    return null;
-  }
-  /**
-   * Create a new editor instance. And attach event listeners.
-   */
-  createEditor() {
-    const optionsToApply = {
-      ...this.options.current,
-      // Always call the most recent version of the callback function by default
-      onBeforeCreate: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onBeforeCreate) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onBlur: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onBlur) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onCreate: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onCreate) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onDestroy: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onDestroy) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onFocus: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onFocus) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onSelectionUpdate: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onSelectionUpdate) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onTransaction: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onTransaction) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onUpdate: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onUpdate) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onContentError: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onContentError) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onDrop: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onDrop) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onPaste: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onPaste) == null ? void 0 : _b.call(_a2, ...args);
-      },
-      onDelete: (...args) => {
-        var _a2, _b;
-        return (_b = (_a2 = this.options.current).onDelete) == null ? void 0 : _b.call(_a2, ...args);
-      }
-    };
-    const editor = new Editor(optionsToApply);
-    return editor;
-  }
-  /**
-   * Get the current editor instance.
-   */
-  getEditor() {
-    return this.editor;
-  }
-  /**
-   * Always disable the editor on the server-side.
-   */
-  getServerSnapshot() {
-    return null;
-  }
-  /**
-   * Subscribe to the editor instance's changes.
-   */
-  subscribe(onStoreChange) {
-    this.subscriptions.add(onStoreChange);
-    return () => {
-      this.subscriptions.delete(onStoreChange);
-    };
-  }
-  static compareOptions(a, b) {
-    return Object.keys(a).every((key) => {
-      if ([
-        "onCreate",
-        "onBeforeCreate",
-        "onDestroy",
-        "onUpdate",
-        "onTransaction",
-        "onFocus",
-        "onBlur",
-        "onSelectionUpdate",
-        "onContentError",
-        "onDrop",
-        "onPaste"
-      ].includes(key)) {
-        return true;
-      }
-      if (key === "extensions" && a.extensions && b.extensions) {
-        if (a.extensions.length !== b.extensions.length) {
-          return false;
-        }
-        return a.extensions.every((extension, index) => {
-          var _a2;
-          if (extension !== ((_a2 = b.extensions) == null ? void 0 : _a2[index])) {
-            return false;
-          }
-          return true;
-        });
-      }
-      if (a[key] !== b[key]) {
-        return false;
-      }
-      return true;
-    });
-  }
-  /**
-   * On each render, we will create, update, or destroy the editor instance.
-   * @param deps The dependencies to watch for changes
-   * @returns A cleanup function
-   */
-  onRender(deps) {
-    return () => {
-      this.isComponentMounted = true;
-      clearTimeout(this.scheduledDestructionTimeout);
-      if (this.editor && !this.editor.isDestroyed && deps.length === 0) {
-        if (!_EditorInstanceManager.compareOptions(this.options.current, this.editor.options)) {
-          this.editor.setOptions({
-            ...this.options.current,
-            editable: this.editor.isEditable
-          });
-        }
-      } else {
-        this.refreshEditorInstance(deps);
-      }
-      return () => {
-        this.isComponentMounted = false;
-        this.scheduleDestroy();
-      };
-    };
-  }
-  /**
-   * Recreate the editor instance if the dependencies have changed.
-   */
-  refreshEditorInstance(deps) {
-    if (this.editor && !this.editor.isDestroyed) {
-      if (this.previousDeps === null) {
-        this.previousDeps = deps;
-        return;
-      }
-      const depsAreEqual = this.previousDeps.length === deps.length && this.previousDeps.every((dep, index) => dep === deps[index]);
-      if (depsAreEqual) {
-        return;
-      }
-    }
-    if (this.editor && !this.editor.isDestroyed) {
-      this.editor.destroy();
-    }
-    this.setEditor(this.createEditor());
-    this.previousDeps = deps;
-  }
-  /**
-   * Schedule the destruction of the editor instance.
-   * This will only destroy the editor if it was not mounted on the next tick.
-   * This is to avoid destroying the editor instance when it's actually still mounted.
-   */
-  scheduleDestroy() {
-    const currentInstanceId = this.instanceId;
-    const currentEditor = this.editor;
-    this.scheduledDestructionTimeout = setTimeout(() => {
-      if (this.isComponentMounted && this.instanceId === currentInstanceId) {
-        if (currentEditor) {
-          currentEditor.setOptions(this.options.current);
-        }
-        return;
-      }
-      if (currentEditor && !currentEditor.isDestroyed) {
-        currentEditor.destroy();
-        if (this.instanceId === currentInstanceId) {
-          this.setEditor(null);
-        }
-      }
-    }, 1);
-  }
-};
-function useEditor(options = {}, deps = []) {
-  const mostRecentOptions = reactExports.useRef(options);
-  mostRecentOptions.current = options;
-  const [instanceManager] = reactExports.useState(() => new EditorInstanceManager(mostRecentOptions));
-  const editor = shimExports.useSyncExternalStore(
-    instanceManager.subscribe,
-    instanceManager.getEditor,
-    instanceManager.getServerSnapshot
-  );
-  reactExports.useDebugValue(editor);
-  reactExports.useEffect(instanceManager.onRender(deps));
-  useEditorState({
-    editor,
-    selector: ({ transactionNumber }) => {
-      if (options.shouldRerenderOnTransaction === false || options.shouldRerenderOnTransaction === void 0) {
-        return null;
-      }
-      if (options.immediatelyRender && transactionNumber === 0) {
-        return 0;
-      }
-      return transactionNumber + 1;
-    }
-  });
-  return editor;
-}
-var EditorContext = reactExports.createContext({
-  editor: null
-});
-EditorContext.Consumer;
-var ReactNodeViewContext = reactExports.createContext({
-  onDragStart: () => {
-  },
-  nodeViewContentChildren: void 0,
-  nodeViewContentRef: () => {
-  }
-});
-var useReactNodeView = () => reactExports.useContext(ReactNodeViewContext);
-React4.forwardRef((props, ref) => {
-  const { onDragStart } = useReactNodeView();
-  const Tag = props.as || "div";
-  return (
-    // @ts-ignore
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Tag,
-      {
-        ...props,
-        ref,
-        "data-node-view-wrapper": "",
-        onDragStart,
-        style: {
-          whiteSpace: "normal",
-          ...props.style
-        }
-      }
-    )
-  );
-});
-React4.createContext({
-  markViewContentRef: () => {
-  }
-});
-var TiptapContext = reactExports.createContext({
-  get editor() {
-    throw new Error("useTiptap must be used within a <Tiptap> provider");
-  }
-});
-TiptapContext.displayName = "TiptapContext";
-var useTiptap = () => reactExports.useContext(TiptapContext);
-function TiptapWrapper({ editor, instance, children }) {
-  const resolvedEditor = editor != null ? editor : instance;
-  if (!resolvedEditor) {
-    throw new Error("Tiptap: An editor instance is required. Pass a non-null `editor` prop.");
-  }
-  const tiptapContextValue = reactExports.useMemo(() => ({ editor: resolvedEditor }), [resolvedEditor]);
-  const legacyContextValue = reactExports.useMemo(() => ({ editor: resolvedEditor }), [resolvedEditor]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(EditorContext.Provider, { value: legacyContextValue, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TiptapContext.Provider, { value: tiptapContextValue, children }) });
-}
-TiptapWrapper.displayName = "Tiptap";
-function TiptapContent({ ...rest }) {
-  const { editor } = useTiptap();
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(EditorContent, { editor, ...rest });
-}
-TiptapContent.displayName = "Tiptap.Content";
-Object.assign(TiptapWrapper, {
-  /**
-   * The Tiptap Content component that renders the EditorContent with the editor instance from the context.
-   * @see TiptapContent
-   */
-  Content: TiptapContent
-});
-var h = (tag, attributes) => {
-  if (tag === "slot") {
-    return 0;
-  }
-  if (tag instanceof Function) {
-    return tag(attributes);
-  }
-  const { children, ...rest } = attributes != null ? attributes : {};
-  if (tag === "svg") {
-    throw new Error("SVG elements are not supported in the JSX syntax, use the array syntax instead");
-  }
-  return [tag, rest, children];
-};
-var inputRegex$3 = /^\s*>\s$/;
-var Blockquote = Node3.create({
-  name: "blockquote",
-  addOptions() {
-    return {
-      HTMLAttributes: {}
-    };
-  },
-  content: "block+",
-  group: "block",
-  defining: true,
-  parseHTML() {
-    return [{ tag: "blockquote" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return /* @__PURE__ */ h("blockquote", { ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), children: /* @__PURE__ */ h("slot", {}) });
-  },
-  parseMarkdown: (token, helpers2) => {
-    var _a2;
-    const parseBlockChildren = (_a2 = helpers2.parseBlockChildren) != null ? _a2 : helpers2.parseChildren;
-    return helpers2.createNode("blockquote", void 0, parseBlockChildren(token.tokens || []));
-  },
-  renderMarkdown: (node, h2) => {
-    if (!node.content) {
-      return "";
-    }
-    const prefix = ">";
-    const result = [];
-    node.content.forEach((child, index) => {
-      var _a2, _b;
-      const childContent = (_b = (_a2 = h2.renderChild) == null ? void 0 : _a2.call(h2, child, index)) != null ? _b : h2.renderChildren([child]);
-      const lines = childContent.split("\n");
-      const linesWithPrefix = lines.map((line) => {
-        if (line.trim() === "") {
-          return prefix;
-        }
-        return `${prefix} ${line}`;
-      });
-      result.push(linesWithPrefix.join("\n"));
-    });
-    return result.join(`
-${prefix}
-`);
-  },
-  addCommands() {
-    return {
-      setBlockquote: () => ({ commands }) => {
-        return commands.wrapIn(this.name);
-      },
-      toggleBlockquote: () => ({ commands }) => {
-        return commands.toggleWrap(this.name);
-      },
-      unsetBlockquote: () => ({ commands }) => {
-        return commands.lift(this.name);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-Shift-b": () => this.editor.commands.toggleBlockquote()
-    };
-  },
-  addInputRules() {
-    return [
-      wrappingInputRule({
-        find: inputRegex$3,
-        type: this.type
-      })
-    ];
-  }
-});
-var starInputRegex$1 = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))$/;
-var starPasteRegex$1 = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
-var underscoreInputRegex$1 = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/;
-var underscorePasteRegex$1 = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g;
-var Bold = Mark2.create({
-  name: "bold",
-  addOptions() {
-    return {
-      HTMLAttributes: {}
-    };
-  },
-  parseHTML() {
-    return [
-      {
-        tag: "strong"
-      },
-      {
-        tag: "b",
-        getAttrs: (node) => node.style.fontWeight !== "normal" && null
-      },
-      {
-        style: "font-weight=400",
-        clearMark: (mark) => mark.type.name === this.name
-      },
-      {
-        style: "font-weight",
-        getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null
-      }
-    ];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return /* @__PURE__ */ h("strong", { ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), children: /* @__PURE__ */ h("slot", {}) });
-  },
-  markdownTokenName: "strong",
-  parseMarkdown: (token, helpers2) => {
-    return helpers2.applyMark("bold", helpers2.parseInline(token.tokens || []));
-  },
-  markdownOptions: {
-    htmlReopen: {
-      open: "<strong>",
-      close: "</strong>"
-    }
-  },
-  renderMarkdown: (node, h2) => {
-    return `**${h2.renderChildren(node)}**`;
-  },
-  addCommands() {
-    return {
-      setBold: () => ({ commands }) => {
-        return commands.setMark(this.name);
-      },
-      toggleBold: () => ({ commands }) => {
-        return commands.toggleMark(this.name);
-      },
-      unsetBold: () => ({ commands }) => {
-        return commands.unsetMark(this.name);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-b": () => this.editor.commands.toggleBold(),
-      "Mod-B": () => this.editor.commands.toggleBold()
-    };
-  },
-  addInputRules() {
-    return [
-      markInputRule({
-        find: starInputRegex$1,
-        type: this.type
-      }),
-      markInputRule({
-        find: underscoreInputRegex$1,
-        type: this.type
-      })
-    ];
-  },
-  addPasteRules() {
-    return [
-      markPasteRule({
-        find: starPasteRegex$1,
-        type: this.type
-      }),
-      markPasteRule({
-        find: underscorePasteRegex$1,
-        type: this.type
-      })
-    ];
-  }
-});
-var inputRegex$2 = /(^|[^`])`([^`]+)`(?!`)$/;
-var pasteRegex$1 = /(^|[^`])`([^`]+)`(?!`)/g;
-var Code = Mark2.create({
-  name: "code",
-  addOptions() {
-    return {
-      HTMLAttributes: {}
-    };
-  },
-  excludes: "_",
-  code: true,
-  exitable: true,
-  parseHTML() {
-    return [{ tag: "code" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["code", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-  },
-  markdownTokenName: "codespan",
-  parseMarkdown: (token, helpers2) => {
-    return helpers2.applyMark("code", [{ type: "text", text: token.text || "" }]);
-  },
-  renderMarkdown: (node, h2) => {
-    if (!node.content) {
-      return "";
-    }
-    return `\`${h2.renderChildren(node.content)}\``;
-  },
-  addCommands() {
-    return {
-      setCode: () => ({ commands }) => {
-        return commands.setMark(this.name);
-      },
-      toggleCode: () => ({ commands }) => {
-        return commands.toggleMark(this.name);
-      },
-      unsetCode: () => ({ commands }) => {
-        return commands.unsetMark(this.name);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-e": () => this.editor.commands.toggleCode()
-    };
-  },
-  addInputRules() {
-    return [
-      markInputRule({
-        find: inputRegex$2,
-        type: this.type
-      })
-    ];
-  },
-  addPasteRules() {
-    return [
-      markPasteRule({
-        find: pasteRegex$1,
-        type: this.type
-      })
-    ];
-  }
-});
-var DEFAULT_TAB_SIZE = 4;
-var backtickInputRegex = /^```([a-z]+)?[\s\n]$/;
-var tildeInputRegex = /^~~~([a-z]+)?[\s\n]$/;
-var CodeBlock = Node3.create({
-  name: "codeBlock",
-  addOptions() {
-    return {
-      languageClassPrefix: "language-",
-      exitOnTripleEnter: true,
-      exitOnArrowDown: true,
-      defaultLanguage: null,
-      enableTabIndentation: false,
-      tabSize: DEFAULT_TAB_SIZE,
-      HTMLAttributes: {}
-    };
-  },
-  content: "text*",
-  marks: "",
-  group: "block",
-  code: true,
-  defining: true,
-  addAttributes() {
-    return {
-      language: {
-        default: this.options.defaultLanguage,
-        parseHTML: (element) => {
-          var _a2;
-          const { languageClassPrefix } = this.options;
-          if (!languageClassPrefix) {
-            return null;
-          }
-          const classNames = [...((_a2 = element.firstElementChild) == null ? void 0 : _a2.classList) || []];
-          const languages = classNames.filter((className) => className.startsWith(languageClassPrefix)).map((className) => className.replace(languageClassPrefix, ""));
-          const language = languages[0];
-          if (!language) {
-            return null;
-          }
-          return language;
-        },
-        rendered: false
-      }
-    };
-  },
-  parseHTML() {
-    return [
-      {
-        tag: "pre",
-        preserveWhitespace: "full"
-      }
-    ];
-  },
-  renderHTML({ node, HTMLAttributes }) {
-    return [
-      "pre",
-      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
-      [
-        "code",
-        {
-          class: node.attrs.language ? this.options.languageClassPrefix + node.attrs.language : null
-        },
-        0
-      ]
-    ];
-  },
-  markdownTokenName: "code",
-  parseMarkdown: (token, helpers2) => {
-    var _a2, _b;
-    if (((_a2 = token.raw) == null ? void 0 : _a2.startsWith("```")) === false && ((_b = token.raw) == null ? void 0 : _b.startsWith("~~~")) === false && token.codeBlockStyle !== "indented") {
-      return [];
-    }
-    return helpers2.createNode(
-      "codeBlock",
-      { language: token.lang || null },
-      token.text ? [helpers2.createTextNode(token.text)] : []
-    );
-  },
-  renderMarkdown: (node, h2) => {
-    var _a2;
-    let output = "";
-    const language = ((_a2 = node.attrs) == null ? void 0 : _a2.language) || "";
-    if (!node.content) {
-      output = `\`\`\`${language}
-
-\`\`\``;
-    } else {
-      const lines = [`\`\`\`${language}`, h2.renderChildren(node.content), "```"];
-      output = lines.join("\n");
-    }
-    return output;
-  },
-  addCommands() {
-    return {
-      setCodeBlock: (attributes) => ({ commands }) => {
-        return commands.setNode(this.name, attributes);
-      },
-      toggleCodeBlock: (attributes) => ({ commands }) => {
-        return commands.toggleNode(this.name, "paragraph", attributes);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-Alt-c": () => this.editor.commands.toggleCodeBlock(),
-      // remove code block when at start of document or code block is empty
-      Backspace: () => {
-        const { empty: empty2, $anchor } = this.editor.state.selection;
-        const isAtStart = $anchor.pos === 1;
-        if (!empty2 || $anchor.parent.type.name !== this.name) {
-          return false;
-        }
-        if (isAtStart || !$anchor.parent.textContent.length) {
-          return this.editor.commands.clearNodes();
-        }
-        return false;
-      },
-      // handle tab indentation
-      Tab: ({ editor }) => {
-        var _a2;
-        if (!this.options.enableTabIndentation) {
-          return false;
-        }
-        const tabSize = (_a2 = this.options.tabSize) != null ? _a2 : DEFAULT_TAB_SIZE;
-        const { state } = editor;
-        const { selection } = state;
-        const { $from, empty: empty2 } = selection;
-        if ($from.parent.type !== this.type) {
-          return false;
-        }
-        const indent = " ".repeat(tabSize);
-        if (empty2) {
-          return editor.commands.insertContent(indent);
-        }
-        return editor.commands.command(({ tr: tr2 }) => {
-          const { from: from2, to } = selection;
-          const text2 = state.doc.textBetween(from2, to, "\n", "\n");
-          const lines = text2.split("\n");
-          const indentedText = lines.map((line) => indent + line).join("\n");
-          tr2.replaceWith(from2, to, state.schema.text(indentedText));
-          return true;
-        });
-      },
-      // handle shift+tab reverse indentation
-      "Shift-Tab": ({ editor }) => {
-        var _a2;
-        if (!this.options.enableTabIndentation) {
-          return false;
-        }
-        const tabSize = (_a2 = this.options.tabSize) != null ? _a2 : DEFAULT_TAB_SIZE;
-        const { state } = editor;
-        const { selection } = state;
-        const { $from, empty: empty2 } = selection;
-        if ($from.parent.type !== this.type) {
-          return false;
-        }
-        if (empty2) {
-          return editor.commands.command(({ tr: tr2 }) => {
-            var _a22;
-            const { pos } = $from;
-            const codeBlockStart = $from.start();
-            const codeBlockEnd = $from.end();
-            const allText = state.doc.textBetween(codeBlockStart, codeBlockEnd, "\n", "\n");
-            const lines = allText.split("\n");
-            let currentLineIndex = 0;
-            let charCount = 0;
-            const relativeCursorPos = pos - codeBlockStart;
-            for (let i = 0; i < lines.length; i += 1) {
-              if (charCount + lines[i].length >= relativeCursorPos) {
-                currentLineIndex = i;
-                break;
-              }
-              charCount += lines[i].length + 1;
-            }
-            const currentLine = lines[currentLineIndex];
-            const leadingSpaces = ((_a22 = currentLine.match(/^ */)) == null ? void 0 : _a22[0]) || "";
-            const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
-            if (spacesToRemove === 0) {
-              return true;
-            }
-            let lineStartPos = codeBlockStart;
-            for (let i = 0; i < currentLineIndex; i += 1) {
-              lineStartPos += lines[i].length + 1;
-            }
-            tr2.delete(lineStartPos, lineStartPos + spacesToRemove);
-            const cursorPosInLine = pos - lineStartPos;
-            if (cursorPosInLine <= spacesToRemove) {
-              tr2.setSelection(TextSelection.create(tr2.doc, lineStartPos));
-            }
-            return true;
-          });
-        }
-        return editor.commands.command(({ tr: tr2 }) => {
-          const { from: from2, to } = selection;
-          const text2 = state.doc.textBetween(from2, to, "\n", "\n");
-          const lines = text2.split("\n");
-          const reverseIndentText = lines.map((line) => {
-            var _a22;
-            const leadingSpaces = ((_a22 = line.match(/^ */)) == null ? void 0 : _a22[0]) || "";
-            const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
-            return line.slice(spacesToRemove);
-          }).join("\n");
-          tr2.replaceWith(from2, to, state.schema.text(reverseIndentText));
-          return true;
-        });
-      },
-      // exit node on triple enter
-      Enter: ({ editor }) => {
-        if (!this.options.exitOnTripleEnter) {
-          return false;
-        }
-        const { state } = editor;
-        const { selection } = state;
-        const { $from, empty: empty2 } = selection;
-        if (!empty2 || $from.parent.type !== this.type) {
-          return false;
-        }
-        const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
-        const endsWithDoubleNewline = $from.parent.textContent.endsWith("\n\n");
-        if (!isAtEnd || !endsWithDoubleNewline) {
-          return false;
-        }
-        return editor.chain().command(({ tr: tr2 }) => {
-          tr2.delete($from.pos - 2, $from.pos);
-          return true;
-        }).exitCode().run();
-      },
-      // exit node on arrow down
-      ArrowDown: ({ editor }) => {
-        if (!this.options.exitOnArrowDown) {
-          return false;
-        }
-        const { state } = editor;
-        const { selection, doc: doc2 } = state;
-        const { $from, empty: empty2 } = selection;
-        if (!empty2 || $from.parent.type !== this.type) {
-          return false;
-        }
-        const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
-        if (!isAtEnd) {
-          return false;
-        }
-        const after = $from.after();
-        if (after === void 0) {
-          return false;
-        }
-        const nodeAfter = doc2.nodeAt(after);
-        if (nodeAfter) {
-          return editor.commands.command(({ tr: tr2 }) => {
-            tr2.setSelection(Selection.near(doc2.resolve(after)));
-            return true;
-          });
-        }
-        return editor.commands.exitCode();
-      }
-    };
-  },
-  addInputRules() {
-    return [
-      textblockTypeInputRule({
-        find: backtickInputRegex,
-        type: this.type,
-        getAttributes: (match2) => ({
-          language: match2[1]
-        })
-      }),
-      textblockTypeInputRule({
-        find: tildeInputRegex,
-        type: this.type,
-        getAttributes: (match2) => ({
-          language: match2[1]
-        })
-      })
-    ];
-  },
-  addProseMirrorPlugins() {
-    return [
-      // this plugin creates a code block for pasted content from VS Code
-      // we can also detect the copied code language
-      new Plugin({
-        key: new PluginKey("codeBlockVSCodeHandler"),
-        props: {
-          handlePaste: (view, event) => {
-            if (!event.clipboardData) {
-              return false;
-            }
-            if (this.editor.isActive(this.type.name)) {
-              return false;
-            }
-            const text2 = event.clipboardData.getData("text/plain");
-            const vscode = event.clipboardData.getData("vscode-editor-data");
-            const vscodeData = vscode ? JSON.parse(vscode) : void 0;
-            const language = vscodeData == null ? void 0 : vscodeData.mode;
-            if (!text2 || !language) {
-              return false;
-            }
-            const { tr: tr2, schema } = view.state;
-            const textNode = schema.text(text2.replace(/\r\n?/g, "\n"));
-            tr2.replaceSelectionWith(this.type.create({ language }, textNode));
-            if (tr2.selection.$from.parent.type !== this.type) {
-              tr2.setSelection(TextSelection.near(tr2.doc.resolve(Math.max(0, tr2.selection.from - 2))));
-            }
-            tr2.setMeta("paste", true);
-            view.dispatch(tr2);
-            return true;
-          }
-        }
-      })
-    ];
-  }
-});
-var Document = Node3.create({
-  name: "doc",
-  topNode: true,
-  content: "block+",
-  renderMarkdown: (node, h2) => {
-    if (!node.content) {
-      return "";
-    }
-    return h2.renderChildren(node.content, "\n\n");
-  }
-});
-var HardBreak = Node3.create({
-  name: "hardBreak",
-  markdownTokenName: "br",
-  addOptions() {
-    return {
-      keepMarks: true,
-      HTMLAttributes: {}
-    };
-  },
-  inline: true,
-  group: "inline",
-  selectable: false,
-  linebreakReplacement: true,
-  parseHTML() {
-    return [{ tag: "br" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["br", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
-  },
-  renderText() {
-    return "\n";
-  },
-  renderMarkdown: () => `  
-`,
-  parseMarkdown: () => {
-    return {
-      type: "hardBreak"
-    };
-  },
-  addCommands() {
-    return {
-      setHardBreak: () => ({ commands, chain, state, editor }) => {
-        return commands.first([
-          () => commands.exitCode(),
-          () => commands.command(() => {
-            const { selection, storedMarks } = state;
-            if (selection.$from.parent.type.spec.isolating) {
-              return false;
-            }
-            const { keepMarks } = this.options;
-            const { splittableMarks } = editor.extensionManager;
-            const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
-            return chain().insertContent({ type: this.name }).command(({ tr: tr2, dispatch }) => {
-              if (dispatch && marks && keepMarks) {
-                const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
-                tr2.ensureMarks(filteredMarks);
-              }
-              return true;
-            }).run();
-          })
-        ]);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-Enter": () => this.editor.commands.setHardBreak(),
-      "Shift-Enter": () => this.editor.commands.setHardBreak()
-    };
-  }
-});
-var Heading = Node3.create({
-  name: "heading",
-  addOptions() {
-    return {
-      levels: [1, 2, 3, 4, 5, 6],
-      HTMLAttributes: {}
-    };
-  },
-  content: "inline*",
-  group: "block",
-  defining: true,
-  addAttributes() {
-    return {
-      level: {
-        default: 1,
-        rendered: false
-      }
-    };
-  },
-  parseHTML() {
-    return this.options.levels.map((level) => ({
-      tag: `h${level}`,
-      attrs: { level }
-    }));
-  },
-  renderHTML({ node, HTMLAttributes }) {
-    const hasLevel = this.options.levels.includes(node.attrs.level);
-    const level = hasLevel ? node.attrs.level : this.options.levels[0];
-    return [`h${level}`, mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-  },
-  parseMarkdown: (token, helpers2) => {
-    return helpers2.createNode("heading", { level: token.depth || 1 }, helpers2.parseInline(token.tokens || []));
-  },
-  renderMarkdown: (node, h2) => {
-    var _a2;
-    const level = ((_a2 = node.attrs) == null ? void 0 : _a2.level) ? parseInt(node.attrs.level, 10) : 1;
-    const headingChars = "#".repeat(level);
-    if (!node.content) {
-      return "";
-    }
-    return `${headingChars} ${h2.renderChildren(node.content)}`;
-  },
-  addCommands() {
-    return {
-      setHeading: (attributes) => ({ commands }) => {
-        if (!this.options.levels.includes(attributes.level)) {
-          return false;
-        }
-        return commands.setNode(this.name, attributes);
-      },
-      toggleHeading: (attributes) => ({ commands }) => {
-        if (!this.options.levels.includes(attributes.level)) {
-          return false;
-        }
-        return commands.toggleNode(this.name, "paragraph", attributes);
-      }
-    };
-  },
-  addKeyboardShortcuts() {
-    return this.options.levels.reduce(
-      (items, level) => ({
-        ...items,
-        ...{
-          [`Mod-Alt-${level}`]: () => this.editor.commands.toggleHeading({ level })
-        }
-      }),
-      {}
-    );
-  },
-  addInputRules() {
-    return this.options.levels.map((level) => {
-      return textblockTypeInputRule({
-        find: new RegExp(`^(#{${Math.min(...this.options.levels)},${level}})\\s$`),
-        type: this.type,
-        getAttributes: {
-          level
-        }
-      });
-    });
-  }
-});
-var HorizontalRule = Node3.create({
-  name: "horizontalRule",
-  addOptions() {
-    return {
-      HTMLAttributes: {},
-      nextNodeType: "paragraph"
-    };
-  },
-  group: "block",
-  parseHTML() {
-    return [{ tag: "hr" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["hr", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
-  },
-  markdownTokenName: "hr",
-  parseMarkdown: (token, helpers2) => {
-    return helpers2.createNode("horizontalRule");
-  },
-  renderMarkdown: () => {
-    return "---";
-  },
-  addCommands() {
-    return {
-      setHorizontalRule: () => ({ chain, state }) => {
-        if (!canInsertNode(state, state.schema.nodes[this.name])) {
-          return false;
-        }
-        const { selection } = state;
-        const { $to: $originTo } = selection;
-        const currentChain = chain();
-        if (isNodeSelection(selection)) {
-          currentChain.insertContentAt($originTo.pos, {
-            type: this.name
-          });
-        } else {
-          currentChain.insertContent({ type: this.name });
-        }
-        return currentChain.command(({ state: chainState, tr: tr2, dispatch }) => {
-          if (dispatch) {
-            const { $to } = tr2.selection;
-            const posAfter = $to.end();
-            if ($to.nodeAfter) {
-              if ($to.nodeAfter.isTextblock) {
-                tr2.setSelection(TextSelection.create(tr2.doc, $to.pos + 1));
-              } else if ($to.nodeAfter.isBlock) {
-                tr2.setSelection(NodeSelection.create(tr2.doc, $to.pos));
-              } else {
-                tr2.setSelection(TextSelection.create(tr2.doc, $to.pos));
-              }
-            } else {
-              const nodeType = chainState.schema.nodes[this.options.nextNodeType] || $to.parent.type.contentMatch.defaultType;
-              const node = nodeType == null ? void 0 : nodeType.create();
-              if (node) {
-                tr2.insert(posAfter, node);
-                tr2.setSelection(TextSelection.create(tr2.doc, posAfter + 1));
-              }
-            }
-            tr2.scrollIntoView();
-          }
-          return true;
-        }).run();
-      }
-    };
-  },
-  addInputRules() {
-    return [
-      nodeInputRule({
-        find: /^(?:---|—-|___\s|\*\*\*\s)$/,
-        type: this.type
-      })
-    ];
-  }
-});
-var starInputRegex = /(?:^|\s)(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))$/;
-var starPasteRegex = /(?:^|\s)(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))/g;
-var underscoreInputRegex = /(?:^|\s)(_(?!\s+_)((?:[^_]+))_(?!\s+_))$/;
-var underscorePasteRegex = /(?:^|\s)(_(?!\s+_)((?:[^_]+))_(?!\s+_))/g;
-var Italic = Mark2.create({
-  name: "italic",
-  addOptions() {
-    return {
-      HTMLAttributes: {}
-    };
-  },
-  parseHTML() {
-    return [
-      {
-        tag: "em"
-      },
-      {
-        tag: "i",
-        getAttrs: (node) => node.style.fontStyle !== "normal" && null
-      },
-      {
-        style: "font-style=normal",
-        clearMark: (mark) => mark.type.name === this.name
-      },
-      {
-        style: "font-style=italic"
-      }
-    ];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["em", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-  },
-  addCommands() {
-    return {
-      setItalic: () => ({ commands }) => {
-        return commands.setMark(this.name);
-      },
-      toggleItalic: () => ({ commands }) => {
-        return commands.toggleMark(this.name);
-      },
-      unsetItalic: () => ({ commands }) => {
-        return commands.unsetMark(this.name);
-      }
-    };
-  },
-  markdownTokenName: "em",
-  parseMarkdown: (token, helpers2) => {
-    return helpers2.applyMark("italic", helpers2.parseInline(token.tokens || []));
-  },
-  markdownOptions: {
-    htmlReopen: {
-      open: "<em>",
-      close: "</em>"
-    }
-  },
-  renderMarkdown: (node, h2) => {
-    return `*${h2.renderChildren(node)}*`;
-  },
-  addKeyboardShortcuts() {
-    return {
-      "Mod-i": () => this.editor.commands.toggleItalic(),
-      "Mod-I": () => this.editor.commands.toggleItalic()
-    };
-  },
-  addInputRules() {
-    return [
-      markInputRule({
-        find: starInputRegex,
-        type: this.type
-      }),
-      markInputRule({
-        find: underscoreInputRegex,
-        type: this.type
-      })
-    ];
-  },
-  addPasteRules() {
-    return [
-      markPasteRule({
-        find: starPasteRegex,
-        type: this.type
-      }),
-      markPasteRule({
-        find: underscorePasteRegex,
-        type: this.type
-      })
-    ];
-  }
-});
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -51894,6 +52209,75 @@ var Text = Node3.create({
   },
   renderMarkdown: (node) => node.text || ""
 });
+var Underline = Mark2.create({
+  name: "underline",
+  addOptions() {
+    return {
+      HTMLAttributes: {}
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: "u"
+      },
+      {
+        style: "text-decoration",
+        consuming: false,
+        getAttrs: (style2) => style2.includes("underline") ? {} : false
+      }
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["u", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+  },
+  parseMarkdown(token, helpers2) {
+    return helpers2.applyMark(this.name || "underline", helpers2.parseInline(token.tokens || []));
+  },
+  renderMarkdown(node, helpers2) {
+    return `++${helpers2.renderChildren(node)}++`;
+  },
+  markdownTokenizer: {
+    name: "underline",
+    level: "inline",
+    start(src) {
+      return src.indexOf("++");
+    },
+    tokenize(src, _tokens, lexer) {
+      const rule = /^(\+\+)([\s\S]+?)(\+\+)/;
+      const match2 = rule.exec(src);
+      if (!match2) {
+        return void 0;
+      }
+      const innerContent = match2[2].trim();
+      return {
+        type: "underline",
+        raw: match2[0],
+        text: innerContent,
+        tokens: lexer.inlineTokens(innerContent)
+      };
+    }
+  },
+  addCommands() {
+    return {
+      setUnderline: () => ({ commands }) => {
+        return commands.setMark(this.name);
+      },
+      toggleUnderline: () => ({ commands }) => {
+        return commands.toggleMark(this.name);
+      },
+      unsetUnderline: () => ({ commands }) => {
+        return commands.unsetMark(this.name);
+      }
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-u": () => this.editor.commands.toggleUnderline(),
+      "Mod-U": () => this.editor.commands.toggleUnderline()
+    };
+  }
+});
 var StarterKit = Extension.create({
   name: "starterKit",
   addExtensions() {
@@ -52122,11 +52506,12 @@ function TiptapEditor({ content, onChange, placeholder = "开始写作...", read
   const isSettingRef = reactExports.useRef(false);
   const editor = useEditor({
     extensions: [
-      index_default.configure({ heading: { levels: [1, 2, 3, 4] } }),
-      index_default$1,
-      index_default$3.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
-      index_default$2.configure({ placeholder }),
-      index_default$4.configure({ allowBase64: true, inline: true })
+      index_default.configure({
+        heading: { levels: [1, 2, 3, 4] },
+        link: { openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }
+      }),
+      index_default$1.configure({ placeholder }),
+      index_default$2.configure({ allowBase64: true, inline: true })
     ],
     content,
     editable: !readOnly,
@@ -52252,7 +52637,7 @@ function fmtSize$1(bytes) {
 }
 function AttachmentPanel({ blogId }) {
   const [attachments, setAttachments] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const load = reactExports.useCallback(async () => {
     const r = await window.api.blogListAttachments(blogId);
     if (r.success && r.data) setAttachments(r.data);
@@ -52298,7 +52683,7 @@ function AttachmentPanel({ blogId }) {
         }
       )
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : attachments.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无附件" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: attachments.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : attachments.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-placeholder)" }, children: "暂无附件" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: attachments.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-2 rounded-[3px] px-2 py-1 text-[12px]",
@@ -52495,7 +52880,7 @@ const iconMap = {
   Users: "👥",
   FileText: "📄"
 };
-const md$3 = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const md$2 = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", emDelimiter: "*" });
 const initialState$1 = {
   title: "",
@@ -52571,8 +52956,8 @@ function BlogEditorPage$1() {
   const contentRef = reactExports.useRef(state.content);
   contentRef.current = state.content;
   const draftTimerRef = reactExports.useRef(null);
-  const [restoreDraft, setRestoreDraft] = useState(null);
-  const [draftSavedIndicator, setDraftSavedIndicator] = useState(false);
+  const [restoreDraft, setRestoreDraft] = reactExports.useState(null);
+  const [draftSavedIndicator, setDraftSavedIndicator] = reactExports.useState(false);
   const draftIndicatorTimer = reactExports.useRef(null);
   const handleTitleChange = reactExports.useCallback(
     (e) => {
@@ -52607,7 +52992,7 @@ function BlogEditorPage$1() {
   }, [state.isDirty]);
   const handleTemplateSelect = reactExports.useCallback((tpl) => {
     dispatch({ type: "SET_TEMPLATE", payload: tpl });
-    if (tpl.content) dispatch({ type: "SET_CONTENT", payload: tpl.format === "md" ? md$3.render(tpl.content) : tpl.content });
+    if (tpl.content) dispatch({ type: "SET_CONTENT", payload: tpl.format === "md" ? md$2.render(tpl.content) : tpl.content });
     dispatch({ type: "SET_FORMAT", payload: tpl.format });
     if (tpl.tags.length > 0) dispatch({ type: "SET_PENDING_TAGS", payload: null });
   }, []);
@@ -52626,7 +53011,7 @@ function BlogEditorPage$1() {
           payload: {
             title: r.data.title,
             format: r.data.format,
-            content: r.data.format === "md" ? md$3.render(c) : c,
+            content: r.data.format === "md" ? md$2.render(c) : c,
             selectedTagIds: (r.data.tags || []).map((t) => t.id),
             seriesId: r.data.seriesId || null,
             seriesName: r.data.seriesName || ""
@@ -53092,8 +53477,8 @@ function WebEditorPage() {
       index_default.configure({
         heading: { levels: [1, 2, 3] }
       }),
-      index_default$2.configure({ placeholder: "开始写作..." }),
-      index_default$4.configure({ allowBase64: true, inline: true })
+      index_default$1.configure({ placeholder: "开始写作..." }),
+      index_default$2.configure({ allowBase64: true, inline: true })
     ],
     onUpdate: ({ editor: editor2 }) => {
       if (loadedRef.current && !saving) {
@@ -53413,7 +53798,7 @@ function RelatedResources({ blogId }) {
   const [refs, setRefs] = reactExports.useState([]);
   reactExports.useEffect(() => {
     window.api.refGetFrom({ sourceType: "blog", sourceId: blogId }).then((r) => {
-      if (r.success && r.data) setRefs(r.data.filter((ref) => ref.target_type === "knowledge"));
+      if (r.success && r.data) setRefs(r.data.filter((ref) => ref.targetType === "knowledge"));
     });
   }, [blogId]);
   if (refs.length === 0) return null;
@@ -53444,8 +53829,8 @@ function RelatedResources({ blogId }) {
     }
   );
 }
-const md$2 = new MarkdownIt({ html: false, linkify: true, typographer: true });
-md$2.renderer.rules.heading_open = (tokens, idx) => {
+const md$1 = new MarkdownIt({ html: false, linkify: true, typographer: true });
+md$1.renderer.rules.heading_open = (tokens, idx) => {
   const token = tokens[idx];
   if (!token) return "";
   const text2 = tokens[idx + 1]?.content || "";
@@ -53466,7 +53851,7 @@ function BlogPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [blog, setBlog] = reactExports.useState(null);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [progress, setProgress] = reactExports.useState(0);
   const [readingTheme, setReadingTheme] = reactExports.useState(localStorage.getItem("reading-theme") || "paper");
   const isEditMode = searchParams.get("mode") === "edit";
@@ -53495,14 +53880,14 @@ function BlogPreviewPage() {
             const pct = Number(saved);
             if (pct > 0) {
               requestAnimationFrame(() => {
-                const total2 = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                window.scrollTo(0, total2 * pct / 100);
+                const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                window.scrollTo(0, total * pct / 100);
               });
             }
           }
         }
         setLoading(false);
-      });
+      }).catch(() => setLoading(false));
   }, [id, user]);
   reactExports.useEffect(() => {
     return () => {
@@ -53513,21 +53898,21 @@ function BlogPreviewPage() {
   }, [id, progress]);
   const handleScroll = reactExports.useCallback(() => {
     const h2 = document.documentElement;
-    const total2 = h2.scrollHeight - h2.clientHeight;
-    setProgress(total2 > 0 ? Math.min(h2.scrollTop / total2 * 100, 100) : 0);
+    const total = h2.scrollHeight - h2.clientHeight;
+    setProgress(total > 0 ? Math.min(h2.scrollTop / total * 100, 100) : 0);
   }, []);
   reactExports.useEffect(() => {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
-  if (loading2)
+  if (loading)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
   if (!blog)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--accent-red)" }, children: "博客不存在" });
   if (isEditMode) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: scrollContainerRef, className: "flex-1 overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, {}) });
   }
-  const rendered = blog.format === "md" ? md$2.render(blog.content) : blog.content;
+  const rendered = blog.format === "md" ? md$1.render(blog.content) : blog.content;
   const tocItems = parseToc(blog.content, blog.format);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
@@ -53561,6 +53946,19 @@ function BlogPreviewPage() {
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                addTab({ id: blog.id, title: blog.title || "无标题", format: blog.format || "md" });
+              },
+              title: "缩小为标签条，稍后快速切换",
+              className: "rounded-[4px] border px-2 py-1 text-[12px] transition-opacity hover:opacity-80",
+              style: { borderColor: "var(--border-default)", color: "var(--text-secondary)", background: "transparent" },
+              children: "最小化"
+            }
+          ),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -53741,7 +54139,7 @@ function knowledgeListReducer(state, action) {
     case "PREVIEW_START":
       return { ...state, previewing: true, previewTitle: action.title, previewFileId: action.fileId, previewFileType: action.fileType, backRefs: [], previewHtml: "" };
     case "PREVIEW_LOADING":
-      return { ...state, previewing: true };
+      return { ...state, previewing: action.v };
     case "PREVIEW_HTML":
       return { ...state, previewHtml: action.html, previewing: false };
     case "PREVIEW_CLOSE":
@@ -53779,6 +54177,9 @@ function KnowledgeListPage() {
     dragOver: false,
     kbFolders: []
   });
+  const { query, fileType, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
+  const setFilterFolderId = (v) => dispatch({ type: "SET_FOLDER_FILTER", v });
+  const [error2, setError] = reactExports.useState(null);
   const fileInputRef = reactExports.useRef(null);
   const batch = useBatchSelect(state.files);
   const pagination = usePagination(20, state.total);
@@ -53806,11 +54207,11 @@ function KnowledgeListPage() {
         limit: pagination.limit
       });
       if (r.success && r.data) {
-        setFiles(r.data.files);
-        setTotal(r.data.total);
+        dispatch({ type: "SET_FILES", files: r.data.files, total: r.data.total });
       }
     } catch (e) {
       console.error(e);
+      setError("加载失败");
     } finally {
       dispatch({ type: "SET_LOADING", v: false });
     }
@@ -53900,7 +54301,7 @@ function KnowledgeListPage() {
               type: "button",
               onClick: () => {
                 const v = !showFolderSidebar;
-                setShowFolderSidebar(v);
+                dispatch({ type: "TOGGLE_SIDEBAR", v });
                 localStorage.setItem("sidebar_folder_knowledge", v ? "1" : "0");
               },
               className: "mb-2 rounded-[4px] px-2 py-1 text-[11px] hover:opacity-80 transition-opacity",
@@ -53952,13 +54353,16 @@ function KnowledgeListPage() {
               )
             ] }, crumb.id ?? "all")) });
           })(),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
-              "知识库",
-              " ",
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
-                total,
-                " 个文件"
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-center justify-between", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "资料库" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
+                "知识库",
+                " ",
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
+                  total,
+                  " 个文件"
+                ] })
               ] })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
@@ -53999,7 +54403,7 @@ function KnowledgeListPage() {
               {
                 type: "text",
                 value: query,
-                onChange: (e) => setQuery(e.target.value),
+                onChange: (e) => dispatch({ type: "SET_QUERY", v: e.target.value }),
                 placeholder: "搜索文件名...",
                 className: "max-w-xs rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
                 style: {
@@ -54013,7 +54417,7 @@ function KnowledgeListPage() {
               "select",
               {
                 value: fileType,
-                onChange: (e) => setFileType(e.target.value),
+                onChange: (e) => dispatch({ type: "SET_FILE_TYPE", v: e.target.value }),
                 "aria-label": "筛选文件类型",
                 title: "筛选文件类型",
                 className: "max-w-[130px] rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
@@ -54087,7 +54491,14 @@ function KnowledgeListPage() {
               ]
             }
           ),
-          loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : files.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "py-8 text-center", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--accent-red)" }, children: error2 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => {
+              setError(null);
+              loadFiles();
+            }, className: "mt-3 text-[13px] hover:underline", style: { color: "var(--accent-blue)", background: "none", border: "none", cursor: "pointer" }, children: "重试" })
+          ] }),
+          !error2 && loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : files.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
               className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -54119,8 +54530,7 @@ function KnowledgeListPage() {
                     {
                       type: "button",
                       onClick: () => {
-                        setFilterTagId(null);
-                        setFilterTagName("");
+                        dispatch({ type: "SET_TAG_FILTER", id: null, name: "" });
                       },
                       className: "ml-auto text-[12px] hover:underline",
                       style: { color: "var(--accent-red)" },
@@ -54163,26 +54573,21 @@ function KnowledgeListPage() {
                           {
                             type: "button",
                             onClick: async () => {
-                              setPreviewing(true);
-                              setPreviewTitle(f.filename);
-                              setPreviewFileId(f.id);
-                              setPreviewFileType(f.fileType || "");
+                              dispatch({ type: "PREVIEW_START", title: f.filename, fileId: f.id, fileType: f.fileType || "" });
                               window.api.refGetTo({ targetType: "knowledge", targetId: f.id }).then((r) => {
                                 if (r.success && r.data)
-                                  setBackRefs(r.data.filter((ref) => ref.source_type === "blog"));
-                              }).catch(() => setBackRefs([]));
+                                  dispatch({ type: "SET_BACKREFS", refs: r.data.filter((ref) => ref.sourceType === "blog") });
+                              }).catch(() => dispatch({ type: "SET_BACKREFS", refs: [] }));
                               try {
                                 const timeout = new Promise(
                                   (_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 1e4)
                                 );
                                 const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r) => (r.success !== false ? r.data?.html || r.html : "") || "<p style=color:var(--text-secondary)>无法预览</p>");
                                 const html2 = await Promise.race([preview, timeout]);
-                                setPreviewHtml(html2);
+                                dispatch({ type: "PREVIEW_HTML", html: html2 });
                               } catch (e) {
                                 const msg = e.message === "TIMEOUT" ? "<p style=color:var(--text-secondary)>文件较大,解析超时。请使用外部打开查看。</p>" : "<p style=color:var(--text-secondary)>预览失败</p>";
-                                setPreviewHtml(msg);
-                              } finally {
-                                setPreviewing(false);
+                                dispatch({ type: "PREVIEW_HTML", html: msg });
                               }
                             },
                             className: "text-left hover:underline transition-colors duration-[0.15s] max-w-[300px] truncate block",
@@ -54197,8 +54602,7 @@ function KnowledgeListPage() {
                             className: "tag text-[11px] cursor-pointer hover:opacity-80 transition-opacity",
                             onClick: (e) => {
                               e.stopPropagation();
-                              setFilterTagId(tg.id);
-                              setFilterTagName(tg.name);
+                              dispatch({ type: "SET_TAG_FILTER", id: tg.id, name: tg.name });
                             },
                             title: `筛选标签: ${tg.name}`,
                             children: tg.name
@@ -54212,7 +54616,7 @@ function KnowledgeListPage() {
                             selectedTagIds: editingTagIds,
                             openUp: true,
                             onChange: async (tagIds) => {
-                              setEditingTagIds(tagIds);
+                              dispatch({ type: "SET_EDIT_TAG_IDS", ids: tagIds });
                               try {
                                 await window.api.tagSetFile({ fileId: f.id, tagIds });
                                 loadFiles();
@@ -54274,11 +54678,9 @@ function KnowledgeListPage() {
                             type: "button",
                             onClick: () => {
                               if (isEditing) {
-                                setEditingTagsFileId(null);
-                                setEditingTagIds([]);
+                                dispatch({ type: "STOP_EDIT_TAGS" });
                               } else {
-                                setEditingTagsFileId(f.id);
-                                setEditingTagIds((f.tags || []).map((tg) => tg.id));
+                                dispatch({ type: "START_EDIT_TAGS", fileId: f.id, tagIds: (f.tags || []).map((tg) => tg.id) });
                               }
                             },
                             className: "mr-2 text-[12px] hover:underline",
@@ -54392,8 +54794,7 @@ function KnowledgeListPage() {
                       {
                         type: "button",
                         onClick: () => {
-                          setPreviewTitle("");
-                          setPreviewHtml("");
+                          dispatch({ type: "PREVIEW_CLOSE" });
                         },
                         className: "text-[13px]",
                         style: { color: "var(--text-secondary)" },
@@ -54464,7 +54865,7 @@ const KnowledgeListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object
 function RecycleBinPage() {
   const user = useAuthStore((s) => s.user);
   const [items, setItems] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const loadItems = reactExports.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -54519,7 +54920,7 @@ function RecycleBinPage() {
         }
       )
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : items.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : items.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
         className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -54592,7 +54993,7 @@ function fmtSize(bytes) {
 function BackupSection() {
   const user = useAuthStore((s) => s.user);
   const [backups, setBackups] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [message, setMessage] = reactExports.useState("");
   const load = reactExports.useCallback(async () => {
     setLoading(true);
@@ -54662,7 +55063,7 @@ function BackupSection() {
         children: "📦 导出工作区 (.zip)"
       }
     ),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : backups.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "暂无备份" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: backups.map((b) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : backups.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-placeholder)" }, children: "暂无备份" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: backups.map((b) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "flex items-center gap-3 rounded-[4px] border px-4 py-2.5",
@@ -55276,13 +55677,12 @@ function TipBox({ children }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "mt-3 rounded-[8px] border p-4 text-[13px] leading-relaxed",
+      className: "mt-3 rounded-[10px] p-4 text-[13px] leading-relaxed",
       style: {
-        background: "var(--bg-secondary)",
-        borderColor: "var(--accent-amber)",
-        color: "var(--text-secondary)",
+        background: "var(--bg-primary)",
+        border: "1px solid var(--accent-amber)",
         borderLeftWidth: 3,
-        borderLeftStyle: "solid"
+        color: "var(--text-secondary)"
       },
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mr-2", style: { color: "var(--accent-amber)" }, children: "💡" }),
@@ -55291,59 +55691,25 @@ function TipBox({ children }) {
     }
   );
 }
-function Kbd({ children }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "kbd",
-    {
-      className: "inline-block rounded-[4px] px-1.5 py-0.5 font-mono text-[12px]",
-      style: {
-        background: "var(--bg-tertiary)",
-        border: "1px solid var(--border-default)",
-        color: "var(--text-primary)",
-        fontFamily: "var(--font-mono)"
-      },
-      children
-    }
-  );
-}
 function FlowChart({ steps }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-start gap-0 py-4", children: steps.map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-start gap-0 py-3", children: steps.map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        className: "flex flex-col items-center rounded-[10px] p-4 text-center",
-        style: {
-          background: "var(--bg-secondary)",
-          border: "1px solid var(--border-default)",
-          minWidth: 140,
-          maxWidth: 180
-        },
+        className: "flex flex-col items-center rounded-[10px] p-4 text-center transition-all duration-[0.2s] hover:-translate-y-0.5",
+        style: { background: "var(--bg-primary)", border: "1px solid var(--border-default)", minWidth: 140, maxWidth: 180 },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[28px]", children: s.icon }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "mt-2 text-[14px] font-semibold",
-              style: { color: "var(--text-primary)" },
-              children: s.label
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "mt-1 text-[11px] leading-relaxed",
-              style: { color: "var(--text-muted)" },
-              children: s.detail
-            }
-          )
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-2 text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: s.label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-1 text-[11px] leading-relaxed whitespace-pre-line", style: { color: "var(--text-muted)" }, children: s.detail })
         ]
       }
     ),
-    i < steps.length - 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center px-2 pt-8 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[18px]", style: { color: "var(--accent-amber)" }, children: "→" }) })
+    i < steps.length - 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center px-2 pt-8 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[16px]", style: { color: "var(--accent-amber)" }, children: "→" }) })
   ] }, i)) });
 }
 function StepList({ steps }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1 rounded-[8px] p-5", style: { background: "var(--bg-secondary)" }, children: steps.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3 py-1.5", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-0.5 rounded-[10px] p-5", style: { background: "var(--bg-primary)" }, children: steps.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3 py-1.5", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       "span",
       {
@@ -55358,811 +55724,351 @@ function StepList({ steps }) {
     ] })
   ] }, s.num)) });
 }
-function Section({
-  icon,
-  title,
-  subtitle,
-  children
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "section",
-    {
-      className: "mb-6 rounded-[14px] border p-6 md:p-8",
-      style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-start gap-4", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] text-[22px]",
-              style: { background: "var(--bg-tertiary)" },
-              children: icon
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold leading-snug", style: { color: "var(--text-primary)" }, children: title }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-0.5 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: subtitle })
-          ] })
-        ] }),
-        children
-      ]
-    }
-  );
+function Section({ icon, title, subtitle, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mb-6 rounded-[16px] border p-6 md:p-8", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 flex items-start gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] text-[22px]", style: { background: "var(--bg-tertiary)" }, children: icon }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[18px] font-semibold leading-snug", style: { color: "var(--text-primary)" }, children: title }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-0.5 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: subtitle })
+      ] })
+    ] }),
+    children
+  ] });
 }
-function FeatureCard({
-  title,
-  icon,
-  items
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-secondary)" }, children: [
+function FeatureCard({ title, icon, items }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5 transition-all duration-[0.2s] hover:-translate-y-0.5", style: { background: "var(--bg-primary)" }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[18px]", children: icon }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: title })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "space-y-1.5", style: { listStyle: "none", paddingInlineStart: 0 }, children: items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "li",
-      {
-        className: "text-[13px] leading-relaxed",
-        style: { color: "var(--text-secondary)" },
-        children: [
-          "· ",
-          item
-        ]
-      },
+    /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "space-y-1.5", style: { listStyle: "none", paddingInlineStart: 0 }, children: items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { className: "text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: [
+      "· ",
       item
-    )) })
+    ] }, item)) })
   ] });
 }
 function GuidePage() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px] pb-20", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "relative mb-8 overflow-hidden rounded-[20px] p-10 md:p-12",
-        style: {
-          background: "var(--bg-secondary)",
-          border: "1px solid var(--border-default)"
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              className: "absolute -right-12 -top-12 h-[200px] w-[200px] rounded-full opacity-20",
-              style: { background: "radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)" }
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative mb-8 overflow-hidden rounded-[20px] p-10 md:p-12", style: { background: "var(--bg-secondary)", border: "1px solid var(--border-default)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute -right-10 -top-10 h-[180px] w-[180px] rounded-full opacity-15", style: { background: "radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute -bottom-6 -left-6 h-[140px] w-[140px] rounded-full opacity-10", style: { background: "radial-gradient(circle, var(--accent-green) 0%, transparent 70%)" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute right-1/3 top-0 h-full w-px opacity-8", style: { background: "linear-gradient(to bottom, transparent, var(--accent-blue), transparent)" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-medium", style: { background: "var(--bg-primary)", color: "var(--accent-green)" }, children: "🔒 本地优先 · 零云端依赖" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "mb-3 text-[36px] font-bold leading-tight tracking-tight", style: { color: "var(--text-primary)" }, children: "欢迎来到你的写作空间" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "max-w-xl text-[16px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: [
+          "一款",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "离线优先" }),
+          "的个人桌面应用。 集 ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-blue)" }, children: "Markdown 写作" }),
+          "、",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-green)" }, children: "知识库管理" }),
+          "、",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-amber)" }, children: "网页收藏" }),
+          "于一体， 数据完全由你掌控，无需网络连接。"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-6 flex flex-wrap gap-2", children: [
+          ["Electron 41", "var(--accent-blue)"],
+          ["React 19", "var(--accent-amber)"],
+          ["TypeScript", "var(--color-primary)"],
+          ["MySQL / SQLite", "var(--accent-green)"],
+          ["离线可用", "var(--text-secondary)"],
+          ["免费开源", "var(--text-secondary)"]
+        ].map(([t, c]) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-3 py-0.5 text-[11px] font-medium", style: { background: "var(--bg-tertiary)", color: c }, children: t }, t)) })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6 rounded-[16px] border p-6 md:p-8", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: "./assets/guide-architecture.svg",
+            alt: "Local Blog KB 系统架构图",
+            className: "w-full rounded-[8px]",
+            style: { border: "1px solid var(--border-default)" },
+            onError: (e) => {
+              e.target.style.display = "none";
             }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              className: "absolute -bottom-8 -left-8 h-[160px] w-[160px] rounded-full opacity-15",
-              style: { background: "radial-gradient(circle, var(--accent-green) 0%, transparent 70%)" }
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              className: "absolute right-1/4 top-0 h-full w-px opacity-10",
-              style: { background: "linear-gradient(to bottom, transparent, var(--accent-blue), transparent)" }
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-medium", style: { background: "rgba(63,185,80,0.1)", color: "var(--accent-green)" }, children: "🔒 本地优先 · 零云端依赖" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "h1",
-              {
-                className: "mb-3 text-[36px] font-bold leading-tight tracking-tight",
-                style: { color: "var(--text-primary)" },
-                children: "本地博客与知识库"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "p",
-              {
-                className: "max-w-xl text-[16px] leading-relaxed",
-                style: { color: "var(--text-secondary)" },
-                children: [
-                  "一款",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--text-primary)" }, children: "离线优先" }),
-                  "的个人桌面应用。 集 ",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-blue)" }, children: "Markdown 写作" }),
-                  "、",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-green)" }, children: "知识库管理" }),
-                  "、",
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { style: { color: "var(--accent-amber)" }, children: "网页收藏" }),
-                  "于一体， 数据完全由您掌控，无需网络连接。"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-6 flex flex-wrap gap-2", children: [
-              ["Electron 41", "var(--accent-blue)"],
-              ["React 19", "var(--accent-amber)"],
-              ["TypeScript", "var(--color-primary)"],
-              ["MySQL / SQLite", "var(--accent-green)"],
-              ["离线可用", "var(--text-secondary)"],
-              ["免费开源", "var(--text-secondary)"]
-            ].map(([t, c]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "span",
-              {
-                className: "rounded-full px-3 py-0.5 text-[11px] font-medium",
-                style: { background: "var(--bg-tertiary)", color: c },
-                children: t
-              },
-              t
-            )) })
-          ] })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "mb-6 rounded-[16px] border p-6 md:p-8",
-        style: { background: "var(--color-bg-card)", borderColor: "var(--border-default)" },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "img",
-              {
-                src: "./assets/guide-architecture.svg",
-                alt: "Local Blog KB 系统架构图",
-                className: "w-full rounded-[8px]",
-                style: { border: "1px solid var(--border-default)" },
-                onError: (e) => {
-                  e.target.style.display = "none";
-                }
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ Local Blog KB 系统架构：Electron 桌面壳 + Express Web 服务器 + 双数据库后端 + FTS5 检索引擎" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 text-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "h2",
-              {
-                className: "text-[22px] font-bold",
-                style: { color: "var(--text-primary)" },
-                children: "核心工作流"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px]", style: { color: "var(--text-secondary)" }, children: "三条主线，覆盖从输入到输出的完整链路" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
-                style: { background: "var(--bg-secondary)", color: "var(--accent-blue)" },
-                children: "✍️ 写作流 — 从灵感到发布"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FlowChart,
-              {
-                steps: [
-                  { icon: "💡", label: "灵感", detail: "桌面宠物快捷入口\n托盘菜单新建" },
-                  { icon: "📝", label: "写作", detail: "Markdown 编辑\nCtrl+S 保存" },
-                  { icon: "🏷️", label: "整理", detail: "标签 + 系列\n文件夹分类" },
-                  { icon: "📤", label: "发布", detail: "导出 PDF/Word\n预览分享" }
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
-                style: { background: "var(--bg-secondary)", color: "var(--accent-green)" },
-                children: "📚 知识流 — 从收集到检索"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FlowChart,
-              {
-                steps: [
-                  { icon: "📥", label: "收集", detail: "拖放导入文件\n网页收藏抓取" },
-                  { icon: "📂", label: "组织", detail: "文件夹分类\n标签关联" },
-                  { icon: "👁️", label: "预览", detail: "PDF/Word/图片\nMarkdown 渲染" },
-                  { icon: "🔍", label: "检索", detail: "全文搜索\n博客引用链接" }
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold",
-                style: { background: "var(--bg-secondary)", color: "var(--accent-amber)" },
-                children: "🖥️ 桌面流 — 常驻后台，随手可用"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FlowChart,
-              {
-                steps: [
-                  { icon: "🖱️", label: "托盘", detail: "窗口关闭→隐藏\n右键弹出菜单" },
-                  { icon: "🐱", label: "宠物", detail: "点击弹出菜单\n拖拽自由移动" },
-                  { icon: "📋", label: "便签", detail: "剪贴板一键存\n24h 自动清理" },
-                  { icon: "⌨️", label: "快捷键", detail: "Ctrl+Shift+N\nMD 浮窗直达" }
-                ]
-              }
-            )
-          ] })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "🚀",
-        title: "快速开始",
-        subtitle: "首次使用只需 3 步，3 分钟上手",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-5 overflow-hidden rounded-[12px] border", style: { borderColor: "var(--border-default)" }, children: [
-            { num: 1, title: "注册账号", desc: "输入用户名、密码，选择一个本地目录作为工作区。工作区是您的数据仓库，所有博客、文件、附件都存储在此。", icon: "👤" },
-            { num: 2, title: "写作第一篇文章", desc: "点击侧栏「博客」→「新建博客」，选择模板后开始写作。Markdown 或所见即所得模式自由切换，Ctrl+S 保存。", icon: "✍️" },
-            { num: 3, title: "探索更多功能", desc: "导入文件到知识库、收藏网页、设置桌面宠物——点击侧栏各个入口开始探索，或按 ? 查看所有快捷键。", icon: "🔍" }
-          ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "div",
-            {
-              className: "flex items-start gap-4 p-5",
-              style: {
-                background: i === 0 ? "var(--bg-secondary)" : "transparent",
-                borderBottom: i < 2 ? "1px solid var(--border-default)" : "none"
-              },
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "span",
-                    {
-                      className: "flex h-10 w-10 items-center justify-center rounded-full text-[16px]",
-                      style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
-                      children: s.icon
-                    }
-                  ),
-                  i < 2 && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "div",
-                    {
-                      className: "absolute bottom-0 left-1/2 h-8 w-0.5 -translate-x-1/2 translate-y-full",
-                      style: { background: "var(--border-default)" }
-                    }
-                  )
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px] font-bold", style: { color: "var(--color-primary)" }, children: [
-                      "STEP ",
-                      s.num
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: s.title })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: s.desc })
-                ] })
-              ]
-            }
-          ) }, s.num)) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "工作区目录请选择一个有足够空间且常驻的文件夹。建议放在用户目录下（如 ~/Documents/LocalBlogKB），避免放在系统盘或移动硬盘。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "✍️",
-        title: "博客写作",
-        subtitle: "从草稿到发布，完整的创作体验",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "📝",
-                title: "编辑器功能",
-                items: [
-                  "Markdown / 所见即所得双模式切换",
-                  "Ctrl+S 保存 + 30 秒自动草稿 + 恢复提示",
-                  "专注模式 — 全屏无干扰沉浸写作",
-                  "模板系统 — 复用常用文章结构",
-                  "历史版本回滚 — 随时恢复到之前版本",
-                  "阅读时间预估 + 自动目录生成"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "🏗️",
-                title: "组织与发布",
-                items: [
-                  "标签系统 — 多标签分类 + 关联计数面板",
-                  "系列链 — 设置系列 ID 自动生成上一篇/下一篇",
-                  "文件夹分类 — 多层嵌套树形结构管理",
-                  "批量操作 — 多选删除 / 批量打标签",
-                  "导出 PDF — 打印级质量排版",
-                  "导出 Word (.docx) — 兼容 MS Office"
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "img",
-              {
-                src: "./assets/guide-blog-editor.svg",
-                alt: "博客写作工作流",
-                className: "w-full rounded-[8px]",
-                style: { border: "1px solid var(--border-default)" },
-                onError: (e) => {
-                  e.target.style.display = "none";
-                }
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ 博客写作流程：编辑 → 整理 → 发布 + 辅助功能" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-secondary)" }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-3 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "写作流程" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: ["选择模板", "编辑内容", "添加标签", "设置系列", "预览", "导出"].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-[6px] px-3 py-1.5 font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" }, children: s }),
-              i < 5 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
-            ] }, s)) })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "写作前先选模板可以大幅提升效率。模板支持预设标题、格式和标签，新建博客时自动应用。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "📚",
-        title: "知识库管理",
-        subtitle: "构建您的第二大脑——导入、预览、搜索、关联",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "📄",
-                title: "文件格式支持",
-                items: [
-                  "PDF — 内嵌文本预览，支持前 5 页",
-                  "Word (.docx) — mammoth HTML 渲染",
-                  "Excel (.xlsx) — 表格数据内嵌展示",
-                  "Markdown (.md) — rich rendering 预览",
-                  "图片 (png/jpg/gif/webp/svg/bmp) — 内嵌显示",
-                  "视频/音频 (mp4/webm/mp3/wav) — 播放器预览"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "🗂️",
-                title: "管理能力",
-                items: [
-                  "拖放导入 — 直接拖文件到知识库页面",
-                  "文件夹分类 — 创建多层文件夹组织",
-                  "全文搜索 — 文件名 + 文本内容检索",
-                  "标签关联 — 知识库文件也可打标签",
-                  "博客引用 — 博客中引用知识库文件为参考",
-                  "系统打开 — 使用本地应用打开原始文件"
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "大文件（>20MB）建议使用「系统程序打开」功能，用本地应用程序打开原始文件，比内嵌预览体验更好。预览超时（10s）会自动提示降级。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "🌐",
-        title: "网页收藏",
-        subtitle: "URL → Markdown，一键将网页转为可编辑的博客",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-[10px] p-5 mb-5", style: { background: "var(--bg-secondary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: [
-            { label: "复制 URL", icon: "🔗" },
-            { label: "收藏网页", icon: "🌐" },
-            { label: "自动提取正文", icon: "🤖" },
-            { label: "预览结果", icon: "👁️" },
-            { label: "导入为博客", icon: "✅" }
-          ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "span",
-              {
-                className: "flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-medium",
-                style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: s.icon }),
-                  " ",
-                  s.label
-                ]
-              }
-            ),
-            i < 4 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
-          ] }, s.label)) }) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            StepList,
-            {
-              steps: [
-                { num: 1, label: "打开「收藏网页」", detail: "点击博客列表页顶部工具栏的收藏按钮，或从托盘/桌面宠物菜单打开独立抓取窗口" },
-                { num: 2, label: "粘贴网页 URL", detail: "支持单个 URL 或批量输入（每行一个），抓取窗体会自动去重" },
-                { num: 3, label: "自动提取正文", detail: "基于 Mozilla Readability 算法，自动识别文章主体、跳过广告和导航栏" },
-                { num: 4, label: "导入为 Markdown 博客", detail: "抓取结果直接保存为博客草稿，保留原标题和段落结构，可立即编辑" }
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "抓取的网页会保留标题、段落、链接等排版结构。图片不会被下载到本地——如需离线查看图片，建议手动保存到附件后再插入。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "🖥️",
-        title: "桌面功能",
-        subtitle: "关闭窗口 ≠ 退出——托盘常驻 + 桌面宠物 + 快捷入口，随时待命",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "rounded-[10px] p-5",
-                style: { background: "var(--bg-secondary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "🖱️" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "系统托盘" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-green)" }, children: "关闭即隐藏" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快速便签 · MD 浮窗 · 新建博客" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 导入 MD/文件 · 收藏网页 · 剪贴板→便签" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 打开主窗口 · 桌面宠物开关 · 退出" })
-                  ] })
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "rounded-[10px] p-5",
-                style: { background: "var(--bg-secondary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "🐱" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "桌面宠物" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-amber)" }, children: "可拖拽" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 悬浮在桌面最顶层 · 任意拖拽" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 静息态呼吸动画 · 拖拽时表情变化" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击弹出快捷菜单（同托盘）" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 位置自动记忆 · 支持多显示器" })
-                  ] })
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "rounded-[10px] p-5",
-                style: { background: "var(--bg-secondary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "📋" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "便签 + 浮窗" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 快捷便签 — Enter 保存 · 24h 自动清理" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· MD 浮窗 — Ctrl+Shift+N · 独立写作窗口" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 剪贴板一键转入便签" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· Markdown 富文本渲染，编辑/预览切换" })
-                  ] })
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "rounded-[10px] p-5",
-                style: { background: "var(--bg-secondary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "📑" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "博客标签条" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--accent-blue)" }, children: "快速切换" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 阅读中一键最小化为浮动标签条" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 最多同时缩小 5 篇博客" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 点击标签即恢复，无缝跳转" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "· 位置记忆 + 标题截断显示" })
-                  ] })
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "rounded-[10px] p-5",
-                style: { background: "var(--bg-secondary)" },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: "⌨️" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "全局快捷键" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+Shift+N" }),
-                      " · MD 写作浮窗"
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+F" }),
-                      " · 全局搜索"
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Ctrl+S" }),
-                      " · 保存当前博客"
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "?" }),
-                      " · 快捷键帮助面板"
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(Kbd, { children: "Esc" }),
-                      " · 关闭弹窗/浮窗"
-                    ] })
-                  ] })
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "快捷键可在「设置 → 快捷键」中自定义。点击快捷键条目进入录制模式，按下新组合键即可替换。冲突会自动检测提示。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "🔍",
-        title: "全局搜索与回收站",
-        subtitle: "快速检索所有内容 · 误删 30 天内可恢复",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "img",
-              {
-                src: "./assets/guide-search-system.svg",
-                alt: "FTS5 全文搜索系统",
-                className: "w-full rounded-[8px]",
-                style: { border: "1px solid var(--border-default)" },
-                onError: (e) => {
-                  e.target.style.display = "none";
-                }
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ FTS5 搜索系统：MySQL FULLTEXT + Worker 倒排索引双模式，Intl.Segmenter 中文分词 + TF-IDF 相关度排序" })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "🔎",
-                title: "全局搜索",
-                items: [
-                  "顶部搜索栏 — 任意页面可用",
-                  "同时搜索博客标题/内容 + 知识库文件名",
-                  "FTS5 全文检索引擎 + Intl.Segmenter 中文分词",
-                  "Worker 线程倒排索引，TF-IDF 相关度排序",
-                  "MySQL FULLTEXT INDEX 数据库级加速"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "♻️",
-                title: "回收站",
-                items: [
-                  "删除 = 移入回收站（非永久删除）",
-                  "30 天内可恢复 — 支持批量恢复",
-                  "超过 30 天自动清理释放空间",
-                  "清空回收站同时删除磁盘文件",
-                  "删除账户时可选择保留或删除文件"
-                ]
-              }
-            )
-          ] })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "🎨",
-        title: "主题与个性化",
-        subtitle: "打造属于你的写作环境",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "🎭",
-                title: "主题系统",
-                items: [
-                  "暗色模式 — 护眼深色界面",
-                  "亮色模式 — 纸张质感暖色调",
-                  "跟随系统 — 自动切换明暗",
-                  "全局 200ms 平滑过渡动画",
-                  "CSS 变量体系 — 全应用统一色调"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "📖",
-                title: "阅读与成就",
-                items: [
-                  "5 套博客阅读主题 (默认/报纸/极简/护眼/夜间)",
-                  "6 枚核心成就徽章 (写作/连续/字数)",
-                  "写作热力图 — GitHub 风格贡献日历",
-                  "阅读进度记忆 — 自动恢复上次位置",
-                  "仪表盘数据统计 (博客/知识库/标签/存储)"
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "阅读主题在每个博客的预览页右上角切换，选择会自动记住。仪表盘「成就」标签页可查看所有已解锁和未解锁成就。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Section,
-      {
-        icon: "📅",
-        title: "日历与备忘录",
-        subtitle: "时间管理 + 随手记事，一屏掌控",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "📆",
-                title: "日历视图",
-                items: [
-                  "月视图日历 — 替换传统热力图",
-                  "点击日期添加日程（标题+描述+时间）",
-                  "有日程的日期显示圆点标记",
-                  "日/周/月视图自由切换",
-                  "数据持久化存储，重启不丢失"
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              FeatureCard,
-              {
-                icon: "📝",
-                title: "备忘录",
-                items: [
-                  "Markdown 富文本编辑，所见即所得",
-                  "笔记/日程/待办三种类型自由切换",
-                  "置顶 + 归档 + 搜索 + 标签",
-                  "复用便签 IPC 通道，零新依赖",
-                  "列表视图 + 详情展开，高效浏览"
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "日历和备忘录共用 notes 数据表。日程类型会自动在日历视图显示，笔记类型在备忘录列表展示。" })
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Section,
-      {
-        icon: "💾",
-        title: "数据安全与备份",
-        subtitle: "多重保障，数据无忧",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            FeatureCard,
-            {
-              icon: "🔄",
-              title: "自动备份",
-              items: [
-                "每 24 小时自动备份数据库",
-                "最多保留 7 个历史备份",
-                "旧备份自动循环清理"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            FeatureCard,
-            {
-              icon: "📦",
-              title: "手动管理",
-              items: [
-                "设置页手动创建备份",
-                "一键导出工作区 .zip（博客+知识库+数据库）",
-                "从备份恢复 — 恢复后需重启应用",
-                "可手动删除旧的备份文件"
-              ]
-            }
-          )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ 系统架构：Electron 桌面壳 + Express Web 服务器 + 双数据库 + FTS5 检索引擎" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5 text-center", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-[22px] font-bold", style: { color: "var(--text-primary)" }, children: "三条工作流" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px]", style: { color: "var(--text-secondary)" }, children: "覆盖从输入到输出的完整链路" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold", style: { background: "var(--bg-primary)", color: "var(--accent-blue)" }, children: "✍️ 写作流" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FlowChart, { steps: [
+          { icon: "💡", label: "灵感", detail: "桌面宠物快捷入口\n托盘菜单新建" },
+          { icon: "📝", label: "写作", detail: "Markdown 编辑\nCtrl+S 保存" },
+          { icon: "🏷️", label: "整理", detail: "标签 + 系列\n文件夹分类" },
+          { icon: "📤", label: "发布", detail: "导出 PDF/Word\n预览分享" }
         ] })
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "mt-8 rounded-[16px] border p-8 text-center",
-        style: {
-          background: "var(--bg-secondary)",
-          borderColor: "var(--border-default)"
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              className: "mx-auto mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-medium",
-              style: { background: "rgba(63,185,80,0.1)", color: "var(--accent-green)" },
-              children: "🔒 本地优先 · Local First"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold", style: { background: "var(--bg-primary)", color: "var(--accent-green)" }, children: "📚 知识流" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FlowChart, { steps: [
+          { icon: "📥", label: "收集", detail: "拖放导入文件\n网页收藏抓取" },
+          { icon: "📂", label: "组织", detail: "文件夹分类\n标签关联" },
+          { icon: "👁️", label: "预览", detail: "PDF/Word/图片\nMarkdown 渲染" },
+          { icon: "🔍", label: "检索", detail: "全文搜索\n博客引用链接" }
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold", style: { background: "var(--bg-primary)", color: "var(--accent-amber)" }, children: "🖥️ 桌面流" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FlowChart, { steps: [
+          { icon: "🖱️", label: "托盘", detail: "窗口关闭→隐藏\n右键弹出菜单" },
+          { icon: "🐱", label: "宠物", detail: "点击弹出菜单\n拖拽自由移动" },
+          { icon: "📋", label: "便签", detail: "剪贴板一键存\n回车即保存" },
+          { icon: "⌨️", label: "快捷键", detail: "Ctrl+Shift+N\nMD 浮窗直达" }
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "🚀", title: "快速开始", subtitle: "三步上手，三分钟内开始写作", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-5 overflow-hidden rounded-[12px] border", style: { borderColor: "var(--border-default)" }, children: [
+        { num: 1, title: "注册账号", desc: "输入用户名、密码，选择一个本地目录作为工作区。你的所有数据都存储在此，完全本地控制。", icon: "👤" },
+        { num: 2, title: "写第一篇文章", desc: "点击侧栏「博客」→「新建博客」，选择模板后开始写作。Markdown 或所见即所得模式自由切换。", icon: "✍️" },
+        { num: 3, title: "探索更多", desc: "导入文件到知识库、收藏网页、设置桌面宠物——点击侧栏各入口开始探索吧。", icon: "🔍" }
+      ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-4 p-5", style: {
+        background: i === 0 ? "var(--bg-primary)" : "transparent",
+        borderBottom: i < 2 ? "1px solid var(--border-default)" : "none"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex h-10 w-10 items-center justify-center rounded-full text-[16px]", style: { background: "var(--color-primary)", color: "var(--text-on-accent)" }, children: s.icon }),
+          i < 2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-0 left-1/2 h-8 w-0.5 -translate-x-1/2 translate-y-full", style: { background: "var(--border-default)" } })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px] font-bold", style: { color: "var(--color-primary)" }, children: [
+              "STEP ",
+              s.num
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: s.title })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[13px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: s.desc })
+        ] })
+      ] }) }, s.num)) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "工作区目录建议放在用户目录下（如 ~/Documents/LocalBlogKB），选择有足够空间且常驻的文件夹。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "✍️", title: "博客写作", subtitle: "从草稿到发布，完整的创作体验", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "📝", title: "编辑器功能", items: [
+          "Markdown / 所见即所得双模式切换",
+          "Ctrl+S 保存 + 30 秒自动草稿",
+          "专注模式 — 全屏无干扰写作",
+          "模板系统 — 复用常用结构",
+          "历史版本回滚",
+          "阅读时间预估 + 自动目录"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "🏗️", title: "组织与发布", items: [
+          "标签系统 — 多标签分类",
+          "系列链 — 自动上一篇/下一篇",
+          "文件夹 — 多层嵌套管理",
+          "批量操作 — 多选删除/打标签",
+          "导出 PDF — 打印级排版",
+          "导出 Word (.docx)"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: "./assets/guide-blog-editor.svg",
+            alt: "博客写作工作流",
+            className: "w-full rounded-[8px]",
+            style: { border: "1px solid var(--border-default)" },
+            onError: (e) => {
+              e.target.style.display = "none";
             }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "blockquote",
-            {
-              className: "mx-auto mb-6 max-w-md text-[14px] leading-relaxed italic",
-              style: { color: "var(--text-secondary)" },
-              children: '"你的数据完全由你掌控。零云端依赖——所有博客、文件、便签均在你选择的本地目录中。 无需注册在线服务，数据永不离开你的设备。"'
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ 博客写作流程：编辑 → 整理 → 发布 + 辅助功能" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-primary)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-3 text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "写作流程" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: ["选择模板", "编辑内容", "添加标签", "设置系列", "预览", "导出"].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-[6px] px-3 py-1.5 font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" }, children: s }),
+          i < 5 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
+        ] }, s)) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "写作前先选模板可以大幅提升效率。模板预设标题、格式和标签，新建时自动应用。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "📚", title: "知识库", subtitle: "构建你的第二大脑——导入、预览、搜索、关联", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "📄", title: "文件格式支持", items: [
+          "PDF — 内嵌文本预览",
+          "Word (.docx) — HTML 渲染",
+          "Excel (.xlsx) — 表格展示",
+          "Markdown (.md) — 富文本预览",
+          "图片 (png/jpg/gif/webp/svg)",
+          "视频/音频 (mp4/webm/mp3/wav)"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "🗂️", title: "管理能力", items: [
+          "拖放导入 — 直接拖文件到页面",
+          "文件夹 — 多层组织",
+          "全文搜索 — 文件名+内容",
+          "标签关联 — 文件也可打标签",
+          "博客引用 — 建立参考链接",
+          "系统打开 — 本地应用打开"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "大文件（>20MB）建议用「系统打开」功能，用本地应用打开体验更好。预览超时会自动提示降级。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "🌐", title: "网页收藏", subtitle: "URL → Markdown，一键将网页转为可编辑的博客", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-[10px] p-5 mb-5", style: { background: "var(--bg-primary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-2 text-[13px]", children: [
+        { label: "复制 URL", icon: "🔗" },
+        { label: "收藏网页", icon: "🌐" },
+        { label: "提取正文", icon: "🤖" },
+        { label: "预览结果", icon: "👁️" },
+        { label: "导入博客", icon: "✅" }
+      ].map((s, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: s.icon }),
+          " ",
+          s.label
+        ] }),
+        i < 4 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--accent-amber)" }, children: "→" })
+      ] }, s.label)) }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(StepList, { steps: [
+        { num: 1, label: "打开「收藏网页」", detail: "点击博客列表页顶部工具栏的收藏按钮，或从托盘/桌面宠物菜单打开" },
+        { num: 2, label: "粘贴 URL", detail: "支持单个 URL 或批量输入（每行一个），自动去重" },
+        { num: 3, label: "自动提取正文", detail: "基于 Mozilla Readability 算法，自动识别文章主体、跳过广告和导航" },
+        { num: 4, label: "导入为 Markdown", detail: "抓取结果直接保存为博客草稿，保留原标题和段落结构，可立即编辑" }
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "抓取的网页保留标题、段落、链接等排版。图片不会被下载到本地——如需离线查看，建议手动保存。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "🖥️", title: "桌面功能", subtitle: "关闭窗口 ≠ 退出——托盘常驻 + 桌面宠物，随时待命", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+        { icon: "🖱️", title: "系统托盘", badge: "关闭即隐藏", badgeColor: "var(--accent-green)", items: ["快速便签 · MD 浮窗 · 新建博客", "导入 MD/文件 · 收藏网页", "打开主窗口 · 宠物开关 · 退出"] },
+        { icon: "🐱", title: "桌面宠物", badge: "可拖拽", badgeColor: "var(--accent-amber)", items: ["悬浮桌面最顶层 · 任意拖拽", "静息态呼吸动画 · 拖拽时表情变化", "点击弹出快捷菜单", "位置自动记忆 · 支持多显示器"] },
+        { icon: "📋", title: "便签 + 浮窗", badge: void 0, badgeColor: "", items: ["快捷便签 — Enter 保存 · 24h 自动清理", "MD 浮窗 — Ctrl+Shift+N 独立窗口", "剪贴板一键转入便签", "Markdown 渲染，编辑/预览切换"] },
+        { icon: "📑", title: "博客标签条", badge: "快速切换", badgeColor: "var(--accent-blue)", items: ["阅读中一键最小化为浮动标签条", "最多同时缩小 5 篇博客", "点击标签即恢复，无缝跳转", "位置记忆 + 标题截断显示"] },
+        { icon: "⌨️", title: "全局快捷键", badge: void 0, badgeColor: "", items: ["Ctrl+Shift+N — MD 写作浮窗", "Ctrl+F — 全局搜索", "Ctrl+S — 保存当前博客", "? — 快捷键帮助面板", "Esc — 关闭弹窗/浮窗"] }
+      ].map((f) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[10px] p-5", style: { background: "var(--bg-primary)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3 flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[20px]", children: f.icon }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: f.title }),
+          f.badge && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full px-2 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: f.badgeColor }, children: f.badge })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "space-y-1 text-[13px]", style: { color: "var(--text-secondary)", listStyle: "none", paddingInlineStart: 0 }, children: f.items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
+          "· ",
+          item
+        ] }, item)) })
+      ] }, f.title)) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "快捷键可在「设置 → 快捷键」中自定义。点击快捷键条目进入录制模式，按下新组合键即可替换。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "🔍", title: "搜索与回收站", subtitle: "快速检索所有内容 · 误删 30 天内可恢复", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: "./assets/guide-search-system.svg",
+            alt: "FTS5 全文搜索系统",
+            className: "w-full rounded-[8px]",
+            style: { border: "1px solid var(--border-default)" },
+            onError: (e) => {
+              e.target.style.display = "none";
             }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: "Local Blog KB · Electron 41 · React 19 · TypeScript · MySQL / SQLite 双后端" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[12px]", style: { color: "var(--text-muted)" }, children: "免费开源 · 离线可用 · 零数据收集" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex justify-center gap-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              Link$1,
-              {
-                to: "/blog/new",
-                className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85",
-                style: { background: "var(--color-primary)", color: "var(--text-on-accent)" },
-                children: "✍️ 开始写作"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              Link$1,
-              {
-                to: "/dashboard",
-                className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85",
-                style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" },
-                children: "⌂ 仪表盘"
-              }
-            )
-          ] })
-        ]
-      }
-    )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-center text-[11px]", style: { color: "var(--text-muted)" }, children: "▲ FTS5 搜索：MySQL FULLTEXT + Worker 倒排索引双模式，Intl.Segmenter 中文分词 + TF-IDF 排序" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "🔎", title: "全局搜索", items: [
+          "顶部搜索栏 — 任意页面可用",
+          "同时搜索博客 + 知识库",
+          "FTS5 全文引擎 + 中文分词",
+          "Worker 线程倒排索引",
+          "MySQL FULLTEXT 加速"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "♻️", title: "回收站", items: [
+          "删除 = 移入回收站",
+          "30 天内可恢复",
+          "超期自动清理",
+          "清空同时删除磁盘文件"
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "🎨", title: "主题与个性化", subtitle: "打造属于你的写作环境", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "🎭", title: "主题系统", items: [
+          "暗色模式 — 护眼深色界面",
+          "亮色模式 — 纸张质感暖色调",
+          "跟随系统 — 自动切换明暗",
+          "全局 200ms 平滑过渡",
+          "CSS 变量体系 — 统一色调"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "📖", title: "阅读与成就", items: [
+          "5 套博客阅读主题",
+          "写作热力图 — GitHub 风格",
+          "阅读进度记忆 — 自动恢复",
+          "仪表盘数据统计"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "阅读主题在博客预览页右上角切换，选择会自动记住。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { icon: "📅", title: "日历与待办", subtitle: "时间管理 + 待办追踪，集成在仪表盘中", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2 mb-5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "📆", title: "日历视图", items: [
+          "月视图日历 · 仪表盘内嵌",
+          "点击日期添加日程",
+          "有日程的日期显示圆点",
+          "日/周/月视图自由切换"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "✅", title: "待办管理", items: [
+          "快速添加待办事项",
+          "点击 ☐ 标记为已完成",
+          "悬停删除按钮",
+          "日程和待办集中在仪表盘"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TipBox, { children: "日历和待办已集成在仪表盘页面。日程在日历区域管理，待办在底部列表追踪。" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { icon: "💾", title: "数据安全与备份", subtitle: "多重保障，数据无忧", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 md:grid-cols-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "🔄", title: "自动备份", items: [
+        "每 24 小时自动备份数据库",
+        "最多保留 7 个历史备份",
+        "旧备份自动循环清理"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(FeatureCard, { icon: "📦", title: "手动管理", items: [
+        "设置页手动创建备份",
+        "一键导出工作区 .zip",
+        "从备份恢复",
+        "可手动删除旧备份"
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-8 rounded-[16px] border p-8 text-center", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mx-auto mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-medium", style: { background: "var(--bg-primary)", color: "var(--accent-green)" }, children: "🔒 本地优先 · Local First" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("blockquote", { className: "mx-auto mb-5 max-w-md text-[14px] leading-relaxed italic", style: { color: "var(--text-secondary)" }, children: '"你的数据完全由你掌控。零云端依赖——所有博客、文件、便签均在你选择的本地目录中。 无需注册在线服务，数据永不离开你的设备。"' }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: "Local Blog KB · Electron 41 · React 19 · TypeScript · MySQL / SQLite 双后端" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[12px]", style: { color: "var(--text-muted)" }, children: "免费开源 · 离线可用 · 零数据收集" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex justify-center gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/blog/new", className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85", style: { background: "var(--color-primary)", color: "var(--text-on-accent)" }, children: "✍️ 开始写作" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Link$1, { to: "/dashboard", className: "inline-flex items-center gap-2 rounded-[8px] px-5 py-2 text-[14px] font-medium no-underline transition-opacity hover:opacity-85", style: { background: "var(--bg-tertiary)", color: "var(--text-primary)" }, children: "⌂ 仪表盘" })
+      ] })
+    ] })
   ] });
 }
 const GuidePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   GuidePage
 }, Symbol.toStringTag, { value: "Module" }));
-const md$1 = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 function NoteListPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const { toast } = useToast();
   const [notes, setNotes] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [error2, setError] = reactExports.useState(null);
   const abortedRef = reactExports.useRef(false);
   const [input, setInput] = reactExports.useState("");
   const [viewModeIds, setViewModeIds] = reactExports.useState(/* @__PURE__ */ new Set());
   const loadNotes = reactExports.useCallback(async () => {
     if (!user) return;
+    abortedRef.current = false;
     setLoading(true);
     try {
       const r = await window.api.noteList(user.id);
@@ -56181,9 +56087,7 @@ function NoteListPage() {
     };
   }, [loadNotes, location.pathname]);
   reactExports.useEffect(() => {
-    const unsub = window.api.onNoteRefresh(() => {
-      loadNotes();
-    });
+    const unsub = window.api.onNoteRefresh(() => loadNotes());
     return unsub;
   }, [loadNotes]);
   const handleCreate = async () => {
@@ -56207,19 +56111,13 @@ function NoteListPage() {
       setInput((prev) => prev + r.data);
     }
   };
-  const sorted = [...notes].sort((a, b) => {
+  const displayed = notes.filter((n) => n.memoType !== "todo" && n.memoType !== "schedule");
+  const sorted = [...displayed].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
   });
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "h2",
-      {
-        className: "mb-6 text-xl font-bold",
-        style: { color: "var(--text-primary)" },
-        children: "便签"
-      }
-    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mb-6 text-xl font-bold", style: { color: "var(--text-primary)" }, children: "便签" }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -56283,14 +56181,7 @@ function NoteListPage() {
         }
       )
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "p",
-      {
-        className: "py-12 text-center text-[13px]",
-        style: { color: "var(--text-muted)" },
-        children: "加载中..."
-      }
-    ) : sorted.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[13px]", style: { color: "var(--text-muted)" }, children: "加载中..." }) : sorted.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
         className: "rounded-[8px] border border-dashed p-12 text-center",
@@ -56310,31 +56201,28 @@ function NoteListPage() {
         },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+            note.title && /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "mb-1 truncate text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: note.title }),
             viewModeIds.has(note.id) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
               "div",
               {
                 className: "select-text text-[14px] leading-relaxed break-words prose prose-sm max-w-none",
                 style: { color: "var(--text-primary)" },
                 dangerouslySetInnerHTML: {
-                  __html: purify.sanitize(md$1.render(note.content))
+                  __html: purify.sanitize(md.render(note.content))
                 }
               }
             ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
               "p",
               {
                 className: "select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words",
-                style: { color: "var(--text-primary)" },
+                style: { color: note.title ? "var(--text-secondary)" : "var(--text-primary)" },
                 children: note.content
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "p",
-              {
-                className: "mt-1.5 text-[11px]",
-                style: { color: "var(--text-muted)" },
-                children: formatDate(note.createdAt)
-              }
-            )
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-1.5 flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px]", style: { color: "var(--text-muted)" }, children: formatDate(note.createdAt) }),
+              note.memoType === "note" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium", style: { background: "var(--bg-tertiary)", color: "var(--text-muted)" }, children: "笔记" })
+            ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -56350,7 +56238,7 @@ function NoteListPage() {
                   });
                 },
                 title: viewModeIds.has(note.id) ? "显示纯文本" : "预览渲染",
-                "aria-label": "编辑便签",
+                "aria-label": viewModeIds.has(note.id) ? "显示纯文本" : "预览渲染",
                 className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
                 style: {
                   background: viewModeIds.has(note.id) ? "var(--accent-blue)" : "var(--bg-tertiary)",
@@ -56390,14 +56278,7 @@ function NoteListPage() {
       },
       note.id
     )) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "p",
-      {
-        className: "mt-6 text-center text-[12px]",
-        style: { color: "var(--text-muted)" },
-        children: "便签是临时记录工具 · 非置顶便签 24 小时后自动清理 · 剪贴板内容可一键填入"
-      }
-    )
+    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-6 text-center text-[12px]", style: { color: "var(--text-muted)" }, children: "便签是临时记录工具 · 非置顶便签 24 小时后自动清理 · 剪贴板内容可一键填入" })
   ] });
 }
 const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -56406,7 +56287,7 @@ const NoteListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defi
 }, Symbol.toStringTag, { value: "Module" }));
 function ContinueWritingPage() {
   const user = useAuthStore((s) => s.user);
-  const abortedRef = useRef(false);
+  const abortedRef = reactExports.useRef(false);
   const [drafts, setDrafts] = reactExports.useState([]);
   const [draftsLoading, setDraftsLoading] = reactExports.useState(true);
   const [draftsError, setDraftsError] = reactExports.useState(null);
@@ -56605,10 +56486,16 @@ const ContinueWritingPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Obje
   __proto__: null,
   ContinueWritingPage
 }, Symbol.toStringTag, { value: "Module" }));
+const ACCENTS = [
+  "var(--accent-blue)",
+  "var(--accent-green)",
+  "var(--accent-amber)",
+  "var(--accent-red)"
+];
 function SeriesListPage() {
   const user = useAuthStore((s) => s.user);
   const [series, setSeries] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [error2, setError] = reactExports.useState(null);
   const loadSeries = reactExports.useCallback(async () => {
     if (!user) return;
@@ -56627,12 +56514,16 @@ function SeriesListPage() {
     loadSeries();
   }, [loadSeries]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto max-w-[780px]", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("h2", { className: "mb-6 text-[24px] font-semibold", style: { color: "var(--text-primary)" }, children: [
-      "系列",
-      " ",
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[14px] font-normal", style: { color: "var(--text-secondary)" }, children: [
-        series.length,
-        " 个系列"
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] font-semibold uppercase tracking-wider", style: { color: "var(--text-muted)" }, children: "博客系列" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mt-1 text-[28px] font-bold", style: { color: "var(--text-primary)" }, children: "系列" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-2 text-[14px] leading-relaxed", style: { color: "var(--text-secondary)" }, children: [
+        "将相关博客串联成系列，自动生成上一篇/下一篇导航。",
+        series.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+          " 共 ",
+          series.length,
+          " 个系列。"
+        ] })
       ] })
     ] }),
     error2 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--accent-red)", textAlign: "center", padding: "3rem" }, children: [
@@ -56649,38 +56540,61 @@ function SeriesListPage() {
         }
       )
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : series.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    loading && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }),
+    !loading && !error2 && series.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        className: "rounded-[6px] border border-dashed p-12 text-center",
+        className: "rounded-[12px] border border-dashed p-12 text-center",
         style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--text-secondary)" }, children: "暂无系列" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-[12px]", style: { color: "var(--text-muted)" }, children: "在编辑器中为博客设置系列ID和系列名即可创建系列" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[15px]", style: { color: "var(--text-secondary)" }, children: "暂无系列" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-[13px]", style: { color: "var(--text-muted)" }, children: "在编辑器中为博客设置系列ID和系列名即可创建系列" })
         ]
       }
-    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2", children: series.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Link$1,
-      {
-        to: `/series/${encodeURIComponent(s.seriesId)}`,
-        className: "card !p-5 !no-underline",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "h3",
-            {
-              className: "mb-1 text-[15px] font-medium",
-              style: { color: "var(--text-primary)" },
-              children: s.seriesName || s.seriesId
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: [
-            s.count,
-            " 篇"
-          ] })
-        ]
-      },
-      s.seriesId
-    )) })
+    ),
+    !loading && !error2 && series.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3", children: series.map((s, idx) => {
+      const accent = ACCENTS[idx % ACCENTS.length];
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        Link$1,
+        {
+          to: `/series/${encodeURIComponent(s.seriesId)}`,
+          className: "group flex items-center gap-5 rounded-[10px] border p-5 no-underline transition-all duration-[0.15s] hover:-translate-y-0.5 hover:border-[var(--accent-blue)]",
+          style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "h-14 w-1 shrink-0 rounded-full",
+                style: { background: accent }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "h3",
+                {
+                  className: "truncate text-[16px] font-semibold transition-colors group-hover:text-[var(--accent-blue)]",
+                  style: { color: "var(--text-primary)" },
+                  children: s.seriesName || s.seriesId
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-0.5 text-[13px]", style: { color: "var(--text-secondary)" }, children: [
+                s.count,
+                " 篇文章"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: "shrink-0 text-[16px] opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1",
+                style: { color: "var(--text-muted)" },
+                children: "→"
+              }
+            )
+          ]
+        },
+        s.seriesId
+      );
+    }) })
   ] });
 }
 const SeriesListPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -56691,7 +56605,7 @@ function SeriesDetailPage() {
   const { seriesId } = useParams();
   const user = useAuthStore((s) => s.user);
   const [blogs, setBlogs] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
   const [seriesName, setSeriesName] = reactExports.useState("");
   const [isEditing, setIsEditing] = reactExports.useState(false);
   const [editName, setEditName] = reactExports.useState("");
@@ -56797,7 +56711,7 @@ function SeriesDetailPage() {
         " 篇"
       ] })
     ] }),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-12 text-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : blogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
         className: "rounded-[6px] border border-dashed p-12 text-center",
@@ -56831,549 +56745,4 @@ function SeriesDetailPage() {
 const SeriesDetailPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   SeriesDetailPage
-}, Symbol.toStringTag, { value: "Module" }));
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-const FILTERS = [
-  { id: "all", label: "全部" },
-  { id: "note", label: "笔记" },
-  { id: "schedule", label: "日程" },
-  { id: "todo", label: "待办" }
-];
-function MemoPage() {
-  const user = useAuthStore((s) => s.user);
-  const { toast } = useToast();
-  const [notes, setNotes] = reactExports.useState([]);
-  const [loading2, setLoading] = reactExports.useState(true);
-  const [filter, setFilter] = reactExports.useState("all");
-  const [showEditor, setShowEditor] = reactExports.useState(false);
-  const [editNote, setEditNote] = reactExports.useState(null);
-  const [formTitle, setFormTitle] = reactExports.useState("");
-  const [formContent, setFormContent] = reactExports.useState("");
-  const [formType, setFormType] = reactExports.useState("note");
-  const [saving, setSaving] = reactExports.useState(false);
-  const loadNotes = reactExports.useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const r = await window.api.noteList(user.id);
-      if (r.success && r.data) setNotes(r.data);
-    } catch (e) {
-      console.error("[MemoPage] Failed to load:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-  reactExports.useEffect(() => {
-    loadNotes();
-  }, [loadNotes]);
-  reactExports.useEffect(() => {
-    const unsub = window.api.onNoteRefresh(() => loadNotes());
-    return unsub;
-  }, [loadNotes]);
-  const filteredNotes = reactExports.useMemo(() => {
-    if (filter === "all") return notes;
-    return notes.filter((n) => n.memoType === filter);
-  }, [notes, filter]);
-  const sortedNotes = reactExports.useMemo(() => {
-    return [...filteredNotes].sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
-  }, [filteredNotes]);
-  const handleCreate = () => {
-    setEditNote(null);
-    setFormTitle("");
-    setFormContent("");
-    setFormType("note");
-    setShowEditor(true);
-  };
-  const handleEdit = (note) => {
-    setEditNote(note);
-    setFormTitle(note.title);
-    setFormContent(note.content);
-    setFormType(note.memoType);
-    setShowEditor(true);
-  };
-  const handleSave = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      if (editNote) {
-        await window.api.noteCreate({
-          userId: user.id,
-          noteId: editNote.id,
-          title: formTitle,
-          content: formContent,
-          memoType: formType
-        });
-        toast("已更新", "success");
-      } else {
-        await window.api.noteCreate({
-          userId: user.id,
-          title: formTitle,
-          content: formContent,
-          memoType: formType
-        });
-        toast("已创建", "success");
-      }
-      setShowEditor(false);
-      loadNotes();
-    } catch (e) {
-      console.error("[MemoPage] Failed to save:", e);
-      toast("保存失败", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-  const handleTogglePin = async (noteId) => {
-    if (!user) return;
-    await window.api.notePin({ userId: user.id, noteId });
-    loadNotes();
-  };
-  const handleDelete2 = async (noteId) => {
-    if (!user) return;
-    await window.api.noteDelete({ userId: user.id, noteId });
-    toast("已删除", "success");
-    loadNotes();
-  };
-  const handleCancel = () => {
-    setShowEditor(false);
-    setEditNote(null);
-  };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto", style: { maxWidth: "var(--content-max)" }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 flex items-center justify-between", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-xl font-bold", style: { color: "var(--text-primary)" }, children: "备忘录" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: handleCreate,
-          className: "rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80",
-          style: { background: "var(--color-primary)" },
-          children: "+ 新建"
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 flex gap-1 border-b", style: { borderColor: "var(--border-default)" }, children: FILTERS.map((f) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "button",
-      {
-        type: "button",
-        onClick: () => setFilter(f.id),
-        className: "px-4 py-2 text-[13px] font-medium transition-colors",
-        style: {
-          color: filter === f.id ? "var(--accent-blue)" : "var(--text-secondary)",
-          borderBottom: filter === f.id ? "2px solid var(--accent-blue)" : "2px solid transparent",
-          marginBottom: -1
-        },
-        children: f.label
-      },
-      f.id
-    )) }),
-    showEditor && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "fixed inset-0 z-50 flex items-center justify-center",
-        style: { background: "rgba(0,0,0,0.3)" },
-        onClick: handleCancel,
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "w-[540px] rounded-[8px] border p-5 shadow-lg",
-            style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" },
-            onClick: (e) => e.stopPropagation(),
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-4 text-[15px] font-semibold", style: { color: "var(--text-primary)" }, children: editNote ? "编辑备忘录" : "新建备忘录" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "类型" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                  "select",
-                  {
-                    value: formType,
-                    onChange: (e) => setFormType(e.target.value),
-                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
-                    style: {
-                      background: "var(--bg-primary)",
-                      borderColor: "var(--border-default)",
-                      color: "var(--text-primary)"
-                    },
-                    children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "note", children: "笔记" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "schedule", children: "日程" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "todo", children: "待办" })
-                    ]
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "标题" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "input",
-                  {
-                    type: "text",
-                    value: formTitle,
-                    onChange: (e) => setFormTitle(e.target.value),
-                    placeholder: "标题（可选）",
-                    className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none",
-                    style: {
-                      background: "var(--bg-primary)",
-                      borderColor: "var(--border-default)",
-                      color: "var(--text-primary)"
-                    },
-                    autoFocus: true
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "mb-1 block text-[12px]", style: { color: "var(--text-secondary)" }, children: "内容" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "textarea",
-                  {
-                    value: formContent,
-                    onChange: (e) => setFormContent(e.target.value),
-                    placeholder: "支持 Markdown 格式",
-                    rows: 8,
-                    className: "w-full resize-y rounded-[4px] border px-3 py-2 text-[13px] outline-none",
-                    style: {
-                      background: "var(--bg-primary)",
-                      borderColor: "var(--border-default)",
-                      color: "var(--text-primary)",
-                      fontFamily: "var(--font-mono)"
-                    }
-                  }
-                )
-              ] }),
-              formContent.trim() && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "div",
-                {
-                  className: "mb-4 rounded-[4px] border p-3 text-[13px] leading-relaxed prose max-h-[200px] overflow-y-auto",
-                  style: {
-                    borderColor: "var(--border-default)",
-                    background: "var(--bg-primary)",
-                    color: "var(--text-primary)"
-                  },
-                  dangerouslySetInnerHTML: { __html: purify.sanitize(md.render(formContent)) }
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: handleSave,
-                    disabled: saving || !formTitle.trim() && !formContent.trim(),
-                    className: "flex-1 rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40",
-                    style: { background: "var(--color-primary)" },
-                    children: saving ? "保存中..." : "保存"
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: handleCancel,
-                    className: "rounded-[4px] px-4 py-1.5 text-[13px] transition-opacity hover:opacity-80",
-                    style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-                    children: "取消"
-                  }
-                )
-              ] })
-            ]
-          }
-        )
-      }
-    ),
-    loading2 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-center py-12 text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : sortedNotes.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "rounded-[8px] border border-dashed p-12 text-center",
-        style: { borderColor: "var(--border-default)", background: "var(--color-bg-card)" },
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-muted)" }, children: filter === "all" ? '暂无备忘录。点击"新建"创建第一条。' : "此分类下暂无内容。" })
-      }
-    ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3", children: sortedNotes.map((note) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "group flex items-start gap-4 rounded-[8px] border p-4 transition-shadow hover:shadow-md",
-        style: {
-          borderColor: note.pinned ? "var(--accent-amber)" : "var(--border-default)",
-          background: note.pinned ? "var(--bg-secondary)" : "var(--color-bg-card)"
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
-            note.title && /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "mb-1 cursor-pointer text-[15px] font-semibold leading-snug hover:underline",
-                style: { color: "var(--text-primary)" },
-                onClick: () => handleEdit(note),
-                children: note.title
-              }
-            ),
-            note.content ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "cursor-pointer select-text text-[13px] leading-relaxed prose line-clamp-3",
-                style: { color: "var(--text-secondary)" },
-                onClick: () => handleEdit(note),
-                dangerouslySetInnerHTML: {
-                  __html: purify.sanitize(md.render(note.content.slice(0, 500)))
-                }
-              }
-            ) : note.title ? null : /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "div",
-              {
-                className: "cursor-pointer select-text text-[13px] leading-relaxed",
-                style: { color: "var(--text-muted)" },
-                onClick: () => handleEdit(note),
-                children: "(无内容)"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-2 text-[11px]", style: { color: "var(--text-muted)" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "span",
-                {
-                  className: "rounded-[3px] px-1.5 py-0.5 font-mono text-[10px]",
-                  style: { background: "var(--bg-tertiary)" },
-                  children: note.memoType === "note" ? "笔记" : note.memoType === "schedule" ? "日程" : "待办"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatDate(note.createdAt) }),
-              note.dueDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                "· 截止: ",
-                formatDate(note.dueDate)
-              ] })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => handleTogglePin(note.id),
-                title: note.pinned ? "取消置顶" : "置顶",
-                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
-                style: {
-                  background: note.pinned ? "var(--accent-amber)" : "var(--bg-tertiary)",
-                  color: note.pinned ? "var(--text-on-accent)" : "var(--text-secondary)"
-                },
-                children: "📌"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => handleEdit(note),
-                title: "编辑",
-                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
-                style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
-                children: "✎"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => handleDelete2(note.id),
-                title: "删除",
-                className: "rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80",
-                style: { color: "var(--accent-red)" },
-                children: "✕"
-              }
-            )
-          ] })
-        ]
-      },
-      note.id
-    )) })
-  ] });
-}
-const MemoPage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  MemoPage
-}, Symbol.toStringTag, { value: "Module" }));
-const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-const DAY_LABELS = ["", "一", "", "三", "", "五", "日"];
-const CELL = 12;
-const GAP = 2;
-const CELL_STEP = CELL + GAP;
-function getColor(count, words) {
-  const weight = count * 3 + Math.min(words / 500, 10);
-  if (weight <= 0) return "var(--heatmap-0)";
-  if (weight <= 2) return "var(--heatmap-1)";
-  if (weight <= 5) return "var(--heatmap-2)";
-  if (weight <= 10) return "var(--heatmap-3)";
-  return "var(--heatmap-4)";
-}
-function resolveColor(c, style2) {
-  return c.startsWith("var(") ? style2.getPropertyValue(c.slice(4, -1)).trim() : c;
-}
-function Heatmap({ userId }) {
-  const [data, setData] = reactExports.useState([]);
-  const [tooltip, setTooltip] = reactExports.useState(null);
-  const canvasRef = reactExports.useRef(null);
-  reactExports.useEffect(() => {
-    window.api.statsDaily(userId).then((r) => {
-      if (r.success && r.data) setData(r.data);
-    }).catch((e) => {
-      console.error("[Heatmap] Failed to load daily stats:", e);
-    });
-  }, [userId]);
-  const today = /* @__PURE__ */ new Date();
-  const cells = [];
-  const dayMap = new Map(data.map((d) => [d.date, d]));
-  for (let i = 364; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().substring(0, 10);
-    const stat = dayMap.get(key);
-    cells.push({
-      date: key,
-      dayOfWeek: d.getDay() === 0 ? 6 : d.getDay() - 1,
-      count: stat?.blogCount || 0,
-      words: stat?.wordCount || 0
-    });
-  }
-  const weeks = [];
-  let week = [];
-  for (const cell of cells) {
-    week.push(cell);
-    if (cell.dayOfWeek === 6 || cells.indexOf(cell) === cells.length - 1) {
-      weeks.push(week);
-      week = [];
-    }
-  }
-  const monthLabels = [];
-  let lastMonth = -1;
-  weeks.forEach((w2, i) => {
-    if (w2.length > 0) {
-      const m = new Date(w2[0].date).getMonth();
-      if (m !== lastMonth) {
-        monthLabels.push({ label: MONTHS[m], col: i });
-        lastMonth = m;
-      }
-    }
-  });
-  const draw = reactExports.useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const style2 = getComputedStyle(canvas);
-    const W = weeks.length * CELL_STEP;
-    const H = 7 * CELL_STEP;
-    canvas.width = W;
-    canvas.height = H;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.clearRect(0, 0, W, H);
-    for (let wi = 0; wi < weeks.length; wi++) {
-      for (let di = 0; di < 7; di++) {
-        const cell = weeks[wi]?.find((c) => c.dayOfWeek === di);
-        if (!cell) continue;
-        const x = wi * CELL_STEP;
-        const y = di * CELL_STEP;
-        ctx.fillStyle = resolveColor(getColor(cell.count, cell.words), style2);
-        ctx.beginPath();
-        ctx.roundRect(x, y, CELL, CELL, 2);
-        ctx.fill();
-      }
-    }
-  }, [weeks]);
-  reactExports.useEffect(() => {
-    draw();
-  }, [draw]);
-  const handleMouseMove = reactExports.useCallback(
-    (e) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const wi = Math.floor(mx / CELL_STEP);
-      const di = Math.floor(my / CELL_STEP);
-      const cell = weeks[wi]?.find((c) => c.dayOfWeek === di);
-      if (cell) {
-        setTooltip({
-          date: cell.date,
-          count: cell.count,
-          words: cell.words,
-          x: e.clientX,
-          y: e.clientY - 36
-        });
-      } else {
-        setTooltip(null);
-      }
-    },
-    [weeks]
-  );
-  const handleMouseLeave = reactExports.useCallback(() => setTooltip(null), []);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      className: "rounded-[6px] border p-4",
-      style: { borderColor: "var(--border-default)", background: "var(--bg-secondary)" },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "mb-3 text-[14px] font-medium", style: { color: "var(--text-primary)" }, children: "写作热力图" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "overflow-x-auto", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex mb-1 ml-7", children: monthLabels.map((m, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "text-[10px]",
-              style: {
-                color: "var(--text-secondary)",
-                width: `${weeks.slice(m.col, i + 1 < monthLabels.length ? monthLabels[i + 1].col : weeks.length).length * CELL_STEP}px`,
-                minWidth: 28,
-                textAlign: "left"
-              },
-              children: m.label
-            },
-            i
-          )) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col mr-1", style: { gap: GAP }, children: DAY_LABELS.map((l, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[9px] leading-[12px]", style: { color: "var(--text-secondary)", height: CELL, lineHeight: `${CELL}px` }, children: l }, i)) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "canvas",
-              {
-                ref: canvasRef,
-                onMouseMove: handleMouseMove,
-                onMouseLeave: handleMouseLeave,
-                style: { cursor: "pointer" }
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex items-center gap-1 text-[10px]", style: { color: "var(--text-secondary)" }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Less" }),
-            ["var(--heatmap-0)", "var(--heatmap-1)", "var(--heatmap-2)", "var(--heatmap-3)", "var(--heatmap-4)"].map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-[12px] h-[12px] rounded-[2px]", style: { background: c } }, c)),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "More" })
-          ] })
-        ] }),
-        tooltip && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "fixed z-50 rounded-[4px] border px-2 py-1 text-[11px] pointer-events-none whitespace-nowrap",
-            style: {
-              left: tooltip.x,
-              top: tooltip.y,
-              borderColor: "var(--border-default)",
-              background: "var(--bg-primary)",
-              color: "var(--text-primary)"
-            },
-            children: [
-              tooltip.date,
-              ": ",
-              tooltip.count,
-              " 篇博客, ",
-              tooltip.words.toLocaleString(),
-              " 字"
-            ]
-          }
-        )
-      ]
-    }
-  );
-}
-const Heatmap$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  Heatmap,
-  default: Heatmap
 }, Symbol.toStringTag, { value: "Module" }));

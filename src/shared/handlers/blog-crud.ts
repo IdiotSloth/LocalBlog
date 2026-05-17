@@ -167,6 +167,7 @@ export function mapBlogRow(row: Record<string, unknown>): Blog {
     status: row.status as ItemStatus,
     seriesId: row.series_id as string | undefined,
     seriesName: row.series_name as string | undefined,
+    folderId: row.folder_id as number | null | undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

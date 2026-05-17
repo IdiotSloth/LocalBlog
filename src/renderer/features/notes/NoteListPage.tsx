@@ -2,20 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
+import type { Note } from '../../../shared/types';
 import { useToast } from '../../components/common/Toast';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-
-interface Note {
-  id: number;
-  userId: number;
-  content: string;
-  pinned: boolean;
-  source: string;
-  createdAt: string;
-}
 
 export function NoteListPage() {
   const location = useLocation();
@@ -26,10 +18,11 @@ export function NoteListPage() {
   const [error, setError] = useState<string | null>(null);
   const abortedRef = useRef(false);
   const [input, setInput] = useState('');
-  const [viewModeIds, setViewModeIds] = useState<Set<number>>(new Set()); // T1919: notes in rendered HTML view
+  const [viewModeIds, setViewModeIds] = useState<Set<number>>(new Set());
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
+    abortedRef.current = false;
     setLoading(true);
     try {
       const r = await window.api.noteList(user.id);
@@ -47,11 +40,8 @@ export function NoteListPage() {
     return () => { abortedRef.current = true; };
   }, [loadNotes, location.pathname]);
 
-  // Listen for note:refresh from main process (e.g., quick note save)
   useEffect(() => {
-    const unsub = window.api.onNoteRefresh(() => {
-      loadNotes();
-    });
+    const unsub = window.api.onNoteRefresh(() => loadNotes());
     return unsub;
   }, [loadNotes]);
 
@@ -80,17 +70,16 @@ export function NoteListPage() {
     }
   };
 
-  const sorted = [...notes].sort((a, b) => {
+  // Show notes + simple quick notes, exclude todo/schedule (shown in Dashboard)
+  const displayed = notes.filter((n) => n.memoType !== 'todo' && n.memoType !== 'schedule');
+  const sorted = [...displayed].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
   });
 
   return (
     <div className="mx-auto max-w-[780px]">
-      <h2
-        className="mb-6 text-xl font-bold"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      <h2 className="mb-6 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
         便签
       </h2>
 
@@ -149,12 +138,7 @@ export function NoteListPage() {
 
       {/* Note list */}
       {loading ? (
-        <p
-          className="py-12 text-center text-[13px]"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          加载中...
-        </p>
+        <p className="py-12 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>加载中...</p>
       ) : sorted.length === 0 ? (
         <div
           className="rounded-[8px] border border-dashed p-12 text-center"
@@ -179,6 +163,13 @@ export function NoteListPage() {
               }}
             >
               <div className="flex-1 min-w-0">
+                {/* Title — for memo-imported notes that have titles */}
+                {note.title && (
+                  <h4 className="mb-1 truncate text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {note.title}
+                  </h4>
+                )}
+                {/* Content */}
                 {viewModeIds.has(note.id) ? (
                   <div
                     className="select-text text-[14px] leading-relaxed break-words prose prose-sm max-w-none"
@@ -190,17 +181,21 @@ export function NoteListPage() {
                 ) : (
                   <p
                     className="select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words"
-                    style={{ color: 'var(--text-primary)' }}
+                    style={{ color: note.title ? 'var(--text-secondary)' : 'var(--text-primary)' }}
                   >
                     {note.content}
                   </p>
                 )}
-                <p
-                  className="mt-1.5 text-[11px]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {formatDate(note.createdAt)}
-                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    {formatDate(note.createdAt)}
+                  </p>
+                  {note.memoType === 'note' && (
+                    <span className="rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                      笔记
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
@@ -214,7 +209,7 @@ export function NoteListPage() {
                     });
                   }}
                   title={viewModeIds.has(note.id) ? '显示纯文本' : '预览渲染'}
-                  aria-label="编辑便签"
+                  aria-label={viewModeIds.has(note.id) ? '显示纯文本' : '预览渲染'}
                   className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
                   style={{
                     background: viewModeIds.has(note.id) ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
@@ -251,10 +246,7 @@ export function NoteListPage() {
         </div>
       )}
 
-      <p
-        className="mt-6 text-center text-[12px]"
-        style={{ color: 'var(--text-muted)' }}
-      >
+      <p className="mt-6 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
         便签是临时记录工具 · 非置顶便签 24 小时后自动清理 · 剪贴板内容可一键填入
       </p>
     </div>

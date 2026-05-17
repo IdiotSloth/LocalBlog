@@ -64,15 +64,20 @@ npx tsc -p tsconfig.web.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"
 
 Checklist:
 - [ ] Build: three `✓ built` lines (main + preload + renderer) + worker chunk output
-- [ ] Test: 49 passed (6 files)
+- [ ] Test: 87 passed (12 files)
 - [ ] `noUncheckedIndexedAccess`: 0 new errors
 - [ ] `as any` renderer: 0 (maintained)
 - [ ] New IPC channels: 7-file pattern completed
 - [ ] New code: no hardcoded colors (CSS Token only)
 - [ ] `fs.writeFileSync`: all wrapped in try-catch
+- [ ] New pages: error state + retry button (not just console.error)
+- [ ] useEffect async: abortedRef guard in all .then()/.catch() callbacks
+- [ ] IPC channels: ALL registered in ipc-channels.ts (including pet/mini-window)
+- [ ] SVG <img>: onError fallback handler
+- [ ] Migration: migrateSqlJsToMySQL() covers ALL tables
 - [ ] api-client: all WindowApi methods have stubs
-- [ ] New Worker: onerror handler + postMessage try-catch
-- [ ] shared/handlers/: SQL builders are pure (zero side effects)
+- [ ] New Worker: onerror + onmessageerror handler + postMessage try-catch
+- [ ] shared/handlers/: SQL builders are pure (zero side effects) + snake_case→camelCase mapping in services
 
 Write findings to redo.md as a "Developer 自纠自查" section.
 
@@ -84,7 +89,7 @@ Output a summary table:
 | # | 等级 | 问题 | 修复 | 文件 |
 |---|------|------|------|------|
 | Rxx | 🔴 | ... | ✅ fixed — one-line summary | path:line |
-构建: ✅ (X main + Y preload + Z renderer) | 测试: 49/49
+构建: ✅ (X main + Y preload + Z renderer) | 测试: 87/87
 ```
 
 ---
@@ -155,6 +160,7 @@ Output a summary table:
 - `src/shared/shortcuts.ts` — shortcut defaults
 - `src/shared/handlers/blog-crud.ts` — blog SQL builders (shared by service + server)
 - `src/shared/handlers/knowledge-crud.ts` — knowledge SQL builders (shared by service + server)
+- `src/shared/handlers/folder-crud.ts` — folder SQL builders (shared by service + server)
 - `src/shared/db-schema-mysql.ts` — MySQL DDL + MYSQL_MIGRATIONS
 - `src/main/db/schema.ts` — sql.js DDL
 - `src/main/db/index.ts` — sql.js init + ALTER TABLE migrations
@@ -169,5 +175,34 @@ Output a summary table:
 - ✅ Can update: redo.md fix status + self-audit, todo.md task status + Developer 备注
 - ❌ Cannot modify: AGENTS.md, README.md (Boss-owned)
 - ❌ Cannot modify: task descriptions, priorities, implementation steps in todo.md
+
+### Phase 19: Security Hardening, Type Convergence, Full Audit Cycle
+
+### Security
+- **Read-path user_id isolation**: IPC read handlers (KB_GET/KB_PREVIEW/KB_OPEN_EXTERNAL) must verify userId, not just write ops (R145).
+- **Path traversal prevention**: All user-provided filenames must go through `path.basename()` before `path.join()` (R147).
+- **Migration completeness**: `migrateSqlJsToMySQL()` must cover ALL tables. Missing tables = silent data loss (R144).
+
+### Type System
+- **snake_case→camelCase mapping**: Service methods returning data via WindowApi must map DB rows to camelCase. Type mismatch forces renderer to use `: any` (R146).
+- **IPC response contract**: Every IPC handler catch block must return `{ success: false, error: "..." }`. Bare `{ error: "..." }` violates the contract (R150).
+- **`: any` budget**: Threshold ≤5. When `: any` rises, fix the root type breakage; don't add per-site casts (R154).
+
+### Component Robustness
+- **Error states mandatory**: New pages must have error UI + retry button, not just console.error (R149).
+- **useEffect abortedRef**: All async useEffect callbacks need abortedRef guard. setState on unmounted component = bug (R152).
+- **useReducer convergence**: Proven across 3 components (50 useState → 3 useReducer). Pattern: exported reducer + discriminated union actions (R143).
+
+### IPC Completeness
+- **All channels registered**: Every ipcMain.handle/on must use IPC.* constants defined in ipc-channels.ts — including pet/mini-window internal channels (R153).
+- **New shared handler domain**: Create `*-crud.ts` in shared/handlers/ for folder/tag/search SQL convergence (R151).
+
+### Worker & Assets
+- **Worker onmessageerror**: Required alongside onerror. Missing = silent deserialization failures (R156).
+- **SVG img onError**: All `<img>` tags must have onError fallback to hide broken images (R157).
+- **Post-build assets**: SVG assets in src/renderer/assets/ must be copied to out/renderer/assets/ by post-build.js (T1908).
+
+### Accessibility
+- **aria-label on icon buttons**: Every icon-only button needs aria-label. Screen readers cannot describe unlabeled buttons (R155).
 
 For detailed constraints (DB patterns, IPC format, datetime handling, CSS tokens), read `references/constraints.md`.

@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code、Codex、Cline 等 AI 工具读取。
-> 最后更新：2026-05-16 (Phase 19 结项)
+> 最后更新：2026-05-17
 
 ---
 
@@ -253,7 +253,7 @@ Boss 巡检 → 更新 AGENTS.md + README.md
 - **Phase 1-19**: ✅ 全部完成
   - Phase 19 19/19：搜索修复/时间线/全局快捷键/安装包图片/批量限制/日历备忘录/缩小化切换/指南配图/组件收敛/嵌套文件夹/键盘访问/WindowApi类型化/redo全清/服务测试87/标签面板/自动保存/浏览记录/字数统计/便签增强
   - Phase 18 7/7：FTS5 Worker 倒排索引 + CRUD 双写收敛 + 错误反馈 + 测试 49/49 + UX 收尾
-  - `noUncheckedIndexedAccess` 永久启用。renderer `: any` 11。`as any` renderer=0。IPC 112。
+  - `noUncheckedIndexedAccess` 永久启用。renderer `: any` 0。`as any` renderer=0。IPC 112。
 - **审查修复**: 累计 ~130 项修复 (F01-F130+), 157 个工单 (R01-R157), 50 个决策点 (D01-D50)
 - **当前待修复**: 🔴0 🟠0 🟡0 🟢0 — Phase 11 以来首次 P0+P1+P2+P3 全零
 - **已知缺口**: 国际化 i18n (D18=C 否决)

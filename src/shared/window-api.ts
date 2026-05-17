@@ -145,7 +145,7 @@ export interface WindowApi {
   onUpdateStatus(cb: (data: { status: string; version?: string; percent?: number }) => void): () => void;
 
   // Notes
-  noteList(userId: number, memoType?: string): Promise<ApiResponse<Note[]>>;
+  noteList(userId: number, memoType?: string, dueDateFrom?: string, dueDateTo?: string): Promise<ApiResponse<Note[]>>;
   noteCreate(data: {
     userId: number; content: string; source?: string;
     title?: string; memoType?: 'note' | 'schedule' | 'todo'; dueDate?: string;

@@ -1,5 +1,5 @@
 import MarkdownIt from 'markdown-it';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import TurndownService from 'turndown';
 import type { DraftItem, Tag } from '../../../shared/types';

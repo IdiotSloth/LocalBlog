@@ -39,11 +39,12 @@ Verify these claims with a quick check:
 | renderer `: any` count | `grep -r ": any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
 | Unit test count | `npm run test -- --run 2>&1 \| grep -E "^Tests\|^ Files"` |
 | "当前状态" Phase list | `todo.md` Phase 完成状态 table |
-| redo.md P0/P1/P2 counts | `redo.md` 当前待修复 section |
+| redo.md P0/P1/P2/P3 counts | `redo.md` 当前待修复 section |
 | `docs/phase-archive.md` coverage | Check if latest phases are included |
 | `docs/history-audit.md` coverage | Check if latest audit reports are included |
 | `noUncheckedIndexedAccess` in tsconfig | `grep "noUncheckedIndexedAccess" tsconfig.node.json tsconfig.web.json` |
 | `suggest.md` existence | Should NOT exist after Boss processes proposals |
+| `.gitignore` covers dist2/ and .claude/worktrees/ | Check these entries exist |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
 
@@ -69,7 +70,7 @@ Quick consistency checks across all docs:
 - IPC count: AGENTS.md architecture diagram ↔ README.md architecture diagram ↔ `grep` result
 - Service count: AGENTS.md mentions ↔ README.md mentions ↔ `ls` count
 - Test count: AGENTS.md / README.md / todo.md code-quality baseline ↔ actual test output
-- P0/P1/P2 status: AGENTS.md / README.md / todo.md ↔ redo.md "当前待修复"
+- P0/P1/P2/P3 status: AGENTS.md / README.md / todo.md ↔ redo.md "当前待修复"
 - All cross-document relative links point to existing files
 - Phase-archive description matches actual archive coverage
 - History-audit description matches actual archive coverage

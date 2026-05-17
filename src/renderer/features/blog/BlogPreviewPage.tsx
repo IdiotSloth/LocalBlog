@@ -3,19 +3,20 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
 import { TableOfContents } from '../../components/blog/TableOfContents';
+import { addTab } from '../../components/blog/floating-tabs-state';
 import { recordRecentBlog } from '../../hooks/useRecentHistory';
 import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
-import type { BlogWithTags, Tag } from '../../../shared/types';
+import type { BlogWithTags, Reference, Tag } from '../../../shared/types';
 
 const BlogEditorPage = lazy(() => import('./BlogEditorPage').then((m) => ({ default: m.BlogEditorPage })));
 
 function RelatedResources({ blogId }: { blogId: number }) {
-  const [refs, setRefs] = useState<any[]>([]); // TODO: define Reference type in shared/types.ts
+  const [refs, setRefs] = useState<Reference[]>([]);
   useEffect(() => {
     window.api.refGetFrom({ sourceType: 'blog', sourceId: blogId }).then((r) => {
-      if (r.success && r.data) setRefs(r.data.filter((ref: any) => ref.target_type === 'knowledge'));
+      if (r.success && r.data) setRefs(r.data.filter((ref: Reference) => ref.targetType === 'knowledge'));
     });
   }, [blogId]);
   if (refs.length === 0) return null;
@@ -28,7 +29,7 @@ function RelatedResources({ blogId }: { blogId: number }) {
         📁 关联的知识库文件 ({refs.length})
       </h3>
       <div className="space-y-1">
-        {refs.map((ref: any) => (
+        {refs.map((ref: Reference) => (
           <span
             key={ref.id}
             className="inline-block mr-2 mb-1 rounded-[4px] border px-2 py-1 text-[13px]"
@@ -110,7 +111,7 @@ export function BlogPreviewPage() {
           }
         }
         setLoading(false);
-      });
+      }).catch(() => setLoading(false));
   }, [id, user]);
 
   // Save progress on unmount via localStorage
@@ -188,6 +189,17 @@ export function BlogPreviewPage() {
             ← 返回列表
           </Link>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                addTab({ id: blog.id, title: blog.title || '无标题', format: blog.format || 'md' });
+              }}
+              title="缩小为标签条，稍后快速切换"
+              className="rounded-[4px] border px-2 py-1 text-[12px] transition-opacity hover:opacity-80"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'transparent' }}
+            >
+              最小化
+            </button>
             <button
               type="button"
               onClick={() => {

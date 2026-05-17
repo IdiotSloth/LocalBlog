@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import type { BlogWithTags, KnowledgeFileWithTags } from '../../../shared/types';
 import { useAuthStore } from '../../stores/auth-store';
 
 interface TagItem {
@@ -213,8 +214,8 @@ export function TagManagePage() {
                           user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null),
                         ]);
                         const items: ResultItem[] = [];
-                        if (blogsRes?.success && blogsRes.data?.blogs) items.push(...blogsRes.data.blogs.map((b: any) => ({ id: b.id, title: b.title, type: 'blog' as const, updatedAt: b.updatedAt })));
-                        if (kbRes?.success && kbRes.data?.files) items.push(...kbRes.data.files.map((f: any) => ({ id: f.id, title: f.filename, type: 'knowledge' as const })));
+                        if (blogsRes?.success && blogsRes.data?.blogs) items.push(...blogsRes.data.blogs.map((b: BlogWithTags) => ({ id: b.id, title: b.title, type: 'blog' as const, updatedAt: b.updatedAt })));
+                        if (kbRes?.success && kbRes.data?.files) items.push(...kbRes.data.files.map((f: KnowledgeFileWithTags) => ({ id: f.id, title: f.filename, type: 'knowledge' as const })));
                         dispatch({ type: 'SET_RESULTS', results: items });
                       } catch { dispatch({ type: 'SET_RESULTS', results: [] }); }
                     } else { dispatch({ type: 'SET_RESULTS', results: [] }); }

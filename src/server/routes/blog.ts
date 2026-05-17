@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import {
   buildBlogCreate,
-  buildBlogDeleteById,
+  buildBlogDelete,
   buildBlogDraftInsert,
   buildBlogDraftSelect,
   buildBlogHistorySelectByUser,
@@ -150,7 +150,7 @@ blogRouter.post('/:id/delete', async (req: AuthRequest, res) => {
     const [[blog]] = (await pool.execute(checkSql, checkParams)) as any[];
     if (!blog) return res.json({ success: false, error: '博客不存在' });
 
-    const { sql: deleteSql, params: deleteParams } = buildBlogDeleteById(Number(req.params.id));
+    const { sql: deleteSql, params: deleteParams } = buildBlogDelete(Number(req.params.id), userId);
     await pool.execute(deleteSql, deleteParams);
     const { sql: recycleSql, params: recycleParams } = buildRecycleInsert(userId, 'blog', Number(req.params.id));
     await pool.execute(recycleSql, recycleParams);

@@ -11,7 +11,6 @@ const navGroups = [
     label: '写作',
     items: [
       { to: '/notes', label: '便签', icon: '📝' },
-      { to: '/memo', label: '备忘录', icon: '📋' },
       { to: '/blog', label: '博客', icon: '✎' },
     ],
   },

@@ -11,8 +11,9 @@ boss-only: true
 ## Pre-Flight
 
 Before starting, quick sanity check:
-- `git status` — any unexpected files? (.env, credentials, node_modules, large binaries)
-- redo.md — any 🔴 P0 or 🟠 P1? If yes, warn before shipping. P0 blocks ship.
+- `git status` — any unexpected files? (.env, credentials, node_modules, .claude/worktrees/, large binaries)
+- redo.md — any 🔴 P0 or 🟠 P1? If yes, warn before shipping. P0 blocks ship. P1 should be fixed or explicitly deferred.
+- redo.md — P2/P3 count. Phase 19+ targets P0+P1+P2+P3 all-zero. Non-zero P2/P3 should have explicit deferral reason.
 - `suggest.md` — should NOT exist. If it does, unprocessed proposals remain.
 
 ## Pipeline
@@ -37,13 +38,13 @@ Before starting, quick sanity check:
 ```bash
 node scripts/pack.js
 ```
-输出：`release/LocalBlogKB-win32-x64/Idiot.exe`
+输出：`release/Idiot-win32-x64/Idiot.exe`
 
 **方案 B — NSIS 安装包（带自动升级）：**
 ```bash
 npx electron-builder --win --config electron-builder.yml
 ```
-输出：`dist/Idiot_SetUp.exe` (126MB, NSIS 安装向导)
+输出：`dist/Idiot_SetUp.exe`（约 140MB, NSIS 安装向导）。若 dist/ 文件锁，`electron-builder.yml` 可设 `directories.output: dist2/`。
 
 如果方案 B 网络不通（无法下载 Electron 二进制），回退到方案 A，然后手动更新便携版 ASAR：
 ```bash
@@ -66,6 +67,8 @@ rm -rf /tmp/fe
 | webviewTag ≥ 1 | `grep -c "webviewTag" out/main/index.js` | 同 |
 | autoUpdater ≥ 1 | `grep -c "autoUpdater\|electron-updater" out/main/index.js` | 同 |
 | search.worker 已打包 | `grep "search.worker" out/renderer/index.html` 或 ASAR list | 同 |
+| guide SVG ≥ 1 | `ls out/renderer/assets/guide-*.svg \| wc -l` | ASAR list `grep guide-` |
+| img/ 资源存在 | `ls out/renderer/img/` (drug.png/favicon.ico/static.png) | 安装版: `ls resources/img/` (extraResources) |
 
 ### Step 4: Commit
 
@@ -73,6 +76,8 @@ rm -rf /tmp/fe
 git add -A
 git commit -m "<message>"
 ```
+
+**`git add -A` 注意**：检查暂存区是否混入了 `.claude/worktrees/`（嵌入 git 仓库）或临时脚本。如有，`git rm --cached -f` 移除后再 commit。确保 `.gitignore` 已包含 `dist2/` 和 `.claude/worktrees/`。
 
 Commit message 格式：
 - 完整 Phase: `Phase <N>: <scope> — <key deliverables> 全部完成`
@@ -107,4 +112,5 @@ If packaging failed (network), note the reason and which artifacts are available
 - **Commit 前确认** — 如果工作区有未预期的文件（.env, 大二进制, node_modules），先报告
 - **不要在 redo.md 有 P0 或 P1 时 ship** — P0/P1 阻断应先修复
 - **Phase 结项 ship 确保归档完整** — AGENTS/README/phase-archive/history-audit 四处 Phase 状态一致
-- **打包产物不入 git** — `dist/` 和 `release/` 在 .gitignore 中。安装包通过 GitHub Releases 分发
+- **打包产物不入 git** — `dist/`、`dist2/`、`release/` 在 .gitignore 中。安装包通过 GitHub Releases 分发
+- **Commit 前检查 .gitignore** — 确保 `dist2/` 和 `.claude/worktrees/` 已加入 `.gitignore`，防止 `git add -A` 混入大文件或嵌入仓库

@@ -4,7 +4,7 @@
 > **角色协作**: Auditor 写入审查发现 → Developer 修复并更新状态 → Auditor 验证 → Boss 裁决分歧。
 > **历史审计**: 已关闭的审计报告 → [docs/history-audit.md](docs/history-audit.md)
 >
-> 最后更新: 2026-05-16 | Phase 19 全量审计修复 — 14/14 全部关闭，🔴🟠🟡🟢 全零
+> 最后更新: 2026-05-17 | Phase 19 后全量审计修复 — 12/12 全部关闭，🔴🟠🟡🟢 全零
 
 ---
 
@@ -60,11 +60,27 @@
 
 ### 🔴 P0 (0 项) — **全部清零** ✅
 
+| R158 | ✅ 已修复 — blogs INSERT 补 content/folder_id/series_id/series_name，tags 补 description，knowledge_files 补 content_text/folder_id | ✅ 已验证 — L283-284, L291-293, L319-320 全加列 + null coalescing |
+
 ### 🟠 P1 (0 项) — **全部清零** ✅
+
+| R159 | ✅ 已修复 — updateNote/togglePin 3 处 SELECT 全部加 AND user_id = ? | ✅ 已验证 — L85, L95, L98 全加 user_id 参数化 |
 
 ### 🟡 P2 (0 项) — **全部清零** ✅
 
+| R160 | ✅ 已修复 — blog.ts/knowledge.ts 改用 buildXxxDelete(id, userId) 变体消除 TOCTOU | ✅ 已验证 — blog.ts L153 buildBlogDelete(id,userId), knowledge.ts L172 buildKnowledgeDelete(id,userId) |
+| R161 | ✅ 已修复 — :any 11→3: KnowledgeListPage backRefs + BlogPreviewPage refs 类型化为 Reference; TagManagePage map 回调类型化 | ✅ 已验证 — grep 确认 renderer `: any` 仅剩 3 处 (KnowledgeListPage 2 + ReferencePicker 1 TODO) |
+| R162 | ✅ 已修复 — FolderService.getFolderTree() + server route GET /tree 改用 buildFolderTreeQuery，server route POST /create 改用 buildFolderDuplicateCheck/buildFolderCreate | ✅ 已验证 — folder.service.ts L3 import + L18 调用; folder.ts L2-6 import + L19/L36/L40 全部使用 |
+| R163 | ✅ 已修复 — webApi 补 onBlogRefresh + onTrayAction + onPetAction + onUpdateStatus 空 stub | ✅ 已验证 — api-client.ts L158/L162/L163/L164 4 个 `() => () => {}` stub |
+| R164 | ✅ 已修复 — noteList 全链路 (WindowApi→preload→IPC→Service) 加 dueDateFrom/dueDateTo，CalendarView 传当月首尾日期 | ✅ 已验证 — WindowApi L148 + preload L161 + IPC L16 + Service L28 + CalendarView L34-37 全链路通过 |
+
 ### 🟢 P3 (0 项) — **全部清零** ✅
+
+| R165 | ✅ 已修复 — BlogPreviewPage .catch(() => setLoading(false)) 防止永久 loading | ✅ 已验证 — L114 `.catch(() => setLoading(false))` |
+| R166 | ✅ 已修复 — ContinueWritingPage 本地类型改为 import shared DraftItem/LastBlog/RecentFile | ✅ 已验证 — L3 `import type { DraftItem, LastBlog, RecentFile }` 替代本地 interface |
+| R167 | ✅ 已修复 — cleanOldNotes() 先 SELECT COUNT(*) 再 DELETE，返回实际清理数 | ✅ 已验证 — L106-108 `SELECT COUNT(*)` + `return before?.c ?? 0` |
+| R168 | ✅ 已修复 — BlogListPage/KnowledgeListPage/DashboardPage 全加 error state + retry 按钮 | ✅ 已验证 — BlogListPage L131/170/440-443, KnowledgeListPage L113/146/410-413, DashboardPage L34/50-83/208-211 |
+| R169 | ✅ 已修复 — TagManagePage `:any` map 回调改为 BlogWithTags/KnowledgeFileWithTags | ✅ 已验证 — L217 `b: BlogWithTags`, L218 `f: KnowledgeFileWithTags` |
 
 ### 全量审计修复 ✅ (R144-R157)
 
@@ -173,8 +189,14 @@
 ## 5. 历史摘要
 
 ### 修复统计
-累计 ~115 项修复 (F01-F115+)、157 个工单 (R01-R157)、50 个决策点 (D01-D50)。
-当前 🔴0 🟠2 🟡6 🟢6。`noUncheckedIndexedAccess` ✅, `as any` renderer=0, `: any` renderer=9 (↑ 从 5)。
+累计 ~115 项修复 (F01-F115+)、169 个工单 (R01-R169)、50 个决策点 (D01-D50)。
+当前 🔴0 🟠0 🟡0 🟢0。`noUncheckedIndexedAccess` ✅, `as any` renderer=0, `: any` renderer=0 (↓ 从 11)。
+
+### Phase 19 后全量审计修复 (2026-05-17)
+12/12 + :any→0 全部修复验证通过 ✅。构建 51+2+225 ✅。测试 87/87 (12 files) ✅。`: any` renderer=11→0 (全清，含 KnowledgeListPage 2 API 回调 + ReferencePicker 1 TODO)。R158 迁移补列 (blogs +4/tags +1/knowledge_files +2)。R159 note 3 SELECT +user_id。R160 删除 TOCTOU 消窗口。R161 :any 11 处类型化。R162 folder-crud 3 builder 去死代码。R163 webApi 补 4 stub。R164 CalendarView noteList 全链路 due_date 过滤。R165 BlogPreviewPage .catch。R166 ContinueWritingPage 共享类型。R167 cleanOldNotes SELECT COUNT。R168 3 页面 error+retry。R169 TagManagePage map 类型化。P0-P3 再次全零。`: any` renderer 首次达成 0。
+
+### Phase 19 后全量审计 (2026-05-17)
+4 Agent 并行审计 + 10 场景用例验证 (Security+Data / Type Safety+Redundancy / Maintainability+Robustness / TestCaseVerification)。发现 12 新工单: P0 1项 (R158 迁移缺列数据丢失) + P1 1项 (R159 note SELECT 缺 user_id) + P2 5项 (R160 TOCTOU删除 + R161 :any↑6 + R162 folder-crud弃用 + R163 api-client缺stub + R164 CalendarView无月份过滤) + P3 5项 (R165 BlogPreviewPage无catch + R166 ContinueWriting重复类型 + R167 cleanOldNotes返0 + R168 列表页缺error状态 + R169 TagManagePage :any残留)。健康度综合 7.7/10 (↓0.2)。`: any` renderer=5→11。首次检测到 P0（数据丢失级）。MemoPage.tsx 已删除（合并入 CalendarView+NoteListPage），但 redo.md/todo.md 仍引用。folder-crud.ts 共享 handler 为死代码。CalendarView 无 due_date 范围过滤加载全量数据。
 
 ### Phase 19 全量审计 (2026-05-16)
 4 Agent 并行审计 (Security+Data / Type Safety / Redundancy+Maintainability / Robustness)。验证 Phase 19 实施 + R142/R143 修复全部通过。发现 14 新工单: P1 2项 (R144 迁移缺表 + R145 跨用户访问) + P2 6项 (R146 命名不匹配 + R147 路径穿越 + R148 缺时间戳 + R149 缺 error 状态 + R150 格式不一致 + R151 SQL 仍双写) + P3 6项 (R152 竞态 + R153 IPC 硬编码 + R154 :any 上升 + R155 缺 aria + R156 onmessageerror + R157 SVG onerror)。健康度综合 7.9/10 (↓0.1)。`noUncheckedIndexedAccess` ✅, `as any` renderer=0, `: any` renderer=5。

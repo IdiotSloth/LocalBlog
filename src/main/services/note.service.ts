@@ -25,12 +25,20 @@ function rowToNote(r: NoteRow): Note {
 }
 
 export class NoteService {
-  static async listNotes(userId: number, memoType?: string): Promise<Note[]> {
+  static async listNotes(userId: number, memoType?: string, dueDateFrom?: string, dueDateTo?: string): Promise<Note[]> {
     let sql = 'SELECT * FROM notes WHERE user_id = ?';
     const params: unknown[] = [userId];
     if (memoType) {
       sql += ' AND memo_type = ?';
       params.push(memoType);
+    }
+    if (dueDateFrom) {
+      sql += ' AND due_date >= ?';
+      params.push(dueDateFrom);
+    }
+    if (dueDateTo) {
+      sql += ' AND due_date <= ?';
+      params.push(dueDateTo);
     }
     sql += ' ORDER BY pinned DESC, updated_at DESC';
     const rows = await dbAll<NoteRow>(sql, params);
@@ -74,7 +82,7 @@ export class NoteService {
     params.push(noteId);
     params.push(userId);
     await dbRun(`UPDATE notes SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`, params);
-    const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ?', [noteId]);
+    const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
     if (!row) throw new Error('便签不存在');
     return rowToNote(row);
   }
@@ -84,18 +92,19 @@ export class NoteService {
   }
 
   static async togglePin(userId: number, noteId: number): Promise<Note | null> {
-    const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ?', [noteId]);
+    const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
     if (!row) return null;
     await dbRun('UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [row.pinned ? 0 : 1, nowMySQL(), noteId, userId]);
-    const updated = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ?', [noteId]);
+    const updated = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
     return updated ? rowToNote(updated) : null;
   }
 
-  /** Clean notes older than 24h (unpinned only) */
+  /** Clean notes older than 24h (unpinned only). Returns number of deleted notes. */
   static async cleanOldNotes(): Promise<number> {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const cutoffStr = cutoff.toISOString().replace('T', ' ').slice(0, 19);
+    const before = await dbGet<{ c: number }>("SELECT COUNT(*) as c FROM notes WHERE pinned = 0 AND created_at < ?", [cutoffStr]);
     await dbRun("DELETE FROM notes WHERE pinned = 0 AND created_at < ?", [cutoffStr]);
-    return 0;
+    return before?.c ?? 0;
   }
 }

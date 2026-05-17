@@ -3,7 +3,7 @@ productName: Idiot
 artifactName: Idiot_SetUp.exe
 directories:
   output: dist2
-  buildResources: img
+  buildResources: build
 files:
   - out/**/*
   - scripts/launcher.bat

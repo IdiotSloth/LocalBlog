@@ -71,6 +71,74 @@
 - **Minimal pattern**: Zero file I/O. Don't write log files. Just tell user something went wrong.
 - **Worker errors**: `self.onerror` + `worker.onerror` + try-catch around postMessage. Crash without handlers = UI stuck.
 
+
+## Phase 19: Security Hardening + Full Audit (R144-R157)
+
+### Read-Path user_id Isolation (R145)
+- IPC read handlers (KB_GET, KB_PREVIEW, KB_OPEN_EXTERNAL) MUST verify userId
+- Use `buildKnowledgeSelectByUser(id, userId)` instead of `buildKnowledgeSelect(id)`
+- Pattern: handler accepts `{ fileId, userId }` data object, passes userId to service
+
+### Path Traversal Prevention (R147)
+- ALL user-provided filenames MUST go through `path.basename(name)` before `path.join()`
+- Reject filenames that are empty, `.`, `..`, or contain `\0`
+- Pattern: `validateFilename(name: string): string { const s = path.basename(name); if (!s || s === '.' || s === '..' || s.includes('\0')) throw new Error('Invalid filename'); return s; }`
+
+### Migration Completeness (R144)
+- `migrateSqlJsToMySQL()` MUST cover ALL tables in schema.ts
+- Wrap each table migration in try-catch (table may not exist in old DB)
+- Phase 19 added: notes, refs, folders (previously missing 3 of 12 tables)
+
+### Type System Integrity (R146)
+- Service methods returning data via WindowApi MUST map snake_case DB rows to camelCase
+- Add private `rowToXxx(row: XxxRow): XxxType` mappers in each service
+- Type mismatch between DB and WindowApi forces renderer to use `: any` (R154)
+
+### IPC Contract (R150)
+- ALL IPC handler catch blocks MUST return `{ success: false, error: "..." }`
+- NEVER return bare `{ error: "..." }` — missing `success` field breaks `ApiResponse<T>` contract
+- Callers check `r.success` which is undefined for bare `{ error }`
+
+### Component Error States (R149)
+- Every new page MUST have error UI: red banner/toast + retry button
+- Catch blocks: `setError('message')` in addition to `console.error`
+- Loading state → Error state → Empty state → Data rendered (4-state coverage)
+
+### useEffect Race Conditions (R152)
+- ALL async useEffect callbacks MUST use `abortedRef = useRef(false)` pattern
+- In .then()/.catch()/.finally(): `if (abortedRef.current) return;` before setState
+- Cleanup: `return () => { abortedRef.current = true; };`
+- Without this: setState on unmounted component = React warning + potential memory leak
+
+### IPC Channel Registration (R153)
+- EVERY `ipcMain.handle()` / `ipcMain.on()` MUST use IPC.* constant from ipc-channels.ts
+- This includes pet/mini-window/internal channels — no exceptions
+- Preload side MUST use same IPC.* constant
+
+### Worker Safety (R156)
+- Workers need 3 error handlers: `self.onerror` + `worker.onerror` + `worker.onmessageerror`
+- `onmessageerror` handles deserialization failures (e.g., corrupted postMessage data)
+- Without it: message decode errors are silently dropped
+
+### Asset Loading (R157)
+- All `<img>` tags must have `onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}`
+- Broken images should be hidden, not shown as broken icon placeholders
+
+### :any Budget (R154)
+- Renderer `: any` count threshold: ≤5
+- When count rises, fix the root type break (usually in WindowApi or Service return types)
+- Don't add per-site `as any` casts to work around type mismatches
+
+### Accessibility (R155)
+- Icon-only buttons MUST have `aria-label` attribute
+- Screen readers announce "button" with no description for unlabeled icon buttons
+
+### useReducer Convergence (R143)
+- Proven pattern: 3 components converged (50 useState → 3 useReducer)
+- Exported reducer function for testability
+- Discriminated union action types (not generic payload objects)
+- Keep refs and effects unchanged
+
 ## Audit Protocol
 - **裁决后再修**: Auditor submits findings → Boss issues rulings → Developer fixes. Never skip the ruling step.
 

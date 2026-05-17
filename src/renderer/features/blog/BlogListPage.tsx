@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { BlogWithTags, FolderTreeNode, ScrapeResult, Tag } from '../../../shared/types';
 import { FolderTree } from '../../components/common/FolderTree';
@@ -128,6 +128,7 @@ export function BlogListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batch = useBatchSelect(blogs as { id: number }[]);
   const pagination = usePagination(20, total);
+  const [error, setError] = useState<string | null>(null);
   const loadFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'blog' });
@@ -166,6 +167,7 @@ export function BlogListPage() {
       }
     } catch (e) {
       console.error(e);
+      setError('加载失败');
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
@@ -435,9 +437,15 @@ export function BlogListPage() {
           </select>
         </div>
 
-        {viewMode === 'timeline' && user ? (
+        {error && (
+          <div className="py-8 text-center">
+            <p className="text-[14px]" style={{ color: 'var(--accent-red)' }}>{error}</p>
+            <button onClick={() => { setError(null); loadBlogs(); }} className="mt-3 text-[13px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>重试</button>
+          </div>
+        )}
+        {!error && viewMode === 'timeline' && user ? (
           <TimelineView userId={user.id} />
-        ) : loading ? (
+        ) : !error && loading ? (
           <p className="py-12 text-center text-[14px] text-secondary">加载中...</p>
         ) : blogs.length === 0 ? (
           <div
@@ -582,6 +590,7 @@ export function BlogListPage() {
                       try {
                         await window.api.folderMoveItem({ userId: user.id, itemType: 'blog', itemId: blog.id, folderId: fid });
                         loadBlogs();
+                        loadFolders();
                       } catch (e) {
                         console.error(e);
                       }

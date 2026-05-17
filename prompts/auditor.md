@@ -259,7 +259,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 1-18 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-19 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -288,6 +288,14 @@ Boss 裁决的工单你不再争议
 | **async 闭包中类型收窄失效** | `useEffect` 内 `if (!userId) return;` 守卫后，内部 async 函数捕获的 `userId` 仍为 `number\|null` → web tsc 报 `not assignable to 'number'` (R141) | 审计 useEffect + async 内联函数：在 async 函数定义前用 `const uid = userId` 捕获收窄后的值。`noUncheckedIndexedAccess` 暴露此类问题 |
 | **共享 handler 迁移不完整** | shared handler 只迁移了 SQL builder，mapping 函数（mapFile, rowToFile）和 type-detection（detectFileType, typeMap）仍在 server 和 main 各写一份 (R139) | 审计 shared handler 迁移时：检查该 domain 的 mapper/detector/validator 是否也统一到了一处，不只 SQL |
 | **Worker 索引 HTML 污染** | Worker 分词器输入含原始 HTML 标记（`<div>`, `class` 等），倒排索引被 `<htmltag>` 词条污染 (R140) | 审计 Worker/分词器：索引前是否剥离 HTML 标签。`text.replace(/<[^>]*>/g, '')` 或等价操作 |
+| **sql.js→MySQL 数据迁移缺表** | `migrateSqlJsToMySQL()` 迁移了部分表但遗漏新 domain 表 → 用户升级后那部分数据永久丢失 (R144) | 审计 schema 变更时：检查 `migrateSqlJsToMySQL()` 是否覆盖所有 CREATE TABLE。新 domain 被引入后必须同步更新迁移函数 |
+| **Shared handler ByUser/ById 变量滥用** | IPC 读路径（GET/PREVIEW/OPEN_EXTERNAL）使用 `buildXxxSelect(id)` 不带 userId 守卫，攻击者通过枚举 ID 跨用户读数据 (R145) | 审计 shared handler 调用：读路径必须用 `*ByUser` 变体。`*ById` 仅用于已通过所有权检查后的内部调用 |
+| **Service 返回 snake_case Row 但 WindowApi 声明 camelCase** | `reference.service.ts` 返回 `RefRow`(snake) 但 `window-api.ts` 声明 `Reference[]`(camel)。类型系统与运行时不符，渲染端被迫用 `: any` 规避 (R146) | 审计 service IPC 调用链：service→IPC handler→WindowApi→preload→renderer 的类型名是否在每个环节对齐。Service 返回 DB row 前必须做 snake→camel 映射 |
+| **Server route 绕过 shared handler 内联 SQL** | server route 自己拼 INSERT 而不是用已有的 `buildXxxCreate()`，缺少 created_at/updated_at/content_text 列 (R148) | 审计 server/routes/ 新增 INSERT：必须优先复用 shared handlers 的 builder 函数。内联 SQL 为最后选择且需逐列对比 |
+| **新页面缺 error 状态的隐性故障** | 新页面 catch 块仅 `console.error` 不设 UI 状态 → API 失败时用户看到永久 loading 或空白页，无任何可操作入口 (R149) | 审计每个数据加载组件：必须检查 loading/empty/error 三元态。catch 中 `setError()` 且 UI 渲染重试按钮 |
+| **IPC 错误返回缺 `success: false`** | IPC handler 返回 `{ error: 'xxx' }` 缺少 `success: false` → 调用方 `r.success` 为 undefined，逻辑静默失效 (R150) | 审计 IPC handler 的所有错误返回路径：必须包含 `success: false` 字段。异常 catch 中统一用 `{ success: false, error: (err as Error).message }` |
+| **旧 domain 未同步收敛遗留 SQL 双写** | blog+knowledge 已收敛 shared handler 但 folder/search/tag 的 SQL 仍在 server route 和 main service 各写一份 → 部分收敛产生虚假安全感 (R151) | 审计 shared handler 覆盖范围：列出已收敛 domain 和未收敛 domain。未收敛的 domain 需要显式延后决策或纳入收敛计划 |
+| **新异步组件缺 aborted 守卫** | 新页面 useEffect 中 .then() 回调未检查 aborted 标志 → 快速导航离开后 setState on unmounted component (R152) | 审计所有 useEffect 中 async 操作：必须有 `abortedRef` 守卫或在 cleanup 中设置标志。遵循 ContinueWritingPage 的标准模式 |
 
 ---
 
@@ -381,21 +389,22 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-14, Phase 18 审计后):
+**当前质量基线** (2026-05-17, Phase 19 全量审计修复后):
 - `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
-- `: any` 类型标注: renderer 5 处 (仅 reference 相关 `ref: any`, 有 TODO)
-- `Record<string,unknown>` in WindowApi: 2 处 (blogGetHistory/blogSeriesGet) — 从 Phase 16 的 6 处收敛
-- IPC 通道: 95 (handle) + 5 (EVT_ event channels) — 含 FTS5 search + error feedback
+- `: any` 类型标注: renderer 5 处 (reference 相关, 根因 R146 已修复，类型系统已对齐)
+- `Record<string,unknown>` in WindowApi: **0 处** ✅ — Phase 19 T1912 全部类型化
+- IPC 通道: **100** (handle) + **6** (EVT_ event channels) — 含 FTS5 + error feedback + folder:move + PET_* 6 常量
 - CSS 变量: 全部覆盖 ✅
-- 测试: **49/49** unit (6 files — blog/knowledge/note/tag/auth/service), 11/11 e2e
+- 测试: **87/87** unit (12 files), 11/11 e2e — 从 Phase 18 的 49 tests +38
 - `noUncheckedIndexedAccess`: ✅ 永久启用 (Phase 15 T1502)
-- tsc: 项目级零错误；node 1 预存 + web 3 预存 (独立 tsconfig)
-- P0+P1+P2: **首次全部清零** ✅ (R130-R135 修复后)
-- CRUD 双写: ✅ shared handlers (blog-crud.ts 17 + knowledge-crud.ts 13), rowToBlog/mapBlog 已移除
-- Server user_id 隔离: ✅ P1 5 项已修复 (Phase 16) + Service 6 项已修复 (Phase 17)
-- FTS5 全文搜索: ✅ Worker 倒排索引 + MySQL FULLTEXT INDEX + correlation ID 竞态修复
+- tsc: 项目级零错误 ✅
+- P0+P1+P2+P3: **首次全优先级全零** ✅ (R144-R157 修复后)
+- CRUD 双写: ✅ blog + knowledge (Phase 18) + folder (Phase 19 folder-crud.ts)。search/tag 待 Phase 20
+- Server user_id 隔离: ✅ P1 5 项已修复 (Phase 16) + Service 6 项已修复 (Phase 17) + KB_GET/PREVIEW/OPEN_EXTERNAL userId 守卫 (Phase 19 R145)
+- FTS5 全文搜索: ✅ Worker 倒排索引 + MySQL FULLTEXT INDEX + stripHtml 防污染 + onmessageerror 守卫
 - 错误反馈: ✅ uncaughtException → IPC → Toast (Phase 18 T1803)
-- 构建: 49 main + 2 preload + 223 renderer
-- BlogEditorPage: ✅ 已收敛至 useReducer (Phase 14 T1402)
-- KnowledgeListPage 20 useState / BlogListPage 19 useState (待收敛, R116)
-- 累计: 141 个工单 (R01-R141), 45 个决策点 (D01-D45), ~441.5h
+- 组件状态收敛: ✅ TagManagePage(12→1) + BlogListPage(19→1) + KnowledgeListPage(19→1) 共 50 useState→3 useReducer
+- 全局快捷键: ✅ ShortcutService.reregisterAll() 动态注册 (Phase 19 T1903)
+- 路径穿越防御: ✅ validateFilename() path.basename (Phase 19 R147)
+- 构建: 50 main + 2 preload + 227 renderer
+- 累计: 157 个工单 (R01-R157), 50 个决策点 (D01-D50), ~465h

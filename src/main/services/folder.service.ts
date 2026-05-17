@@ -1,5 +1,6 @@
 import { nowMySQL } from '../../shared/datetime';
 import type { FolderTreeNode } from '../../shared/types';
+import { buildFolderTreeQuery } from '../../shared/handlers/folder-crud';
 import { dbAll, dbGet, dbRun } from '../db';
 
 interface FolderRow {
@@ -14,16 +15,8 @@ interface FolderRow {
 
 export class FolderService {
   static async getFolderTree(userId: number, type: 'blog' | 'knowledge'): Promise<FolderTreeNode[]> {
-    const folders = await dbAll<FolderRow & { item_count: number }>(
-      `SELECT f.*, COALESCE(cnt.c, 0) as item_count FROM folders f
-       LEFT JOIN (
-         SELECT folder_id, COUNT(*) as c FROM ${type === 'blog' ? 'blogs' : 'knowledge_files'}
-         WHERE user_id = ? AND status = 'active' GROUP BY folder_id
-       ) cnt ON cnt.folder_id = f.id
-       WHERE f.user_id = ? AND f.type = ?
-       ORDER BY f.sort_order, f.name`,
-      [userId, userId, type],
-    );
+    const { sql, params } = buildFolderTreeQuery(userId, type);
+    const folders = await dbAll<FolderRow & { item_count: number }>(sql, params);
 
     return buildTree(folders);
   }

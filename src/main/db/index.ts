@@ -276,19 +276,22 @@ async function migrateSqlJsToMySQL(): Promise<void> {
       );
     }
 
-    // Migrate blogs
+    // Migrate blogs (R158: include content/folder_id/series_id/series_name from ALTER TABLE)
     const blogs = sqlJsQuery(oldDb, 'SELECT * FROM blogs');
     for (const b of blogs) {
       await _mysqlRun(
-        'INSERT INTO blogs (id, user_id, title, format, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
-        [b.id, b.user_id, b.title, b.format, b.status, b.created_at, b.updated_at],
+        'INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        [b.id, b.user_id, b.title, (b.content as string) ?? '', b.format, b.status, (b.folder_id as number | null) ?? null, (b.series_id as string | null) ?? null, (b.series_name as string | null) ?? null, b.created_at, b.updated_at],
       );
     }
 
-    // Migrate tags
+    // Migrate tags (R158: include description from ALTER TABLE)
     const tags = sqlJsQuery(oldDb, 'SELECT * FROM tags');
     for (const t of tags) {
-      await _mysqlRun('INSERT INTO tags (id, user_id, name) VALUES (?,?,?)', [t.id, t.user_id, t.name]);
+      await _mysqlRun(
+        'INSERT INTO tags (id, user_id, name, description) VALUES (?,?,?,?)',
+        [t.id, t.user_id, t.name, (t.description as string | null) ?? null],
+      );
     }
 
     // Migrate blog_tags
@@ -309,12 +312,12 @@ async function migrateSqlJsToMySQL(): Promise<void> {
       ]);
     }
 
-    // Migrate knowledge_files
+    // Migrate knowledge_files (R158: include content_text/folder_id from ALTER TABLE)
     const kfs = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_files');
     for (const k of kfs) {
       await _mysqlRun(
-        'INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.created_at, k.updated_at],
+        'INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, (k.content_text as string | null) ?? null, (k.folder_id as number | null) ?? null, k.created_at, k.updated_at],
       );
     }
 

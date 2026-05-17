@@ -61,7 +61,7 @@ Step 7: 如果发现任务描述不合理或有遗漏 → 不自行决策，
 
 ### 流程三：自纠自查（Phase 完成后必做）
 
-Step 1: `npm run build && npm run test` — 确认构建测试通过（含 worker chunk 输出）
+Step 1: `npm run build && npm run test` — 确认构建测试通过（含 worker chunk 输出 + SVG assets）
 Step 2: `npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"` — 确认 noUncheckedIndexedAccess 零新增
 Step 3: 检查关键维度：
 - `as any` renderer 是否维持 0
@@ -132,7 +132,7 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | # | 修复 | 文件 |
 |---|------|------|
 | Rxx | 一句话 | path:line |
-构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 49/49
+构建: ✅/❌ (X main + Y preload + Z renderer) | 测试: 87/87 (12 files)
 ```
 
 Phase 级别任务完成后输出全量报告，带文件清单和模块统计。
@@ -161,7 +161,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - `src/renderer/` — React + CSS，禁止 Node.js API
 - `src/preload/` — contextBridge 暴露 API，禁止业务逻辑
 - `src/shared/` — 类型/常量/channels，禁止运行时逻辑
-- `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 和 Server route 共用
+- `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 和 Server route 共用。blog/knowledge/folder 已收敛，tag/search 待收敛
 - `src/server/` — Express + MySQL，禁止 Electron API
 
 ### 数据库
@@ -172,7 +172,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - Schema 变更需同步三处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL) + `db/index.ts`(迁移) + `db-schema-mysql.ts`(MYSQL_MIGRATIONS)
 - MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数，必须内联到 SQL 字符串
 - **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决（如 T1509a tags.description）
-- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理
+- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理。已收敛: blog-crud.ts (17) + knowledge-crud.ts (13) + folder-crud.ts (3)。待收敛: tag/search
 - **MySQL FULLTEXT INDEX**: 不算 Schema 变更（D43=A），但列名必须匹配实际表结构
 
 ### IPC
@@ -180,7 +180,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - 响应格式: `{ success: boolean, data?: T, error?: string }`
 - WindowApi 接口在 `src/shared/window-api.ts` — 修改 preload 时必须同步更新
 - 事件 (main→renderer): preload 暴露 `onXxx(cb): () => void` 模式（返回 unsubscribe 函数）
-- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串
+- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串。pet/mini-window 等内部通道也须全量注册到 ipc-channels.ts (R153)
 
 ### 前端
 - 路由: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary
@@ -189,7 +189,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - a11y: 表单元素需 `placeholder` / `title` / `aria-label`
 
 ### Server
-- Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权
+- Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权。读操作 (SELECT) 同样需要 user_id 守卫 — KB_GET/KB_PREVIEW 等无 user_id 会导致跨用户数据泄露 (R145)
 - 读操作 `SELECT ... WHERE user_id = ?` 已在 requireAuth 中间件覆盖
 - `server/uploads/{userId}/` 多用户隔离
 - recycle_bin 的 DELETE 也必须加 `AND user_id = ?`（用户 A 不能删除用户 B 的回收站条目）
@@ -198,7 +198,7 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 - **sql.js 模式**: Worker 内存倒排索引 (`src/renderer/workers/search.worker.ts`)，`Intl.Segmenter` 分词（浏览器内置）
 - **MySQL 模式**: `MATCH ... AGAINST` + FULLTEXT INDEX
 - **Worker 通信**: 消息队列 + correlation ID，禁止单槽 `pendingRef`（快速连续搜索竞态会导致 Promise 永久挂起）
-- **Worker 安全**: 必须加 `self.onerror` + `worker.onerror` + postMessage try-catch
+- **Worker 安全**: 必须加 `self.onerror` + `worker.onerror` + `worker.onmessageerror` + postMessage try-catch。三者缺一不可 (R156)
 - **索引重建**: 监听 `EVT_BLOG_REFRESH` / `EVT_KB_REFRESH` 事件自动重新索引
 
 ### 错误反馈
@@ -244,3 +244,18 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 27. Server recycle DELETE 缺 `AND user_id = ?` → 安全缺口（R135），和 Service 层一样需要 guard
 28. `buildKnowledgeRestoreById` 不设 `updated_at` → 恢复后时间戳为删除时间，排序错乱
 29. Auditor 审计发现后 → 等 Boss 裁决再修，不自行决定修哪些
+30. migrateSqlJsToMySQL() 必须覆盖所有表 — Phase 19 发现遗漏 notes/refs/folders 三张表导致数据丢失 (R144)
+31. IPC 读路径也需要 user_id — KB_GET/KB_PREVIEW/KB_OPEN_EXTERNAL 等读操作同样需要所有权检查，不只是写操作 (R145)
+32. snake_case DB row 映射前必须转为 camelCase — Service 返回类型须与 WindowApi 声明一致，否则渲染端被迫使用 : any (R146)
+33. 用户提供的文件名必须 path.basename() 净化再拼入 path.join() — 防止 ../ 路径穿越操作工作区外文件 (R147)
+34. 所有 INSERT 必须显式传时间戳 — 优先复用 shared buildXxx() handler，不手写无时间戳的 SQL (R148)
+35. 新页面必须有 error 状态 + 重试按钮 — catch 块不能只 console.error，用户需要看到错误提示和恢复路径 (R149)
+36. IPC 错误返回必须是 { success: false, error: "..." } — 禁止裸 { error: "..." } 无 success 字段 (R150)
+37. 新增 shared handler domain 时创建 *-crud.ts — folder/tag/search 等 SQL 双写需同步收敛到 shared/handlers/ (R151)
+38. useEffect 异步回调需 abortedRef 守卫 — 组件卸载后 setState 是 bug，cleanup 中设 abortedRef.current=true (R152)
+39. IPC 通道必须全量注册在 ipc-channels.ts — pet/mini-window 等内部通道也不能硬编码裸字符串 (R153)
+40. : any 数量受监控（阈值 ≤5）— 类型系统断裂会导致 : any 扩散，需从根因修复而非逐个消除 (R154)
+41. 图标按钮必须有 aria-label — 屏幕阅读器无法描述纯图标按钮的操作意图 (R155)
+42. Worker 需要 onmessageerror — 除 onerror 外还需处理消息反序列化失败，否则静默丢弃 (R156)
+43. SVG <img> 标签需要 onError 回退 — 图片缺失时隐藏而非显示破碎图标 (R157)
+44. useReducer 收敛模式已验证 — 3 组件共 50 useState 收敛为 3 useReducer (TagManagePage 12+BlogListPage 19+KnowledgeListPage 19) (R143)

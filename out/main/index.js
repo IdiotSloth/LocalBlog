@@ -679,13 +679,16 @@ async function migrateSqlJsToMySQL() {
     const blogs = sqlJsQuery(oldDb, "SELECT * FROM blogs");
     for (const b of blogs) {
       await run$1(
-        "INSERT INTO blogs (id, user_id, title, format, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-        [b.id, b.user_id, b.title, b.format, b.status, b.created_at, b.updated_at]
+        "INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        [b.id, b.user_id, b.title, b.content ?? "", b.format, b.status, b.folder_id ?? null, b.series_id ?? null, b.series_name ?? null, b.created_at, b.updated_at]
       );
     }
     const tags = sqlJsQuery(oldDb, "SELECT * FROM tags");
     for (const t of tags) {
-      await run$1("INSERT INTO tags (id, user_id, name) VALUES (?,?,?)", [t.id, t.user_id, t.name]);
+      await run$1(
+        "INSERT INTO tags (id, user_id, name, description) VALUES (?,?,?,?)",
+        [t.id, t.user_id, t.name, t.description ?? null]
+      );
     }
     const blogTags = sqlJsQuery(oldDb, "SELECT * FROM blog_tags");
     for (const bt of blogTags) {
@@ -704,8 +707,8 @@ async function migrateSqlJsToMySQL() {
     const kfs = sqlJsQuery(oldDb, "SELECT * FROM knowledge_files");
     for (const k of kfs) {
       await run$1(
-        "INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.created_at, k.updated_at]
+        "INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.content_text ?? null, k.folder_id ?? null, k.created_at, k.updated_at]
       );
     }
     const kft = sqlJsQuery(oldDb, "SELECT * FROM knowledge_file_tags");
@@ -2350,6 +2353,7 @@ function mapBlogRow(row) {
     status: row.status,
     seriesId: row.series_id,
     seriesName: row.series_name,
+    folderId: row.folder_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -3118,18 +3122,23 @@ function registerContinueHandlers() {
     }
   });
 }
+function buildFolderTreeQuery(userId, type) {
+  const itemTable = type === "blog" ? "blogs" : "knowledge_files";
+  return {
+    sql: `SELECT f.*, COALESCE(cnt.c, 0) as item_count FROM folders f
+     LEFT JOIN (
+       SELECT folder_id, COUNT(*) as c FROM ${itemTable}
+       WHERE user_id = ? AND status = 'active' GROUP BY folder_id
+     ) cnt ON cnt.folder_id = f.id
+     WHERE f.user_id = ? AND f.type = ?
+     ORDER BY f.sort_order, f.name`,
+    params: [userId, userId, type]
+  };
+}
 class FolderService {
   static async getFolderTree(userId, type) {
-    const folders = await dbAll(
-      `SELECT f.*, COALESCE(cnt.c, 0) as item_count FROM folders f
-       LEFT JOIN (
-         SELECT folder_id, COUNT(*) as c FROM ${type === "blog" ? "blogs" : "knowledge_files"}
-         WHERE user_id = ? AND status = 'active' GROUP BY folder_id
-       ) cnt ON cnt.folder_id = f.id
-       WHERE f.user_id = ? AND f.type = ?
-       ORDER BY f.sort_order, f.name`,
-      [userId, userId, type]
-    );
+    const { sql, params } = buildFolderTreeQuery(userId, type);
+    const folders = await dbAll(sql, params);
     return buildTree(folders);
   }
   static async createFolder(userId, name, type, parentId) {
@@ -3303,6 +3312,7 @@ function mapKnowledgeRow(f) {
     fileType: f.file_type,
     fileSize: f.file_size,
     status: f.status,
+    folderId: f.folder_id,
     createdAt: f.created_at,
     updatedAt: f.updated_at
   };
@@ -3789,12 +3799,20 @@ function rowToNote(r) {
   };
 }
 class NoteService {
-  static async listNotes(userId, memoType) {
+  static async listNotes(userId, memoType, dueDateFrom, dueDateTo) {
     let sql = "SELECT * FROM notes WHERE user_id = ?";
     const params = [userId];
     if (memoType) {
       sql += " AND memo_type = ?";
       params.push(memoType);
+    }
+    if (dueDateFrom) {
+      sql += " AND due_date >= ?";
+      params.push(dueDateFrom);
+    }
+    if (dueDateTo) {
+      sql += " AND due_date <= ?";
+      params.push(dueDateTo);
     }
     sql += " ORDER BY pinned DESC, updated_at DESC";
     const rows = await dbAll(sql, params);
@@ -3838,7 +3856,7 @@ class NoteService {
     params.push(noteId);
     params.push(userId);
     await dbRun(`UPDATE notes SET ${sets.join(", ")} WHERE id = ? AND user_id = ?`, params);
-    const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    const row = await dbGet("SELECT * FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
     if (!row) throw new Error("便签不存在");
     return rowToNote(row);
   }
@@ -3846,18 +3864,19 @@ class NoteService {
     await dbRun("DELETE FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
   }
   static async togglePin(userId, noteId) {
-    const row = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    const row = await dbGet("SELECT * FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
     if (!row) return null;
     await dbRun("UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, nowMySQL(), noteId, userId]);
-    const updated = await dbGet("SELECT * FROM notes WHERE id = ?", [noteId]);
+    const updated = await dbGet("SELECT * FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
     return updated ? rowToNote(updated) : null;
   }
-  /** Clean notes older than 24h (unpinned only) */
+  /** Clean notes older than 24h (unpinned only). Returns number of deleted notes. */
   static async cleanOldNotes() {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3);
     const cutoffStr = cutoff.toISOString().replace("T", " ").slice(0, 19);
+    const before = await dbGet("SELECT COUNT(*) as c FROM notes WHERE pinned = 0 AND created_at < ?", [cutoffStr]);
     await dbRun("DELETE FROM notes WHERE pinned = 0 AND created_at < ?", [cutoffStr]);
-    return 0;
+    return before?.c ?? 0;
   }
 }
 const note_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -3872,9 +3891,9 @@ function broadcastRefresh() {
   noteRefreshTarget?.send(IPC.EVT_NOTE_REFRESH);
 }
 function registerNoteHandlers() {
-  electron.ipcMain.handle(IPC.NOTE_LIST, async (_event, userId, memoType) => {
+  electron.ipcMain.handle(IPC.NOTE_LIST, async (_event, userId, memoType, dueDateFrom, dueDateTo) => {
     try {
-      const notes = await NoteService.listNotes(userId, memoType);
+      const notes = await NoteService.listNotes(userId, memoType, dueDateFrom, dueDateTo);
       return { success: true, data: notes };
     } catch (err) {
       return { success: false, error: err.message };

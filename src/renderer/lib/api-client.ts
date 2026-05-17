@@ -155,9 +155,13 @@ const webApi = {
   noteDelete: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   notePin: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
   noteClipboard: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
+  onBlogRefresh: () => () => {},
   onNoteRefresh: () => () => {},
   onAppError: () => () => {},
   onKbRefresh: () => () => {},
+  onTrayAction: () => () => {},
+  onPetAction: () => () => {},
+  onUpdateStatus: () => () => {},
 
   // Continue Writing
   continueGetDrafts: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
