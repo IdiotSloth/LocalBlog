@@ -127,6 +127,7 @@ const webApi = {
   blogBatchDelete: () => Promise.resolve({ success: false, error: '网页版暂不支持批量操作' }),
   blogBatchTag: () => Promise.resolve({ success: false, error: '网页版暂不支持批量操作' }),
   kbBatchDelete: () => Promise.resolve({ success: false, error: '网页版暂不支持批量操作' }),
+  kbSetProperties: () => Promise.resolve({ success: false, error: '网页版暂不支持属性编辑' }),
   recycleBatchRestore: () => Promise.resolve({ success: false, error: '网页版暂不支持批量操作' }),
   folderTree: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
   folderCreate: () => Promise.resolve({ success: false, error: '网页版暂不支持文件夹' }),
@@ -167,6 +168,7 @@ const webApi = {
   continueGetDrafts: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   continueGetLastBlog: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   continueGetRecentFiles: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
+  graphGetData: () => Promise.resolve({ success: false, error: '知识图谱为桌面专属功能' }),
 };
 
 /** Detect environment and return the appropriate API */

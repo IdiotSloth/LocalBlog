@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FtsSearchResult } from '../../../shared/types';
+import { getRecentBlogs, type RecentBlogEntry } from '../../hooks/useRecentHistory';
 import { useAuthStore } from '../../stores/auth-store';
 import { useSearch } from '../../lib/use-search';
 
-interface DisplayGroup {
-  type: 'blog' | 'knowledge';
+interface Command {
+  id: string;
   label: string;
-  items: FtsSearchResult[];
+  shortcut?: string;
+  action: () => void;
 }
 
 export function GlobalSearch() {
@@ -19,142 +21,187 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [recentBlogs, setRecentBlogs] = useState<RecentBlogEntry[]>([]);
 
   const { search, results } = useSearch(user?.id ?? null);
 
-  // Group results by type for display
-  const groups: DisplayGroup[] = [];
-  const blogResults = results.filter((r) => r.type === 'blog');
-  const knowledgeResults = results.filter((r) => r.type === 'knowledge');
-  if (blogResults.length > 0) groups.push({ type: 'blog', label: '博客', items: blogResults });
-  if (knowledgeResults.length > 0) groups.push({ type: 'knowledge', label: '知识库', items: knowledgeResults });
-
-  const totalResults = results.length;
-
-  const doSearch = useCallback(
-    async (q: string) => {
-      if (q.trim().length < 2) {
-        setOpen(false);
-        return;
-      }
-      await search(q);
-      setOpen(true);
-      setSelectedIdx(-1);
-    },
-    [search],
-  );
+  // Commands when query is empty
+  const commands: Command[] = [
+    { id: 'new-blog', label: '新建博客', shortcut: 'Ctrl+N', action: () => navigate('/blog/new') },
+    { id: 'blog-list', label: '浏览博客', action: () => navigate('/blog') },
+    { id: 'knowledge', label: '知识库', action: () => navigate('/knowledge') },
+    { id: 'tags', label: '标签管理', action: () => navigate('/tags') },
+    { id: 'notes', label: '便签', action: () => navigate('/notes') },
+    { id: 'settings', label: '设置', shortcut: 'Ctrl+,', action: () => navigate('/settings') },
+  ];
 
   const handleChange = (val: string) => {
     setQuery(val);
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => doSearch(val), 300);
+    timerRef.current = setTimeout(() => {
+      if (val.trim().length >= 2) search(val);
+    }, 200);
   };
 
   const handleNavigate = (type: 'blog' | 'knowledge', id: number) => {
     setOpen(false);
     setQuery('');
-    if (type === 'blog') navigate(`/blog/${id}/edit`);
+    if (type === 'blog') navigate(`/blog/${id}`);
     else navigate('/knowledge');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open || totalResults === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIdx((i) => Math.min(i + 1, totalResults - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIdx((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && selectedIdx >= 0) {
-      e.preventDefault();
-      // Determine which item is selected based on flat index
-      let idx = selectedIdx;
-      for (const group of groups) {
-        if (idx < group.items.length) {
-          handleNavigate(group.type, group.items[idx]!.id);
-          return;
-        }
-        idx -= group.items.length;
-      }
-    } else if (e.key === 'Escape') {
-      setOpen(false);
-      setQuery('');
+    const totalItems = query.trim() ? results.length : commands.length + recentBlogs.length;
+    if (!open || totalItems === 0) {
+      if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+      return;
     }
+    if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, totalItems - 1)); }
+    else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) { e.preventDefault(); setSelectedIdx((i) => Math.max(i - 1, -1)); }
+    else if (e.key === 'Enter' && selectedIdx >= 0) {
+      e.preventDefault();
+      if (query.trim()) {
+        // Search results
+        if (selectedIdx < results.length && results[selectedIdx]) {
+          handleNavigate(results[selectedIdx]!.type, results[selectedIdx]!.id);
+        }
+      } else {
+        // Commands + recent
+        if (selectedIdx < commands.length) {
+          setOpen(false); setQuery('');
+          commands[selectedIdx]!.action();
+        } else {
+          const blogIdx = selectedIdx - commands.length;
+          const entry = recentBlogs[blogIdx];
+          if (entry) { setOpen(false); setQuery(''); navigate(`/blog/${entry.id}`); }
+        }
+      }
+    } else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
-  // Ctrl+F to focus
+  // Ctrl+K / Ctrl+F to open
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'f')) {
         e.preventDefault();
-        inputRef.current?.focus();
+        setOpen(true);
+        setQuery('');
+        setSelectedIdx(-1);
+        setRecentBlogs(getRecentBlogs().slice(0, 5));
+        setTimeout(() => inputRef.current?.focus(), 50);
       }
+      if (e.key === 'Escape' && open) { setOpen(false); setQuery(''); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [open]);
 
   // Click outside to close
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const showCommands = !query.trim();
+  const allResults = results;
+
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-xl">
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onFocus={() => {
-          if (totalResults > 0) setOpen(true);
-        }}
-        placeholder="搜索博客和知识库... (Ctrl+F)"
-        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-1.5 text-sm outline-none transition-all focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]/30 placeholder:text-[var(--color-text-muted)]"
-      />
+    <>
+      {/* Search trigger — always visible in header */}
+      <div ref={containerRef} className="relative flex-1 max-w-xl">
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => { if (!open) { setOpen(true); setRecentBlogs(getRecentBlogs().slice(0, 5)); } }}
+          placeholder="搜索博客和知识库... (Ctrl+K)"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-1.5 text-sm outline-none transition-all focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]/30 placeholder:text-[var(--color-text-muted)]"
+        />
 
-      {open && totalResults > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 max-h-[400px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50">
-          {groups.map((group, gIdx) => (
-            <div key={group.type}>
-              {gIdx > 0 && <div className="border-t border-[var(--color-border)]" />}
-              <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                {group.label} ({group.items.length})
-              </div>
-              {group.items.map((item, iIdx) => {
-                // Calculate flat index across all groups
-                let flatIdx = 0;
-                for (let gi = 0; gi < gIdx; gi++) {
-                  flatIdx += groups[gi]!.items.length;
-                }
-                flatIdx += iIdx;
+        {/* Dropdown panel */}
+        {open && (
+          <div className="absolute left-0 right-0 top-full mt-1.5 max-h-[420px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50">
+            {showCommands && (
+              <>
+                <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>命令</div>
+                {commands.map((cmd, i) => (
+                  <button
+                    key={cmd.id}
+                    type="button"
+                    onClick={() => { setOpen(false); setQuery(''); cmd.action(); }}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-[13px] transition-colors ${selectedIdx === i ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-primary)]'}`}
+                  >
+                    <span style={{ color: 'var(--text-primary)' }}>{cmd.label}</span>
+                    {cmd.shortcut && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{cmd.shortcut}</span>}
+                  </button>
+                ))}
+                {recentBlogs.length > 0 && (
+                  <>
+                    <div className="border-t mt-1 pt-1" style={{ borderColor: 'var(--border-default)' }} />
+                    <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>最近浏览</div>
+                    {recentBlogs.map((entry, i) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => { setOpen(false); setQuery(''); navigate(`/blog/${entry.id}`); }}
+                        className={`w-full px-4 py-2 text-left text-[13px] transition-colors ${selectedIdx === commands.length + i ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-primary)]'}`}
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <span className="truncate block">{entry.title}</span>
+                        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          {new Date(entry.timestamp).toLocaleDateString('zh-CN')}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
 
-                return (
+            {/* Search results */}
+            {!showCommands && allResults.length > 0 && (
+              <>
+                <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  搜索结果 ({allResults.length})
+                </div>
+                {allResults.map((item, i) => (
                   <button
                     key={`${item.type}-${item.id}`}
                     type="button"
                     onClick={() => handleNavigate(item.type, item.id)}
-                    className={`w-full px-4 py-2.5 text-left transition-colors ${flatIdx === selectedIdx ? 'bg-[var(--color-primary)]/8' : 'hover:bg-[var(--color-bg-base)]'}`}
+                    className={`w-full px-4 py-2.5 text-left transition-colors ${selectedIdx === i ? 'bg-[var(--bg-tertiary)]' : 'hover:bg-[var(--bg-primary)]'}`}
                   >
-                    <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">{item.title}</div>
-                    <div className="text-xs text-[var(--color-text-muted)] truncate">{item.snippet}</div>
-                    {item.score > 0 && (
-                      <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">相关性: {item.score}</div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] shrink-0 rounded-[3px] px-1.5 py-0.5" style={{ background: item.type === 'blog' ? 'var(--accent-blue)' : 'var(--accent-green)', color: '#fff' }}>
+                        {item.type === 'blog' ? '博' : '知'}
+                      </span>
+                      <span className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
+                    </div>
+                    <div className="text-[12px] mt-0.5 ml-8 truncate" style={{ color: 'var(--text-secondary)' }}>{item.snippet}</div>
                   </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+                ))}
+              </>
+            )}
+            {!showCommands && query.trim().length >= 2 && allResults.length === 0 && (
+              <div className="px-4 py-6 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>未找到匹配结果</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Backdrop overlay when open */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ background: 'rgba(0,0,0,0.3)' }}
+          onClick={() => setOpen(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

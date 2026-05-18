@@ -11,7 +11,7 @@ interface SeriesItem {
 const ACCENTS = [
   'var(--accent-blue)',
   'var(--accent-green)',
-  'var(--accent-amber)',
+  'var(--text-secondary)',
   'var(--accent-red)',
 ] as const;
 
@@ -95,7 +95,7 @@ export function SeriesListPage() {
               <Link
                 key={s.seriesId}
                 to={`/series/${encodeURIComponent(s.seriesId)}`}
-                className="group flex items-center gap-5 rounded-[10px] border p-5 no-underline transition-all duration-[0.15s] hover:-translate-y-0.5 hover:border-[var(--accent-blue)]"
+                className="group flex items-center gap-5 rounded-[10px] border p-5 no-underline transition-colors duration-[0.15s] hover:border-[var(--accent-blue)]"
                 style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
               >
                 {/* Color bar */}

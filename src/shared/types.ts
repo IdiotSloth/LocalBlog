@@ -47,6 +47,7 @@ export interface KnowledgeFile {
   fileSize: number; // bytes
   status: ItemStatus;
   folderId?: number | null;
+  properties?: Record<string, string>; // T2009: structured preset fields
   createdAt: string;
   updatedAt: string;
 }
@@ -172,6 +173,8 @@ export interface FolderTreeNode {
 }
 
 // ==================== Notes / Memo ====================
+export type MemoType = 'note' | 'schedule' | 'todo' | 'daily';
+
 export interface Note {
   id: number;
   userId: number;
@@ -180,7 +183,7 @@ export interface Note {
   source: string;
   createdAt: string;
   title: string;
-  memoType: 'note' | 'schedule' | 'todo';
+  memoType: MemoType;
   dueDate?: string;
   updatedAt: string;
 }
@@ -206,13 +209,56 @@ export interface RecentFile {
   createdAt: string;
 }
 
+export type RefType = 'blog' | 'knowledge' | 'note';
+
 export interface Reference {
   id: number;
-  sourceType: 'blog' | 'knowledge';
+  sourceType: RefType;
   sourceId: number;
-  targetType: 'blog' | 'knowledge';
+  targetType: RefType;
   targetId: number;
   createdAt: string;
   sourceTitle?: string;
   targetTitle?: string;
+}
+
+// ==================== Wikilink ====================
+export interface WikiLinkSearchResult {
+  id: number;
+  type: 'blog' | 'knowledge' | 'note';
+  title: string;
+}
+
+// ==================== Knowledge Graph ====================
+export type GraphNodeType = 'blog' | 'knowledge' | 'tag' | 'note';
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: GraphNodeType;
+  // D3 SimulationNodeDatum compatible — position & velocity for force simulation
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: 'ref' | 'tag';
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface GraphFilter {
+  types?: GraphNodeType[];
+  dateRange?: { from?: string; to?: string };
+  tagIds?: number[];
+  maxNodes?: number;
 }

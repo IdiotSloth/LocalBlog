@@ -79,6 +79,7 @@ const IPC = {
   KB_RENAME: "kb:rename",
   KB_PREVIEW: "kb:preview",
   KB_OPEN_EXTERNAL: "kb:open-external",
+  KB_SET_PROPERTIES: "kb:set-properties",
   // Search
   SEARCH_GLOBAL: "search:global",
   SEARCH_BLOGS: "search:blogs",
@@ -142,6 +143,8 @@ const IPC = {
   NOTE_DELETE: "note:delete",
   NOTE_PIN: "note:pin",
   NOTE_CLIPBOARD: "note:clipboard",
+  // Graph (Phase 20C)
+  GRAPH_GET_DATA: "graph:getData",
   // Shortcuts
   SHORTCUT_GET_ALL: "shortcut:get-all",
   SHORTCUT_UPDATE: "shortcut:update",
@@ -217,6 +220,7 @@ const MYSQL_DDL = [
     filename VARCHAR(500) NOT NULL, file_path VARCHAR(1000) NOT NULL,
     file_type VARCHAR(20) NOT NULL, file_size INT DEFAULT 0,
     status ENUM('active','trash') DEFAULT 'active',
+    properties TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -273,7 +277,9 @@ const MYSQL_MIGRATIONS = [
   "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
   "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
   "ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL",
-  "ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+  "ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+  // T2009: knowledge_files properties JSON column (R176)
+  "ALTER TABLE knowledge_files ADD COLUMN properties TEXT"
 ];
 let pool = null;
 function getMySQLConfig() {
@@ -403,6 +409,7 @@ CREATE TABLE IF NOT EXISTS knowledge_files (
   content_text TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'trash')),
   folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE SET NULL,
+  properties TEXT DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -448,9 +455,9 @@ CREATE TABLE IF NOT EXISTS folders (
 
 CREATE TABLE IF NOT EXISTS refs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_type TEXT NOT NULL CHECK(source_type IN ('blog', 'knowledge')),
+  source_type TEXT NOT NULL,
   source_id INTEGER NOT NULL,
-  target_type TEXT NOT NULL CHECK(target_type IN ('blog', 'knowledge')),
+  target_type TEXT NOT NULL,
   target_id INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(source_type, source_id, target_type, target_id)
@@ -463,7 +470,7 @@ CREATE TABLE IF NOT EXISTS notes (
   pinned INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'manual',
   title TEXT NOT NULL DEFAULT '',
-  memo_type TEXT NOT NULL DEFAULT 'note' CHECK(memo_type IN ('note', 'schedule', 'todo')),
+  memo_type TEXT NOT NULL DEFAULT 'note',
   due_date TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -567,6 +574,61 @@ async function initDatabase() {
   }
   try {
     sqlJsDb.run("ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  } catch {
+  }
+  try {
+    const refsExists = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='refs'");
+    if (refsExists.length > 0 && refsExists[0].values.length > 0) {
+      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS refs_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_type TEXT NOT NULL,
+        source_id INTEGER NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(source_type, source_id, target_type, target_id)
+      )`);
+      const count = sqlJsDb.exec("SELECT COUNT(*) as c FROM refs_new");
+      const newCount = count[0]?.values?.[0]?.[0] ?? 0;
+      if (newCount === 0) {
+        sqlJsDb.run("INSERT INTO refs_new SELECT * FROM refs");
+        sqlJsDb.run("DROP TABLE refs");
+        sqlJsDb.run("ALTER TABLE refs_new RENAME TO refs");
+      } else {
+        sqlJsDb.run("DROP TABLE refs_new");
+      }
+    }
+  } catch {
+  }
+  try {
+    const notesExist = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'");
+    if (notesExist.length > 0 && notesExist[0].values.length > 0) {
+      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        pinned INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'manual',
+        title TEXT NOT NULL DEFAULT '',
+        memo_type TEXT NOT NULL DEFAULT 'note',
+        due_date TEXT DEFAULT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      const count = sqlJsDb.exec("SELECT COUNT(*) as c FROM notes_new");
+      const newCount = count[0]?.values?.[0]?.[0] ?? 0;
+      if (newCount === 0) {
+        sqlJsDb.run("INSERT INTO notes_new SELECT * FROM notes");
+        sqlJsDb.run("DROP TABLE notes");
+        sqlJsDb.run("ALTER TABLE notes_new RENAME TO notes");
+      } else {
+        sqlJsDb.run("DROP TABLE notes_new");
+      }
+    }
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'");
   } catch {
   }
   sqlJsSave();
@@ -707,8 +769,8 @@ async function migrateSqlJsToMySQL() {
     const kfs = sqlJsQuery(oldDb, "SELECT * FROM knowledge_files");
     for (const k of kfs) {
       await run$1(
-        "INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.content_text ?? null, k.folder_id ?? null, k.created_at, k.updated_at]
+        "INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, properties, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.content_text ?? null, k.folder_id ?? null, k.properties ?? null, k.created_at, k.updated_at]
       );
     }
     const kft = sqlJsQuery(oldDb, "SELECT * FROM knowledge_file_tags");
@@ -1520,16 +1582,16 @@ function makeIcon(size) {
 }
 function buildMenu() {
   return electron.Menu.buildFromTemplate([
-    { label: "📝 快速便签", click: () => petActions["quick-note"]?.() },
-    { label: "📄 新建博客", click: () => petActions["new-blog"]?.() },
-    { label: "📥 导入 MD", click: () => petActions["import-md"]?.() },
-    { label: "📎 导入文件", click: () => petActions["import-file"]?.() },
-    { label: "🌐 收藏网页", click: () => petActions["scrape-web"]?.() },
-    { label: "📘 收藏在线手册", click: () => petActions["manual-collect"]?.() },
-    { label: "📋 剪贴板→便签", click: () => petActions["clipboard-note"]?.() },
+    { label: "快速便签", click: () => petActions["quick-note"]?.() },
+    { label: "新建博客", click: () => petActions["new-blog"]?.() },
+    { label: "导入 MD", click: () => petActions["import-md"]?.() },
+    { label: "导入文件", click: () => petActions["import-file"]?.() },
+    { label: "收藏网页", click: () => petActions["scrape-web"]?.() },
+    { label: "收藏在线手册", click: () => petActions["manual-collect"]?.() },
+    { label: "剪贴板→便签", click: () => petActions["clipboard-note"]?.() },
     { type: "separator" },
     {
-      label: "📂 打开主窗口",
+      label: "打开主窗口",
       click: () => {
         if (mainWindow$1) {
           mainWindow$1.show();
@@ -1538,10 +1600,10 @@ function buildMenu() {
       }
     },
     { type: "separator" },
-    { label: "🐱 桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
+    { label: "桌面宠物", click: () => togglePet(), type: "checkbox", checked: petActive },
     { type: "separator" },
     {
-      label: "❌ 退出",
+      label: "退出",
       click: () => {
         electron.app.exit();
       }
@@ -2430,6 +2492,27 @@ async function getSharedBlogList(dbAll2, dbGet2, filters) {
   );
   return { blogs, total: totalRow?.count || 0 };
 }
+const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+function extractWikilinkRefs(html, sourceType, sourceId) {
+  const refs = [];
+  const linkRe = /<a\s[^>]*class="wiki-link"[^>]*data-ref-type="([^"]*)"[^>]*data-ref-id="(\d+)"[^>]*>/gi;
+  let m;
+  while ((m = linkRe.exec(html)) !== null) {
+    refs.push({ sourceType, sourceId, targetType: m[1], targetId: Number(m[2]) });
+  }
+  return refs;
+}
+function extractWikilinkTitles(content) {
+  const titles = [];
+  const cleaned = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+  let m;
+  while ((m = WIKILINK_RE.exec(cleaned)) !== null) {
+    const title = m[1].trim();
+    if (title) titles.push(title);
+  }
+  WIKILINK_RE.lastIndex = 0;
+  return titles;
+}
 class TagService {
   static async listTags(userId) {
     return dbAll(
@@ -2538,10 +2621,10 @@ class BlogService {
       filters
     );
   }
-  static async exportBlogs(blogIds2, outputDir) {
+  static async exportBlogs(blogIds, outputDir) {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     let count = 0;
-    for (const blogId of blogIds2) {
+    for (const blogId of blogIds) {
       const { sql, params } = buildBlogSelect(blogId);
       const blog = await dbGet(sql, params);
       if (!blog) continue;
@@ -2711,6 +2794,74 @@ const blog_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.define
   __proto__: null,
   BlogService
 }, Symbol.toStringTag, { value: "Module" }));
+async function syncWikilinkRefs(sourceType, sourceId, newContent, oldContent) {
+  const newHtmlRefs = extractWikilinkRefs(newContent, sourceType, sourceId);
+  const newTitles = extractWikilinkTitles(newContent);
+  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId);
+  const newRefs = [...newHtmlRefs, ...newTextRefs];
+  const oldHtmlRefs = oldContent ? extractWikilinkRefs(oldContent, sourceType, sourceId) : [];
+  const oldTitles = oldContent ? extractWikilinkTitles(oldContent) : [];
+  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId) : [];
+  const oldRefs = [...oldHtmlRefs, ...oldTextRefs];
+  const newSet = new Set(newRefs.map((r) => `${r.targetType}:${r.targetId}`));
+  const oldSet = new Set(oldRefs.map((r) => `${r.targetType}:${r.targetId}`));
+  if (newRefs.length === 0 && oldRefs.length === 0) return;
+  await dbRun("BEGIN");
+  try {
+    for (const r of newRefs) {
+      if (!oldSet.has(`${r.targetType}:${r.targetId}`)) {
+        await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)", [
+          r.sourceType,
+          r.sourceId,
+          r.targetType,
+          r.targetId
+        ]);
+      }
+    }
+    if (oldContent) {
+      for (const r of oldRefs) {
+        if (!newSet.has(`${r.targetType}:${r.targetId}`)) {
+          await dbRun("DELETE FROM refs WHERE source_type = ? AND source_id = ? AND target_type = ? AND target_id = ?", [
+            r.sourceType,
+            r.sourceId,
+            r.targetType,
+            r.targetId
+          ]);
+        }
+      }
+    }
+    await dbRun("COMMIT");
+  } catch (e) {
+    await dbRun("ROLLBACK");
+    throw e;
+  }
+}
+async function resolveTitles(titles, sourceType, sourceId) {
+  if (titles.length === 0) return [];
+  const refs = [];
+  const blogs = await dbAll(
+    `SELECT id, title FROM blogs WHERE title IN (${titles.map(() => "?").join(",")}) AND status = 'active'`,
+    titles
+  );
+  for (const b of blogs) {
+    refs.push({ sourceType, sourceId, targetType: "blog", targetId: b.id });
+  }
+  const kfs = await dbAll(
+    `SELECT id, filename FROM knowledge_files WHERE filename IN (${titles.map(() => "?").join(",")}) AND status = 'active'`,
+    titles
+  );
+  for (const k of kfs) {
+    refs.push({ sourceType, sourceId, targetType: "knowledge", targetId: k.id });
+  }
+  const notes = await dbAll(
+    `SELECT id, title FROM notes WHERE title IN (${titles.map(() => "?").join(",")})`,
+    titles
+  );
+  for (const n of notes) {
+    refs.push({ sourceType, sourceId, targetType: "note", targetId: n.id });
+  }
+  return refs;
+}
 let blogRefreshTarget = null;
 function setBlogRefreshTarget(wc) {
   blogRefreshTarget = wc;
@@ -2745,6 +2896,7 @@ function registerBlogHandlers() {
     async (_event, data) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        if (data.content) await syncWikilinkRefs("blog", blog.id, data.content);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
@@ -2754,7 +2906,13 @@ function registerBlogHandlers() {
   );
   electron.ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data) => {
     try {
+      let oldContent;
+      if (data.content) {
+        const old = await BlogService.getBlog(data.blogId);
+        oldContent = old?.content;
+      }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      if (data.content) await syncWikilinkRefs("blog", data.blogId, data.content, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -2764,6 +2922,8 @@ function registerBlogHandlers() {
   electron.ipcMain.handle(IPC.BLOG_DELETE, async (_event, data) => {
     try {
       await BlogService.deleteBlog(data.userId, data.blogId);
+      await dbRun("DELETE FROM refs WHERE source_type = ? AND source_id = ?", ["blog", data.blogId]);
+      await dbRun("DELETE FROM refs WHERE target_type = ? AND target_id = ?", ["blog", data.blogId]);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -2857,9 +3017,13 @@ function registerBlogHandlers() {
   });
   electron.ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, data) => {
     try {
-      for (const id of data.blogIds) await BlogService.deleteBlog(data.userId, id);
+      for (const id of data.blogIds) {
+        await BlogService.deleteBlog(data.userId, id);
+        await dbRun("DELETE FROM refs WHERE source_type = ? AND source_id = ?", ["blog", id]);
+        await dbRun("DELETE FROM refs WHERE target_type = ? AND target_id = ?", ["blog", id]);
+      }
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
-      return { success: true, data: { deleted: blogIds.length } };
+      return { success: true, data: { deleted: data.blogIds.length } };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -2944,6 +3108,7 @@ function registerBlogHandlers() {
   electron.ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
+      if (data.content) await syncWikilinkRefs("blog", blog.id, data.content);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {
@@ -3277,6 +3442,87 @@ function registerFolderHandlers() {
     }
   );
 }
+function registerGraphHandlers() {
+  electron.ipcMain.handle(IPC.GRAPH_GET_DATA, async (_event, userId, filter) => {
+    try {
+      const maxNodes = filter?.maxNodes ?? 100;
+      const types = filter?.types ?? ["blog", "knowledge", "tag", "note"];
+      const nodes = [];
+      const edges = [];
+      if (types.includes("blog")) {
+        const blogs = await dbAll(
+          "SELECT id, title FROM blogs WHERE user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT ?",
+          [userId, maxNodes]
+        );
+        for (const b of blogs) {
+          nodes.push({ id: `blog-${b.id}`, label: b.title, type: "blog" });
+        }
+      }
+      if (types.includes("knowledge")) {
+        const kfs = await dbAll(
+          "SELECT id, filename FROM knowledge_files WHERE user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT ?",
+          [userId, maxNodes]
+        );
+        for (const k of kfs) {
+          nodes.push({ id: `knowledge-${k.id}`, label: k.filename, type: "knowledge" });
+        }
+      }
+      if (types.includes("note")) {
+        const notes = await dbAll(
+          "SELECT id, title FROM notes WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
+          [userId, maxNodes]
+        );
+        for (const n of notes) {
+          nodes.push({ id: `note-${n.id}`, label: n.title || "(便签)", type: "note" });
+        }
+      }
+      if (types.includes("tag")) {
+        const tags = await dbAll(
+          "SELECT id, name FROM tags WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+          [userId, maxNodes]
+        );
+        for (const t of tags) {
+          nodes.push({ id: `tag-${t.id}`, label: `#${t.name}`, type: "tag" });
+        }
+        const btEdges = await dbAll(
+          "SELECT bt.blog_id, bt.tag_id FROM blog_tags bt JOIN blogs b ON b.id = bt.blog_id WHERE b.user_id = ? ORDER BY bt.blog_id DESC LIMIT ?",
+          [userId, maxNodes * 3]
+        );
+        for (const e of btEdges) {
+          edges.push({ source: `blog-${e.blog_id}`, target: `tag-${e.tag_id}`, type: "tag" });
+        }
+        const ktEdges = await dbAll(
+          "SELECT kft.file_id, kft.tag_id FROM knowledge_file_tags kft JOIN knowledge_files kf ON kf.id = kft.file_id WHERE kf.user_id = ? ORDER BY kft.file_id DESC LIMIT ?",
+          [userId, maxNodes * 3]
+        );
+        for (const e of ktEdges) {
+          edges.push({ source: `knowledge-${e.file_id}`, target: `tag-${e.tag_id}`, type: "tag" });
+        }
+      }
+      const refRows = await dbAll(
+        `SELECT r.source_type, r.source_id, r.target_type, r.target_id
+         FROM refs r
+         LEFT JOIN blogs b ON r.source_type = 'blog' AND r.source_id = b.id AND b.user_id = ?
+         LEFT JOIN knowledge_files kf ON r.source_type = 'knowledge' AND r.source_id = kf.id AND kf.user_id = ?
+         LEFT JOIN notes n ON r.source_type = 'note' AND r.source_id = n.id AND n.user_id = ?
+         WHERE (b.id IS NOT NULL OR kf.id IS NOT NULL OR n.id IS NOT NULL)
+         ORDER BY r.created_at DESC LIMIT ?`,
+        [userId, userId, userId, maxNodes * 5]
+      );
+      for (const r of refRows) {
+        edges.push({
+          source: `${r.source_type}-${r.source_id}`,
+          target: `${r.target_type}-${r.target_id}`,
+          type: "ref"
+        });
+      }
+      const data = { nodes, edges };
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
 function buildKnowledgeSelect(id) {
   return { sql: "SELECT * FROM knowledge_files WHERE id = ?", params: [id] };
 }
@@ -3318,6 +3564,14 @@ function buildKnowledgeTagsDelete(fileId) {
   return { sql: "DELETE FROM knowledge_file_tags WHERE file_id = ?", params: [fileId] };
 }
 function mapKnowledgeRow(f) {
+  const props = f.properties;
+  let parsedProps;
+  if (props) {
+    try {
+      parsedProps = JSON.parse(props);
+    } catch {
+    }
+  }
   return {
     id: f.id,
     userId: f.user_id,
@@ -3327,6 +3581,7 @@ function mapKnowledgeRow(f) {
     fileSize: f.file_size,
     status: f.status,
     folderId: f.folder_id,
+    properties: parsedProps,
     createdAt: f.created_at,
     updatedAt: f.updated_at
   };
@@ -3491,6 +3746,16 @@ class KnowledgeService {
       fileType: row.file_type,
       fileSize: row.file_size,
       status: row.status,
+      folderId: row.folder_id ?? void 0,
+      properties: (() => {
+        if (row.properties) {
+          try {
+            return JSON.parse(row.properties);
+          } catch {
+          }
+        }
+        return void 0;
+      })(),
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -3730,6 +3995,13 @@ function registerKnowledgeHandlers() {
     async (_event, data) => {
       try {
         const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
+        for (const f of files) {
+          try {
+            const row = await dbGet("SELECT content_text FROM knowledge_files WHERE id = ?", [f.id]);
+            if (row?.content_text) await syncWikilinkRefs("knowledge", f.id, row.content_text);
+          } catch {
+          }
+        }
         kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
         return { success: true, data: files };
       } catch (err) {
@@ -3792,12 +4064,27 @@ function registerKnowledgeHandlers() {
     try {
       for (const id of data.fileIds) await KnowledgeService.deleteFile(data.userId, id, false);
       kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
-      return { success: true, data: { deleted: fileIds.length } };
+      return { success: true, data: { deleted: data.fileIds.length } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.KB_SET_PROPERTIES, async (_event, data) => {
+    try {
+      const json = JSON.stringify(data.properties);
+      await dbRun('UPDATE knowledge_files SET properties = ?, updated_at = datetime("now") WHERE id = ? AND user_id = ?', [
+        json,
+        data.fileId,
+        data.userId
+      ]);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
+      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
 }
+const VALID_MEMO_TYPES = ["note", "schedule", "todo", "daily"];
 function rowToNote(r) {
   return {
     id: r.id,
@@ -3833,6 +4120,16 @@ class NoteService {
     return rows.map(rowToNote);
   }
   static async createNote(userId, content, source = "manual", title = "", memoType = "note", dueDate) {
+    if (!VALID_MEMO_TYPES.includes(memoType)) {
+      throw new Error(`Invalid memoType: ${memoType}`);
+    }
+    if (memoType === "daily" && dueDate) {
+      const existing = await dbGet(
+        "SELECT * FROM notes WHERE user_id = ? AND memo_type = ? AND due_date = ? LIMIT 1",
+        [userId, "daily", dueDate]
+      );
+      if (existing) return rowToNote(existing);
+    }
     const now = nowMySQL();
     await dbRun(
       "INSERT INTO notes (user_id, content, source, title, memo_type, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -3922,6 +4219,7 @@ function registerNoteHandlers() {
           memoType: data.memoType,
           dueDate: data.dueDate
         });
+        if (data.content) await syncWikilinkRefs("note", note2.id, data.content);
         broadcastRefresh();
         return { success: true, data: note2 };
       }
@@ -3933,6 +4231,7 @@ function registerNoteHandlers() {
         data.memoType || "note",
         data.dueDate
       );
+      if (data.content) await syncWikilinkRefs("note", note.id, data.content);
       broadcastRefresh();
       return { success: true, data: note };
     } catch (err) {
@@ -4112,6 +4411,7 @@ function registerRecycleHandlers() {
     }
   );
 }
+const VALID_REF_TYPES = ["blog", "knowledge", "note"];
 class ReferenceService {
   static rowToReference(row, extra) {
     return {
@@ -4125,11 +4425,16 @@ class ReferenceService {
     };
   }
   static async addRef(sourceType, sourceId, targetType, targetId) {
-    await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)", [
+    if (!VALID_REF_TYPES.includes(sourceType) || !VALID_REF_TYPES.includes(targetType)) {
+      throw new Error(`Invalid ref type: source=${sourceType}, target=${targetType}`);
+    }
+    const now = nowMySQL();
+    await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?)", [
       sourceType,
       sourceId,
       targetType,
-      targetId
+      targetId,
+      now
     ]);
   }
   static async removeRef(refId) {
@@ -4161,7 +4466,7 @@ class ReferenceService {
       })
     );
   }
-  /** Search items for reference picker */
+  /** Search items for reference picker + wikilink autocomplete */
   static async searchItems(userId, scope, query) {
     const results = [];
     const like = `%${query}%`;
@@ -4179,16 +4484,30 @@ class ReferenceService {
       );
       results.push(...files.map((f) => ({ id: f.id, type: "knowledge", title: f.title })));
     }
+    if (scope === "all" || scope === "note") {
+      const notes = await dbAll(
+        "SELECT id, title FROM notes WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) LIMIT 10",
+        [userId, like, like]
+      );
+      results.push(...notes.map((n) => ({ id: n.id, type: "note", title: n.title || "(便签)" })));
+    }
     return results;
   }
   static async resolveTitle(type, id) {
     try {
       if (type === "blog") {
-        const row2 = await dbAll("SELECT title FROM blogs WHERE id = ?", [id]);
-        return row2[0]?.title || "(已删除)";
+        const row = await dbAll("SELECT title FROM blogs WHERE id = ?", [id]);
+        return row[0]?.title || "(已删除)";
       }
-      const row = await dbAll("SELECT filename as title FROM knowledge_files WHERE id = ?", [id]);
-      return row[0]?.title || "(已删除)";
+      if (type === "knowledge") {
+        const row = await dbAll("SELECT filename as title FROM knowledge_files WHERE id = ?", [id]);
+        return row[0]?.title || "(已删除)";
+      }
+      if (type === "note") {
+        const row = await dbGet("SELECT title FROM notes WHERE id = ?", [id]);
+        return row?.title || "(已删除)";
+      }
+      return "(已删除)";
     } catch {
       return "(已删除)";
     }
@@ -4969,6 +5288,7 @@ function registerAllIpcHandlers() {
   registerTagHandlers();
   registerNoteHandlers();
   registerContinueHandlers();
+  registerGraphHandlers();
 }
 function setupAutoUpdater(getMainWindow) {
   const { app } = require("electron");

@@ -67,16 +67,16 @@ function sendAction(action: string): void {
 
 function buildMenu(): Menu {
   return Menu.buildFromTemplate([
-    { label: '📝 快速便签', click: () => petActions['quick-note']?.() },
-    { label: '📄 新建博客', click: () => petActions['new-blog']?.() },
-    { label: '📥 导入 MD', click: () => petActions['import-md']?.() },
-    { label: '📎 导入文件', click: () => petActions['import-file']?.() },
-    { label: '🌐 收藏网页', click: () => petActions['scrape-web']?.() },
-    { label: '📘 收藏在线手册', click: () => petActions['manual-collect']?.() },
-    { label: '📋 剪贴板→便签', click: () => petActions['clipboard-note']?.() },
+    { label: '快速便签', click: () => petActions['quick-note']?.() },
+    { label: '新建博客', click: () => petActions['new-blog']?.() },
+    { label: '导入 MD', click: () => petActions['import-md']?.() },
+    { label: '导入文件', click: () => petActions['import-file']?.() },
+    { label: '收藏网页', click: () => petActions['scrape-web']?.() },
+    { label: '收藏在线手册', click: () => petActions['manual-collect']?.() },
+    { label: '剪贴板→便签', click: () => petActions['clipboard-note']?.() },
     { type: 'separator' },
     {
-      label: '📂 打开主窗口',
+      label: '打开主窗口',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
@@ -85,10 +85,10 @@ function buildMenu(): Menu {
       },
     },
     { type: 'separator' },
-    { label: '🐱 桌面宠物', click: () => togglePet(), type: 'checkbox', checked: petActive },
+    { label: '桌面宠物', click: () => togglePet(), type: 'checkbox', checked: petActive },
     { type: 'separator' },
     {
-      label: '❌ 退出',
+      label: '退出',
       click: () => {
         app.exit();
       },

@@ -24,6 +24,9 @@ interface KbFileRow {
   file_type: string;
   file_size: number;
   status: string;
+  folder_id?: number | null;
+  content_text?: string;
+  properties?: string;
   created_at: string;
   updated_at: string;
 }
@@ -208,6 +211,8 @@ export class KnowledgeService {
       fileType: row.file_type as FileType,
       fileSize: row.file_size,
       status: row.status as 'active' | 'trash',
+      folderId: row.folder_id ?? undefined,
+      properties: (() => { if (row.properties) { try { return JSON.parse(row.properties); } catch { /* R211 */ } } return undefined; })(),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

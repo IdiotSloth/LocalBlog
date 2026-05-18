@@ -207,3 +207,44 @@
 - **Worker onerror**: Every Worker must have `self.onerror` + `worker.onerror` + postMessage try-catch. Crash without handlers = silent failure (R133).
 - **buildRestore updated_at**: All restore handlers must set `updated_at = nowMySQL()`. Missing = recovered items sort by deletion time (R134).
 - **Server recycle user_id**: recycle_bin DELETE must include `AND user_id = ?`. Otherwise user A can delete user B's entries (R135).
+
+## Phase 20: Session-Level Patterns (R158-R169)
+
+### abortedRef Must Reset at Load Start (Critical)
+- Effect cleanup sets `abortedRef.current = true` → re-render → effect runs → load function called → `!abortedRef.current` is false → all `.then()/.finally()` guards skip → `setLoading(false)` never called → UI stuck on "加载中" forever
+- **Fix**: `abortedRef.current = false` as FIRST line of every load function
+- Verified: CalendarView L30, NoteListPage L25, DashboardPage L37
+
+### DB Column → Type → Mapper → Migration: 4-Layer Sync
+- ALTER TABLE adds column → must update: (1) shared/types.ts interface, (2) shared/handlers/*.ts mapXxxRow(), (3) db/index.ts migrateSqlJsToMySQL() INSERT
+- `folder_id`: existed in DB but missing from `Blog`/`KnowledgeFile` types + `mapBlogRow`/`mapKnowledgeRow` → folder counts always 0
+- Missing migration columns = permanent data loss (R158: blogs content/tags description)
+
+### note.service Read-Back SELECT user_id
+- UPDATE with user_id guard → read-back SELECT must also have `AND user_id = ?`
+- R159: `updateNote` L85, `togglePin` L95, L98 — 3 SELECTs with only `WHERE id = ?`
+
+### Server TOCTOU: ById → ByUser Delete
+- `buildXxxSelectByUser(id, userId)` → `buildXxxDeleteById(id)` creates TOCTOU
+- Fix: `buildXxxDelete(id, userId)` combines ownership + delete
+
+### webApi Event Stub Completeness
+- Every `onXxx(cb): () => void` in WindowApi needs `onXxx: () => () => {}` in webApi
+- `webApi as WindowApi` blanket cast masks missing stubs → browser mode crashes
+
+### shared/handlers/ Must Be Used (Not Dead Code)
+- folder-crud.ts had 3 builders but FolderService + server route both used inline SQL
+- Must import + call shared builders in BOTH places
+
+### Full IPC Chain: 4 Layers for New Parameters
+- WindowApi → preload → IPC handler → Service — all 4 must add new optional params
+- R164: CalendarView date range through entire noteList chain
+
+### Error States on List Pages
+- BlogListPage, KnowledgeListPage, DashboardPage catch blocks need `setError(msg)` + retry button UI
+
+### Tiptap: StarterKit Includes Link + Underline
+- Don't import them separately — configure via `StarterKit.configure({ link: {...} })`
+
+### FloatingBlogTabs: Need Visible Entry Point
+- BlogPreviewPage must have "最小化" button calling `addTab()` from floating-tabs-state.ts

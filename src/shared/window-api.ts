@@ -11,6 +11,7 @@ import type {
   KnowledgeFileWithTags,
   LastBlog,
   LoginRequest,
+  MemoType,
   Note,
   RecentFile,
   RecycleBinItem,
@@ -79,6 +80,7 @@ export interface WindowApi {
   kbRename(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   kbPreview(data: { fileId: number; userId: number }): Promise<ApiResponse<{ html?: string; fileType?: string }>>;
   kbOpenExternal(data: { fileId: number; userId: number }): Promise<ApiResponse<void>>;
+  kbSetProperties(data: { fileId: number; userId: number; properties: Record<string, string> }): Promise<ApiResponse<void>>;
   kbBatchDelete(data: { userId: number; fileIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
 
   // Search
@@ -148,7 +150,7 @@ export interface WindowApi {
   noteList(userId: number, memoType?: string, dueDateFrom?: string, dueDateTo?: string): Promise<ApiResponse<Note[]>>;
   noteCreate(data: {
     userId: number; content: string; source?: string;
-    title?: string; memoType?: 'note' | 'schedule' | 'todo'; dueDate?: string;
+    title?: string; memoType?: MemoType; dueDate?: string;
     noteId?: number;
   }): Promise<ApiResponse<Note>>;
   noteDelete(data: { userId: number; noteId: number }): Promise<ApiResponse<void>>;
@@ -159,6 +161,9 @@ export interface WindowApi {
   continueGetDrafts(userId: number): Promise<ApiResponse<DraftItem[]>>;
   continueGetLastBlog(userId: number): Promise<ApiResponse<LastBlog | null>>;
   continueGetRecentFiles(userId: number): Promise<ApiResponse<RecentFile[]>>;
+
+  // Graph (Phase 20C)
+  graphGetData(userId: number, filter?: import('./types').GraphFilter): Promise<ApiResponse<import('./types').GraphData>>;
 
   // File System
   selectFiles(exts: string[]): Promise<string[] | undefined>;

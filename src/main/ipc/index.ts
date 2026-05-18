@@ -3,6 +3,7 @@ import { registerAuthHandlers } from './auth';
 import { registerBlogHandlers } from './blog';
 import { registerContinueHandlers } from './continue';
 import { registerFolderHandlers } from './folder';
+import { registerGraphHandlers } from './graph';
 import { registerKnowledgeHandlers } from './knowledge';
 import { registerNoteHandlers } from './note';
 import { registerRecycleHandlers } from './recycle';
@@ -28,4 +29,5 @@ export function registerAllIpcHandlers(): void {
   registerTagHandlers();
   registerNoteHandlers();
   registerContinueHandlers();
+  registerGraphHandlers();
 }

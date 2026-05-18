@@ -67,17 +67,24 @@ Checklist:
 - [ ] Test: 87 passed (12 files)
 - [ ] `noUncheckedIndexedAccess`: 0 new errors
 - [ ] `as any` renderer: 0 (maintained)
+- [ ] `: any` renderer: 0 — 新增检查项
 - [ ] New IPC channels: 7-file pattern completed
 - [ ] New code: no hardcoded colors (CSS Token only)
 - [ ] `fs.writeFileSync`: all wrapped in try-catch
 - [ ] New pages: error state + retry button (not just console.error)
+- [ ] Existing list pages: error state + retry button (BlogListPage/KnowledgeListPage — R168)
 - [ ] useEffect async: abortedRef guard in all .then()/.catch() callbacks
+- [ ] **abortedRef reset**: every load function starts with `abortedRef.current = false` (effect cleanup sets to true, must re-enable)
 - [ ] IPC channels: ALL registered in ipc-channels.ts (including pet/mini-window)
 - [ ] SVG <img>: onError fallback handler
-- [ ] Migration: migrateSqlJsToMySQL() covers ALL tables
-- [ ] api-client: all WindowApi methods have stubs
+- [ ] Migration: migrateSqlJsToMySQL() covers ALL tables AND all ALTER TABLE added columns
+- [ ] api-client: all WindowApi methods AND event stubs present
 - [ ] New Worker: onerror + onmessageerror handler + postMessage try-catch
-- [ ] shared/handlers/: SQL builders are pure (zero side effects) + snake_case→camelCase mapping in services
+- [ ] shared/handlers/: SQL builders are pure + snake_case→camelCase mapping in services
+- [ ] **shared/handlers/ actually used**: Service + Server route both import and use shared builders, no inline duplicate SQL
+- [ ] useReducer converged: no bare variable names left, no setter functions left, all hook imports correct
+- [ ] Tiptap: no duplicate imports (StarterKit includes Link + Underline)
+- [ ] FloatingBlogTabs: BlogPreviewPage has "minimize" entry button
 
 Write findings to redo.md as a "Developer 自纠自查" section.
 
@@ -204,5 +211,53 @@ Output a summary table:
 
 ### Accessibility
 - **aria-label on icon buttons**: Every icon-only button needs aria-label. Screen readers cannot describe unlabeled buttons (R155).
+
+### Phase 20: abortedRef, Folder, Note Service, Full IPC Chain, Error States
+
+### abortedRef Reset (Critical Bug Pattern)
+- **Effect cleanup sets `abortedRef.current = true`** → next effect execution starts with flag still true → all `.then()/.finally()` guards short-circuit → `setLoading(false)` never runs → UI stuck on loading forever
+- **Fix**: Add `abortedRef.current = false` as the FIRST line of every load function (not just in effect)
+- Affected: CalendarView, NoteListPage (both were stuck on loading due to missing reset)
+
+### DB Column → Type → Mapper 3-Layer Sync
+- ALTER TABLE adds a column (e.g., `folder_id`) → must also update: (1) `shared/types.ts` interface, (2) `shared/handlers/*.ts` map function, (3) `migrateSqlJsToMySQL()` INSERT statement
+- Missing any layer = data silently lost or inaccessible (R158 pattern: blogs content lost on migration)
+
+### migration INSERT Column Completeness
+- `migrateSqlJsToMySQL()` INSERT statements MUST include ALL columns added by ALTER TABLE migrations
+- R158: blogs missing content/folder_id/series_id/series_name → blog body permanently lost on sql.js→MySQL upgrade
+- R158: tags missing description, knowledge_files missing content_text/folder_id
+
+### note.service SELECT user_id Guards
+- Even read-back SELECTs after a guarded UPDATE need their own `AND user_id = ?`
+- R159: `updateNote` and `togglePin` UPDATE with user_id, but subsequent `SELECT * WHERE id = ?` without user_id
+
+### Server TOCTOU with ById Delete
+- `buildXxxSelectByUser(id, userId)` check → `buildXxxDeleteById(id)` creates TOCTOU window
+- Fix: `buildXxxDelete(id, userId)` — combines ownership + delete in one WHERE clause
+
+### webApi Event Stub Completeness
+- Every WindowApi `onXxx` event method needs a `() => () => {}` stub in webApi
+- `as WindowApi` blanket cast masks missing stubs → browser mode crashes
+
+### shared/handlers/ Must Actually Be Used
+- folder-crud.ts had `buildFolderTreeQuery`/`buildFolderDuplicateCheck`/`buildFolderCreate` but Service and Server both used inline SQL
+- Must import and call shared builders in BOTH service and server route
+
+### Full IPC Chain for New Parameters
+- Adding params to an existing IPC method requires: WindowApi → preload → IPC handler → Service — all 4 layers
+- R164: CalendarView month filter needed `dueDateFrom`/`dueDateTo` through entire chain
+
+### Error States on List Pages
+- BlogListPage, KnowledgeListPage, DashboardPage — catch blocks must set error state with retry button
+- R168: Previously only console.error, user saw blank page with no recovery path
+
+### Tiptap StarterKit Includes Link + Underline
+- `StarterKit` already bundles `Link` and `Underline` extensions
+- Separate imports cause "Duplicate extension names" console warning
+
+### FloatingBlogTabs Entry Point
+- BlogPreviewPage must have a visible "最小化" button calling `addTab()` 
+- Without it, users can't discover the blog quick-switch feature
 
 For detailed constraints (DB patterns, IPC format, datetime handling, CSS tokens), read `references/constraints.md`.

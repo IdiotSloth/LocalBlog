@@ -3,8 +3,85 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import { IPC } from '../../shared/ipc-channels';
-import { dbAll, dbGet } from '../db';
+import { extractWikilinkRefs, extractWikilinkTitles } from '../../shared/wikilink';
+import { dbAll, dbGet, dbRun } from '../db';
 import { BlogService } from '../services/blog.service';
+
+/** R206+R207+R219: Sync wikilink refs — scan [[...]] plain text, resolve to DB IDs, diff old vs new.
+ *  Only manages refs originating from wikilinks; manual refs (ReferencePicker) are never touched.
+ *  Wrapped in transaction (R207) so crash mid-way won't leave partial INSERT/DELETE.
+ *  Exported for use by note/knowledge handlers (R219). */
+export async function syncWikilinkRefs(sourceType: string, sourceId: number, newContent: string, oldContent?: string): Promise<void> {
+  // Dual scanner: HTML <a class="wiki-link"> tags + plain text [[...]] (R197+R206 fix)
+  const newHtmlRefs = extractWikilinkRefs(newContent, sourceType, sourceId);
+  const newTitles = extractWikilinkTitles(newContent);
+  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId);
+  const newRefs = [...newHtmlRefs, ...newTextRefs];
+
+  const oldHtmlRefs = oldContent ? extractWikilinkRefs(oldContent, sourceType, sourceId) : [];
+  const oldTitles = oldContent ? extractWikilinkTitles(oldContent) : [];
+  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId) : [];
+  const oldRefs = [...oldHtmlRefs, ...oldTextRefs];
+
+  const newSet = new Set(newRefs.map((r) => `${r.targetType}:${r.targetId}`));
+  const oldSet = new Set(oldRefs.map((r) => `${r.targetType}:${r.targetId}`));
+
+  if (newRefs.length === 0 && oldRefs.length === 0) return;
+
+  await dbRun('BEGIN');
+  try {
+    for (const r of newRefs) {
+      if (!oldSet.has(`${r.targetType}:${r.targetId}`)) {
+        await dbRun('INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)', [
+          r.sourceType, r.sourceId, r.targetType, r.targetId,
+        ]);
+      }
+    }
+    if (oldContent) {
+      for (const r of oldRefs) {
+        if (!newSet.has(`${r.targetType}:${r.targetId}`)) {
+          await dbRun('DELETE FROM refs WHERE source_type = ? AND source_id = ? AND target_type = ? AND target_id = ?', [
+            r.sourceType, r.sourceId, r.targetType, r.targetId,
+          ]);
+        }
+      }
+    }
+    await dbRun('COMMIT');
+  } catch (e) {
+    await dbRun('ROLLBACK');
+    throw e;
+  }
+}
+
+/** Resolve [[title]] strings to (type, id) pairs by searching blogs/knowledge/notes. */
+async function resolveTitles(titles: string[], sourceType: string, sourceId: number): Promise<Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }>> {
+  if (titles.length === 0) return [];
+  const refs: Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }> = [];
+  const blogs = await dbAll<{ id: number; title: string }>(
+    `SELECT id, title FROM blogs WHERE title IN (${titles.map(() => '?').join(',')}) AND status = 'active'`,
+    titles,
+  );
+  for (const b of blogs) {
+    refs.push({ sourceType, sourceId, targetType: 'blog', targetId: b.id });
+  }
+
+  const kfs = await dbAll<{ id: number; filename: string }>(
+    `SELECT id, filename FROM knowledge_files WHERE filename IN (${titles.map(() => '?').join(',')}) AND status = 'active'`,
+    titles,
+  );
+  for (const k of kfs) {
+    refs.push({ sourceType, sourceId, targetType: 'knowledge', targetId: k.id });
+  }
+
+  const notes = await dbAll<{ id: number; title: string }>(
+    `SELECT id, title FROM notes WHERE title IN (${titles.map(() => '?').join(',')})`,
+    titles,
+  );
+  for (const n of notes) {
+    refs.push({ sourceType, sourceId, targetType: 'note', targetId: n.id });
+  }
+  return refs;
+}
 
 let blogRefreshTarget: WebContents | null = null;
 
@@ -58,6 +135,7 @@ export function registerBlogHandlers(): void {
     async (_event, data: { userId: number; title: string; format: 'md' | 'html'; content: string }) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        if (data.content) await syncWikilinkRefs('blog', blog.id, data.content);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
@@ -68,7 +146,15 @@ export function registerBlogHandlers(): void {
 
   ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data: { userId: number; blogId: number; title?: string; content?: string }) => {
     try {
+      // R206: Read old content BEFORE update for safe wikilink diff
+      let oldContent: string | undefined;
+      if (data.content) {
+        const old = await BlogService.getBlog(data.blogId);
+        oldContent = old?.content;
+      }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      // R206: Pass both old and new content — only diffs wikilink-originated refs
+      if (data.content) await syncWikilinkRefs('blog', data.blogId, data.content, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -79,6 +165,9 @@ export function registerBlogHandlers(): void {
   ipcMain.handle(IPC.BLOG_DELETE, async (_event, data: { userId: number; blogId: number }) => {
     try {
       await BlogService.deleteBlog(data.userId, data.blogId);
+      // R208: Clean up all refs pointing to/from this blog
+      await dbRun('DELETE FROM refs WHERE source_type = ? AND source_id = ?', ['blog', data.blogId]);
+      await dbRun('DELETE FROM refs WHERE target_type = ? AND target_id = ?', ['blog', data.blogId]);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -182,9 +271,14 @@ export function registerBlogHandlers(): void {
   // Batch operations
   ipcMain.handle(IPC.BLOG_BATCH_DELETE, async (_event, data: { userId: number; blogIds: number[] }) => {
     try {
-      for (const id of data.blogIds) await BlogService.deleteBlog(data.userId, id);
+      for (const id of data.blogIds) {
+        await BlogService.deleteBlog(data.userId, id);
+        // R208: Clean refs for each deleted blog
+        await dbRun('DELETE FROM refs WHERE source_type = ? AND source_id = ?', ['blog', id]);
+        await dbRun('DELETE FROM refs WHERE target_type = ? AND target_id = ?', ['blog', id]);
+      }
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
-      return { success: true, data: { deleted: blogIds.length } };
+      return { success: true, data: { deleted: data.blogIds.length } };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -283,6 +377,7 @@ export function registerBlogHandlers(): void {
   ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data: { userId: number; title: string; content: string }) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
+      if (data.content) await syncWikilinkRefs('blog', blog.id, data.content);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {

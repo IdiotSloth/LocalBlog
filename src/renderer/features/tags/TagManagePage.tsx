@@ -161,8 +161,8 @@ export function TagManagePage() {
       <h2 className="mb-6 text-xl font-bold">标签管理</h2>
 
       {unusedCount > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-[6px] border p-3" style={{ borderColor: 'var(--accent-amber)', background: 'var(--bg-secondary)' }}>
-          <span className="text-[13px]" style={{ color: 'var(--accent-amber)' }}>⚠️ {unusedCount} 个标签未被使用</span>
+        <div className="mb-4 flex items-center gap-3 rounded-[6px] border p-3" style={{ borderColor: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
+          <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>⚠️ {unusedCount} 个标签未被使用</span>
           <button type="button" onClick={async () => {
             const unused = state.tags.filter((t) => (t.count ?? 0) === 0);
             if (!confirm(`确定删除 ${unused.length} 个未使用的标签？`)) return;
@@ -194,7 +194,7 @@ export function TagManagePage() {
       ) : (
         <div className="flex flex-wrap gap-3">
           {filteredTags.map((tag) => (
-            <div key={tag.id} className="group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-all hover:shadow-md hover:border-[var(--color-primary-light)]">
+            <div key={tag.id} className="group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-colors duration-[0.15s] hover:border-[var(--color-primary-light)]">
               {state.editingId === tag.id ? (
                 <>
                   <input type="text" value={state.editingName} onChange={(e) => dispatch({ type: 'START_EDIT', id: tag.id, name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(tag.id); if (e.key === 'Escape') dispatch({ type: 'CANCEL_EDIT' }); }} placeholder={tag.name} title="编辑标签名称" aria-label="编辑标签名称" className="w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none" />
@@ -222,7 +222,7 @@ export function TagManagePage() {
                   }} title={tag.description || `查看标签"${tag.name}"关联的内容`}>{tag.name}</span>
                   <Link to={`/blog?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 hover:bg-blue-100 transition-colors" title={`${tag.blogCount ?? 0} 篇博客`} onClick={(e) => e.stopPropagation()}>📝 {tag.blogCount ?? 0}</Link>
                   <Link to={`/knowledge?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-green-50 px-2 py-0.5 text-[11px] text-green-600 hover:bg-green-100 transition-colors" title={`${tag.kbCount ?? 0} 个知识库文件`} onClick={(e) => e.stopPropagation()}>📁 {tag.kbCount ?? 0}</Link>
-                  {(tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && <span className="text-[11px]" style={{ color: 'var(--accent-amber)' }}>⚠️ 未使用</span>}
+                  {(tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>⚠️ 未使用</span>}
                   <button type="button" onClick={() => startEdit(tag)} className="ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all">编辑</button>
                   <button type="button" onClick={() => handleDelete(tag.id)} className="text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all">删除</button>
                 </>

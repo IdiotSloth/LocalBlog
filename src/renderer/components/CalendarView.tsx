@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAuthStore } from '../../stores/auth-store';
-import { nowMySQL, toMySQLDateTime } from '../../../shared/datetime';
-import type { Note } from '../../../shared/types';
+import { useAuthStore } from '../stores/auth-store';
+import { nowMySQL, toMySQLDateTime } from '../../shared/datetime';
+import type { Note } from '../../shared/types';
 
 const WEEKDAY_HEADERS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -12,7 +12,7 @@ interface SchedulePopup {
   time: string;
 }
 
-export function CalendarView() {
+export function CalendarView({ onDateSelect }: { onDateSelect?: (date: string) => void }) {
   const user = useAuthStore((s) => s.user);
   const [today] = useState(() => new Date());
   const [currentMonth, setCurrentMonth] = useState(() => today.getMonth());
@@ -124,6 +124,8 @@ export function CalendarView() {
         time: '',
       });
     }
+    // T2005: Notify parent so daily note can be viewed/created for this date
+    onDateSelect?.(dateStr);
   };
 
   const handleSaveSchedule = async () => {

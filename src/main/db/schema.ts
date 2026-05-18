@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS knowledge_files (
   content_text TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'trash')),
   folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE SET NULL,
+  properties TEXT DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -91,9 +92,9 @@ CREATE TABLE IF NOT EXISTS folders (
 
 CREATE TABLE IF NOT EXISTS refs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_type TEXT NOT NULL CHECK(source_type IN ('blog', 'knowledge')),
+  source_type TEXT NOT NULL,
   source_id INTEGER NOT NULL,
-  target_type TEXT NOT NULL CHECK(target_type IN ('blog', 'knowledge')),
+  target_type TEXT NOT NULL,
   target_id INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(source_type, source_id, target_type, target_id)
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS notes (
   pinned INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'manual',
   title TEXT NOT NULL DEFAULT '',
-  memo_type TEXT NOT NULL DEFAULT 'note' CHECK(memo_type IN ('note', 'schedule', 'todo')),
+  memo_type TEXT NOT NULL DEFAULT 'note',
   due_date TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))

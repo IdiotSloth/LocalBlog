@@ -1,0 +1,78 @@
+/** [[wikilink]] rendering — shared by BlogPreviewPage, NoteListPage, and blog:update handler.
+ *  Pipeline order (R174): md.render → wikilink regex → DOMPurify → dangerouslySetInnerHTML
+ */
+
+// Matches [[target]] or [[target|alias]], excluding match if inside <code> or <pre>
+const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+
+// Tags whose inner content should NOT have wikilinks processed (R174 known limitation fix)
+const CODE_TAGS = /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>)/gi;
+
+/**
+ * Replace [[target]] and [[target|alias]] wikilinks with search links.
+ * Code blocks (<pre>/<code>) are preserved untouched.
+ * Title→ID resolution happens at save time via syncWikilinkRefs (R219).
+ */
+export function renderWikilinks(html: string): string {
+  // Extract code blocks to protect them from wikilink replacement
+  const codeBlocks: string[] = [];
+  const protected_ = html.replace(CODE_TAGS, (match) => {
+    codeBlocks.push(match);
+    return `\x00WL${codeBlocks.length - 1}\x00`;
+  });
+
+  // Replace wikilinks
+  const processed = protected_.replace(WIKILINK_RE, (_match, target: string, alias: string | undefined) => {
+    const title = (target as string).trim();
+    const display = (alias as string | undefined)?.trim() || title;
+    if (!title) return _match;
+
+    // Search link — proper resolution to direct IDs happens in syncWikilinkRefs at save time
+    const encoded = encodeURIComponent(title);
+    return `<a class="wiki-link" data-wiki-title="${escapeAttr(title)}" href="/blog?q=${encoded}">${escapeHtml(display)}</a>`;
+  });
+
+  // Restore code blocks
+  return processed.replace(/\x00WL(\d+)\x00/g, (_match, idx: string) => {
+    return codeBlocks[Number(idx)] ?? '';
+  });
+}
+
+/** Scan HTML for .wiki-link elements and extract ref data. Used by blog:update handler (R173). */
+export function extractWikilinkRefs(
+  html: string,
+  sourceType: string,
+  sourceId: number,
+): Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }> {
+  const refs: Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }> = [];
+  const linkRe = /<a\s[^>]*class="wiki-link"[^>]*data-ref-type="([^"]*)"[^>]*data-ref-id="(\d+)"[^>]*>/gi;
+  let m;
+  while ((m = linkRe.exec(html)) !== null) {
+    refs.push({ sourceType, sourceId, targetType: m[1]!, targetId: Number(m[2]!) });
+  }
+  return refs;
+}
+
+/** R206: Extract [[title]] plain text from raw content (Markdown or HTML).
+ *  Used by syncWikilinkRefs to scan for wikilinks before resolving to DB IDs. */
+export function extractWikilinkTitles(content: string): string[] {
+  const titles: string[] = [];
+  // Remove code blocks/fences before scanning to avoid false matches
+  const cleaned = content.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '');
+  let m;
+  while ((m = WIKILINK_RE.exec(cleaned)) !== null) {
+    const title = (m[1] as string).trim();
+    if (title) titles.push(title);
+  }
+  // Reset lastIndex since regex has /g flag
+  WIKILINK_RE.lastIndex = 0;
+  return titles;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}

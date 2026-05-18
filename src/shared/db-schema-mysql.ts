@@ -49,6 +49,7 @@ export const MYSQL_DDL = [
     filename VARCHAR(500) NOT NULL, file_path VARCHAR(1000) NOT NULL,
     file_type VARCHAR(20) NOT NULL, file_size INT DEFAULT 0,
     status ENUM('active','trash') DEFAULT 'active',
+    properties TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -115,4 +116,7 @@ export const MYSQL_MIGRATIONS = [
   "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
   'ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL',
   'ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+
+  // T2009: knowledge_files properties JSON column (R176)
+  "ALTER TABLE knowledge_files ADD COLUMN properties TEXT",
 ];

@@ -123,6 +123,65 @@ export async function initDatabase(): Promise<void> {
   try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN due_date TEXT DEFAULT NULL"); } catch { /* column exists */ }
   try { sqlJsDb.run("ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))"); } catch { /* column exists */ }
 
+  // R170: Remove CHECK constraint from refs table (D54 — allow 'note' type)
+  // SQLite has no ALTER TABLE DROP CHECK, so rebuild the table.
+  // Idempotent: if rebuild already done, DROP IF EXISTS + CREATE IF NOT EXISTS are no-ops.
+  try {
+    const refsExists = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='refs'");
+    if (refsExists.length > 0 && refsExists[0]!.values!.length > 0) {
+      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS refs_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_type TEXT NOT NULL,
+        source_id INTEGER NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(source_type, source_id, target_type, target_id)
+      )`);
+      // Only copy if refs_new is empty (idempotent guard)
+      const count = sqlJsDb.exec('SELECT COUNT(*) as c FROM refs_new');
+      const newCount = count[0]?.values?.[0]?.[0] as number ?? 0;
+      if (newCount === 0) {
+        sqlJsDb.run('INSERT INTO refs_new SELECT * FROM refs');
+        sqlJsDb.run('DROP TABLE refs');
+        sqlJsDb.run('ALTER TABLE refs_new RENAME TO refs');
+      } else {
+        sqlJsDb.run('DROP TABLE refs_new');
+      }
+    }
+  } catch { /* refs table may not exist */ }
+
+  // R171: Remove CHECK constraint from notes memo_type (D54 — allow 'daily')
+  try {
+    const notesExist = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'");
+    if (notesExist.length > 0 && notesExist[0]!.values!.length > 0) {
+      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        pinned INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'manual',
+        title TEXT NOT NULL DEFAULT '',
+        memo_type TEXT NOT NULL DEFAULT 'note',
+        due_date TEXT DEFAULT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      const count = sqlJsDb.exec('SELECT COUNT(*) as c FROM notes_new');
+      const newCount = count[0]?.values?.[0]?.[0] as number ?? 0;
+      if (newCount === 0) {
+        sqlJsDb.run('INSERT INTO notes_new SELECT * FROM notes');
+        sqlJsDb.run('DROP TABLE notes');
+        sqlJsDb.run('ALTER TABLE notes_new RENAME TO notes');
+      } else {
+        sqlJsDb.run('DROP TABLE notes_new');
+      }
+    }
+  } catch { /* notes table may not exist */ }
+
+  // R176: properties column for knowledge_files (T2009)
+  try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'"); } catch { /* column exists */ }
+
   sqlJsSave();
   useMySQL = false;
   console.log('[DB] sql.js initialized at', sqlJsPath);
@@ -312,12 +371,12 @@ async function migrateSqlJsToMySQL(): Promise<void> {
       ]);
     }
 
-    // Migrate knowledge_files (R158: include content_text/folder_id from ALTER TABLE)
+    // Migrate knowledge_files (R158: include content_text/folder_id; R176: include properties)
     const kfs = sqlJsQuery(oldDb, 'SELECT * FROM knowledge_files');
     for (const k of kfs) {
       await _mysqlRun(
-        'INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, (k.content_text as string | null) ?? null, (k.folder_id as number | null) ?? null, k.created_at, k.updated_at],
+        'INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, properties, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, (k.content_text as string | null) ?? null, (k.folder_id as number | null) ?? null, (k.properties as string | null) ?? null, k.created_at, k.updated_at],
       );
     }
 

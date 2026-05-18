@@ -90,7 +90,7 @@ export function AttachmentPanel({ blogId }: Props) {
               {a.usedInBlog ? (
                 <span style={{ color: 'var(--accent-green)', fontSize: 10 }}>已引用</span>
               ) : (
-                <span style={{ color: 'var(--accent-amber)', fontSize: 10 }}>未引用</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 10 }}>未引用</span>
               )}
               <button
                 type="button"

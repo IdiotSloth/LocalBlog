@@ -1,6 +1,8 @@
 import { nowMySQL } from '../../shared/datetime';
-import type { Note } from '../../shared/types';
+import type { MemoType, Note } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
+
+const VALID_MEMO_TYPES: readonly string[] = ['note', 'schedule', 'todo', 'daily'];
 
 interface NoteRow {
   id: number;
@@ -9,7 +11,7 @@ interface NoteRow {
   pinned: number;
   source: string;
   title: string;
-  memo_type: 'note' | 'schedule' | 'todo';
+  memo_type: MemoType;
   due_date: string | null;
   created_at: string;
   updated_at: string;
@@ -50,9 +52,21 @@ export class NoteService {
     content: string,
     source: string = 'manual',
     title: string = '',
-    memoType: 'note' | 'schedule' | 'todo' = 'note',
+    memoType: MemoType = 'note',
     dueDate?: string,
   ): Promise<Note> {
+    // D54: Application-level validation replaces DB CHECK constraint
+    if (!VALID_MEMO_TYPES.includes(memoType)) {
+      throw new Error(`Invalid memoType: ${memoType}`);
+    }
+    // R194: Daily note idempotency — at most one per user per day
+    if (memoType === 'daily' && dueDate) {
+      const existing = await dbGet<NoteRow>(
+        'SELECT * FROM notes WHERE user_id = ? AND memo_type = ? AND due_date = ? LIMIT 1',
+        [userId, 'daily', dueDate],
+      );
+      if (existing) return rowToNote(existing);
+    }
     const now = nowMySQL();
     await dbRun(
       'INSERT INTO notes (user_id, content, source, title, memo_type, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -68,7 +82,7 @@ export class NoteService {
   static async updateNote(
     noteId: number,
     userId: number,
-    data: { title?: string; content?: string; memoType?: 'note' | 'schedule' | 'todo'; dueDate?: string | null },
+    data: { title?: string; content?: string; memoType?: MemoType; dueDate?: string | null },
   ): Promise<Note> {
     const now = nowMySQL();
     const sets: string[] = [];

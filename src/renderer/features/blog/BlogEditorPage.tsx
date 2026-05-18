@@ -17,6 +17,16 @@ import { TemplateSelector } from './TemplateSelector';
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', emDelimiter: '*' });
 
+// Preserve wikilink <a> tags as [[Title]] syntax instead of [Title](url)
+turndown.addRule('wikilink', {
+  filter: (node) => node instanceof HTMLElement && node.classList.contains('wiki-link'),
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const title = el.textContent || '';
+    return `[[${title}]]`;
+  },
+});
+
 // ── Editor state machine ──
 
 interface EditorState {
@@ -136,6 +146,7 @@ export function BlogEditorPage() {
   const { toast } = useToast();
   const isNew = !id;
   const [state, dispatch] = useReducer(editorReducer, initialState);
+  const [bottomTab, setBottomTab] = useState<string>('tags');
 
   const blogIdRef = useRef<number | null>(id ? Number(id) : null);
   const contentRef = useRef(state.content);
@@ -450,7 +461,7 @@ export function BlogEditorPage() {
         {restoreDraft && (
           <div
             className="mb-3 flex items-center gap-3 rounded-[4px] border px-4 py-2.5 text-[13px]"
-            style={{ borderColor: 'var(--accent-amber)', background: 'rgba(211,153,34,0.08)', color: 'var(--accent-amber)' }}
+            style={{ borderColor: 'var(--border-default)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
           >
             <span>📝 检测到未保存的草稿 ({new Date(restoreDraft.savedAt).toLocaleString('zh-CN')})</span>
             <button
@@ -461,7 +472,7 @@ export function BlogEditorPage() {
                 toast('已恢复草稿', 'success');
               }}
               className="ml-auto rounded-[3px] px-3 py-0.5 text-[12px] font-medium"
-              style={{ background: 'var(--accent-amber)', color: '#fff' }}
+              style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}
             >
               恢复
             </button>
@@ -478,101 +489,99 @@ export function BlogEditorPage() {
         <div className="flex-1">
           <TiptapEditor content={state.content} onChange={handleContentChange} />
         </div>
-        {user && (
+        {/* T2010: Bottom panel — horizontal tab switcher (was vertical stack) */}
+        {user && blogIdRef.current && (
+          <div className="mt-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
+            <div className="flex gap-0 border-b" style={{ borderColor: 'var(--border-default)' }}>
+              {[
+                { id: 'tags', label: '标签' },
+                { id: 'attachments', label: '附件' },
+                { id: 'refs', label: '引用' },
+                ...(!isNew ? [{ id: 'series' as const, label: '系列' }] : []),
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setBottomTab(tab.id)}
+                  className="px-3 py-2 text-[12px] font-medium transition-colors duration-[0.15s] border-b-2"
+                  style={{
+                    color: bottomTab === tab.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    borderColor: bottomTab === tab.id ? 'var(--accent-blue)' : 'transparent',
+                    background: 'transparent',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="pt-3">
+              {bottomTab === 'tags' && (
+                <TagSelector userId={user.id} selectedTagIds={state.selectedTagIds} onChange={handleTagChange} />
+              )}
+              {bottomTab === 'attachments' && (
+                <AttachmentPanel blogId={blogIdRef.current} />
+              )}
+              {bottomTab === 'refs' && (
+                <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} />
+              )}
+              {bottomTab === 'series' && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[13px] shrink-0" style={{ color: 'var(--text-secondary)' }}>系列:</span>
+                  <select
+                    value={state.seriesId || ''}
+                    aria-label="选择系列"
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        dispatch({ type: 'SET_SERIES_ID', payload: null });
+                        dispatch({ type: 'SET_SERIES_NAME', payload: '' });
+                        if (blogIdRef.current)
+                          await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: null, seriesName: null });
+                        return;
+                      }
+                      const item = state.seriesList.find((s) => s.seriesId === val);
+                      if (item) {
+                        dispatch({ type: 'SET_SERIES_ID', payload: item.seriesId });
+                        dispatch({ type: 'SET_SERIES_NAME', payload: item.seriesName });
+                        if (blogIdRef.current)
+                          await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: item.seriesId, seriesName: item.seriesName });
+                      }
+                    }}
+                    className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
+                    style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">(无)</option>
+                    {state.seriesList.map((s) => (
+                      <option key={s.seriesId} value={s.seriesId}>{s.seriesName}</option>
+                    ))}
+                  </select>
+                  <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>或</span>
+                  <input
+                    type="text" value={state.newSeries}
+                    onChange={(e) => dispatch({ type: 'SET_NEW_SERIES', payload: e.target.value })}
+                    placeholder="新建系列名..."
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && state.newSeries.trim() && blogIdRef.current) {
+                        const uuid = crypto.randomUUID();
+                        dispatch({ type: 'SET_SERIES_ID', payload: uuid });
+                        dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
+                        await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: uuid, seriesName: state.newSeries.trim() });
+                        dispatch({ type: 'SET_NEW_SERIES', payload: '' });
+                        dispatch({ type: 'SET_SERIES_LIST', payload: [...state.seriesList, { seriesId: uuid, seriesName: state.newSeries.trim() }] });
+                      }
+                    }}
+                    className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
+                    style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', width: 160 }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {/* For new blogs without blogId yet, still show tags */}
+        {user && !blogIdRef.current && (
           <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
             <TagSelector userId={user.id} selectedTagIds={state.selectedTagIds} onChange={handleTagChange} />
-          </div>
-        )}
-        {blogIdRef.current && (
-          <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
-            <AttachmentPanel blogId={blogIdRef.current} />
-          </div>
-        )}
-        {user && blogIdRef.current && (
-          <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
-            <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} />
-          </div>
-        )}
-        {!isNew && user && (
-          <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
-            <div className="flex items-center gap-3">
-              <span className="text-[13px] shrink-0" style={{ color: 'var(--text-secondary)' }}>
-                系列:
-              </span>
-              <select
-                value={state.seriesId || ''}
-                aria-label="选择系列"
-                onChange={async (e) => {
-                  const val = e.target.value;
-                  if (!val) {
-                    dispatch({ type: 'SET_SERIES_ID', payload: null });
-                    dispatch({ type: 'SET_SERIES_NAME', payload: '' });
-                    if (blogIdRef.current)
-                      await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: null, seriesName: null });
-                    return;
-                  }
-                  const item = state.seriesList.find((s) => s.seriesId === val);
-                  if (item) {
-                    dispatch({ type: 'SET_SERIES_ID', payload: item.seriesId });
-                    dispatch({ type: 'SET_SERIES_NAME', payload: item.seriesName });
-                    if (blogIdRef.current)
-                      await window.api.blogSeriesSet({
-                        userId: user.id,
-                        blogId: blogIdRef.current,
-                        seriesId: item.seriesId,
-                        seriesName: item.seriesName,
-                      });
-                  }
-                }}
-                className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
-                style={{
-                  background: 'var(--bg-primary)',
-                  borderColor: 'var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <option value="">(无)</option>
-                {state.seriesList.map((s) => (
-                  <option key={s.seriesId} value={s.seriesId}>
-                    {s.seriesName}
-                  </option>
-                ))}
-              </select>
-              <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                或
-              </span>
-              <input
-                type="text"
-                value={state.newSeries}
-                onChange={(e) => dispatch({ type: 'SET_NEW_SERIES', payload: e.target.value })}
-                placeholder="新建系列名..."
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter' && state.newSeries.trim() && blogIdRef.current) {
-                    const uuid = crypto.randomUUID();
-                    dispatch({ type: 'SET_SERIES_ID', payload: uuid });
-                    dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
-                    await window.api.blogSeriesSet({
-                      userId: user.id,
-                      blogId: blogIdRef.current,
-                      seriesId: uuid,
-                      seriesName: state.newSeries.trim(),
-                    });
-                    dispatch({ type: 'SET_NEW_SERIES', payload: '' });
-                    dispatch({
-                      type: 'SET_SERIES_LIST',
-                      payload: [...state.seriesList, { seriesId: uuid, seriesName: state.newSeries.trim() }],
-                    });
-                  }
-                }}
-                className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
-                style={{
-                  background: 'var(--bg-primary)',
-                  borderColor: 'var(--border-default)',
-                  color: 'var(--text-primary)',
-                  width: 160,
-                }}
-              />
-            </div>
           </div>
         )}
         <div className="mt-2 flex justify-between text-[12px]" style={{ color: 'var(--text-secondary)' }}>

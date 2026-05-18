@@ -73,7 +73,10 @@ Check each of these concrete patterns:
 | INSERT completeness | INSERT statements must include ALL business-critical columns explicitly — especially `content_text`, `file_size`, `created_at`, `updated_at`. A missing column = a data gap between Electron and Web paths | 🟠 P1 |
 | Response format consistency | All API responses must use `{success: boolean, data?: T, error?: string}` format. Raw arrays (`res.json(rows)`) on success but `{success: false, error}` on failure creates inconsistent consumption patterns | 🟡 P2 |
 | sql.js→MySQL migration table coverage | When new tables are added to schema.ts, the `migrateSqlJsToMySQL()` function in `db/index.ts` must include migration loops for them. Missing tables = unrecoverable data loss when users upgrade from sql.js to MySQL (R144). Grep for CREATE TABLE in schema.ts, cross-reference against migrateSqlJsToMySQL() INSERT loops | 🟠 P1 |
+| sql.js→MySQL migration INSERT column coverage | Even when a table's migration loop EXISTS, the INSERT statement's column list may omit columns added via ALTER TABLE after initial schema creation. Cross-reference each table's ALTER TABLE additions in `db/index.ts` against the migration INSERT column list (R158: blogs missing content/folder_id/series_id/series_name; tags missing description; knowledge_files missing content_text/folder_id) | 🔴 P0 |
 | Shared handler ByUser/ById variant audit | IPC read paths (GET, PREVIEW, OPEN_EXTERNAL) must use `*ByUser` shared handler variants. `*ById` variants lack `AND user_id = ?` and should only be used post-ownership-check. Finding: `buildKnowledgeSelect(id)` called from KB_GET/KB_PREVIEW/KB_OPEN_EXTERNAL enabled cross-user access (R145) | 🟠 P1 |
+| Service read-back SELECT user_id guard | After UPDATE/DELETE (which have user_id guards), the subsequent read-back SELECT often only uses `WHERE id = ?` without `AND user_id = ?`. This is NOT defense-in-depth — if the write affected 0 rows (wrong user), the read leaks another user's data (R159: note.service updateNote + togglePin) | 🟠 P1 |
+| Server delete TOCTOU window | Using `buildXxxSelectByUser` for ownership check followed by `buildXxxDeleteById` (no userId) for execution creates a time-of-check-time-of-use gap. Always use the ByUser variant for both check AND operation (R160: blog.ts + knowledge.ts delete routes) | 🟡 P2 |
 
 ### 3. Type Safety
 
@@ -87,7 +90,8 @@ Check each of these concrete patterns:
 | Pre-existing tsc errors | Run `npx tsc --noEmit` and count errors. Separate new errors from pre-existing ones. Pre-existing errors that accumulate indicate CI gap | 🟡 P2 |
 | IPC channel hardcoding | `ipcMain.handle('xxx', ...)` calls must use `IPC.XXX` constants, not raw strings. Check with `grep "ipcMain.handle('"` | 🟡 P2 |
 | IPC event channel hardcoding | `ipcRenderer.on('xxx', ...)` in preload + `webContents.send('xxx', ...)` in main must use `IPC.EVT_XXX` constants (Phase 16 R210). 6+ event channels historically hardcoded — check both sender and receiver | 🟡 P2 |
-| api-client webApi completeness | Every method in `WindowApi` must have a corresponding stub in `api-client.ts`'s `webApi` object. Missing stubs cause `undefined is not a function` in browser mode (R209). Check property name alignment (e.g., `appGetVersion` vs `getVersion`) | 🟠 P1 |
+| api-client webApi completeness | Every method in `WindowApi` must have a corresponding stub in `api-client.ts`'s `webApi` object. Missing stubs cause `undefined is not a function` in browser mode (R209). Check property name alignment (e.g., `appGetVersion` vs `getVersion`). Event methods (onXxx) are especially easy to miss — missing `onBlogRefresh` stub combined with `return webApi as WindowApi` blanket cast silently crashes browser mode (R163) | 🟠 P1 |
+| `as WindowApi` blanket cast audit | `api-client.ts` ending with `return webApi as WindowApi` is a type-safety kill switch — it suppresses all missing-method errors. Remove this cast and let TypeScript enumerate every missing stub for you. If the cast is present, manually cross-reference every WindowApi method against webApi | 🔴 P0 |
 | `: any` type annotation density | Count `: any` type annotations (not `as any` casts) in renderer components. Goal: declining trend. Map callbacks, useState generics, filter predicates are common hotspots | 🟡 P2 |
 | IPC write-read symmetry | Every new IPC channel that writes persistent data must have a corresponding reader somewhere in the codebase. A channel with only a writer (IPC handler → service.save()) but no reader (page mount → service.get()) is dead storage. Audit each IPC channel by tracing both directions | 🟡 P2 |
 | camelCase vs snake_case | Frontend code must not access snake_case DB column names directly. Check for patterns like `row.user_id`, `row.created_at` in renderer files — these should be mapped to camelCase by the service/handler layer | 🟡 P2 |
@@ -105,6 +109,8 @@ Check each of these concrete patterns:
 | Repeated try-catch templates | Adjacent route handlers with identical `try { ... } catch (err) { return res.json({success: false, error: (err as Error).message}) }` patterns — candidate for wrapper | 🟢 P3 |
 | Duplicated SQL fragments | Same WHERE clause, ORDER BY, or LIMIT logic appearing in multiple files for the same domain (e.g., blog search in both search service and blog service) | 🟡 P2 |
 | Partial convergence false security | When some domains (blog+knowledge) converge to shared handlers but others (folder/search/tag) remain dual-written, the partially-improved state creates false confidence. Always check which domains remain unconverged after a convergence phase (R151) | 🟡 P2 |
+| Shared handler dead code (exists but uncalled) | A shared handler file with exported functions that NO caller imports or uses. The file existing on disk creates false confidence of convergence while actual consumers still use inline SQL. Verify every export is grep-able from at least one consumer in both main/ and server/ (R162: folder-crud.ts 3 builders unused by both FolderService and server route) | 🟡 P2 |
+| Duplicate local type definitions vs shared | Components that define local `interface Foo { ... }` for data entities already typed in `shared/types.ts`. Creates maintenance drift: changing the shared type doesn't update the local copy (R166: ContinueWritingPage local DraftItem/RecentBlog/KnowledgeItem) | 🟢 P3 |
 
 ### 5. Maintainability
 
@@ -125,7 +131,9 @@ Check each of these concrete patterns:
 | Pattern | How to Check | Severity if Violated |
 |---------|-------------|---------------------|
 | Missing error boundaries | React app should have at least one `ErrorBoundary` component wrapping page content. Uncaught render errors crash the whole UI | 🟡 P2 |
-| Missing loading/empty/error states | Every data-fetching page/component must handle: loading (spinner/skeleton), empty (helpful message), error (retry button). Count pages missing any of these states. New pages are the highest-risk — they often have loading+empty states but catch blocks only `console.error` without setting UI error state (R149) | 🟡 P2 |
+| Missing loading/empty/error states | Every data-fetching page/component must handle: loading (spinner/skeleton), empty (helpful message), error (retry button). Count pages missing any of these states. New pages are the highest-risk — they often have loading+empty states but catch blocks only `console.error` without setting UI error state (R149, R168: BlogListPage/KnowledgeListPage/DashboardPage all silently swallowed errors) | 🟡 P2 |
+| Promise chain missing .catch() | `.then(r => { ...; setLoading(false) })` without `.catch()` — any network error or thrown exception bypasses `setLoading(false)`, leaving UI permanently in loading state (R165: BlogPreviewPage). Also check .finally() as safer alternative | 🟡 P2 |
+| Data query scope mismatch (UI vs API) | Component displays "current month" but passes no date range to the API query — loads ALL data. Verify UI display scope (date range, pagination, category filter) matches the actual IPC request parameters (R164: CalendarView fetched all schedule notes regardless of displayed month) | 🟡 P2 |
 | No timeout on long operations | PDF export, web scraping, file import — operations that can hang must have timeout + AbortController. Check for `setTimeout` or `AbortController` usage | 🟡 P2 |
 | useEffect cleanup missing | useEffect with subscriptions, intervals, or async operations must return a cleanup function. Check for `setInterval` without corresponding `clearInterval` in cleanup | 🟡 P2 |
 | Graceful degradation | Web (browser) stubs in `api-client.ts` must return `{success: false, error: '网页版不支持XXX'}` — not undefined, not a thrown error, not a silently resolved Promise | 🟢 P3 |
@@ -227,6 +235,14 @@ Compare key metrics with previous audit (if data available):
 | Partial convergence domains (remaining dual-write) | N | M | — |
 | New page error-state completeness | N | M | — |
 | AbortedRef coverage (new async components) | N | M | — |
+| `: any` type annotation count (renderer) | N | M | ↓ |
+| Promise-chain .catch() coverage | N | M | — |
+| Data query scope alignment (UI vs API params) | N | M | — |
+| api-client webApi event stub completeness | N | M | — |
+| Shared handler dead code count | N | M | ↓ |
+| Duplicate local types vs shared types | N | M | — |
+| Migration INSERT column coverage (vs ALTER TABLE) | N | M | — |
+| Service read-back SELECT user_id guard | N | M | — |
 ```
 
 ### 5. New Findings Summary

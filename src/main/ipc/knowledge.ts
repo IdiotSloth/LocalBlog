@@ -1,5 +1,7 @@
 import { ipcMain, type WebContents } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
+import { dbGet, dbRun } from '../db';
+import { syncWikilinkRefs } from './blog';
 import { KnowledgeService } from '../services/knowledge.service';
 import { PreviewService } from '../services/preview.service';
 
@@ -47,6 +49,13 @@ export function registerKnowledgeHandlers(): void {
     async (_event, data: { userId: number; filePaths: string[]; copyToWorkspace: boolean }) => {
       try {
         const files = await KnowledgeService.importFiles(data.userId, data.filePaths, data.copyToWorkspace);
+        // Sync wikilink refs from extracted text (R219)
+        for (const f of files) {
+          try {
+            const row = await dbGet<{ content_text?: string }>('SELECT content_text FROM knowledge_files WHERE id = ?', [f.id]);
+            if (row?.content_text) await syncWikilinkRefs('knowledge', f.id, row.content_text);
+          } catch { /* content_text may not exist */ }
+        }
         kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
         return { success: true, data: files };
       } catch (err) {
@@ -110,7 +119,21 @@ export function registerKnowledgeHandlers(): void {
     try {
       for (const id of data.fileIds) await KnowledgeService.deleteFile(data.userId, id, false);
       kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
-      return { success: true, data: { deleted: fileIds.length } };
+      return { success: true, data: { deleted: data.fileIds.length } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // T2009: Set structured properties on a knowledge file
+  ipcMain.handle(IPC.KB_SET_PROPERTIES, async (_event, data: { fileId: number; userId: number; properties: Record<string, string> }) => {
+    try {
+      const json = JSON.stringify(data.properties);
+      await dbRun('UPDATE knowledge_files SET properties = ?, updated_at = datetime("now") WHERE id = ? AND user_id = ?', [
+        json, data.fileId, data.userId,
+      ]);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH); // R221
+      return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

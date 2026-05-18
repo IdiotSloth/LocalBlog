@@ -103,8 +103,14 @@ export function buildKnowledgeTagsDelete(fileId: number): SqlParams {
 /** Map a snake_case DB row to a camelCase object */
 export function mapKnowledgeRow(f: Record<string, unknown>): {
   id: number; userId: number; filename: string; filePath: string;
-  fileType: string; fileSize: number; status: string; folderId?: number | null; createdAt: string; updatedAt: string;
+  fileType: string; fileSize: number; status: string; folderId?: number | null;
+  properties?: Record<string, string>; createdAt: string; updatedAt: string;
 } {
+  const props = f.properties as string | undefined;
+  let parsedProps: Record<string, string> | undefined;
+  if (props) {
+    try { parsedProps = JSON.parse(props); } catch { /* R211: corrupted JSON, treat as empty */ }
+  }
   return {
     id: f.id as number,
     userId: f.user_id as number,
@@ -114,6 +120,7 @@ export function mapKnowledgeRow(f: Record<string, unknown>): {
     fileSize: f.file_size as number,
     status: f.status as string,
     folderId: f.folder_id as number | null | undefined,
+    properties: parsedProps,
     createdAt: f.created_at as string,
     updatedAt: f.updated_at as string,
   };

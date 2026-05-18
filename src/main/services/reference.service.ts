@@ -1,5 +1,6 @@
-import type { Reference } from '../../shared/types';
-import { dbAll, dbRun } from '../db';
+import { nowMySQL } from '../../shared/datetime';
+import type { RefType, Reference } from '../../shared/types';
+import { dbAll, dbGet, dbRun } from '../db';
 
 interface RefRow {
   id: number;
@@ -16,24 +17,28 @@ export interface RefTarget {
   title: string;
 }
 
+const VALID_REF_TYPES: readonly string[] = ['blog', 'knowledge', 'note'];
+
 export class ReferenceService {
   private static rowToReference(row: RefRow, extra?: { sourceTitle?: string; targetTitle?: string }): Reference {
     return {
       id: row.id,
-      sourceType: row.source_type as 'blog' | 'knowledge',
+      sourceType: row.source_type as RefType,
       sourceId: row.source_id,
-      targetType: row.target_type as 'blog' | 'knowledge',
+      targetType: row.target_type as RefType,
       targetId: row.target_id,
       createdAt: row.created_at,
       ...extra,
     };
   }
   static async addRef(sourceType: string, sourceId: number, targetType: string, targetId: number): Promise<void> {
-    await dbRun('INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id) VALUES (?,?,?,?)', [
-      sourceType,
-      sourceId,
-      targetType,
-      targetId,
+    // D54: Application-level validation replaces DB CHECK constraint
+    if (!VALID_REF_TYPES.includes(sourceType) || !VALID_REF_TYPES.includes(targetType)) {
+      throw new Error(`Invalid ref type: source=${sourceType}, target=${targetType}`);
+    }
+    const now = nowMySQL();
+    await dbRun('INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?)', [
+      sourceType, sourceId, targetType, targetId, now,
     ]);
   }
 
@@ -69,10 +74,10 @@ export class ReferenceService {
     );
   }
 
-  /** Search items for reference picker */
+  /** Search items for reference picker + wikilink autocomplete */
   static async searchItems(
     userId: number,
-    scope: 'blog' | 'knowledge' | 'all',
+    scope: 'blog' | 'knowledge' | 'note' | 'all',
     query: string,
   ): Promise<{ id: number; type: string; title: string }[]> {
     const results: { id: number; type: string; title: string }[] = [];
@@ -92,6 +97,14 @@ export class ReferenceService {
       );
       results.push(...files.map((f) => ({ id: f.id, type: 'knowledge', title: f.title })));
     }
+    // R222: Support 'note' scope for wikilink autocomplete
+    if (scope === 'all' || scope === 'note') {
+      const notes = await dbAll<{ id: number; title: string }>(
+        'SELECT id, title FROM notes WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) LIMIT 10',
+        [userId, like, like],
+      );
+      results.push(...notes.map((n) => ({ id: n.id, type: 'note', title: n.title || '(便签)' })));
+    }
     return results;
   }
 
@@ -101,8 +114,15 @@ export class ReferenceService {
         const row = await dbAll<{ title: string }>('SELECT title FROM blogs WHERE id = ?', [id]);
         return row[0]?.title || '(已删除)';
       }
-      const row = await dbAll<{ filename: string }>('SELECT filename as title FROM knowledge_files WHERE id = ?', [id]);
-      return row[0]?.title || '(已删除)';
+      if (type === 'knowledge') {
+        const row = await dbAll<{ filename: string }>('SELECT filename as title FROM knowledge_files WHERE id = ?', [id]);
+        return row[0]?.title || '(已删除)';
+      }
+      if (type === 'note') {
+        const row = await dbGet<{ title: string }>('SELECT title FROM notes WHERE id = ?', [id]);
+        return row?.title || '(已删除)';
+      }
+      return '(已删除)';
     } catch {
       return '(已删除)';
     }

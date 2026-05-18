@@ -14,9 +14,7 @@
   --text-placeholder: #484f58;
   --accent-blue: #58a6ff;
   --accent-green: #3fb950;
-  --accent-amber: #d29922;
   --accent-red: #f85149;
-  --accent-purple: #c678dd;
   --text-on-accent: #ffffff;
 
   /* Fonts */
@@ -32,19 +30,19 @@
   --space-6: 48px;
 
   /* Layout */
-  --content-max: 780px;
+  --content-max: 720px; /* R213: fits 1280px with sidebar(220)+panel(280)+padding(48) */
   --nav-height: 56px;
 
   /* Border Radius */
   --radius-sm: 6px;
   --radius-btn: 8px;
-  --radius-card: 12px;
+  --radius-card: 8px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.15);
+  /* Shadows — Phase 20: cards use borders only, shadows reserved for dropdowns */
+  --shadow-card: none;
   --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.25);
-  --shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.3);
+  --shadow-hover: none;
 
   /* Animation */
   --duration-fast: 0.15s;
@@ -75,13 +73,11 @@
   --text-placeholder: #8c959f;
   --accent-blue: #0969da;
   --accent-green: #1a7f37;
-  --accent-amber: #9a6700;
   --accent-red: #cf222e;
-  --accent-purple: #a855f7;
   --text-on-accent: #ffffff;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card: none;
   --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --shadow-hover: none;
   --heatmap-0: var(--bg-tertiary);
   --heatmap-1: #9be9a8;
   --heatmap-2: #40c463;
@@ -260,18 +256,16 @@ h4 {
   color: var(--text-placeholder);
 }
 
-/* Card base */
+/* Card base — Phase 20: border-only, no shadow/bounce */
 .card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-card);
   padding: var(--space-4);
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease;
 }
 .card:hover {
   border-color: var(--accent-blue);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Tag pill */
@@ -368,7 +362,7 @@ code {
   text-decoration: underline;
 }
 .prose blockquote {
-  border-left: 4px solid var(--accent-amber);
+  border-left: 4px solid var(--text-secondary);
   background: var(--bg-secondary);
   border-radius: 0 var(--radius-card) var(--radius-card) 0;
   padding: var(--space-3) var(--space-4);
@@ -379,7 +373,7 @@ code {
 .prose pre {
   background: var(--bg-code);
   border-radius: var(--radius-card);
-  border-left: 4px solid var(--accent-purple);
+  border-left: 4px solid var(--accent-blue);
   padding: var(--space-3);
   overflow-x: auto;
   white-space: pre;
@@ -482,24 +476,4 @@ code {
   background: var(--bg-tertiary);
 }
 
-/* ===== Animations ===== */
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-in {
-  animation: fadeUp 0.2s ease;
-}
-@keyframes edge-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(88, 166, 255, 0); }
-  50% { box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.3); }
-}
-.edge-breathe {
-  animation: edge-breathe 1.2s ease-out;
-}
+/* ===== Animations — Phase 20: 150ms color transitions only, no keyframe effects ===== */

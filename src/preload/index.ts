@@ -53,6 +53,7 @@ const api: WindowApi = {
   kbPreview: (data) => ipcRenderer.invoke(IPC.KB_PREVIEW, data),
   kbOpenExternal: (data) => ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
+  kbSetProperties: (data) => ipcRenderer.invoke(IPC.KB_SET_PROPERTIES, data),
 
   // Search
   searchGlobal: (data) => ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
@@ -168,6 +169,7 @@ const api: WindowApi = {
   continueGetDrafts: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
   continueGetLastBlog: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
   continueGetRecentFiles: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
+  graphGetData: (userId, filter) => ipcRenderer.invoke(IPC.GRAPH_GET_DATA, userId, filter),
 
   // File System Dialogs
   selectFiles: (exts) => ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),

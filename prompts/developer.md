@@ -65,12 +65,18 @@ Step 1: `npm run build && npm run test` — 确认构建测试通过（含 worke
 Step 2: `npx tsc -p tsconfig.node.json --noEmit 2>&1 | grep -c "TS2532\|TS18048"` — 确认 noUncheckedIndexedAccess 零新增
 Step 3: 检查关键维度：
 - `as any` renderer 是否维持 0
-- IPC 新增通道是否 7 文件全部同步 (ipc-channels → WindowApi → preload → handler → api-client)
-- 新文件是否无硬编码颜色 (全部走 CSS Token)
+- `: any` renderer 是否维持 0 — **新增**
+- IPC 新增通道是否 7 文件全部同步
+- 新文件是否无硬编码颜色 (CSS Token only)
 - Service 方法是否有显式返回类型
 - `fs.writeFileSync` 是否有 try-catch
-- 新增 Worker 是否有 onerror handler + postMessage try-catch
-- shared/handlers/ SQL builder 是否零副作用（纯字符串构建）
+- 新增 Worker 是否有 onerror + onmessageerror + postMessage try-catch
+- shared/handlers/ SQL builder 是否纯 + **是否实际被 Service/Server 使用**
+- 每个 load 函数开头是否有 `abortedRef.current = false`
+- 迁移 INSERT 是否包含所有 ALTER TABLE 加列
+- webApi 是否所有 WindowApi 方法和事件都已 stub
+- BlogPreviewPage 是否有"最小化"按钮 (FloatingBlogTabs 入口)
+- 列表页 catch 块是否有 error state + retry
 Step 4: 发现的问题写入 redo.md "当前待修复"，自己修的标记 ✅ + `**Developer 自纠**`
 
 ### 流程四：执行重构（读 redo.md "重构建议"）
@@ -259,3 +265,13 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 42. Worker 需要 onmessageerror — 除 onerror 外还需处理消息反序列化失败，否则静默丢弃 (R156)
 43. SVG <img> 标签需要 onError 回退 — 图片缺失时隐藏而非显示破碎图标 (R157)
 44. useReducer 收敛模式已验证 — 3 组件共 50 useState 收敛为 3 useReducer (TagManagePage 12+BlogListPage 19+KnowledgeListPage 19) (R143)
+45. **abortedRef 必须在 load 函数开头重置为 false** — effect cleanup 置为 true 后，下一次 effect 执行时若不复位，所有 .then()/.finally() 中的 `!abortedRef.current` 检查短路，loading 永不解除。CalendarView/NoteListPage 均因缺此行卡在加载中
+46. **DB 列 → TypeScript 类型 → mapper 三处需同步** — ALTER TABLE 加列后，shared/types.ts 的 interface 和 shared/handlers/*.ts 的 mapXxxRow() 都要加对应字段。folder_id 加列但类型和 mapper 缺失导致文件夹功能不工作
+47. **migrateSqlJsToMySQL() 的 INSERT 必须包含所有 ALTER TABLE 加列** — blogs 缺 content/folder_id/series_id/series_name，tags 缺 description，knowledge_files 缺 content_text/folder_id → sql.js→MySQL 升级时博客正文/标签描述/文本提取全部丢失 (R158)
+48. **note.service 读回 SELECT 也需要 user_id 守卫** — UPDATE 有守卫但后续 SELECT 无守卫可跨用户读 (R159)
+49. **Server route 用 buildXxxDeleteById 有 TOCTOU** — 所有权检查后用 ById 执行删除，改用 buildXxxDelete(id, userId) 一步消除窗口 (R160)
+50. **shared handlers 必须真正被使用** — folder-crud.ts 定义了 builder 但 Service 和 Server 各自写内联 SQL，死代码且双写未收敛 (R162)
+51. **webApi 事件 stub 缺失被 `as WindowApi` 遮蔽** — 补 onBlogRefresh/onTrayAction/onPetAction/onUpdateStatus (R163)
+52. **Tiptap StarterKit 已含 Link/Underline** — 单独再 import 导致 duplicate extension names 警告
+53. **FloatingBlogTabs 需要可见入口** — BlogPreviewPage 缺"最小化"按钮，用户找不到快速博客跳转功能
+54. **CalendarView 全量加载无月份过滤** — 需全 IPC 链加 dueDateFrom/dueDateTo 参数，CalendarView 传当月首尾日期 (R164)

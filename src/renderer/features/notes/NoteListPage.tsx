@@ -156,9 +156,9 @@ export function NoteListPage() {
           {sorted.map((note) => (
             <div
               key={note.id}
-              className="group flex items-start gap-3 rounded-[8px] border p-4 transition-shadow hover:shadow-md"
+              className="group flex items-start gap-3 rounded-[8px] border p-4 transition-colors duration-[0.15s] hover:border-[var(--accent-blue)]"
               style={{
-                borderColor: note.pinned ? 'var(--accent-amber)' : 'var(--border-default)',
+                borderColor: note.pinned ? 'var(--text-secondary)' : 'var(--border-default)',
                 background: note.pinned ? 'var(--bg-secondary)' : 'var(--color-bg-card)',
               }}
             >
@@ -225,7 +225,7 @@ export function NoteListPage() {
                   aria-label={note.pinned ? '取消置顶' : '置顶'}
                   className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
                   style={{
-                    background: note.pinned ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                    background: note.pinned ? 'var(--text-secondary)' : 'var(--bg-tertiary)',
                     color: note.pinned ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                   }}
                 >

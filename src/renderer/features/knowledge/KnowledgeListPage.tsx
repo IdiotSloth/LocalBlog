@@ -11,10 +11,10 @@ import type { FolderTreeNode, KnowledgeFileWithTags, Reference, Tag } from '../.
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   docx: { label: 'DOCX', color: 'var(--accent-blue)' },
   xlsx: { label: 'XLSX', color: 'var(--accent-green)' },
-  pptx: { label: 'PPTX', color: 'var(--accent-amber)' },
+  pptx: { label: 'PPTX', color: 'var(--text-secondary)' },
   pdf: { label: 'PDF', color: 'var(--accent-red)' },
   txt: { label: 'TXT', color: 'var(--text-secondary)' },
-  image: { label: 'IMG', color: 'var(--accent-purple)' },
+  image: { label: 'IMG', color: 'var(--accent-blue)' },
   other: { label: 'FILE', color: 'var(--text-secondary)' },
 };
 
@@ -627,7 +627,7 @@ export function KnowledgeListPage() {
                               }
                             }}
                             className="mr-2 text-[12px] hover:underline"
-                            style={{ color: isEditing ? 'var(--accent-amber)' : 'var(--accent-blue)' }}
+                            style={{ color: isEditing ? 'var(--text-secondary)' : 'var(--accent-blue)' }}
                           >
                             {isEditing ? '完成' : '标签'}
                           </button>
@@ -772,6 +772,25 @@ export function KnowledgeListPage() {
               />
             )}
           </div>
+          {/* T2009: Properties display */}
+          {previewFileId && (() => {
+            const file = files.find((f: { id: number; properties?: Record<string, string> }) => f.id === previewFileId);
+            const props = file?.properties;
+            if (!props || Object.keys(props).length === 0) return null;
+            return (
+              <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>属性</p>
+                <div className="space-y-1.5">
+                  {Object.entries(props).map(([k, v]) => (
+                    <div key={k} className="flex gap-2 text-[12px]">
+                      <span style={{ color: 'var(--text-muted)', minWidth: 48 }}>{k}</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {backRefs.length > 0 && (
             <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
               <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>

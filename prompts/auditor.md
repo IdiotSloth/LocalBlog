@@ -259,7 +259,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 1-19 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-19+ 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -296,6 +296,14 @@ Boss 裁决的工单你不再争议
 | **IPC 错误返回缺 `success: false`** | IPC handler 返回 `{ error: 'xxx' }` 缺少 `success: false` → 调用方 `r.success` 为 undefined，逻辑静默失效 (R150) | 审计 IPC handler 的所有错误返回路径：必须包含 `success: false` 字段。异常 catch 中统一用 `{ success: false, error: (err as Error).message }` |
 | **旧 domain 未同步收敛遗留 SQL 双写** | blog+knowledge 已收敛 shared handler 但 folder/search/tag 的 SQL 仍在 server route 和 main service 各写一份 → 部分收敛产生虚假安全感 (R151) | 审计 shared handler 覆盖范围：列出已收敛 domain 和未收敛 domain。未收敛的 domain 需要显式延后决策或纳入收敛计划 |
 | **新异步组件缺 aborted 守卫** | 新页面 useEffect 中 .then() 回调未检查 aborted 标志 → 快速导航离开后 setState on unmounted component (R152) | 审计所有 useEffect 中 async 操作：必须有 `abortedRef` 守卫或在 cleanup 中设置标志。遵循 ContinueWritingPage 的标准模式 |
+| **sql.js→MySQL 迁移 INSERT 列不完整 (R158 变体)** | `migrateSqlJsToMySQL()` INSERT 列清单仅覆盖建表时的原始列，ALTER TABLE 后加列（content/folder_id/series_id/description/content_text）全部缺失 → 升级用户数据静默丢失 | 审计 `migrateSqlJsToMySQL()` 时必须交叉对照 schema.ts 当前列清单。每个 ALTER TABLE 新增列必须在迁移 INSERT 中有对应参数和默认值 |
+| **Service 读回 SELECT 缺 user_id（纵深防御破洞）** | UPDATE/DELETE 有 user_id 守卫但后续 SELECT 读回时只有 `WHERE id = ?` → 写操作保护了但读路径泄露其他用户数据 (R159) | 审计每个 CRUD 方法：不仅仅是写操作（UPDATE/DELETE），读回 SELECT 也必须包含 `AND user_id = ?` |
+| **Server delete TOCTOU 窗口** | 先 `buildXxxSelectByUser` 检查所有权，检查通过后用 `buildXxxDeleteById`（无 userId）执行删除 → 检查与操作间 2 行 JS 的 TOCTOU 窗口 (R160) | 检查与操作应使用同一变体：`buildXxxSelectByUser` 后应调用 `buildXxxDelete(id, userId)` 而非 `buildXxxDeleteById(id)` |
+| **Shared handler 存在但完全未被调用（死 handler 虚假安全感）** | `folder-crud.ts` 3 个 builder 函数存在但 FolderService 和 server route 各写各的内联 SQL → 审计时看到 shared handler 文件以为已收敛，实际 SQL 仍三处双写 (R162) | 审计 shared handler 时不能仅检查文件是否存在——必须 grep 调用点验证每个导出的函数在 main service 和 server route 中都被引用 |
+| **api-client webApi 事件 stub 缺失 + `as WindowApi` 遮蔽** | `webApi` 对象缺 onBlogRefresh/onTrayAction 等事件 stub，但 `return webApi as WindowApi` blanket cast 抑制了类型错误 → Browser 模式调用 `undefined()` 崩溃 (R163) | 审计 api-client.ts 时必须对比 WindowApi 接口逐方法检查。移除 `as WindowApi` blanket cast，让 TypeScript 直接暴露缺失 |
+| **数据查询缺范围过滤（UI 状态与查询参数脱节）** | CalendarView 有 currentMonth/currentYear 状态但 `noteList(userId, 'schedule')` 不传 due_date 范围 → 加载全量数据。UI 暗示"当月"但查询是"全部" (R164) | 审计数据加载组件时：验证 UI 展示的时间/分类/分页范围是否与 IPC 请求参数一致 |
+| **Promise 链缺 .catch() 导致永久 loading** | `.then(r => {...; setLoading(false)})` 无 `.catch()` → 网络/超时异常时 `setLoading(false)` 永不执行，UI 卡死 (R165) | 审计所有 .then() 链条：链尾必须有 .catch() 或改用 async/await + try-catch。`.finally()` 比分别在 .then/.catch 中设 loading 更安全 |
+| **组件内重定义 shared/types.ts 已有类型** | ContinueWritingPage 本地定义 DraftItem/RecentBlog/KnowledgeItem，shared/types.ts 已有 DraftItem/LastBlog/RecentFile → 类型不同步，一处改另一处不知 (R166) | 审计组件类型定义：所有 interface/type 优先从 shared/types.ts 导入。本地类型仅用于纯 UI 状态（非数据实体） |
 
 ---
 
@@ -389,14 +397,16 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-17, Phase 19 全量审计修复后):
+**当前质量基线** (2026-05-17, Phase 19 后全量审计修复后):
 - `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
-- `: any` 类型标注: renderer 5 处 (reference 相关, 根因 R146 已修复，类型系统已对齐)
+- `: any` 类型标注: renderer **0 处** ✅ — Phase 19 后二次修复首次达成归零
 - `Record<string,unknown>` in WindowApi: **0 处** ✅ — Phase 19 T1912 全部类型化
-- IPC 通道: **100** (handle) + **6** (EVT_ event channels) — 含 FTS5 + error feedback + folder:move + PET_* 6 常量
-- CSS 变量: 全部覆盖 ✅
-- 测试: **87/87** unit (12 files), 11/11 e2e — 从 Phase 18 的 49 tests +38
+- IPC 通道: **100** (handle) + **6** (EVT_ event channels)
+- 测试: **87/87** unit (12 files), 11/11 e2e
 - `noUncheckedIndexedAccess`: ✅ 永久启用 (Phase 15 T1502)
+- tsc: 项目级零错误 ✅
+- P0+P1+P2+P3: **全零** ✅ (R158-R169 修复后二度清零)
+- `: any` renderer: **首次达成 0** (Phase 19 后审计发现 11→修复至 0)
 - tsc: 项目级零错误 ✅
 - P0+P1+P2+P3: **首次全优先级全零** ✅ (R144-R157 修复后)
 - CRUD 双写: ✅ blog + knowledge (Phase 18) + folder (Phase 19 folder-crud.ts)。search/tag 待 Phase 20
@@ -407,4 +417,4 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 - 全局快捷键: ✅ ShortcutService.reregisterAll() 动态注册 (Phase 19 T1903)
 - 路径穿越防御: ✅ validateFilename() path.basename (Phase 19 R147)
 - 构建: 50 main + 2 preload + 227 renderer
-- 累计: 157 个工单 (R01-R157), 50 个决策点 (D01-D50), ~465h
+- 累计: 169 个工单 (R01-R169), 50 个决策点 (D01-D50), ~465h

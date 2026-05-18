@@ -55,6 +55,7 @@ export const IPC = {
   KB_RENAME: 'kb:rename',
   KB_PREVIEW: 'kb:preview',
   KB_OPEN_EXTERNAL: 'kb:open-external',
+  KB_SET_PROPERTIES: 'kb:set-properties',
 
   // Search
   SEARCH_GLOBAL: 'search:global',
@@ -131,6 +132,9 @@ export const IPC = {
   NOTE_DELETE: 'note:delete',
   NOTE_PIN: 'note:pin',
   NOTE_CLIPBOARD: 'note:clipboard',
+
+  // Graph (Phase 20C)
+  GRAPH_GET_DATA: 'graph:getData',
 
   // Shortcuts
   SHORTCUT_GET_ALL: 'shortcut:get-all',

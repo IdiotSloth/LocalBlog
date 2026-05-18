@@ -47,6 +47,7 @@ const IPC = {
   KB_RENAME: "kb:rename",
   KB_PREVIEW: "kb:preview",
   KB_OPEN_EXTERNAL: "kb:open-external",
+  KB_SET_PROPERTIES: "kb:set-properties",
   // Search
   SEARCH_GLOBAL: "search:global",
   SEARCH_BLOGS: "search:blogs",
@@ -109,6 +110,8 @@ const IPC = {
   NOTE_DELETE: "note:delete",
   NOTE_PIN: "note:pin",
   NOTE_CLIPBOARD: "note:clipboard",
+  // Graph (Phase 20C)
+  GRAPH_GET_DATA: "graph:getData",
   // Shortcuts
   SHORTCUT_GET_ALL: "shortcut:get-all",
   SHORTCUT_UPDATE: "shortcut:update",
@@ -181,6 +184,7 @@ const api = {
   kbPreview: (data) => electron.ipcRenderer.invoke(IPC.KB_PREVIEW, data),
   kbOpenExternal: (data) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
+  kbSetProperties: (data) => electron.ipcRenderer.invoke(IPC.KB_SET_PROPERTIES, data),
   // Search
   searchGlobal: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
   searchBlogs: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
@@ -285,6 +289,7 @@ const api = {
   continueGetDrafts: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
   continueGetLastBlog: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
   continueGetRecentFiles: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
+  graphGetData: (userId, filter) => electron.ipcRenderer.invoke(IPC.GRAPH_GET_DATA, userId, filter),
   // File System Dialogs
   selectFiles: (exts) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => electron.ipcRenderer.invoke(IPC.FS_SELECT_DIR),

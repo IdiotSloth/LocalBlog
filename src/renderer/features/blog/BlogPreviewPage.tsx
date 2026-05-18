@@ -1,11 +1,11 @@
-import { lazy, useCallback, useEffect, useState } from 'react';
+import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
-import { TableOfContents } from '../../components/blog/TableOfContents';
 import { addTab } from '../../components/blog/floating-tabs-state';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { recordRecentBlog } from '../../hooks/useRecentHistory';
-import { countChars, estimateReadingTime, parseToc } from '../../lib/toc-parser';
+import { countChars, estimateReadingTime } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 import type { BlogWithTags, Reference, Tag } from '../../../shared/types';
@@ -42,8 +42,115 @@ function RelatedResources({ blogId }: { blogId: number }) {
     </div>
   );
 }
+
+// ---- T2007/T2008 ContextPanel tab components ----
+
+function parseTocHeadings(content: string, format: string): Array<{ level: number; text: string; id: string }> {
+  const result: Array<{ level: number; text: string; id: string }> = [];
+  const headingRe = format === 'md' ? /^(#{2,4})\s+(.+)$/gm : /<h([234])[^>]*>(.+?)<\/h[234]>/gi;
+
+  if (format === 'md') {
+    let m;
+    while ((m = headingRe.exec(content)) !== null) {
+      const level = m[1]!.length;
+      const text = m[2]!;
+      const id = text.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '-').replace(/^-+|-+$/g, '');
+      result.push({ level, text, id });
+    }
+  }
+  return result;
+}
+
+function ContextLinksTab({ blogId }: { blogId: number }) {
+  const [backlinks, setBacklinks] = useState<Reference[]>([]);
+  const [forwardRefs, setForwardRefs] = useState<Reference[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      window.api.refGetTo({ targetType: 'blog', targetId: blogId }),
+      window.api.refGetFrom({ sourceType: 'blog', sourceId: blogId }),
+    ]).then(([b, f]) => {
+      if (b.success && b.data) setBacklinks(b.data);
+      if (f.success && f.data) setForwardRefs(f.data);
+    }).finally(() => setLoading(false));
+  }, [blogId]);
+
+  if (loading) return <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>;
+
+  const allBacklinks = backlinks.filter((r) => r.targetId === blogId);
+  const allForward = forwardRefs;
+
+  return (
+    <div className="space-y-4">
+      {allBacklinks.length > 0 && (
+        <div>
+          <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>反向链接 ({allBacklinks.length})</h4>
+          <div className="space-y-1">
+            {allBacklinks.map((ref) => (
+              <a key={ref.id} href={`#/${ref.sourceType}/${ref.sourceId}`}
+                className="block rounded-[4px] px-2 py-1.5 text-[12px] no-underline hover:bg-[var(--bg-tertiary)] transition-colors"
+                style={{ color: 'var(--text-primary)' }}>
+                {ref.sourceTitle || `${ref.sourceType} #${ref.sourceId}`}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      {allForward.length > 0 && (
+        <div>
+          <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>引用 ({allForward.length})</h4>
+          <div className="space-y-1">
+            {allForward.map((ref) => (
+              <a key={ref.id} href={`#/${ref.targetType}/${ref.targetId}`}
+                className="block rounded-[4px] px-2 py-1.5 text-[12px] no-underline hover:bg-[var(--bg-tertiary)] transition-colors"
+                style={{ color: 'var(--text-primary)' }}>
+                {ref.targetTitle || `${ref.targetType} #${ref.targetId}`}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      {allBacklinks.length === 0 && allForward.length === 0 && (
+        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>暂无链接</p>
+      )}
+    </div>
+  );
+}
+
+function OutlineTab({ headings, activeId }: { headings: Array<{ level: number; text: string; id: string }>; activeId?: string }) {
+  return (
+    <div className="space-y-0.5">
+      {headings.map((h, i) => {
+        const isActive = activeId === h.id;
+        return (
+          <a
+            key={i}
+            href={`#${h.id}`}
+            className="block rounded-[3px] px-2 py-1 text-[12px] no-underline hover:bg-[var(--bg-tertiary)] transition-colors truncate"
+            style={{
+              color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
+              fontWeight: isActive ? 600 : 400,
+              paddingLeft: 8 + (h.level - 2) * 12,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              const el = document.getElementById(h.id);
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            {h.text}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
+import { renderWikilinks } from '../../../shared/wikilink';
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 // Generate heading ids for TOC scrollIntoView + IntersectionObserver
@@ -56,13 +163,19 @@ md.renderer.rules.heading_open = (tokens, idx) => {
   return `<${token.tag}${token.attrs ? ' ' + token.attrs.map(([k, v]) => `${k}="${v}"`).join(' ') : ''}>`;
 };
 
+// D50: 3 reading themes — dark, light, sepia (warm)
 const READING_THEMES: Record<string, { name: string; bg: string; text: string; accent: string; font: string }> = {
-  paper: { name: '纸张', bg: '#f8f5ef', text: '#2c2c2c', accent: '#c0392b', font: '"Noto Serif SC", Georgia, serif' },
-  midnight: { name: '午夜', bg: '#0d1117', text: '#c9d1d9', accent: '#58a6ff', font: '"JetBrains Mono", monospace' },
-  sepia: { name: '复古', bg: '#f4ecd8', text: '#5b4636', accent: '#8b6914', font: '"Lora", Georgia, serif' },
-  forest: { name: '森林', bg: '#1a2f1a', text: '#d4e6d4', accent: '#4caf50', font: '"Source Serif 4", Georgia, serif' },
-  sakura: { name: '樱花', bg: '#fff5f5', text: '#4a3040', accent: '#e91e63', font: '"Noto Serif SC", serif' },
+  dark: { name: '暗', bg: '#0d1117', text: '#c9d1d9', accent: '#58a6ff', font: 'var(--font-body)' },
+  light: { name: '亮', bg: '#ffffff', text: '#24292f', accent: '#0969da', font: '"Noto Serif SC", Georgia, serif' },
+  sepia: { name: '暖', bg: '#f8f5ef', text: '#2c2c2c', accent: '#c0392b', font: '"Noto Serif SC", Georgia, serif' },
 };
+
+// D59: migrate old theme keys to new 3-theme system
+function migrateTheme(stored: string | null): string {
+  if (!stored) return 'dark';
+  const MIGRATE: Record<string, string> = { forest: 'dark', sakura: 'light', paper: 'sepia', midnight: 'dark' };
+  return MIGRATE[stored] ?? (stored in READING_THEMES ? stored : 'dark');
+}
 
 export function BlogPreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -72,7 +185,9 @@ export function BlogPreviewPage() {
   const [blog, setBlog] = useState<BlogWithTags | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [readingTheme, setReadingTheme] = useState<string>(localStorage.getItem('reading-theme') || 'paper');
+  const [readingTheme, setReadingTheme] = useState<string>(() => migrateTheme(localStorage.getItem('reading-theme')));
+  const [activeHeadingId, setActiveHeadingId] = useState<string>('');
+  const articleElRef = useRef<HTMLElement | null>(null);
   const isEditMode = searchParams.get('mode') === 'edit';
   const scrollContainerRef = useCallback((el: HTMLDivElement | null) => {
     if (!el || !id) return;
@@ -112,7 +227,52 @@ export function BlogPreviewPage() {
         }
         setLoading(false);
       }).catch(() => setLoading(false));
-  }, [id, user]);
+  }, [id, user, isEditMode]); // R210: re-fetch when exiting inline edit mode
+
+  // R201: IntersectionObserver for outline heading highlight
+  useEffect(() => {
+    const el = articleElRef.current;
+    if (!el || !blog) return;
+    const headings = el.querySelectorAll('h2[id], h3[id], h4[id]');
+    if (headings.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) { setActiveHeadingId(entry.target.id); break; }
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 1.0 },
+    );
+    headings.forEach((h) => observer.observe(h));
+    return () => observer.disconnect();
+  }, [blog?.content]); // Re-run when article content changes
+
+  // ---- T2007+T2008: ContextPanel tabs (links + outline) ----
+  const contextPanel = useContextPanel();
+  useEffect(() => {
+    if (!blog) return;
+    const tabs: TabDef[] = [];
+
+    // Links tab — load refs asynchronously
+    const linksContent = (
+      <ContextLinksTab blogId={blog.id} />
+    );
+    tabs.push({ id: 'links', label: '链接', content: linksContent });
+
+    // Outline tab — from headings
+    if (blog.content) {
+      const headings = parseTocHeadings(blog.content, blog.format);
+      if (headings.length > 0) {
+        tabs.push({
+          id: 'outline',
+          label: '大纲',
+          content: <OutlineTab headings={headings} activeId={activeHeadingId} />,
+        });
+      }
+    }
+
+    return contextPanel.registerTabs(tabs);
+  }, [blog, contextPanel, activeHeadingId]); // R201: re-register when active heading changes
 
   // Save progress on unmount via localStorage
   useEffect(() => {
@@ -155,11 +315,12 @@ export function BlogPreviewPage() {
     );
   }
 
-  const rendered = blog.format === 'md' ? md.render(blog.content) : blog.content;
-  const tocItems = parseToc(blog.content, blog.format);
+  // R174: md.render → wikilink regex → DOMPurify.sanitize → dangerouslySetInnerHTML
+  const rawHtml = blog.format === 'md' ? md.render(blog.content) : blog.content;
+  const rendered = renderWikilinks(rawHtml);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
-  const theme = READING_THEMES[readingTheme as keyof typeof READING_THEMES]! ?? READING_THEMES.paper;
+  const theme = READING_THEMES[readingTheme] ?? READING_THEMES.dark;
 
   const handleThemeChange = (key: string) => {
     setReadingTheme(key);
@@ -228,15 +389,7 @@ export function BlogPreviewPage() {
                 }}
                 title={t.name}
               >
-                {t.name === '纸张'
-                  ? '纸'
-                  : t.name === '午夜'
-                    ? '夜'
-                    : t.name === '复古'
-                      ? '古'
-                      : t.name === '森林'
-                        ? '森'
-                        : '樱'}
+                {t.name}
               </button>
             ))}
             </div>
@@ -244,11 +397,15 @@ export function BlogPreviewPage() {
         </div>
 
         <article
-          className="mt-4 rounded-[8px] p-6 transition-colors duration-500"
+          className="mt-4 rounded-[8px] p-6 transition-colors duration-500 prose"
+          ref={(el) => { articleElRef.current = el; }}
           style={{
             background: theme.bg,
-            color: theme.text,
             fontFamily: theme.font,
+            // R217: Override CSS vars so prose text uses theme color, links use theme accent
+            ['--text-primary' as string]: theme.text,
+            ['--text-secondary' as string]: theme.text,
+            ['--accent-blue' as string]: theme.accent,
           }}
           onClick={(e) => {
             const target = e.target as HTMLElement;
@@ -359,8 +516,6 @@ export function BlogPreviewPage() {
           </button>
         </div>
       </div>
-
-      <TableOfContents items={tocItems} />
     </>
   );
 }

@@ -65,10 +65,11 @@ describe('ReferenceService', () => {
   });
 
   describe('searchItems', () => {
-    it('should search blogs and knowledge files', async () => {
+    it('should search blogs, knowledge files, and notes', async () => {
       mockDbAll
         .mockResolvedValueOnce([{ id: 1, title: 'Test Blog' }]) // blogs
-        .mockResolvedValueOnce([{ id: 2, title: 'Test File' }]); // knowledge
+        .mockResolvedValueOnce([{ id: 2, title: 'Test File' }]) // knowledge
+        .mockResolvedValueOnce([]); // notes (R222)
       const results = await ReferenceService.searchItems(1, 'all', 'Test');
       expect(results).toHaveLength(2);
       expect(results[0]?.type).toBe('blog');

@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { NotFoundPage } from './features/misc/NotFoundPage';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './features/auth/LoginPage';
@@ -19,8 +20,8 @@ interface ErrorToastState {
 }
 
 // Lazy-loaded page components — reduces initial bundle parse time
-const DashboardPage = lazy(() =>
-  import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+const HomePage = lazy(() =>
+  import('./features/dashboard/HomePage').then((m) => ({ default: m.HomePage })),
 );
 const BlogListPage = lazy(() => import('./features/blog/BlogListPage').then((m) => ({ default: m.BlogListPage })));
 const BlogEditorPage = lazy(() =>
@@ -42,14 +43,14 @@ const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then(
 const TagManagePage = lazy(() => import('./features/tags/TagManagePage').then((m) => ({ default: m.TagManagePage })));
 const GuidePage = lazy(() => import('./features/guide/GuidePage').then((m) => ({ default: m.GuidePage })));
 const NoteListPage = lazy(() => import('./features/notes/NoteListPage').then((m) => ({ default: m.NoteListPage })));
-const ContinueWritingPage = lazy(() =>
-  import('./features/dashboard/ContinueWritingPage').then((m) => ({ default: m.ContinueWritingPage })),
-);
 const SeriesListPage = lazy(() =>
   import('./features/series/SeriesListPage').then((m) => ({ default: m.SeriesListPage })),
 );
 const SeriesDetailPage = lazy(() =>
   import('./features/series/SeriesDetailPage').then((m) => ({ default: m.SeriesDetailPage })),
+);
+const GraphPage = lazy(() =>
+  import('./features/graph/GraphPage').then((m) => ({ default: m.GraphPage })),
 );
 function PageSkeleton() {
   return (
@@ -74,7 +75,7 @@ function ProtectedRoute() {
 }
 
 /** Wrap a lazy page component with ErrorBoundary + Suspense */
-function lazyPage(Page: React.LazyExoticComponent<React.ComponentType<any>>) {
+function lazyPage(Page: React.LazyExoticComponent<React.ComponentType<object>>) {
   return (
     <ErrorBoundary>
       <Suspense fallback={<PageSkeleton />}>
@@ -101,8 +102,8 @@ const router = createHashRouter([
         // Full layout: sidebar + header + main content
         element: <MainLayout />,
         children: [
-          { index: true, element: lazyPage(ContinueWritingPage) },
-          { path: '/dashboard', element: lazyPage(DashboardPage) },
+          { index: true, element: lazyPage(HomePage) },
+          { path: '/dashboard', element: <Navigate to="/" replace /> },
           { path: '/blog', element: lazyPage(BlogListPage) },
           { path: '/blog/new', element: lazyPage(isWeb ? WebEditorPage : BlogEditorPage) },
           { path: '/blog/:id', element: lazyPage(BlogPreviewPage) },
@@ -115,6 +116,8 @@ const router = createHashRouter([
           { path: '/series', element: lazyPage(SeriesListPage) },
           { path: '/series/:seriesId', element: lazyPage(SeriesDetailPage) },
           { path: '/guide', element: lazyPage(GuidePage) },
+          { path: '/graph', element: lazyPage(GraphPage) },
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
       // Standalone editor — bypasses MainLayout for pet/tray "新建博客" action
@@ -146,15 +149,16 @@ export default function App() {
 
   return (
     <>
-      {/* T1911: Skip to main content link — first focusable element for keyboard users */}
-      <a
-        href="#main-content"
-        className="fixed top-2 left-2 z-[10000] rounded-[4px] px-3 py-2 text-[13px] font-medium transition-transform -translate-y-20 focus:translate-y-0"
+      {/* T1911: Skip to main content — uses onClick so HashRouter doesn't intercept #main-content as a route */}
+      <button
+        type="button"
+        onClick={() => { document.getElementById('main-content')?.focus(); }}
+        className="fixed top-2 left-2 z-[10000] rounded-[4px] border-0 px-3 py-2 text-[13px] font-medium transition-transform -translate-y-20 focus:translate-y-0 cursor-pointer"
         style={{ background: 'var(--accent-blue)', color: '#fff' }}
       >
         跳到主要内容
-      </a>
-      <div id="main-content" />
+      </button>
+      <div id="main-content" tabIndex={-1} />
       <RouterProvider router={router} />
       {/* T1803: Error Toast */}
       <ErrorToastContent state={errorToast} onDismiss={() => setErrorToast((prev) => ({ ...prev, visible: false }))} />

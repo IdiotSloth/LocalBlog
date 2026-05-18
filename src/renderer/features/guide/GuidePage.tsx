@@ -8,12 +8,12 @@ function TipBox({ children }: { children: React.ReactNode }) {
       className="mt-3 rounded-[10px] p-4 text-[13px] leading-relaxed"
       style={{
         background: 'var(--bg-primary)',
-        border: '1px solid var(--accent-amber)',
+        border: '1px solid var(--text-secondary)',
         borderLeftWidth: 3,
         color: 'var(--text-secondary)',
       }}
     >
-      <span className="mr-2" style={{ color: 'var(--accent-amber)' }}>💡</span>
+      <span className="mr-2" style={{ color: 'var(--text-secondary)' }}>💡</span>
       {children}
     </div>
   );
@@ -41,7 +41,7 @@ function FlowChart({ steps }: { steps: { icon: string; label: string; detail: st
       {steps.map((s, i) => (
         <div key={i} className="flex items-start">
           <div
-            className="flex flex-col items-center rounded-[10px] p-4 text-center transition-all duration-[0.2s] hover:-translate-y-0.5"
+            className="flex flex-col items-center rounded-[10px] p-4 text-center transition-colors duration-[0.15s]"
             style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-default)', minWidth: 140, maxWidth: 180 }}
           >
             <span className="text-[28px]">{s.icon}</span>
@@ -50,7 +50,7 @@ function FlowChart({ steps }: { steps: { icon: string; label: string; detail: st
           </div>
           {i < steps.length - 1 && (
             <div className="flex items-center px-2 pt-8 shrink-0">
-              <span className="text-[16px]" style={{ color: 'var(--accent-amber)' }}>→</span>
+              <span className="text-[16px]" style={{ color: 'var(--text-secondary)' }}>→</span>
             </div>
           )}
         </div>
@@ -97,7 +97,7 @@ function Section({ icon, title, subtitle, children }: { icon: string; title: str
 
 function FeatureCard({ title, icon, items }: { title: string; icon: string; items: string[] }) {
   return (
-    <div className="rounded-[10px] p-5 transition-all duration-[0.2s] hover:-translate-y-0.5" style={{ background: 'var(--bg-primary)' }}>
+    <div className="rounded-[10px] p-5 transition-colors duration-[0.15s]" style={{ background: 'var(--bg-primary)' }}>
       <div className="mb-3 flex items-center gap-2">
         <span className="text-[18px]">{icon}</span>
         <h4 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h4>
@@ -135,13 +135,13 @@ export function GuidePage() {
             一款<strong style={{ color: 'var(--text-primary)' }}>离线优先</strong>的个人桌面应用。
             集 <strong style={{ color: 'var(--accent-blue)' }}>Markdown 写作</strong>、
             <strong style={{ color: 'var(--accent-green)' }}>知识库管理</strong>、
-            <strong style={{ color: 'var(--accent-amber)' }}>网页收藏</strong>于一体，
+            <strong style={{ color: 'var(--text-secondary)' }}>网页收藏</strong>于一体，
             数据完全由你掌控，无需网络连接。
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             {[
               ['Electron 41', 'var(--accent-blue)'],
-              ['React 19', 'var(--accent-amber)'],
+              ['React 19', 'var(--text-secondary)'],
               ['TypeScript', 'var(--color-primary)'],
               ['MySQL / SQLite', 'var(--accent-green)'],
               ['离线可用', 'var(--text-secondary)'],
@@ -204,7 +204,7 @@ export function GuidePage() {
 
         {/* Flow 3 */}
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold" style={{ background: 'var(--bg-primary)', color: 'var(--accent-amber)' }}>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold" style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}>
             🖥️ 桌面流
           </div>
           <FlowChart steps={[
@@ -283,7 +283,7 @@ export function GuidePage() {
             {['选择模板', '编辑内容', '添加标签', '设置系列', '预览', '导出'].map((s, i) => (
               <span key={s} className="flex items-center gap-2">
                 <span className="rounded-[6px] px-3 py-1.5 font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>{s}</span>
-                {i < 5 && <span style={{ color: 'var(--accent-amber)' }}>→</span>}
+                {i < 5 && <span style={{ color: 'var(--text-secondary)' }}>→</span>}
               </span>
             ))}
           </div>
@@ -329,7 +329,7 @@ export function GuidePage() {
                 <span className="flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
                   <span>{s.icon}</span> {s.label}
                 </span>
-                {i < 4 && <span style={{ color: 'var(--accent-amber)' }}>→</span>}
+                {i < 4 && <span style={{ color: 'var(--text-secondary)' }}>→</span>}
               </span>
             ))}
           </div>
@@ -348,7 +348,7 @@ export function GuidePage() {
         <div className="grid gap-4 md:grid-cols-2 mb-5">
           {[
             { icon: '🖱️', title: '系统托盘', badge: '关闭即隐藏', badgeColor: 'var(--accent-green)', items: ['快速便签 · MD 浮窗 · 新建博客', '导入 MD/文件 · 收藏网页', '打开主窗口 · 宠物开关 · 退出'] },
-            { icon: '🐱', title: '桌面宠物', badge: '可拖拽', badgeColor: 'var(--accent-amber)', items: ['悬浮桌面最顶层 · 任意拖拽', '静息态呼吸动画 · 拖拽时表情变化', '点击弹出快捷菜单', '位置自动记忆 · 支持多显示器'] },
+            { icon: '🐱', title: '桌面宠物', badge: '可拖拽', badgeColor: 'var(--text-secondary)', items: ['悬浮桌面最顶层 · 任意拖拽', '静息态呼吸动画 · 拖拽时表情变化', '点击弹出快捷菜单', '位置自动记忆 · 支持多显示器'] },
             { icon: '📋', title: '便签 + 浮窗', badge: undefined, badgeColor: '', items: ['快捷便签 — Enter 保存 · 24h 自动清理', 'MD 浮窗 — Ctrl+Shift+N 独立窗口', '剪贴板一键转入便签', 'Markdown 渲染，编辑/预览切换'] },
             { icon: '📑', title: '博客标签条', badge: '快速切换', badgeColor: 'var(--accent-blue)', items: ['阅读中一键最小化为浮动标签条', '最多同时缩小 5 篇博客', '点击标签即恢复，无缝跳转', '位置记忆 + 标题截断显示'] },
             { icon: '⌨️', title: '全局快捷键', badge: undefined, badgeColor: '', items: ['Ctrl+Shift+N — MD 写作浮窗', 'Ctrl+F — 全局搜索', 'Ctrl+S — 保存当前博客', '? — 快捷键帮助面板', 'Esc — 关闭弹窗/浮窗'] },

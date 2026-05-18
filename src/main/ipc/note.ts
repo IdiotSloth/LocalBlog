@@ -1,5 +1,7 @@
 import { clipboard, ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
+import type { MemoType } from '../../shared/types';
+import { syncWikilinkRefs } from './blog';
 import { NoteService } from '../services/note.service';
 
 let noteRefreshTarget: Electron.WebContents | null = null;
@@ -24,7 +26,7 @@ export function registerNoteHandlers(): void {
 
   ipcMain.handle(IPC.NOTE_CREATE, async (_event, data: {
     userId: number; content: string; source?: string;
-    title?: string; memoType?: 'note' | 'schedule' | 'todo'; dueDate?: string;
+    title?: string; memoType?: MemoType; dueDate?: string;
     noteId?: number; // if provided, update instead of create
   }) => {
     try {
@@ -34,6 +36,8 @@ export function registerNoteHandlers(): void {
           title: data.title, content: data.content,
           memoType: data.memoType, dueDate: data.dueDate,
         });
+        // R219: Sync wikilink refs from updated note content (insert-only, no diff without oldContent)
+        if (data.content) await syncWikilinkRefs('note', note.id, data.content);
         broadcastRefresh();
         return { success: true, data: note };
       }
@@ -41,6 +45,8 @@ export function registerNoteHandlers(): void {
         data.userId, data.content, data.source || 'manual',
         data.title || '', data.memoType || 'note', data.dueDate,
       );
+      // R219: Sync wikilink refs from new note content
+      if (data.content) await syncWikilinkRefs('note', note.id, data.content);
       broadcastRefresh();
       return { success: true, data: note };
     } catch (err) {

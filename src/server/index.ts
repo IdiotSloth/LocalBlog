@@ -13,6 +13,7 @@ import { knowledgeRouter } from './routes/knowledge';
 import { recycleRouter } from './routes/recycle';
 import { scrapeRouter } from './routes/scrape';
 import { searchRouter } from './routes/search';
+import mcpRouter from './routes/mcp';
 import { tagRouter } from './routes/tags';
 import { uploadRouter } from './routes/upload';
 import { workspaceRouter } from './routes/workspace';
@@ -40,6 +41,7 @@ app.use('/api/workspace', workspaceRouter);
 app.use('/api/recycle', recycleRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/scrape', scrapeRouter);
+app.use('/api/mcp', mcpRouter);
 
 // Unified error handler (must be last middleware)
 app.use(errorHandler);
