@@ -94,6 +94,16 @@ export function blogListReducer(state: BlogListState, action: BlogListAction): B
   }
 }
 
+/** T2108: Color label → CSS color mapping (D72: component-level only, no global tokens) */
+const COLOR_MAP: Record<string, string> = {
+  blue: '#3b82f6',
+  green: '#22c55e',
+  amber: '#f59e0b',
+  red: '#ef4444',
+  purple: '#a855f7',
+  gray: '#6b7280',
+};
+
 export function BlogListPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
@@ -163,7 +173,9 @@ export function BlogListPage() {
         excludeSeries: excludeSeries || undefined,
       });
       if (r.success && r.data) {
-        dispatch({ type: 'SET_BLOGS', payload: { blogs: r.data.blogs, total: r.data.total } });
+        // T2108: Pinned blogs first
+        const sorted = [...r.data.blogs].sort((a, b) => (b.isPinned ?? 0) - (a.isPinned ?? 0));
+        dispatch({ type: 'SET_BLOGS', payload: { blogs: sorted, total: r.data.total } });
       }
     } catch (e) {
       console.error(e);
@@ -546,12 +558,18 @@ export function BlogListPage() {
                   />
                 )}
                 {batch.isBatchMode ? (
-                  <span className={'text-[20px] font-semibold ml-8 text-primary'}>{blog.title || '无标题'}</span>
+                  <span className={'text-[20px] font-semibold ml-8 text-primary'}>
+                    {blog.isPinned ? <span className="mr-1.5" title="已置顶">📌</span> : null}
+                    {blog.color ? <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style={{ background: COLOR_MAP[blog.color] }} /> : null}
+                    {blog.title || '无标题'}
+                  </span>
                 ) : (
                   <Link
                     to={`/blog/${blog.id}`}
                     className="text-[20px] font-semibold no-underline hover:underline text-primary"
                   >
+                    {blog.isPinned ? <span className="mr-1.5" title="已置顶">📌</span> : null}
+                    {blog.color ? <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style={{ background: COLOR_MAP[blog.color] }} /> : null}
                     {blog.title || '无标题'}
                   </Link>
                 )}

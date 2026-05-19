@@ -165,34 +165,57 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 ### 目录规则
 - `src/main/` — Node.js + Electron，禁止 React/DOM
 - `src/renderer/` — React + CSS，禁止 Node.js API
+- `src/renderer/components/` — 可复用 UI 组件 (含 CalendarView, MiniGraph, ContextPanel, SplitPane, LocalGraph, QuickSwitcher, EmptyState, Skeleton)
+- `src/renderer/components/editor/` — 编辑器组件 (TiptapEditor, WikilinkSuggestion, SlashCommandPopup, CalloutNode)
+- `src/renderer/components/knowledge/` — 知识库组件 (KbContentEditor, CodePreview)
+- `src/renderer/components/common/` — 通用组件 (EmptyState, Skeleton, ErrorBoundary)
+- `src/renderer/features/` — 页面级组件 (含 HomePage, GraphPage, NotFoundPage, GuidePage)
+- `src/renderer/workers/` — Web Worker (search.worker.ts, embedding.worker.ts)
 - `src/preload/` — contextBridge 暴露 API，禁止业务逻辑
-- `src/shared/` — 类型/常量/channels，禁止运行时逻辑
+- `src/shared/` — 类型/常量/channels/wikilink/template-vars/datetime，禁止运行时逻辑
 - `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 和 Server route 共用。blog/knowledge/folder 已收敛，tag/search 待收敛
 - `src/server/` — Express + MySQL，禁止 Electron API
+- `src/server/routes/mcp.ts` — MCP HTTP 传输 (POST /api/mcp/message)
+- `src/mcp-server/` — MCP stdio CLI 入口 (`npm run mcp`)，独立进程
 
 ### 数据库
 - 所有 DB 调用必须 async: `dbGet<T>()`, `dbAll<T>()`, `dbRun()` — 禁止 deprecated `get()`/`all()`/`run()`
 - 参数化查询: `dbRun('INSERT ... VALUES (?, ?, ?)', [a, b, c])`
 - MySQL 时间格式: `YYYY-MM-DD HH:MM:SS` — **禁止** ISO 8601 (`T`/`Z`)
 - 使用 `nowMySQL()` / `toMySQLDateTime(date?)` from `src/shared/datetime.ts`
-- Schema 变更需同步三处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL) + `db/index.ts`(迁移) + `db-schema-mysql.ts`(MYSQL_MIGRATIONS)
+- Schema 变更需同步四处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL DDL+MIGRATIONS) + `db/index.ts`(ALTER TABLE 迁移) + `migrateSqlJsToMySQL()`(INSERT 列补全)
 - MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数，必须内联到 SQL 字符串
-- **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决（如 T1509a tags.description）
-- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理。已收敛: blog-crud.ts (17) + knowledge-crud.ts (13) + folder-crud.ts (3)。待收敛: tag/search
-- **MySQL FULLTEXT INDEX**: 不算 Schema 变更（D43=A），但列名必须匹配实际表结构
+- **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决
+- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理
+- **MySQL FULLTEXT INDEX**: 不算 Schema 变更（D43=A），但**必须 `WITH PARSER ngram`** — 默认 parser 将连续 CJK 字符当作单个 token，中文搜索完全失效
+- **多步 DML 事务包裹**: 2+ 步 UPDATE/DELETE/INSERT 必须 `BEGIN` → try { ops } → `COMMIT` → catch { `ROLLBACK` }
+- **CJK 搜索降级**: FULLTEXT 返回空 + 查询含中文 → 自动回退 `LIKE '%q%'` (hasCjk() 检测)
 
-### IPC
+### IPC (115+ channels, Phase 21)
 - 通道名仅在 `src/shared/ipc-channels.ts` 定义 — invoke 通道用 `DOMAIN:ACTION`，事件用 `EVT_*` 前缀
 - 响应格式: `{ success: boolean, data?: T, error?: string }`
 - WindowApi 接口在 `src/shared/window-api.ts` — 修改 preload 时必须同步更新
 - 事件 (main→renderer): preload 暴露 `onXxx(cb): () => void` 模式（返回 unsubscribe 函数）
-- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串。pet/mini-window 等内部通道也须全量注册到 ipc-channels.ts (R153)
+- Phase 21 新增 IPC: `graph:getData`, `kb:set-properties`, `blog:set-pinned`, `blog:set-color`, `kb:update-content`, `tag:merge`
+- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串
+- 跨模块 IPC 依赖 (如 note.ts → blog.ts import syncWikilinkRefs): 确保所有 import 已添加，否则 ReferenceError 进程崩溃
+- **新 IPC 5步注册**: channels.ts → window-api.ts → preload/index.ts → main handler → api-client stub。遗漏任一步 = 运行时 undefined
 
 ### 前端
-- 路由: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary
-- CSS: 使用 `var(--token-name)` — 禁止硬编码颜色
+- 路由: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary + `*` 通配 404 页
+- CSS: 使用 `var(--token-name)` — 禁止硬编码颜色。Phase 20 设计系统：3 强调色 (蓝/绿/红)，amber+purple 已移除。D72: amber 仅限 Callout 组件内部，不作为全局 token
+- HashRouter: 所有 `<a href>` 必须用 `#` 前缀 (`#/blog/N`)，否则跳转 404
 - XSS: `dangerouslySetInnerHTML` 必须经 `DOMPurify.sanitize()`
-- a11y: 表单元素需 `placeholder` / `title` / `aria-label`
+- a11y: 表单元素需 `placeholder` / `title` / `aria-label`；图标按钮需 `aria-label`；跳过链接用 button onClick 不用 `<a href="#">`
+- React hooks: **所有 hooks 必须在所有条件返回之前**。`useState`/`useEffect` 放在 `if (loading) return` 之后 → "Rendered more hooks" 崩溃
+- D3 forceSimulation: `sim.stop()` cleanup 防泄漏，`sim.tick()` 冷启动避免无限渲染。异步 `import('d3-force')` 需局部 sim 变量 + svgRef 守卫防竞态
+- ContextPanel: ownership token `{paneId, sessionId}` 二元组 (D84)。window-persisted 存储防 HMR。路由白名单控制可见性
+- [[wikilink]]: 渲染端 renderWikilinks + WikiLinkResolver → 直接链接；编辑端 Tiptap WikilinkSuggestion + searchDirect()；持久端 syncWikilinkRefs 双扫描器
+- SplitPane: 通用分屏容器，`useSplit()` 提供 `openSplit`/`closeSplit`/`activePaneId`。Ctrl+\ 在 BlogEditorPage 切换 MD 预览
+- 阅读主题: 3 套 (暗/亮/暖Sepia)，localStorage 迁移映射 (forest→dark, sakura→light, paper→sepia, midnight→dark)
+- iframe 预览: sandbox 必须含 `allow-scripts`，否则交互式预览 (XLSX/CSV/PDF 搜索) 不工作
+- 搜索 Worker: 共享引用模式 `window.__searchWorker` + `searchDirect()` 导出函数 (D88)
+- CalendarView: `dueDate` 用 `String()` 安全转换再 `.slice()`，防 Date 对象类型错误
 
 ### Server
 - Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权。读操作 (SELECT) 同样需要 user_id 守卫 — KB_GET/KB_PREVIEW 等无 user_id 会导致跨用户数据泄露 (R145)
@@ -275,3 +298,59 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 52. **Tiptap StarterKit 已含 Link/Underline** — 单独再 import 导致 duplicate extension names 警告
 53. **FloatingBlogTabs 需要可见入口** — BlogPreviewPage 缺"最小化"按钮，用户找不到快速博客跳转功能
 54. **CalendarView 全量加载无月份过滤** — 需全 IPC 链加 dueDateFrom/dueDateTo 参数，CalendarView 传当月首尾日期 (R164)
+55. **MySQL strict mode 禁止 TEXT DEFAULT** — `TEXT DEFAULT '{}'` 在 MySQL 8.3 strict mode 下报错，导致 MySQL 初始化失败回退 sql.js 旧库 (Phase 20)。MySQL DDL 中 TEXT 列不加 DEFAULT，应用层处理 NULL
+56. **syncWikilinkRefs 必须双扫描器** — WikilinkSuggestion 插入 `<a class="wiki-link">` HTML tag，手动输入为 `[[...]]` 纯文本。turndown 将 HTML tag 转为 `[text](url)` 丢失 data 属性 → 需自定义 turndown rule 保留 `[[Title]]` 语法 + syncWikilinkRefs 同时调用 extractWikilinkRefs(HTML tag) 和 extractWikilinkTitles(纯文本)
+57. **extractWikilinkRefs 为死代码** — 若只扫 `[[...]]` 纯文本，WikilinkSuggestion 插入的 `<a>` tag 永远匹配不到。双扫描器必须同时存在：HTML tag 扫描 + 纯文本扫描
+58. **resolveTitles 的 sourceId 不可硬编码** — 之前硬编码 `sourceId: 0` 导致所有 wikilink ref 指向 ID=0。必须从 syncWikilinkRefs 参数传入实际 sourceId
+59. **resolveTitles 用 IN(...) 批量查询** — 入参 titles 数量不可控时存在 SQL 注入风险。titles 来自 `[[...]]` 用户输入，必须参数化：`WHERE title IN (${titles.map(() => '?').join(',')})`
+60. **IPC handler 跨模块 import 需检查依赖** — note.ts/knowledge.ts import syncWikilinkRefs from blog.ts → 缺少的 import（如 dbGet）会导致 ReferenceError 进程崩溃。新增跨模块依赖时检查所有 import 是否已添加
+61. **ContextPanel ownership token 防跨页面 Tab 泄漏** — 页面 A 注册 Tab → 导航到 B → A 的 cleanup 可能在 B 注册后执行 → sessionId 所有权 token 确保旧 cleanup 不覆盖新注册 (R186)
+62. **HashRouter 下 `<a href="#xxx">` 被当路由** — HashRouter 拦截所有 hash 变化。锚点跳转必须用 `onClick` + `scrollIntoView` / `focus()`，不能用 `href="#"`
+63. **路由必须加 `*` 通配 404 页** — 无 catch-all 路由时，输错 URL 后页面卡死，用户只能大退。必须加 `path: '*'` 通配 + 返回首页按钮
+64. **SQLite CHECK 移除需表重建** — SQLite 无 `ALTER TABLE DROP CHECK`。refs/notes 表 CHECK 约束移除需 `CREATE TABLE new → INSERT SELECT → DROP → RENAME`。需做幂等守卫：检查 new 表是否已有数据 (R170/R171)
+65. **turndown 自定义规则保留 wikilink** — `turndown.addRule('wikilink', { filter: '.wiki-link', replacement: () => '[[${title}]]' })`。不添加则 `<a class="wiki-link">` → `[text](url)` 丢失全部 data-ref 属性
+66. **D3 forceSimulation 需 stop() 防泄漏** — `sim.stop()` 在 useEffect cleanup 中调用。用 `sim.tick(120)` 冷启动代替 `sim.on('tick')` 避免无限渲染循环
+67. **webApi onXxx stub 返回 unsubscribe 函数** — 事件 stub 必须是 `() => () => {}`（返回空 unsubscribe），不能用 `undefined`。否则 `const unsub = window.api.onXxx(cb); unsub()` 报错
+68. **ContextPanel 路由白名单** — 非博客/知识库/图谱页面不显示右侧面板。`isPanelEnabled(pathname)` 检查白名单，MainLayout 退化为 2 栏 (R195)
+69. **IntersectionObserver ref callback 清理** — React ref callback 不自动调用返回的 cleanup 函数。必须用 useEffect + useRef 模式
+70. **设计 Token 批量替换** — 5 色→3 色系统，`--accent-amber`→`--text-secondary`、`--accent-purple`→`--accent-blue`。约 30 处引用需全局替换。保留别名直至全部替换完成再删除
+71. **LIMIT 必须配 ORDER BY** — `LIMIT` 无 `ORDER BY` 返回不确定行。所有 `LIMIT ?` 查询必须加 `ORDER BY updated_at DESC` 或 `ORDER BY id DESC` (R207b)
+72. **Card 设计** — Phase 20 统一 card 样式：8px 圆角、无阴影、hover 仅边框变色、移除 translateY/shadow 效果。`.card` CSS 类统一应用
+
+### Phase 21: Editor Evolution + Search + Knowledge Connections (Phase 21)
+
+73. **MySQL FULLTEXT 必须用 ngram parser** — 默认 parser 将连续 CJK 字符当作单个 token。"面试通关手册"被索引为一个词，"面试"永远搜不到。必须 `ALTER TABLE ... ADD FULLTEXT INDEX ... WITH PARSER ngram`。同时加 CJK 检查：FULLTEXT 返回空 + 查询含中文 → 自动回退 LIKE `%q%`，确保迁移未执行时也能搜到。
+
+74. **React hooks 必须在所有条件返回之前** — `useState`/`useEffect` 放在 `if (loading) return` / `if (!blog) return` / `if (isEditMode) return` 之后 → hooks 数量变化 → "Rendered more hooks than during the previous render" 崩溃。所有 hooks 必须集中在组件顶部，在任何 early return 之前。
+
+75. **HashRouter 下所有 `<a href>` 必须加 `#` 前缀** — `href="/blog/123"` → HashRouter 不识别 → 文件协议直接导航 → 404。必须 `href="#/blog/123"`。renderWikilinks() 和 TiptapEditor wikilink 插入都需要 `#/` 前缀。
+
+76. **模块级状态在 HMR 时丢失** — `let panelSubscribers` / `const paneStates` 等模块级变量在 Vite HMR 时重置。改为 `window.__lbkb_context_panel__` 持久化存储，getStore() 包装器统一访问。
+
+77. **renderWikilinks 必须传 resolver 才能跳转** — 不传 `WikiLinkResolver` 时，`[[title]]` 渲染为搜索链接 `/blog?q=title`。BlogPreviewPage 加载 refs → 构建 `Map<title, {type, id}>` → 传给 renderWikilinks → 直接链接 `#/blog/N`。
+
+78. **`dueDate` 可能不是 string** — CalendarView 中 `s.dueDate.slice(0, 10)` 假设 dueDate 是字符串，但可能为 Date 对象或 null。改为 `String(s.dueDate).slice(0, 10)` 安全类型转换。
+
+79. **iframe sandbox 缺少 allow-scripts** — `sandbox="allow-same-origin"` 阻止 JavaScript 执行。增强后的 XLSX/CSV/PDF 预览需要 JS (排序/过滤/搜索)。必须加 `allow-scripts`。
+
+80. **多步 DML 操作必须包裹事务** — TAG_MERGE 5 步 UPDATE/DELETE 无 BEGIN/COMMIT → 进程崩溃 = 数据半一致。正确模式：`dbRun('BEGIN')` → try { 操作 } → `dbRun('COMMIT')` → catch { `dbRun('ROLLBACK')` }。
+
+81. **所有 HTML 模板注入点必须转义** — PDF 导出 bodyHtml、PDF 预览提取文本、DOCX mammoth 输出 — 任何用户/文件内容注入 HTML 模板时必须：HTML 格式剥离 `<script>` 和 `on*` handler、文本内容 HTML-escape（`escHtml()`）、mammoth 输出剥离 script/事件/iframe。即使单用户桌面应用也要防御性转义 (R276/R277/R279)。
+
+82. **searchDirect() 共享 Worker 搜索** — use-search.ts 导出 `searchDirect(query, userId)` 函数，供 ReferencePicker 和 WikilinkSuggestion 调用。Worker 通过 `window.__searchWorker` 全局引用。MySQL 模式用 `searchQuery` IPC，sql.js 模式 postMessage 到共享 Worker (D88)。
+
+83. **Worker 单例引用模式** — `useSearch` hook 将 Worker 存储到 `(window as any).__searchWorker`。其他组件（ReferencePicker、WikilinkSuggestion）通过 searchDirect() 间接使用，无需各自创建 Worker。指标：D88 统一引用搜索后端，消除 SQL LIKE 分裂。
+
+84. **D86 双重路径校验** — `kb:updateContent` 写文件前：(1) DB 查 file_path + user_id 所有权，(2) `path.resolve(workspace, filePath)` + `fs.realpathSync(workspace)` + `startsWith` 防符号链接穿越。纵深防御，两关任一失败则拒绝。
+
+85. **D84 ContextPanel 焦点所有权** — `{ paneId, sessionId }` 二元组替代旧 `{ sessionId }` 单值。SplitPane 提供 `activePaneId`，ContextPanel 按焦点 Pane 切换 Tab 显示。registerTabs 捕获 `ownerPaneId`，cleanup 检查 `getStore().currentPaneId === ownerPaneId`。
+
+86. **CalloutNode Tiptap 扩展模式** — 自定义 Node：`parseHTML({ tag: 'div[data-callout-type]' })` + `renderHTML({ attrs })` + `addCommands({ setCallout, unsetCallout })`。确保编辑器中 round-trip 保真 (T2107)。D72：amber 仅限 Callout 组件级使用，不作为全局 token。
+
+87. **WikiLinkResolver Map 模式** — `Map<string, { type: string; id: number }>` — 键为 `[[title]]` 中的标题，值为 type+id 用于构建直接链接。BlogPreviewPage 从 refGetFrom + refGetTo 的数据构建此 Map。
+
+88. **IndexedDB 批量写入** — embedding.worker.ts 每向量一次 `saveToDB` → 改为 `saveBatchToDB(rows[])`，单事务批量写入。embedding 向量数 = 文档数，逐条写入导致 ~N 次 IndexedDB 事务。
+
+89. **D72 amber 组件级例外** — Callout warning 类型可用 `#f59e0b` / `rgba(245,158,11,0.08)`，但仅在 `.callout-warning` CSS 中，不作为 `--accent-amber` 全局 token。Callout info/success/danger 用 `--accent-blue/green/red`。
+
+90. **escHtml() 必须覆盖单引号** — `s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')` — 五字符全转义。单引号在 HTML 属性值中会提前闭合 value='...'。

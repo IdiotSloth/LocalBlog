@@ -54,7 +54,10 @@ export default defineConfig({
       },
     },
     optimizeDeps: {
-      include: ['d3-force'],
+      include: ['d3-force', '@xenova/transformers'],
+    },
+    worker: {
+      format: 'es',
     },
   },
 });

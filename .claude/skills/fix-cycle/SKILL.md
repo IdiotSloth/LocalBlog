@@ -1,6 +1,6 @@
 ---
 name: fix-cycle
-description: Developer (码农) fix cycle for the Local Blog KB project. Use when processing Auditor findings from redo.md, implementing tasks from todo.md, or responding to audit reports. Triggers on: "fix redo", "fix the bugs", "process redo items", "开始修 bug", "继续修复", "开始 phase N", audit result responses, or any instruction to address redo.md/todo.md issues.
+description: Developer (码农) fix cycle for the Local Blog KB project. Use when processing Auditor findings from redo.md, implementing tasks from todo.md, or responding to audit reports. Triggers on: "fix redo", "fix the bugs", "process redo items", "开始修 bug", "继续修复", "开始 phase N", "修复 Rxxx", audit result responses, search/semantic/embedding/index fixes, HTML escaping fixes, transaction wrapping, or any instruction to address redo.md/todo.md issues.
 ---
 
 # Fix Cycle — Developer Workflow
@@ -85,6 +85,14 @@ Checklist:
 - [ ] useReducer converged: no bare variable names left, no setter functions left, all hook imports correct
 - [ ] Tiptap: no duplicate imports (StarterKit includes Link + Underline)
 - [ ] FloatingBlogTabs: BlogPreviewPage has "minimize" entry button
+- [ ] **Phase 21: All search entry points use same backend** — searchDirect() Worker, not SQL LIKE (R225/D88)
+- [ ] **Phase 21: Function bodies are NOT comment-only** — every async function that should postMessage/dispatch must have actual implementation, not just `// handled in caller` (R229)
+- [ ] **Phase 21: All HTML template literal interpolations are escaped** — PDF/DOCX/XLSX/CSV preview paths each verified (R276/R277/R279/R273)
+- [ ] **Phase 21: Hybrid scores are normalized before weighting** — keyword scores divided by max before mixing with cosine [0,1] (R239)
+- [ ] **Phase 21: Function signature changes grep all callers** — when adding a parameter, verify every caller across all files passes the new argument (R251)
+- [ ] **Phase 21: Module-level state uses React context/useRef** — no `let`/`const` module-scope state in .tsx files (HMR risk, R231)
+- [ ] **Phase 21: Dynamic import .then() has unmount guard** — `if (!ref.current) return` before any DOM/simulation/state side effects (R233)
+- [ ] **Phase 21: Multi-step DML wrapped in BEGIN/COMMIT/ROLLBACK** — TAG_MERGE, batch operations, any function with ≥2 DML statements (R278)
 
 Write findings to redo.md as a "Developer 自纠自查" section.
 
@@ -260,4 +268,146 @@ Output a summary table:
 - BlogPreviewPage must have a visible "最小化" button calling `addTab()` 
 - Without it, users can't discover the blog quick-switch feature
 
-For detailed constraints (DB patterns, IPC format, datetime handling, CSS tokens), read `references/constraints.md`.
+### Phase 20: Information Architecture Upgrade (18/18 ✅)
+
+### Design System
+- **3-Color palette**: blue (links/active), green (success), red (danger). Amber + purple removed (T2001/T2017).
+- **Card style**: 8px radius, no shadow, hover only changes border-color. No translateY/shadow effects (T2017).
+- **Animations**: 150ms color transitions only. No keyframe effects (fadeUp/edge-breathe removed).
+- **Reading themes**: 3 (dark/light/sepia). 5→3 migration: forest→dark, sakura→light, paper→sepia, midnight→dark (D59).
+- **Lucide icons**: Replaced emoji in sidebar (StickyNote/FileEdit/Library/Tags/Pencil/LayoutDashboard/Layers/Trash2/HelpCircle/Settings).
+
+### 3-Column Layout
+- **Sidebar**: Fixed 220px, manual toggle → 48px. Ctrl+B shortcut. aria-expanded + aria-label (D46/R193).
+- **ContextPanel**: Right 280px panel. Route whitelist (/blog/:id, /knowledge, /graph). Ownership token (sessionId) prevents cross-page tab leaks (R186). Responsive: hides < 1200px (R200).
+- **HomePage**: Merged Dashboard + ContinueWriting → "今日中枢" at `/`. Hero + stats + calendar + daily note + todos + mini graph + drafts + recent (D53/D61).
+
+### Wikilink System
+- **Rendering**: `md.render → renderWikilinks([[regex]] with code-block protection) → DOMPurify → dangerouslySetInnerHTML` (R174).
+- **Editing**: Tiptap WikilinkSuggestion on `[[` trigger, searches blogs/knowledge/notes, inserts `<a class="wiki-link">`.
+- **Persistence**: `syncWikilinkRefs` dual scanner (extractWikilinkRefs for HTML tags + extractWikilinkTitles for [[text]]). Turndown custom rule preserves `[[Title]]` syntax.
+- **Ref sync**: blog:create/update/quickCreate → syncWikilinkRefs. note:create/update → syncWikilinkRefs. knowledge:import → syncWikilinkRefs (R219).
+- **Transaction**: BEGIN/COMMIT/ROLLBACK wrapping (R207).
+
+### Knowledge Graph
+- **D3 forceSimulation** (D49): `forceLink` + `forceManyBody` + `forceCenter` + `forceCollide`. `sim.tick()` cold start, `sim.stop()` cleanup.
+- **graph:getData IPC**: Aggregates blogs + knowledge + notes + tags + refs. All queries user_id filtered (R181). 7 ORDER BY for all LIMIT queries (R207b).
+
+### MCP Server
+- **HTTP**: Express route `POST /api/mcp/message` on port 3456. JWT Cookie auth. 7 tools (search/list_blogs/list_knowledge/list_notes/list_tags/get_stats/get_refs).
+- **stdio**: `src/mcp-server/index.ts` standalone CLI. `npm run mcp` script.
+
+### Toolchain & Build
+- **d3-force**: Dependency for force-directed graph. Ensure `npm install` before dev. Clear `.vite` cache after adding new deps.
+- **mysql strict mode**: TEXT columns cannot have DEFAULT. Always omit DEFAULT for MySQL TEXT columns.
+
+### Updated Self-Audit Checklist
+- [ ] Design tokens: no `--accent-amber`/`--accent-purple` in new code (3-color system)
+- [ ] Card styles: no shadow/translateY on hover
+- [ ] Wikilink sync: dual scanner used (HTML tag + [[text]])
+- [ ] ContextPanel: ownership token + route whitelist
+- [ ] Rediscoverable routes: `*` catch-all 404 page present
+- [ ] Skip-to-content link: uses button onClick, not `<a href="#">` (HashRouter compatible)
+- [ ] D3 simulation: sim.stop() in useEffect cleanup
+- [ ] MySQL DDL: no `TEXT DEFAULT '...'` (strict mode incompatible)
+- [ ] New IPC: graph:getData / kb:set-properties use IPC.* constants
+- [ ] Refresh events: graph/MiniGraph listen to onBlogRefresh/onKbRefresh
+- [ ] CSS token: replaced `--accent-amber` → `--text-secondary`, `--accent-purple` → `--accent-blue`
+
+### Updated Key Files
+- `src/shared/wikilink.ts` — wikilink rendering + extraction utilities
+- `src/shared/types.ts` — MemoType, RefType, WikiLinkSearchResult, GraphNode/Edge/Data/Filter
+- `src/renderer/components/editor/WikilinkSuggestion.tsx` — [[ autocomplete popup
+- `src/renderer/components/layout/ContextPanel.tsx` — context panel + ownership token + route whitelist
+- `src/renderer/components/editor/TiptapEditor.tsx` — wikilink detection + suggestion integration
+- `src/renderer/components/common/MiniGraph.tsx` — D3 force mini graph
+- `src/renderer/components/CalendarView.tsx` — moved from features/dashboard/
+- `src/renderer/features/dashboard/HomePage.tsx` — merged dashboard + continue writing
+- `src/renderer/features/graph/GraphPage.tsx` — full graph page with drag/zoom/filter
+- `src/renderer/features/misc/NotFoundPage.tsx` — 404 recovery page
+- `src/main/ipc/blog.ts` — syncWikilinkRefs (exported) + dual scanner + transaction + batch ref cleanup
+- `src/main/ipc/graph.ts` — graph:getData with ORDER BY + user_id filtering
+- `src/main/ipc/note.ts` — wikilink ref sync on create/update
+- `src/main/ipc/knowledge.ts` — wikilink ref sync on import + kb:set-properties
+- `src/server/routes/mcp.ts` — MCP HTTP tools
+- `src/mcp-server/index.ts` — MCP stdio CLI
+- `src/shared/db-schema-mysql.ts` — properties TEXT (no DEFAULT for MySQL strict mode)
+- `electron.vite.config.ts` — optimizeDeps: { include: ['d3-force'] }
+
+### Phase 21: Editor Evolution + Search + Knowledge Graph + KB Editing
+
+### Search & CJK
+- **MySQL FULLTEXT ngram**: ALL FULLTEXT INDEX must use `WITH PARSER ngram`. Without it, CJK text is treated as single token — "面试通关手册" indexed as one token, "面试" never matches.
+- **CJK fallback**: `hasCjk(query)` check — if FULLTEXT returns empty AND query has CJK chars, automatically fall back to LIKE `%q%`. Covers pre-migration databases.
+- **Three-layer tokenizer**: Unigram (single char, weight 0.25) + Bigram (2-char pairs, weight 0.5) + Word (Intl.Segmenter, weight 1.0). LS key `lbkb_fts_index_v3`.
+- **searchDirect()**: Exported from use-search.ts for ReferencePicker/WikilinkSuggestion. Worker shared via `window.__searchWorker`. D88 unified ref search.
+- **Hybrid scoring**: 0.6×vector + 0.4×keyword. Keyword scores normalized to [0,1] before merge.
+- **Embedding worker**: `embedding.worker.ts` — multilingual-e5-small (384-dim), IndexedDB vector cache, batch writes.
+
+### React Patterns
+- **Hooks before returns**: ALL `useState`/`useEffect` must come before ANY `if (x) return` conditional. Hook count mismatch = crash.
+- **HMR-safe state**: Module-level state must use `window.__key` persistence to survive Vite HMR. `getStore()` wrapper pattern.
+- **HashRouter href**: Every `<a href>` needs `#` prefix. `renderWikilinks()`, TiptapEditor wikilink insertion, all use `#/blog/N`.
+- **WikiLinkResolver**: `Map<string, {type, id}>` built from `refGetFrom` + `refGetTo`. Passed to `renderWikilinks(html, resolver)` for direct links instead of search links.
+
+### Layout & UI
+- **SplitPane**: Generic two-pane container with `useSplit()` context. `openSplit(content)` / `closeSplit()` / `activePaneId`. Ctrl+\ toggles MD preview in BlogEditorPage.
+- **D84 ContextPanel ownership**: `{ paneId, sessionId }` tuple. `getStore().paneStates` per-pane tab storage. `activePaneId` drives which pane's tabs are shown.
+- **CalendarView**: `String(dueDate).slice(0,10)` for type-safe date key. Blue count badges on days with schedules.
+- **iframe sandbox**: `allow-same-origin allow-scripts` required for interactive previews (XLSX sort/filter, PDF search).
+
+### Security
+- **D86 path safety**: `path.resolve(workspace, filePath)` + `fs.realpathSync(workspace)` + `startsWith` — dual guard for kb:updateContent.
+- **escHtml() 5-char**: `& <> "'` all escaped. Used in all HTML template injection points.
+- **HTML sanitization**: Strip `<script>`, `on*` handlers, `<iframe>` before injecting user/source content into HTML templates (PDF export, DOCX preview).
+- **Transaction wrapping**: Multi-step DML must use BEGIN/COMMIT/ROLLBACK (TAG_MERGE).
+
+### New Components
+- `CalloutNode.tsx` — Tiptap Node extension with parseHTML/renderHTML
+- `QuickSwitcher.tsx` — Ctrl+O title search for instant navigation
+- `MetadataPanel.tsx` — blog metadata editor (cover/icon/series/format)
+- `Skeleton.tsx` — TextSkeleton/CardSkeleton/ListSkeleton
+- `CodePreview.tsx` — shiki syntax highlighting + line numbers
+- `LocalGraph.tsx` — D3 1-degree neighbor graph for ContextPanel
+- `KbContentEditor.tsx` — TXT/MD editing with kb:updateContent
+
+### Updated Self-Audit Checklist
+- [ ] MySQL FULLTEXT INDEX: all use `WITH PARSER ngram`
+- [ ] CJK search: hasCjk() fallback to LIKE when FULLTEXT empty
+- [ ] React hooks: all useState/useEffect before any conditional return
+- [ ] `<a href>`: all have `#` prefix for HashRouter
+- [ ] Module-level state: HMR-safe via window persistence
+- [ ] renderWikilinks: resolver Map passed when refs available
+- [ ] iframe sandbox: includes `allow-scripts`
+- [ ] Multi-step DML: BEGIN/COMMIT/ROLLBACK wrapped
+- [ ] HTML injection: all points escHtml() or script/event stripped
+- [ ] kb:updateContent: D86 dual-guard path check
+- [ ] dueDate: String() wrapped before .slice()
+- [ ] D3: simLocal + svgRef guard for async import cleanup
+- [ ] IndexedDB: batch writes (not per-entry)
+- [ ] wikilink href: `#/` prefix in both TiptapEditor and renderWikilinks
+- [ ] searchDirect() export: used by ReferencePicker + WikilinkSuggestion
+
+### Updated Key Files
+- `src/shared/wikilink.ts` — renderWikilinks with resolver param + WikiLinkResolver type
+- `src/shared/template-vars.ts` — expandTemplateVars() for {{date}} etc.
+- `src/renderer/workers/embedding.worker.ts` — semantic search ONNX inference
+- `src/renderer/components/layout/SplitPane.tsx` — generic split pane + SplitContext
+- `src/renderer/components/layout/QuickSwitcher.tsx` — Ctrl+O quick jump
+- `src/renderer/components/editor/SlashCommand.tsx` — 17 slash commands + CalloutNode
+- `src/renderer/components/editor/CalloutNode.tsx` — Tiptap Node extension
+- `src/renderer/components/knowledge/KbContentEditor.tsx` — TXT/MD/Code preview+edit
+- `src/renderer/components/knowledge/CodePreview.tsx` — shiki syntax highlighting
+- `src/renderer/components/common/LocalGraph.tsx` — 1-degree graph for ContextPanel
+- `src/renderer/components/common/Skeleton.tsx` — loading placeholders
+- `src/renderer/components/common/EmptyState.tsx` — warm empty states
+- `src/renderer/components/blog/MetadataPanel.tsx` — blog metadata editor
+- `src/renderer/features/guide/GuidePage.tsx` — rewritten (Lucide, no emoji, Phase 20-21 content)
+- `src/main/services/search.service.ts` — CJK fallback + hasCjk() + ngram migration
+- `src/main/ipc/graph.ts` — getLocalGraph() for scope=local mode
+- `src/main/ipc/tags.ts` — TAG_MERGE with transaction wrapping
+- `src/shared/db-schema-mysql.ts` — FULLTEXT ngram rebuild migration
+- `src/server/routes/clip.ts` — browser clipper endpoint + timeout/size limits
+- `chrome-extension/` — 4-file Manifest V3 extension
+
+For detailed constraints, read `references/constraints.md`.

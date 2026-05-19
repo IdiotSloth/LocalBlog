@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 280" width="720" height="280">
+  <rect width="720" height="280" fill="#0d1117"/>
+
+  <text x="360" y="32" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="20" font-weight="700" fill="#c9d1d9">三条核心工作流</text>
+  <text x="360" y="54" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="12" fill="#8b949e">覆盖从输入到输出的完整闭环</text>
+
+  <!-- Card 1: Writing Flow (Blue) -->
+  <g transform="translate(20, 75)">
+    <rect width="215" height="170" fill="#161b22"/>
+    <rect width="3" height="170" fill="#58a6ff"/>
+    <text x="110" y="28" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="15" font-weight="700" fill="#58a6ff">写作流</text>
+    <text x="110" y="55" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">灵感捕获</text>
+    <text x="110" y="72" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="90" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">Markdown 编辑</text>
+    <text x="110" y="107" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="125" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">标签 / 系列整理</text>
+    <text x="110" y="142" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="160" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">导出分享</text>
+  </g>
+
+  <!-- Card 2: Knowledge Flow (Green) -->
+  <g transform="translate(252, 75)">
+    <rect width="215" height="170" fill="#161b22"/>
+    <rect width="3" height="170" fill="#3fb950"/>
+    <text x="110" y="28" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="15" font-weight="700" fill="#3fb950">知识流</text>
+    <text x="110" y="55" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">拖放导入</text>
+    <text x="110" y="72" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="90" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">文件夹 / 标签组织</text>
+    <text x="110" y="107" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="125" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">多格式预览</text>
+    <text x="110" y="142" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="160" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">全文检索</text>
+  </g>
+
+  <!-- Card 3: Desktop Flow (Gray) -->
+  <g transform="translate(485, 75)">
+    <rect width="215" height="170" fill="#161b22"/>
+    <rect width="3" height="170" fill="#8b949e"/>
+    <text x="110" y="28" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="15" font-weight="700" fill="#8b949e">桌面流</text>
+    <text x="110" y="55" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">托盘常驻</text>
+    <text x="110" y="72" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="90" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">桌面宠物</text>
+    <text x="110" y="107" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="125" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">全局快捷键</text>
+    <text x="110" y="142" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">→</text>
+    <text x="110" y="160" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#c9d1d9">剪贴板快存</text>
+  </g>
+
+  <text x="360" y="268" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#484f58">覆盖从输入到输出的完整闭环</text>
+</svg>

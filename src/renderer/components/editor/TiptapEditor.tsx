@@ -1,11 +1,19 @@
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Table } from '@tiptap/extension-table';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { TaskList } from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WikiLinkSearchResult } from '../../../shared/types';
+import { CalloutNode } from './CalloutNode';
 import { EditorToolbar } from './EditorToolbar';
+import { SlashCommandPopup, type SlashCommandDef } from './SlashCommand';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 
 export type EditorMode = 'wysiwyg' | 'split' | 'source';
@@ -27,6 +35,11 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
   const [wlPos, setWlPos] = useState<{ x: number; y: number } | null>(null);
   const wlFromRef = useRef<number>(0);
 
+  // T2102: Slash command state
+  const [scQuery, setScQuery] = useState<string>('');
+  const [scPos, setScPos] = useState<{ x: number; y: number } | null>(null);
+  const scFromRef = useRef<number>(0);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -35,6 +48,13 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
       }),
       Placeholder.configure({ placeholder }),
       Image.configure({ allowBase64: true, inline: true }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      CalloutNode,
     ],
     content,
     editable: !readOnly,
@@ -51,18 +71,35 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
       // Get text from start of current block to cursor
       const blockStart = $from.start();
       const textBefore = editor.state.doc.textBetween(blockStart, from, '\n', '\0');
-      const match = textBefore.match(/\[\[([^\[\]]*)$/);
-      if (match) {
-        const query = match[1] ?? '';
+      const wlMatch = textBefore.match(/\[\[([^\[\]]*)$/);
+      if (wlMatch) {
+        const query = wlMatch[1] ?? '';
         wlFromRef.current = from - query.length;
         setWlQuery(query);
         try {
           const coords = editor.view.coordsAtPos(from);
           setWlPos({ x: coords.left, y: coords.bottom });
         } catch { /* cursor offscreen */ }
+        setScQuery('');
+        setScPos(null);
       } else {
         setWlQuery('');
         setWlPos(null);
+
+        // T2102: Detect / for slash commands (only at line start, not inside [[)
+        const scMatch = textBefore.match(/^\/([\w一-鿿]*)$/);
+        if (scMatch) {
+          const query = scMatch[1] ?? '';
+          scFromRef.current = from - query.length;
+          setScQuery(query);
+          try {
+            const coords = editor.view.coordsAtPos(from);
+            setScPos({ x: coords.left, y: coords.bottom });
+          } catch { /* cursor offscreen */ }
+        } else {
+          setScQuery('');
+          setScPos(null);
+        }
       }
     },
     editorProps: {
@@ -122,7 +159,7 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
       const from = wlFromRef.current;
       const to = editor.state.selection.from;
       const display = item.title;
-      const tag = `<a class="wiki-link" data-ref-type="${item.type}" data-ref-id="${item.id}" href="/${item.type}/${item.id}">${display}</a>`;
+      const tag = `<a class="wiki-link" data-ref-type="${item.type}" data-ref-id="${item.id}" href="#/${item.type}/${item.id}">${display}</a>`;
       isSettingRef.current = true;
       editor
         .chain()
@@ -140,6 +177,28 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
   const handleWlClose = useCallback(() => {
     setWlQuery('');
     setWlPos(null);
+  }, []);
+
+  // T2102: Slash command handlers
+  const handleScSelect = useCallback(
+    (cmd: SlashCommandDef) => {
+      if (!editor) return;
+      const from = scFromRef.current;
+      const to = editor.state.selection.from;
+      isSettingRef.current = true;
+      // Delete the /query text (including the '/')
+      editor.chain().focus().deleteRange({ from: from - 1, to }).run();
+      isSettingRef.current = false;
+      cmd.execute(editor);
+      setScQuery('');
+      setScPos(null);
+    },
+    [editor],
+  );
+
+  const handleScClose = useCallback(() => {
+    setScQuery('');
+    setScPos(null);
   }, []);
 
   if (!editor) {
@@ -178,6 +237,10 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
       {/* R197: [[wikilink]] autocomplete popup */}
       {wlQuery !== '' && wlPos && (
         <WikilinkSuggestion query={wlQuery} position={wlPos} onSelect={handleWlSelect} onClose={handleWlClose} />
+      )}
+      {/* T2102: Slash command popup */}
+      {scPos && (
+        <SlashCommandPopup query={scQuery} position={scPos} onSelect={handleScSelect} onClose={handleScClose} />
       )}
     </div>
   );

@@ -37,7 +37,7 @@ export function registerNoteHandlers(): void {
           memoType: data.memoType, dueDate: data.dueDate,
         });
         // R219: Sync wikilink refs from updated note content (insert-only, no diff without oldContent)
-        if (data.content) await syncWikilinkRefs('note', note.id, data.content);
+        if (data.content) await syncWikilinkRefs('note', note.id, data.content, data.userId);
         broadcastRefresh();
         return { success: true, data: note };
       }
@@ -46,7 +46,7 @@ export function registerNoteHandlers(): void {
         data.title || '', data.memoType || 'note', data.dueDate,
       );
       // R219: Sync wikilink refs from new note content
-      if (data.content) await syncWikilinkRefs('note', note.id, data.content);
+      if (data.content) await syncWikilinkRefs('note', note.id, data.content, data.userId);
       broadcastRefresh();
       return { success: true, data: note };
     } catch (err) {

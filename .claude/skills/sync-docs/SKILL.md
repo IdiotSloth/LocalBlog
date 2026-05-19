@@ -46,6 +46,8 @@ Verify these claims with a quick check:
 | `suggest.md` existence | Should NOT exist after Boss processes proposals |
 | `.gitignore` covers dist2/ and .claude/worktrees/ | Check these entries exist |
 | `electron-builder.yml` config sanity | `buildResources` not overlapping with app resources; `files` includes `img/**/*`; `asarUnpack` includes `img/**` |
+| `build/icon.png` size sanity | `ls -la build/icon.png` — should be ≥30KB. ~1KB → black/transparent, needs regeneration |
+| README features table vs actual modules | New modules (MCP Server, WikilinkSuggestion, ContextPanel, GraphPage, HomePage) should appear in feature table |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
 

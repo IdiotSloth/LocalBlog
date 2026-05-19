@@ -1,6 +1,6 @@
 # 本地博客与知识库存储系统 — 待办事项
 
-> 最后更新: 2026-05-18 13:22:17 | 自动同步
+> 最后更新: 2026-05-19 07:21:13 | 自动同步
 
 ---
 
@@ -30,8 +30,9 @@
 | Phase 18 | 工程收官 + 产品收尾 — FTS5/CRUD收敛/错误反馈/测试/UX补缺 | ~22.5h | 2026-05-14 | ✅ |
 | Phase 19 | 质量收敛 + 体验深化 — 测试覆盖/标签面板/自动保存/浏览历史/字数统计/笔记渲染 | ~0h | 2026-05-16 | ✅ |
 | Phase 20 | 信息架构升级 — 3栏布局/[[链接]]/知识图谱/今日中枢/AI接入/设计语言重塑 | ~85h | 2026-05-18 | ✅ |
+| Phase 21 | 编辑器进化 + 信息流动 + 知识连接 + 内容中枢 — 分屏框架/搜索/语义搜索/剪藏/KB编辑/局部图谱 | ~67.3h | 2026-05-19 | ✅ |
 
-**总计**: ~526.5h (Phase 1-20 计划)
+**总计**: ~592.8h (Phase 1-21)
 
 > 已完成 Phase 的详细任务规格见 [docs/phase-archive.md](docs/phase-archive.md)。
 > 关联: [redo.md](redo.md) (修复清单) | [docs/development-guide.md](docs/development-guide.md) (开发参考)
@@ -404,31 +405,358 @@ DashboardPage.tsx + ContinueWritingPage.tsx 删除 (D61). CalendarView.tsx 移�
 
 ---
 
-## 7. 后续改进方向
+## 7. Phase 21 — 编辑器进化 + 信息流动 + 知识连接 + 体验打磨 📋
+
+> 来源: Boss suggest.md (12 提案逐条裁决, 10 纳入 + 2 延后) + Boss 竞品深度分析 (Obsidian 对比 — 8 剩余痛点中 5 个解纳入 Phase 21)
+> 核心命题: Phase 20 建好了"知识中枢"的骨架, Phase 21 让它**真正活起来** — 编辑器变创作利器, 信息从外部流入, 知识之间长出连接, 体验达到可分发品质
+> 设计原则: 优先做"每次打开都会用到"的功能, 砍掉"做完可能没人用"的
+> 竞品驱动: Obsidian 对比后识别 8 个剩余痛点 — 分屏框架/快速切换/局部图谱 进入 Phase 21; 标签页/Bookmarks/数据主权 进入 Phase 22
+
+### 纳入提案分析
+
+**T2101 — 聚焦模式 + 通用分屏框架 + MD 分屏预览 ✅ 纳入 (9.5h, P1)**
+
+纳入理由:
+- 聚焦模式 ~2h, CSS dimming + Tiptap FocusMode Extension, 所有写长文的用户都会用
+- MD 分屏预览 ~3h, 解决 md 格式用户"写完要看效果必须切页"的核心痛点
+- Bear/iA Writer/Obsidian 标配功能
+- 不采纳: 同步滚动 → 两侧独立滚动即可
+
+**Phase 21 追加 — 通用 SplitPane 组件 (+2h)**:
+- 根因: 当前主内容区是单路由模型, 用户写作+参考时被迫反复切换上下文。这是"空间复用 vs 时间复用"的问题——分屏是空间复用（同时看两样）, 标签页是时间复用（快速切换）。空间复用对写作流更重要
+- 方案: T2101 的 MD 分屏不硬编码"编辑+预览", 而是构建通用 `<SplitPane>` 容器:
+  - 两个 pane 插槽 `{children}`, 竖分割线 1px `--color-border`, drag 调整比例 (默认 50:50)
+  - 响应式: 宽度 <900px 自动堆叠为上下布局
+  - MD 分屏是第一个 use case, 配合 Ctrl+\\ 快捷键切换
+  - 预览页可打开"右侧参考 pane" — 博客 A 在左 + 博客 B 在右
+- 架构价值: 这是标签页系统 (Phase 22) 的前置条件。SplitPane 提供了容纳多内容的容器, Tabs 只需在此基础上加 TabBar
+- 设计语言: 分割线极简 — hover 出现 2px accent-blue 竖线手柄。两个 pane 各自独立滚动。`内容即焦点` — 分屏时 chrome 进一步隐退（工具栏折叠为浮动 mini bar）
+
+**Auditor 审查追加 — ContextPanel 所有权扩展 (+1.5h, D84=B)**:
+- 问题: 当前 R186 所有权 token 是"单路由"模型 (`{ sessionId }`)。分屏下两个 pane 各有一个活跃内容, ContextPanel 该显示谁的上下文?
+- 方案 (D84=B — ContextPanel 跟随焦点 Pane):
+  - R186 所有权 token 扩展为 `{ paneId, sessionId }` 二元组
+  - 每个 Pane 注册 `onFocus` 事件, 最后获得焦点的 Pane 拥有 ContextPanel
+  - 点击左侧博客 A → ContextPanel 显示 A 的链接/大纲/图谱
+  - 点击右侧博客 B → ContextPanel 切换到 B 的上下文
+  - 与 Phase 22 标签页系统自然衔接: paneId 在无分屏时 = null, 在 TabBar 模式下 = tabId
+- Obsidian 实际行为参考: 右侧面板始终跟随当前焦点文档
+
+**T2102 — 斜杠命令 ✅ 纳入 (4h, P1)**
+
+纳入理由:
+- 复用 Phase 20 WikilinkSuggestion 弹窗机制, 技术基础已就绪
+- Notion 已将 `/` 建立为行业标准交互, 新用户无需学习 Markdown 语法
+- `/` → 搜索命令 → Enter 执行, 比点工具栏快 3-5 倍
+- 不采纳: Callout (独立为 T2107) / Toggle (NodeView+details 编辑有已知 ProseMirror bug → 否决) / Embed (正则后处理脆�� → 否决)
+
+**T2103 — 博客元数据面板 ✅ 纳入 (5h, P1)**
+
+纳入理由:
+- 当前博客标题/标签/系列/格式散布在不同位置, 元数据面板统一入口
+- `cover_image` + `icon` 字段让博客有封面图和识别图标
+- 不采纳: Emoji picker (用浏览器原生 Win+. ) / YAML 导出 (延后)
+
+Schema: `blogs ADD cover_image TEXT` + `blogs ADD icon TEXT`
+
+**T2104 — 搜索增强 + CJK修复 + 语义搜索 + Ctrl+O + 引用搜索统一 ✅ 纳入 (18h, P1)**
+
+纳入理由:
+- Snippet 高亮: FTS5 Worker 已有匹配位置, 只缺 UI 渲染 — Phase 20 "交付后第一分钟会发现的缺失"
+- 搜索操作符 `tag:`/`type:`/`after:`/`before:` — 零新增 IPC, 纯前端解析
+- `/search` 结果页 — 解决 CommandPalette 无法翻页的瓶颈
+- 不采纳: 智能文件夹 (query builder 复杂 → 否决) / 最近搜索 (延后)
+
+**Phase 21 追加 — CJK 搜索修复 (+3h, P0 级 bug fix, D83=A, D85=A)**:
+- Bug 1 — 最小查询长度=2: `use-search.ts:139` 和 `GlobalSearch.tsx:42` 硬编码 `query.trim().length < 2`, 单个中文汉字直接被丢弃
+- Bug 2 — CJK 分词粒度: `Intl.Segmenter` 将中文切分为词语, "部"不在"部署"的索引中
+- Bug 3 — Bigram 单字搜索缺口 (Auditor 发现): 倒排索引是精确 term→doc 映射。bigram 方案下用户搜"部"(1字符) → 无法生成 bigram → Map 中查"部"→ undefined。因为索引中只有"部署"没有"部"
+- 修复方案 (D83=A — Unigram + Bigram + Word 三层索引):
+  1. 移除 2 字符最小限制 → 1 字符即可搜索
+  2. **Unigram**: 对每个 CJK 字符单独索引。搜索"部"→ 直接查 unigram "部" → O(1) 匹配
+  3. **Bigram**: CJK 相邻 2 字组合。"部署"→ bigram ["部署"]。搜索"部署"→ bigram 匹配 (权重 0.5)
+  4. **Word**: 保持 Intl.Segmenter 词级索引。搜索"部署"→ word 匹配 (权重 1.0)
+  5. 索引体积: 增量 ~200KB-1MB (unigram 数量 ≈ CJK 字符数), localStorage 限额内可接受
+  6. 旧索引迁移: key `lbkb_fts_index` → `lbkb_fts_index_v3`, 旧 key localStorage.removeItem 清理
+- 验收: 搜索"部"→ 查到标题含"部署"的博客。搜索"全"→ 查到"全文搜索"。搜索"文"→ 查到"Markdown"
+
+**Phase 21 追加 — 快速文件切换 Ctrl+O (+1h, D74)**:
+- 根因: Ctrl+K CommandPalette 是"命令发现"UI, 不适合"知道找什么"的瞬间跳转场景。探索式搜索 vs 目标式跳转的模态混淆
+- 方案: Ctrl+O 作为 CommandPalette 的"极简模式"——同一搜索后端, 换轻量 UI:
+  - 只搜标题+文件名, 不搜正文 (更快, 结果更精准)
+  - 纯输入框 + 扁平结果列表 (max 4-6 条), 无分类区/命令列表/最近搜索
+  - 每个结果: Lucide 类型图标 (FileEdit/Library/StickyNote) + 标题 + 路径片段
+  - Enter 跳转, Esc 关闭, 上下键选择
+  - 设计语言: 比 CommandPalette 更窄 (max-w 480px)、更轻 (shadow 仅 1px border)、更快 (debounce 100ms vs 300ms)。像在书房里直接走到书架前抽出那本书
+- 与 Ctrl+K 的关系: 两种模式共存。Ctrl+K = 探索+命令, Ctrl+O = 瞬间跳转
+
+**Phase 21 追加 — 本地语义搜索 (+6h, P1, D87=B)**:
+- 根因: 关键词搜索只能做字面匹配。"哺乳动物"搜不到"鲸鱼"。用户需要"用【意思】搜索"
+- 方案: 关键词 + 向量混合搜索 (Hybrid Search)
+  ```
+  模型: @xenova/transformers + Xenova/multilingual-e5-small (ONNX)
+  ~120MB, 384 维向量, 支持 100+ 语言含中文, 首次空闲时后台下载 (idle-detection)
+  
+  架构 (D87=B — 独立 embedding.worker.ts):
+    search.worker.ts — 纯文本索引 (Unigram + Bigram + Word) + TF-IDF 打分
+    embedding.worker.ts — 模型加载 + ONNX 推理 + IndexedDB 向量缓存
+    协调: use-search hook 管理双 Worker 生命周期 + 结果合并
+    
+  索引: 批量 embed 所有文档 → 向量存 IndexedDB (384 floats/doc ≈ 1.5KB/doc)
+  搜索: search.worker 先返回关键词结果 → embedding.worker 异步返回语义结果 → 合并
+  混合: final_score = 0.6 × vector_score + 0.4 × keyword_score
+  内存: 无语义搜索需求时 terminate embedding.worker → 释放 ~200MB+
+  降级: 模型下载中/失败/worker 错误 → 纯关键词搜索 (不影响基本使用)
+  ```
+- 为什么选 multilingual-e5-small:
+  - Transformers.js 原生支持 (Xenova ONNX), 零 Python/零服务端
+  - 专为语义搜索优化的 embedding 模型, 120MB 桌面可接受
+  - 比 Qwen3-Embedding-0.6B (600MB) 小 5x, 比外部 API 离线优先
+- 不采纳: Qwen3-Embedding-0.6B (600MB 太大) / 外部 API (离线优先) / 单 Worker (模型长期占内存)
+- 验收: 搜索"如何让应用更快"→ 返回含"性能优化"的博客。搜索"python"→ 返回含"编程语言"的知识文件。降级路径: kill embedding.worker → 搜索正常返回关键词结果
+
+**Auditor 追加 — 引用搜索统一 (+3h, D88=A)**:
+- 问题: 当前存在两套搜索系统——全局搜索 (Ctrl+K) 走 search.worker.ts 的 TF-IDF 倒排索引，引用搜索 ([[自动补全]]) 走 `ReferenceService.searchItems()` 的 SQL `LIKE '%q%'`。后果: 引用搜索不搜正文、无 CJK 分词、无相关度排序。Phase 21 在 Worker 侧投入 ~9h 做 CJK 修复+语义搜索，如果引用搜索不接入 Worker，[[ 补全仍然是坏的
+- 方案 (D88=A): 将 `searchItems()` 后端从 SQL LIKE 切换为调用 FTS5 Worker:
+  - `ReferenceService.searchItems()` → 改为调用 `SearchService.searchAll()` 或直接 postMessage 到 Worker
+  - Worker 搜索结果已含 `docType: 'blog' | 'knowledge'`，天然按 scope 过滤
+  - ReferencePicker 和 WikilinkSuggestion 统一为同一搜索后端
+  - 统一后: CJK 修复自动惠及引用搜索，零额外维护成本
+- 关联修复: R226 (ReferencePicker scope='all' 而非 'knowledge') + R227 (WikilinkSuggestion 从 500 便签全量拉减为 Worker top-10)
+
+**T2105 — 快速捕获 Ctrl+Shift+V ✅ 纳入 (1h, P1)**
+
+纳入理由: ~30 行代码 (ShortcutService + clipboard + note:create), 极高 ROI。阅读时 Ctrl+C→Ctrl+Shift+V 零打断存入便签
+
+**T2106 — 浏览器剪藏 ✅ 纳入 (5h, P2)**
+
+纳入理由:
+- Express `POST /api/clip` 路由, 复用 readability + turndown 管线 (核心技术全已有)
+- Chrome 扩展右键菜单 → fetch localhost:3456 → 博客草稿, 信息流入的"最后一公里"
+- 扩展文件 4 个 (manifest.json/popup.html/background.js/content.js), Manifest V3
+
+**T2107 — Callout 提示块 ✅ 纳入 (3h, P2)**
+
+纳入理由:
+- 博客中需要"提示/警告/注意"语义块, 当前只能用 blockquote 模拟
+- ProseMirror Node ~40 行, CSS 4 种类型各 1 行
+- accent-amber 仅限 Callout 组件内部, 不作为全局 token (不违反 D52)
+
+**T2108 — 博客置顶/颜色标记 + KB 空格预览 ✅ 纳入 (3h, P2)**
+
+纳入理由:
+- `is_pinned` + `color` 两个字段, 低成本实现常用组织功能
+- 知识库空格键快速预览 — ~20 行键盘事件, 复用 preview.service.ts
+- 不采纳: 卡片视图 (工程量大 → 延后) / 画廊视图 (文本文件不适配 → 否决) / 时间线 (已有)
+
+Schema: `blogs ADD is_pinned INTEGER DEFAULT 0` + `blogs ADD color TEXT`
+
+**T2109 — 体验打磨 ✅ 纳入 (6h, P2)**
+
+纳入理由:
+- 空状态设计 + 骨架屏: 新用户第一印象, 统一 visual language
+- 标签合并: 用户用久了必然出现同义词标签, mergeTags 消除冗余
+- 回收站倒计时: "还剩 3 天"比"已删除 X 天"更有紧迫感
+- 不采纳: 页面过渡动画 (违反 Phase 20 设计语言 → 否决) / 版本时间线滑块 (延后) / 浮动目录 (ContextPanel 已有大纲 Tab → 否决) / 反向链接发现 (延后) / 标签层级 `/` 分组 (延后) / 设置页重构 (延后, 仅加 AI 配置区)
+
+**Phase 21 追加 — 模板变量 (+1h)**:
+- 根因: 模板系统 (Phase 7) 是静态文本片段。每日便签 (Phase 20 T2005) 成为日常入口后, 每天手动改日期从"小摩擦"升级为"日常重复劳动"。用户写了模板"今日计划 {{date}}", 每次插入后都要手动改日期
+- 方案: `expandTemplateVars(template: string): string` — ~40 行纯函数解析器:
+  - 变量: `{{date}}` → `2026-05-20`, `{{date:YYYY年MM月DD日}}` → `2026年05月20日`, `{{time}}` → `14:30`, `{{yesterday}}` → `2026-05-19`, `{{tomorrow}}` → `2026-05-21`, `{{title}}` → 当前文档标题
+  - 集成点: 模板创建博客时、每日便签自动创建时、模板插入到编辑器时
+  - 不支持: `{{#if}}`/`{{#each}}`/JavaScript 注入 — 这是"书房的日期印章", 不是编程语言
+
+**T2110 — Phase 20 终审修复 ✅ 纳入 (4h, P0)**
+
+纳入理由: redo.md 终审 ~18 项 P2/P3 开放项 → Phase 21 结项清零。关键修复: R207 graph LIMIT+ORDER BY, R208 batchDelete refs, R220 WikilinkSuggestion 键盘, R221 kb:set-properties refresh, R222 searchItems scope, R223 图谱 refresh
+
+**T2111 — 局部图谱 (Local Graph) ✅ 纳入 (2h, P2) — Phase 21 追加**
+
+纳入理由:
+- 根因: Phase 20 做了全局图谱 (探索工具) + 迷你图谱 (点缀), 遗漏了局部图谱——"我现在在读这篇, 我只想看它的连接"。全局图谱是主动探索, 局部图谱是被动上下文。Obsidian 用户数据: 侧边栏局部图谱打开率 > 全屏全局图谱——因为它零操作、自动显示、就在右侧面板里
+- 方案: ContextPanel 新增"图谱"Tab (放在"链接"和"大纲"之间), ~150 行组件:
+  - 复用 Phase 20 D3 forceSimulation + graph:getData IPC, 参数 `{ scope: 'local', centerId, depth: 1 }`
+  - 只展示当前内容 + 1 度邻居 (~5-20 节点)
+  - 当前节点 accent-blue 大号圆点高亮, 邻居节点 `--color-bg-tertiary`
+  - 连接线 `--color-border`, 无过滤控件/无缩放按钮/无图例 (280px ContextPanel 空间受限)
+  - 节点点击 = 跳转到对应内容, 滚轮缩放
+- 设计语言: `颜色即信号` — 当前节点 accent-blue, 连接节点灰度。`空间即秩序` — 固定大小 (280×240), 不随内容量变化。这是"地图上的'你在这里'"——不是完整的导航系统
+- 代码复用: MiniGraph.tsx 的 D3 初始化/力模拟/tick 渲染逻辑直接复用, 改数据查询层
+
+**T2112 — 知识库多格式编辑 + 预览增强 ✅ 纳入 (6.5h, P1) — Phase 21 追加**
+
+纳入理由:
+- 根因: 当前知识库的预览功能太弱——PDF 只有基础渲染, DOCX 预览丢失格式, TXT/MD 只能看不能改。知识库实际是"博客附件的堆放处", 不是真正的文件管理中枢。用户把 DOCX/XLSX/PDF 放进去后, 想做任何操作都只能导出→外部编辑器→重新导入
+- 核心命题: 让知识库从"博客的附件仓库"升级为**独立的内容中枢**——能读、能改、能处理多种格式
+- 设计语言: `内容即焦点` — 预览界面干净, 编辑模式下工具栏浮层出现。`空间即秩序` — 编辑按钮在预览右上角, 非侵入式
+
+**可编辑格式 (Phase 21)**:
+1. **TXT 纯文本** (~0.5h): Monaco Editor (electron-vite 已集成) inline 编辑。保存 → `knowledge:update-content` IPC → 写盘。语法高亮按扩展名自动选择
+2. **MD Markdown 文件** (~1h): 复用 Tiptap 编辑器, 只读预览时用 markdown-it 渲染, 编辑时加载到 Tiptap。这是知识库与博客编辑器的**首次打通**——知识库里的 .md 文件可以直接用我们的编辑器修改
+3. **CSV 表格** (~1.5h): 轻量表格编辑器 (<100行数据用 react-data-grid 或自建 table)。读→exceljs 解析→可编辑 Grid→exceljs 写回。超过 100 行降级为只读预览
+
+**预览增强 (Phase 21)**:
+4. **代码文件** (~0.5h): .ts/.js/.py/.json/.html/.css 等用 shiki 语法高亮渲染, 等宽字体, 暗色代码主题, 只读
+5. **DOCX 预览升级** (~1h): mammoth 两次转换提升保真度——第一次 mammoth→HTML 作为基础, 第二次用 `docx-preview` 或 `officegen` 补充表格/图片对齐。目标是保留 80%+ 的原始排版
+6. **XLSX 预览升级** (~1h): exceljs 读 → 可交互 HTML 表格 (排序点击列头/搜索过滤/分页), 支持多 Sheet 切换。单元格公式显示计算结果
+7. **PDF 增强** (~0.5h): pdfjs-dist 升级到 v4+, 内嵌文本搜索, 页面缩略图导航, 页码跳转
+
+**延 Phase 22**:
+- DOCX 编辑: mammoth→MD→Tiptap 编辑→docx 导出 (需要可靠的 MD→DOCX 转换器)
+- XLSX 单元格编辑: 完整 spreadsheet 体验 (需 react-data-grid + 公式重算)
+- PDF 批注/表单填写: 用 pdf-lib 做基础编辑
+- PPTX 预览: pptx-parser → 幻灯片渲染
+
+**Auditor 审查追加 — 安全 + 架构补全 (+0.5h, D86=B)**:
+- kb:updateContent 路径安全 (D86=B): DB 查 filePath (import 时服务端规范化生成) + path.resolve(workspace, filePath) + startsWith(workspace) 双重校验。防御路径遍历攻击
+- Tiptap 实例: MD 编辑复用 Tiptap **库/组件** (创建新实例), 不复用博客编辑器的同一个编辑器实例 (避免编辑器内容污染)
+- CSV 大文件: 先检查文件大小 >1MB → 直接降级只读, 不全文件上传再判断行数 (Auditor 发现 8)
+
+---
+
+### 否决/延后分析 (源自 suggest.md 12 提案)
+
+**AI 集成 (原 T2108) → 延 Phase 22**
+
+不纳入理由: ~15h (AI service + 编辑器操作 + RAG + 自动标签), 规模占半个 Phase。MCP Server (Phase 20) 已是 AI 基础设施底座。建议 Phase 22 作为"AI 集成"专题 Phase 集中做透。
+
+**闪卡系统 (原 T2109) → 延 Phase 22**
+
+不纳入理由: ~10h (review_cards 表 + SM-2 + FlashCardMark + 复习面板)。独立功能, 编辑器进化 + 信息流动更成熟后, 闪卡才有足够内容供给。
+
+**画布视图 (原 T2110) → 延 Phase 22+**
+
+不纳入理由: ~20h (3 表+6 IPC+SVG foreignObject+拖拽连线缩放)。几乎是一个独立应用。需单独评估是否与 Phase 20 知识图谱重叠。
+
+**桌宠增强 (原 T2111) → 延 Phase 22**
+
+不纳入理由: 拖放导入/双击便签/信息气泡都是锦上添花, 桌宠当前功能完整, 增强项边际价值低。
+
+**Toggle 折叠块 / Embed 嵌入语法 (原 T2102 子项) → 否决**
+
+Toggle 否决: NodeView + `<details>` 内嵌编辑在 ProseMirror 中有已知 bug, 跨版本行为不一致。Embed 否决: 纯正则后处理与 R174 wikilink 同类问题, 使用频率极低。
+
+**智能文件夹 (原 T2105 子项) → 否决**
+
+Query builder UI 复杂度高, 搜索操作符 `tag:`/`type:` 已覆盖 80% 场景, 边际价值不值成本。
+
+---
+
+### 任务总览
+
+| 任务 | 名称 | 类型 | 估算 | 优先级 | 状态 |
+|------|------|------|------|--------|------|
+| T2101 | 聚焦模式 + 通用分屏框架 + MD 分屏预览 — FocusMode + `<SplitPane>` 通用容器 + Ctrl+\\ 分屏切换 + ContextPanel 焦点所有权 (D84) | 架构 | 9.5h | 🟠 P1 | 📋 |
+| T2102 | 斜杠命令 — Tiptap SlashCommand (/→菜单)+ 14 种块命令 + 复用 WikilinkSuggestion 弹窗 | 体验 | 4h | 🟠 P1 | 📋 |
+| T2103 | 博客元数据面板 — MetadataPanel + blogs cover_image/icon + 统一编辑入口 | 产品 | 5h | 🟠 P1 | 📋 |
+| T2104 | 搜索增强 — CJK Unigram/Bigram/Word 修复 (D83) + embedding.worker 语义搜索 (D87) + ref:search 接入 Worker (D88) + 操作符 + Ctrl+O + /search 页 | 产品 | 18h | 🟠 P1 | 📋 |
+| T2105 | 快速捕获 Ctrl+Shift+V — clipboard.readText→note:create, 零 UI 打断 (需确认 IPC 桥) | 体验 | 1.3h | 🟠 P1 | 📋 |
+| T2106 | 浏览器剪藏 — POST /api/clip+readability/turndown+Chrome 扩展(4 文件 Manifest V3) | 平台 | 5h | 🟡 P2 | 📋 |
+| T2107 | Callout 提示块 — Tiptap Callout Node (info/success/warning/danger)+CSS 左边框 | 体验 | 3h | 🟡 P2 | 📋 |
+| T2108 | 置顶/颜色+KB 空格预览 — blogs is_pinned/color+6色圆点+Space 半屏预览 (Schema 与 T2103 合并迁移) | 体验 | 3h | 🟡 P2 | 📋 |
+| T2109 | 体验打磨 — EmptyState+Skeleton+mergeTags+回收站倒计时+模板变量{{date}}+设置 AI 配置区 | 体验 | 6h | 🟡 P2 | 📋 |
+| T2110 | Phase 20 终审修复 + D88/R226/R227 — R207/R208/R220-R224 等 P2/P3 清零+tsc+build+test | 修复 | 4h | 🔴 P0 | 🚧 |
+| T2111 | 局部图谱 — ContextPanel Graph Tab + D3 1-degree + 当前节点高亮 + GraphFilter 扩展 scope/centerId/depth | 产品 | 2h | 🟡 P2 | 📋 |
+| T2112 | 知识库多格式编辑+预览 — TXT/MD/CSV编辑 + DOCX/XLSX/PDF/Code预览增强 + kb:updateContent 双重路径校验 (D86) | 产品 | 6.5h | 🟠 P1 | 📋 |
+
+**🟠 P1 (6 项)**: ~44.3h | **🟡 P2 (5 项)**: ~19h | **🔴 P0 (1 项)**: ~4h | **总计: 12 项, ~67.3h**
+
+### 实施顺序
+
+```
+Phase 21 热修复 (🔴 P0, ~3h): T2104a CJK Unigram+Bigram+Word 三层索引修复 (D85=A) — 在所有新功能之前交付
+  ↓
+Phase 21A — 编辑器+搜索根基 (~26h): T2101 SplitPane+ContextPanel所有权 (D84) → T2102 斜杠命令 → T2103 元数据面板 → T2104b 语义搜索+embedding.worker (D87)
+Phase 21B — 内容中枢 (~18h): T2105 快速捕获 → T2106 浏览器剪藏 → T2112 KB编辑预览 → T2111 局部图谱
+Phase 21C — 打磨+修复 (~17h): T2107 Callout → T2108 置顶/颜色/预览 → T2109 体验打磨/模板变量 → T2110 终审修复
+```
+
+关键变更 (D85=A): CJK 修复作为独立热修复前置到所有 Phase 21 新功能之前。这是孤立变更, 不依赖 SplitPane/斜杠/元数据。
+关键路径: T2101 SplitPane+ContextPanel (D84) → T2104 语义搜索 (在 CJK 修复后的 Worker 基础上叠加 embedding.worker)
+Schema 合并: T2103 (cover_image/icon) + T2108 (is_pinned/color) = 一次 ALTER TABLE 4 列迁移 (发现 11)
+
+### Schema + IPC 变更
+
+Schema: blogs 表 +4 列 (cover_image/icon/is_pinned/color), T2103+T2108 合并为一次 ALTER TABLE (Auditor 发现 11). 三处 DDL 同步.
+IPC: 新增 kb:setProperties, blog:setPinned, blog:setColor, kb:updateContent (D86 双重路径校验), note:clipboard (T2105 可能需要). 每个遵循 R178 5 步 checklist.
+Worker: search.worker.ts (Unigram+Bigram+Word 三层索引 v3) + embedding.worker.ts (新建, D87=B, ONNX 推理). use-search hook 统一协调双 Worker.
+新组件: `<SplitPane>` (通用分屏, ContextPanel 焦点所有权 D84), `<QuickSwitcher>` (Ctrl+O), `<LocalGraph>` (ContextPanel 图谱 Tab, GraphFilter 扩展 scope/centerId/depth), `<KbEditor>` (TXT/MD/CSV), `<CodePreview>` (shiki)
+新依赖: `@xenova/transformers` (Embedding ONNX ~120MB), `shiki` (语法高亮), `react-data-grid` (CSV 可选)
+模板引擎: `expandTemplateVars()` → `src/shared/template-vars.ts`
+语义搜索: `src/renderer/lib/vector-search.ts` + `src/renderer/workers/embedding.worker.ts`
+
+### Boss 裁决
+
+| 编号 | 决策点 | 裁决 | 理由 |
+|------|--------|------|------|
+| D63 | Toggle 折叠块 | **否决** | NodeView+details 编辑在 ProseMirror 中有已知 bug |
+| D64 | Embed `{{embed}}` | **否决** | 正则后处理脆弱, 使用频率极低 |
+| D65 | 卡片+画廊视图 | **延 Phase 22** | 工程量大, 当前列表/表格功能完整 |
+| D66 | 智能文件夹 | **否决** | Query builder 复杂, 操作符已覆盖 80% |
+| D67 | AI 集成 | **延 Phase 22** | ~15h 专题, MCP Server 已是基础设施 |
+| D68 | 闪卡系统 | **延 Phase 22** | ~10h, 需内容供给更丰富后再做 |
+| D69 | 画布视图 | **延 Phase 22+** | ~20h, 需评估与图谱是否重叠 |
+| D70 | 桌宠增强 | **延 Phase 22** | 锦上添花, 当前功能完整 |
+| D71 | 页面过渡动画 | **否决** | 违反 Phase 20 设计语言 |
+| D72 | Callout 中 accent-amber | **纳入 (局部)** | 组件级语义色, 非全局 token |
+| **D73** | **T2101 分屏架构** | **A — 通用 SplitPane** | 架构滩头堡: 标签页 (Phase 22) 的前置条件 |
+| **D74** | **Ctrl+O 快速文件切换** | **纳入 T2104 (+1h)** | 同一 FTS5 后端, 换轻量 UI |
+| **D75** | **局部图谱** | **纳入 T2111 (+2h)** | 复用 D3 代码, ContextPanel 图谱 Tab |
+| **D76** | **标签页系统** | **延 Phase 22** | ~8h, 需 SplitPane 就位 |
+| **D77** | **模板变量** | **纳入 T2109 (+1h)** | ~40 行纯函数 |
+| **D78** | **Bookmarks 收藏夹** | **延 Phase 22** | ~3h 独立模块 |
+| **D79** | **CJK 搜索修复** | **纳入 T2104 (+2h) — P0 bug fix** | bigram 字符索引解决"标题里有字但搜不到"。移除 2 字符最小限制 |
+| **D80** | **语义搜索方案** | **纳入 T2104 (+4h) — multilingual-e5-small** | 120MB ONNX 模型, Transformers.js 本地运行。Qwen3-Embedding-0.6B (600MB) 否决——太大。外部 API 否决——离线优先 |
+| **D81** | **知识库编辑能力** | **纳入 T2112 (+6h)** — TXT/MD/CSV 可编辑; DOCX/XLSX/PDF/Code 预览增强 | 让知识库从"博客附件仓库"升级为"独立内容中枢"。DOCX 编辑 (MD 往返) 延 Phase 22 |
+| **D82** | **语义搜索模型下载策略** | **A — 首次空闲时后台下载, 不阻塞搜索** | 下载中/失败 → 降级为纯关键词搜索。下载完成 → 静默启用。补充: app 空闲时触发下载 (idle-detection) |
+| **D83** | **CJK 单字搜索的索引策略** (Auditor) | **A — Unigram + Bigram 双索引 (+1h)** | 搜索引擎标准做法。O(1) 查询, 索引体积可接受 |
+| **D84** | **分屏 ContextPanel 所有权** (Auditor) | **B — 跟随焦点 Pane (+1.5h)** | R186 token 扩展为 `{ paneId, sessionId }` 二元组。与 Phase 22 标签页自然衔接 |
+| **D85** | **CJK 修复调度优先级** (Auditor) | **A — 热修复前置, 所有新功能之前** | P0 bug 不等新功能。孤立变更, 不依赖 T2101-T2103 |
+| **D86** | **kb:updateContent 路径安全** (Auditor) | **B — DB 记录+工作区边界双重校验** | 纵深防御。知识库首次文件写入, 多一层校验 |
+| **D87** | **语义搜索 Worker 架构** (Auditor) | **B — 新建 embedding.worker.ts (+2h)** | 120MB 模型按需加载/卸载, 不污染 search.worker |
+| **D88** | **引用搜索后端** (Auditor) | **A — 接入 FTS5 Worker (+3h)** | 消除搜索系统分裂。Phase 21 CJK 修复自动惠及引用搜索。保留 LIKE 意味着 [[ 补全仍然是坏的 |
+
+---
+
+## 8b. 后续改进方向
 
 | # | 方向 | 优先级 | 目标 Phase |
 |---|------|--------|-----------|
-| 1 | 组件状态收敛 (R116) | 🟢 P3 | Phase 21 |
-| 2 | 键盘可访问性 | 🟢 P3 | Phase 21 |
-| 3 | 嵌套文件夹 | 🟢 P3 | Phase 21 |
-| 4 | 国际化 i18n | ❌ 否决 | D18=C |
-| 5 | 移动端适配 (Web版响应式) | 🟢 P3 | Phase 21+ |
+| 1 | 标签页系统 (TabBar+TabManager+多文档并开, D76) | 🟠 P1 | Phase 22 |
+| 2 | AI 集成 (编辑器AI+RAG+自动标签) | 🟠 P1 | Phase 22 |
+| 3 | Bookmarks 收藏夹 (bookmarks 表+IPC+右键菜单+侧边栏, D78) | 🟡 P2 | Phase 22 |
+| 4 | 闪卡系统 (SM-2+标记+复习) | 🟡 P2 | Phase 22 |
+| 5 | MD 全量导出 (npm run export-md → 博客导出为 .md 文件夹, 数据主权) | 🟡 P2 | Phase 22 |
+| 6 | DOCX 编辑 (MD 往返: mammoth→MD→编辑→docx) | 🟡 P2 | Phase 22 |
+| 7 | XLSX 单元格编辑 (完整 spreadsheet) | 🟡 P2 | Phase 22 |
+| 8 | PDF 批注/表单填写 (pdf-lib) | 🟢 P3 | Phase 22 |
+| 9 | 模板增强 (更多变量 + 模板市场) | 🟢 P3 | Phase 22 |
+| 10 | 画布视图 | 🟢 P3 | Phase 22+ |
+| 11 | 桌宠增强 (拖放/气泡/双击) | 🟢 P3 | Phase 22 |
+| 12 | 卡片视图 + 智能文件夹 + 版本时间线滑块 | 🟢 P3 | Phase 22+ |
+| 13 | 组件状态收敛 (R116) | 🟢 P3 | Phase 22 |
+| 14 | 键盘可访问性 | 🟢 P3 | Phase 22 |
+| 7 | 键盘可访问性 | 🟢 P3 | Phase 22 |
+| 8 | 嵌套文件夹 | 🟢 P3 | Phase 22 |
+| 9 | 国际化 i18n | ❌ 否决 | D18=C |
 
 ---
 
 ## 8. 代码质量基线
 
-| 指标 | Phase 20 基线 | 目标 |
+| 指标 | Phase 20 基线 | Phase 21 目标 |
 |------|-------------|------|
 | `strict` + `noUncheckedIndexedAccess` | ✅ | 维持 |
 | `as any` (renderer) | 0 | 维持 |
 | `: any` 类型标注 (renderer) | 0 | 维持 |
-| 单元测试 | 87/87 pass (12 files) | 维持 |
+| 单元测试 | 87/87 pass (12 files) | 87+ pass (保持) |
 | E2E 测试 | 11/11 pass | 维持 |
 | 🔴🟠🟡🔵 P0-P3 | **0/0/0/0** 阻断 (P2/P3 延 Phase 21) | Phase 21 清零 |
-| IPC 通道 | 114 (+2: graph:getData) | 维持 |
+| IPC 通道 | 114 (+2: graph:getData) | 115+ (+1: kb:updateContent) |
 | 设计Token | Lucide SVG + 3色 + 无阴影动效 | 维持 |
 | MCP Server | stdio CLI + Express 路由 | 维持 |
+| 语义搜索 | — | Transformers.js + multilingual-e5-small (~120MB) |
+| 知识库编辑 | 只读预览 | TXT/MD/CSV 可编辑 + DOCX/XLSX/PDF/Code 预览增强 |
 
 ---
 
@@ -479,6 +807,5 @@ DashboardPage.tsx + ContinueWritingPage.tsx 删除 (D61). CalendarView.tsx 移�
 
 | 优先级 | 事项 | 负责 |
 |--------|------|------|
-| — | Phase 20 核心功能已完成 ✅ (18/18)。P2/P3 终审项延 Phase 21 收尾 | — |
-| 🟡 P2 | Phase 21 启动 — 终审 R198/R207-R209/R220-R224 等 12+6 项修复 | Developer |
-| 🔴 P0 | NSIS 安装包打包 + 图片验证 → ship | Boss |
+| 🔴 P0 | **Phase 21A 启动** — T2101 SplitPane → T2102 斜杠 → T2103 元数据 → T2104 CJK搜索修复 (P0 bug) + Auditor 立案前审查 | Developer + Auditor |
+| 🟠 P1 | Phase 20 安装包实测 — 验证 dist2/Idiot_SetUp.exe 图片+图标是否正常 | Boss |

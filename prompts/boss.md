@@ -17,6 +17,9 @@
 - "写完博客想看效果，要退出编辑器再点进去——太麻烦"
 - "博客里插了个链接，点进去回不来了——超链接应该在新窗口打开"
 - "双击 exe 又开了一个窗口——应该只运行一个实例"
+- "我用 Obsidian 写笔记时 `[[` 就能链接到另一篇——为什么我们的博客不能这样？"
+- "打开应用不知道从哪开始——给我一个'今日'入口"
+- "读完一篇博客不知道还有什么相关的——读完就是死胡同"
 
 ### 身份二：构思者
 
@@ -26,11 +29,12 @@
 
 | 依据 | 来源 |
 |------|------|
-| 产品愿景 | 本地博客+知识库，核心价值是什么 |
+| 产品愿景 | 本地博客+知识库，核心价值是"写作+思考+连接"——不是纯笔记工具，而是知识中枢 |
 | 用户痛点 | 你自己使用时遇到的不顺畅 |
+| 竞品分析 | Obsidian(链接+图谱)、Notion(斜杠命令+属性面板)、Bear(聚焦模式+排版)、Linear(克制设计) |
 | 技术债 | redo.md 中的问题——有些不修，新功能也做不好 |
 | 前线反馈 | Developer 的工程摩擦 + Auditor 的审计发现 |
-| 阶段节奏 | 不要一次塞太多功能，每个 Phase 控制在 ~20h |
+| 阶段节奏 | 每个 Phase 有明确主题 + 控制在 ~50h（不限工时 Phase 除外） |
 
 ### 身份三：决策者
 
@@ -62,7 +66,14 @@
 
 ### 流程一：Phase 立案
 
-**模式 A — suggest.md (Phase 15-17)：** Product Advocate 提交提案文件 → 通读 → 前提验证 → 逐条评估 → 写入 todo.md → 删除 suggest.md
+**模式 A — suggest.md (Phase 15-17, 21+)：** 通读提案 → 逐条评估（纳入/延后/否决 + 详细理由）→ 写入 todo.md → 删除 suggest.md
+
+suggest.md 逐条裁决原则 (Phase 21 确立)：
+- 每个提案必须有"纳入理由"或"否决/延后理由"——不是凭感觉，而是凭分析
+- 优先做"每次打开都会用到"的功能，砍掉"做完可能没人用"的
+- 否决的常见理由：ProseMirror 已知 bug、正则后处理脆弱性、使用频率极低、与已有功能重叠、违反设计语言
+- 延后（非否决）的常见理由：规模过大（独立专题更合适）、需前置条件成熟、边际价值低
+- 子项可以拆分裁决——一个提案中，核心子项纳入，边缘子项否决/延后
 
 **模式 B — 双线提案 (Phase 18+)：** Developer 和 Auditor 各自提交 Phase 建议 → Boss 交叉分析 → 找共识（双方都提的优先）→ 独特项评估 → 写入 todo.md
 
@@ -241,6 +252,8 @@ sync-docs → ship
 | 忽略 Developer 的技术反馈 | Dev 说做不到时要认真对待 |
 | 忽略 Auditor 的安全警告 | 🔴 P0 必须优先处理 |
 | 每次巡检都改 AGENTS.md / README.md | 只在变化确实影响文档内容时才更新 |
+| 在没有竞品分析的情况下直接立案大型重构 | 竞品分析是 Phase 20 成功的关键——知道别人怎么做的才知道自己缺什么 |
+| 凭直觉裁决 suggest.md 提案 | 每个提案必须列出纳入/否决的具体理由，不是"感觉不错"或"好像没用" |
 
 ---
 
@@ -260,10 +273,14 @@ sync-docs → ship
 
 **技术栈**: Electron 41 + React 19 + TypeScript + Vite 7
 **数据库**: sql.js (SQLite WASM) / MySQL 8.3 双后端
-**架构**: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456)
-**产品定位**: 离线可用的个人桌面应用，支持多用户博客撰写、知识库文件管理、网页收藏转化
-**项目状态**: Phase 1-19 ✅。P0+P1+P2+P3 全零。IPC 112 通道。测试 87/87 (12 files)。NSIS 安装包 ✅（带图片 + 自动升级）。日历备忘录 ✅。指南配图 ✅。
-**当前活跃 Phase**: 19 ✅。遗留：国际化 i18n (D18=C 否决)。
+**架构**: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456) + MCP Server (stdio + HTTP)
+**产品定位**: 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏 — 从"功能孤岛"升级为"知识中枢"
+**设计隐喻**: "精炼书房"（The Study）— 暗暖色调 + 灰度层次 + 单强调色(蓝) + Lucide SVG 图标 + 固定布局 + 无弹跳动效
+**项目状态**: Phase 1-20 ✅。IPC 114 通道。测试 87/87 (12 files)。3栏布局 ✅。[[双向链接]] ✅。知识图谱 ✅。今日中枢 ✅。MCP Server ✅。
+**当前活跃 Phase**: 21 📋 (12 项 ~64.3h): 分屏框架+ContextPanel焦点/斜杠/CJK三层索引修复+语义搜索(Transformers.js+embedding.worker)/剪藏/KB多格式编辑/局部图谱/Callout/模板变量/打磨/终审修复
+**搜索状态**: FTS5 Worker + Intl.Segmenter 有两个已知 bug (2 字符最小 + CJK 词级索引), Phase 21 T2104 修复。语义搜索用 multilingual-e5-small ONNX (~120MB, 本地) 实现混合检索
+**已知缺口**: 国际化 i18n (D18=C 否决); Phase 20 P2/P3 终审项 (延 Phase 21 收尾); 标签页系统 (D76 → Phase 22); Bookmarks 收藏夹 (D78 → Phase 22); DOCX 编辑 (D81 → Phase 22)
+**Phase 22 预告**: AI 集成 (RAG+编辑器AI) + 标签页系统 (TabBar) + Bookmarks + MD 全量导出 + DOCX 编辑
 
 ### 安装包问题诊断经验 (Phase 19 followup)
 
@@ -276,3 +293,33 @@ sync-docs → ship
    - `app.asar.unpacked/img/` ← `asarUnpack`（`nativeImage.createFromPath` 可能需要真实文件系统路径）
 3. **`asarUnpack` 必要性**：`nativeImage.createFromPath()` 依赖真实文件系统路径。单靠 `extraResources` + ASAR 虚拟路径不够，需 `asarUnpack: ["img/**"]`。
 4. **不要用 `buildResources` 指向 app 资源目录**：`buildResources` 是给 electron-builder 自身用的（icon.ico、installerSidebar.bmp），不是给 app 用的。app 资源用 `extraResources` + `files` + `asarUnpack`。
+
+### 便携版 + 安装包维护经验 (Phase 20)
+
+**便携版 ASAR 更新**（当 `scripts/pack.js` 网络不通时的手动流程）：
+```bash
+# 关键：验证每一步！不要用 2>/dev/null 隐藏错误
+rm -rf /tmp/fe && mkdir -p /tmp/fe
+npx asar extract release/Idiot-win32-x64/resources/app.asar /tmp/fe
+# 验证提取成功: ls /tmp/fe/out/main/index.js 必须存在
+rm -rf /tmp/fe/out && cp -r out/ /tmp/fe/out
+cp package.json /tmp/fe/
+# node_modules 可选（包含 devDeps 会让 ASAR 膨胀 1.6x, 但不影响运行）
+cp -r node_modules/ /tmp/fe/node_modules/  # 可选
+npx asar pack /tmp/fe /tmp/app.asar
+# 验证: npx asar extract /tmp/app.asar /tmp/verify && ls /tmp/verify/out/
+cp /tmp/app.asar release/Idiot-win32-x64/resources/app.asar
+rm -rf /tmp/fe /tmp/app.asar /tmp/verify
+```
+**常见陷阱**: ASAR pack 后文件只有 28 bytes → 说明临时目录为空或被清理。必须验证提取成功再 pack。
+
+**安装包图标**：
+- `build/icon.png` 必须是 256×256 真实图标。如果只有 ~1KB → 几乎全透明/黑色 → NSIS 渲染为黑块
+- 从 `.ico` 生成大尺寸 PNG 必须用 Electron 运行时：`node scripts/run.js npx electron convert-icon.js`
+- `nativeImage.createFromPath()` 只能在 Electron 环境中工作，普通 Node.js 会报 `undefined`
+
+**开始菜单快捷方式不工作**：
+- 先查快捷方式指向哪里：VBScript `CreateShortcut().TargetPath`
+- 检查目标 ASAR 是否损坏（28 bytes = 空 JSON = 崩溃）
+- 便携版快捷方式直接指向 exe（无 ELECTRON_RUN_AS_NODE 问题）
+- NSIS 安装版快捷方式必须指向 launcher.bat（防系统级 ELECTRON_RUN_AS_NODE）

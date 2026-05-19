@@ -3,6 +3,7 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import { IPC } from '../../shared/ipc-channels';
+import { nowMySQL } from '../../shared/datetime';
 import { extractWikilinkRefs, extractWikilinkTitles } from '../../shared/wikilink';
 import { dbAll, dbGet, dbRun } from '../db';
 import { BlogService } from '../services/blog.service';
@@ -11,16 +12,16 @@ import { BlogService } from '../services/blog.service';
  *  Only manages refs originating from wikilinks; manual refs (ReferencePicker) are never touched.
  *  Wrapped in transaction (R207) so crash mid-way won't leave partial INSERT/DELETE.
  *  Exported for use by note/knowledge handlers (R219). */
-export async function syncWikilinkRefs(sourceType: string, sourceId: number, newContent: string, oldContent?: string): Promise<void> {
+export async function syncWikilinkRefs(sourceType: string, sourceId: number, newContent: string, userId: number, oldContent?: string): Promise<void> {
   // Dual scanner: HTML <a class="wiki-link"> tags + plain text [[...]] (R197+R206 fix)
   const newHtmlRefs = extractWikilinkRefs(newContent, sourceType, sourceId);
   const newTitles = extractWikilinkTitles(newContent);
-  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId);
+  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId, userId);
   const newRefs = [...newHtmlRefs, ...newTextRefs];
 
   const oldHtmlRefs = oldContent ? extractWikilinkRefs(oldContent, sourceType, sourceId) : [];
   const oldTitles = oldContent ? extractWikilinkTitles(oldContent) : [];
-  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId) : [];
+  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId, userId) : [];
   const oldRefs = [...oldHtmlRefs, ...oldTextRefs];
 
   const newSet = new Set(newRefs.map((r) => `${r.targetType}:${r.targetId}`));
@@ -54,28 +55,29 @@ export async function syncWikilinkRefs(sourceType: string, sourceId: number, new
 }
 
 /** Resolve [[title]] strings to (type, id) pairs by searching blogs/knowledge/notes. */
-async function resolveTitles(titles: string[], sourceType: string, sourceId: number): Promise<Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }>> {
+async function resolveTitles(titles: string[], sourceType: string, sourceId: number, userId: number): Promise<Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }>> {
   if (titles.length === 0) return [];
   const refs: Array<{ sourceType: string; sourceId: number; targetType: string; targetId: number }> = [];
+  const placeholders = titles.map(() => '?').join(',');
   const blogs = await dbAll<{ id: number; title: string }>(
-    `SELECT id, title FROM blogs WHERE title IN (${titles.map(() => '?').join(',')}) AND status = 'active'`,
-    titles,
+    `SELECT id, title FROM blogs WHERE title IN (${placeholders}) AND status = 'active' AND user_id = ?`,
+    [...titles, userId],
   );
   for (const b of blogs) {
     refs.push({ sourceType, sourceId, targetType: 'blog', targetId: b.id });
   }
 
   const kfs = await dbAll<{ id: number; filename: string }>(
-    `SELECT id, filename FROM knowledge_files WHERE filename IN (${titles.map(() => '?').join(',')}) AND status = 'active'`,
-    titles,
+    `SELECT id, filename FROM knowledge_files WHERE filename IN (${placeholders}) AND status = 'active' AND user_id = ?`,
+    [...titles, userId],
   );
   for (const k of kfs) {
     refs.push({ sourceType, sourceId, targetType: 'knowledge', targetId: k.id });
   }
 
   const notes = await dbAll<{ id: number; title: string }>(
-    `SELECT id, title FROM notes WHERE title IN (${titles.map(() => '?').join(',')})`,
-    titles,
+    `SELECT id, title FROM notes WHERE title IN (${placeholders}) AND user_id = ?`,
+    [...titles, userId],
   );
   for (const n of notes) {
     refs.push({ sourceType, sourceId, targetType: 'note', targetId: n.id });
@@ -135,7 +137,7 @@ export function registerBlogHandlers(): void {
     async (_event, data: { userId: number; title: string; format: 'md' | 'html'; content: string }) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
-        if (data.content) await syncWikilinkRefs('blog', blog.id, data.content);
+        if (data.content) await syncWikilinkRefs('blog', blog.id, data.content, data.userId);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
@@ -154,7 +156,7 @@ export function registerBlogHandlers(): void {
       }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
       // R206: Pass both old and new content — only diffs wikilink-originated refs
-      if (data.content) await syncWikilinkRefs('blog', data.blogId, data.content, oldContent);
+      if (data.content) await syncWikilinkRefs('blog', data.blogId, data.content, data.userId, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -234,6 +236,26 @@ export function registerBlogHandlers(): void {
     }
   });
 
+  // T2108: Set blog pinned state
+  ipcMain.handle(IPC.BLOG_SET_PINNED, async (_event, data: { id: number; userId: number; isPinned: number }) => {
+    try {
+      await dbRun('UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.isPinned, nowMySQL(), data.id, data.userId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // T2108: Set blog color label
+  ipcMain.handle(IPC.BLOG_SET_COLOR, async (_event, data: { id: number; userId: number; color: string | null }) => {
+    try {
+      await dbRun('UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.color, nowMySQL(), data.id, data.userId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle(IPC.TAG_SET_BLOG, async (_event, data: { blogId: number; tagIds: number[] }) => {
     try {
       await BlogService.setBlogTags(data.blogId, data.tagIds);
@@ -305,14 +327,22 @@ export function registerBlogHandlers(): void {
       });
       if (!filePath) return { success: false, error: '已取消' };
 
-      // Render markdown to HTML using markdown-it
+      // Render markdown to HTML using markdown-it (html:false escapes any user HTML)
       let bodyHtml = blog.content || '';
       if (blog.format === 'md') {
         const MarkdownIt = (await import('markdown-it')).default;
         const md = new MarkdownIt({ html: false, linkify: true });
         bodyHtml = md.render(bodyHtml);
+      } else {
+        // R276: HTML format — strip script tags and event handlers before injecting
+        bodyHtml = bodyHtml
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+          .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+          .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
       }
 
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         :root {
           --text-primary: #2c2c2c; --text-secondary: #666; --text-muted: #999;
@@ -336,8 +366,8 @@ export function registerBlogHandlers(): void {
         hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}
         .footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
       </style></head><body>
-        <h1>${blog.title}</h1>
-        <p style="color:#888;font-size:14px">${blog.createdAt}</p>
+        <h1>${esc(blog.title)}</h1>
+        <p style="color:#888;font-size:14px">${esc(blog.createdAt)}</p>
         ${bodyHtml}
         <div class="footer">由 Local Blog KB 导出</div>
       </body></html>`;
@@ -377,7 +407,7 @@ export function registerBlogHandlers(): void {
   ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data: { userId: number; title: string; content: string }) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
-      if (data.content) await syncWikilinkRefs('blog', blog.id, data.content);
+      if (data.content) await syncWikilinkRefs('blog', blog.id, data.content, data.userId);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {

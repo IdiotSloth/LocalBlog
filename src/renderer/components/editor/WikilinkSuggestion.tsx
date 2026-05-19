@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { WikiLinkSearchResult } from '../../../shared/types';
+import { searchDirect } from '../../lib/use-search';
 import { useAuthStore } from '../../stores/auth-store';
 
 interface Props {
@@ -37,34 +38,34 @@ export function WikilinkSuggestion({ query, position, onSelect, onClose }: Props
     setLoading(true);
     const q = query.trim();
 
-    // Search blogs + knowledge via refSearch, notes via noteList
-    Promise.all([
-      window.api.refSearch({ userId: user.id, scope: 'all', query: q }),
-      window.api.noteList(user.id),
-    ]).then(([r, notes]) => {
+    // D88: Use FTS5 Worker search (CJK-aware, TF-IDF scored, covers blogs+knowledge+notes)
+    // Replaces old refSearch (SQL LIKE) + noteList (full pull + JS filter) pattern
+    searchDirect(q, user.id).then((results) => {
       if (aborted) return;
-      const items: WikiLinkSearchResult[] = [];
-      if (r.success && r.data) {
-        for (const item of r.data as Array<{ id: number; type: string; title: string }>) {
-          items.push({ id: item.id, type: item.type as 'blog' | 'knowledge', title: item.title });
-        }
-      }
-      // Also search notes by title/content matching query
-      if (notes.success && notes.data) {
-        for (const n of notes.data) {
-          if (n.title?.toLowerCase().includes(q.toLowerCase()) || n.content?.toLowerCase().includes(q.toLowerCase())) {
-            items.push({ id: n.id, type: 'note', title: n.title || n.content.slice(0, 40) });
+      const items: WikiLinkSearchResult[] = results.map((r) => ({
+        id: r.id,
+        type: r.type as 'blog' | 'knowledge',
+        title: r.title,
+      }));
+      // Also get note-type results not yet indexed by Worker (note content search is limited)
+      window.api.noteList(user.id).then((nResp) => {
+        if (aborted) return;
+        if (nResp.success && nResp.data) {
+          for (const n of nResp.data) {
+            if (n.title?.toLowerCase().includes(q.toLowerCase()) || n.content?.toLowerCase().includes(q.toLowerCase())) {
+              const exists = items.some((i) => i.id === n.id && i.type === 'note');
+              if (!exists) items.push({ id: n.id, type: 'note', title: n.title || n.content.slice(0, 40) });
+            }
           }
         }
-      }
-      if (!aborted) {
         setResults(items.slice(0, 8));
         setSelectedIdx(0);
-      }
+        setLoading(false);
+      }).catch(() => {
+        if (!aborted) { setResults(items.slice(0, 8)); setSelectedIdx(0); setLoading(false); }
+      });
     }).catch(() => {
-      if (!aborted) setResults([]);
-    }).finally(() => {
-      if (!aborted) setLoading(false);
+      if (!aborted) { setResults([]); setLoading(false); }
     });
 
     return () => { aborted = true; };

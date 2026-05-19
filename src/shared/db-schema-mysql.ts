@@ -26,6 +26,8 @@ export const MYSQL_DDL = [
     title VARCHAR(200) NOT NULL, format ENUM('md','html') DEFAULT 'md',
     content LONGTEXT, status ENUM('active','trash') DEFAULT 'active',
     series_id VARCHAR(36) DEFAULT NULL, series_name VARCHAR(100) DEFAULT NULL,
+    cover_image TEXT, icon VARCHAR(16) DEFAULT NULL,
+    is_pinned TINYINT DEFAULT 0, color VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -111,6 +113,15 @@ export const MYSQL_MIGRATIONS = [
   'ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)',
   'ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)',
 
+  // Phase 21: Rebuild FULLTEXT indexes with ngram parser for CJK search.
+  // The original indexes (T1801) use the default parser which treats CJK
+  // as single tokens — "面试通关手册" indexed as one token, so searching
+  // "面试" never matches. ngram parser breaks into bigrams.
+  'ALTER TABLE blogs DROP INDEX ft_blogs',
+  'ALTER TABLE knowledge_files DROP INDEX ft_knowledge',
+  'ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content) WITH PARSER ngram',
+  'ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text) WITH PARSER ngram',
+
   // T1906: notes +4 columns (title, memo_type, due_date, updated_at)
   "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
   "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
@@ -119,4 +130,10 @@ export const MYSQL_MIGRATIONS = [
 
   // T2009: knowledge_files properties JSON column (R176)
   "ALTER TABLE knowledge_files ADD COLUMN properties TEXT",
+
+  // T2103+T2108: blogs metadata columns (cover_image, icon, is_pinned, color)
+  'ALTER TABLE blogs ADD COLUMN cover_image TEXT',
+  'ALTER TABLE blogs ADD COLUMN icon VARCHAR(16) DEFAULT NULL',
+  'ALTER TABLE blogs ADD COLUMN is_pinned TINYINT NOT NULL DEFAULT 0',
+  'ALTER TABLE blogs ADD COLUMN color VARCHAR(20) DEFAULT NULL',
 ];

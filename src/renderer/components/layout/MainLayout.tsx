@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileEdit,
+  GitFork,
   HelpCircle,
   Layers,
-  LayoutDashboard,
   Library,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,11 +20,14 @@ import { ShortcutHelpPanel } from '../common/ShortcutHelpPanel';
 import { ContextPanel, ContextPanelProvider } from './ContextPanel';
 import { GlobalSearch } from './GlobalSearch';
 import { QuickNote } from './QuickNote';
+import { QuickSwitcher } from './QuickSwitcher';
+import { SplitPane, SplitProvider, useSplit } from './SplitPane';
 
 const navGroups = [
   {
     label: '写作',
     items: [
+      { to: '/', label: '今日', Icon: Pencil },
       { to: '/notes', label: '便签', Icon: StickyNote },
       { to: '/blog', label: '博客', Icon: FileEdit },
     ],
@@ -34,14 +37,13 @@ const navGroups = [
     items: [
       { to: '/knowledge', label: '知识库', Icon: Library },
       { to: '/tags', label: '标签', Icon: Tags },
+      { to: '/series', label: '系列', Icon: Layers },
     ],
   },
   {
     label: '洞察',
     items: [
-      { to: '/', label: '续写', Icon: Pencil },
-      { to: '/dashboard', label: '仪表盘', Icon: LayoutDashboard },
-      { to: '/series', label: '系列', Icon: Layers },
+      { to: '/graph', label: '图谱', Icon: GitFork },
     ],
   },
   {
@@ -104,10 +106,11 @@ export function MainLayout() {
   }, [showShortcuts, toggleSidebar]);
 
   return (
-    <ContextPanelProvider>
-      <div className="flex h-full select-none">
-        {/* ===== Sidebar — fixed, manual toggle. Always 220px inner, transform for GPU animation (R218) ===== */}
-        <aside
+    <SplitProvider>
+      <ContextPanelProvider>
+        <div className="flex h-full select-none">
+          {/* ===== Sidebar — fixed, manual toggle. Always 220px inner, transform for GPU animation (R218) ===== */}
+          <aside
           className="flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-visible"
           style={{
             background: 'var(--bg-sidebar)',
@@ -230,24 +233,44 @@ export function MainLayout() {
           </div>
         </aside>
 
-        {/* ===== Main Content ===== */}
-        <div className="flex flex-1 flex-col overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
-          <header
-            className="flex items-center border-b border-[var(--border-default)] px-6"
-            style={{ background: 'var(--bg-secondary)', height: 'var(--nav-height)' }}
-          >
-            <GlobalSearch />
-          </header>
-          <main className="flex-1 overflow-y-auto p-6">
-            <Outlet />
-          </main>
-        </div>
+        <MainContent />
 
         {/* ===== Context Panel (right) ===== */}
         <ContextPanel />
 
         {showShortcuts && <ShortcutHelpPanel onClose={() => setShowShortcuts(false)} />}
+        <QuickSwitcher />
       </div>
     </ContextPanelProvider>
+    </SplitProvider>
+  );
+}
+
+/** Inner component that reads split state for conditional SplitPane rendering */
+function MainContent() {
+  const { isSplit, rightContent, closeSplit } = useSplit();
+  const location = useLocation();
+
+  // Close split on route change — prevents stale right pane content
+  useEffect(() => {
+    if (isSplit) closeSplit();
+  }, [location.pathname]);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
+      <header
+        className="flex items-center border-b border-[var(--border-default)] px-6"
+        style={{ background: 'var(--bg-secondary)', height: 'var(--nav-height)' }}
+      >
+        <GlobalSearch />
+      </header>
+      {isSplit ? (
+        <SplitPane left={<Outlet />} right={rightContent} />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </main>
+      )}
+    </div>
   );
 }

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340">
+  <rect width="720" height="340" fill="#0d1117"/>
+
+  <text x="360" y="30" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="20" font-weight="700" fill="#c9d1d9">博客写作</text>
+  <text x="360" y="50" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="12" fill="#8b949e">Phase 20-21 编辑器进化</text>
+
+  <!-- 2x3 Grid of feature cards -->
+  <g transform="translate(20, 70)">
+    <!-- Row 1 -->
+    <rect x="0" y="0" width="215" height="72" fill="#161b22"/><circle cx="12" cy="20" r="3" fill="#58a6ff"/>
+    <text x="20" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">[[双向链接]]</text>
+    <text x="12" y="38" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">输入 [[ 自动补全，三向链接</text>
+    <text x="12" y="55" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">blog / knowledge / note</text>
+
+    <rect x="232" y="0" width="215" height="72" fill="#161b22"/><circle cx="244" cy="20" r="3" fill="#58a6ff"/>
+    <text x="252" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">分屏预览</text>
+    <text x="244" y="38" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">Ctrl+\ MD 即时预览</text>
+    <text x="244" y="55" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">拖拽调节分屏比例</text>
+
+    <rect x="464" y="0" width="236" height="72" fill="#161b22"/><circle cx="476" cy="20" r="3" fill="#58a6ff"/>
+    <text x="484" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">斜杠命令</text>
+    <text x="476" y="38" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">/ 触发 17 种块命令 + Callout</text>
+    <text x="476" y="55" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">info / success / warning / danger</text>
+
+    <!-- Row 2 -->
+    <rect x="0" y="88" width="215" height="72" fill="#161b22"/><circle cx="12" cy="108" r="3" fill="#58a6ff"/>
+    <text x="20" y="108" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">元数据面板</text>
+    <text x="12" y="126" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">封面图 / 图标 / 系列 / 格式</text>
+    <text x="12" y="143" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">统一编辑入口</text>
+
+    <rect x="232" y="88" width="215" height="72" fill="#161b22"/><circle cx="244" cy="108" r="3" fill="#58a6ff"/>
+    <text x="252" y="108" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">模板变量</text>
+    <text x="244" y="126" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">{{date}} {{time}} {{title}}</text>
+    <text x="244" y="143" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">模板插入时自动展开替换</text>
+
+    <rect x="464" y="88" width="236" height="72" fill="#161b22"/><circle cx="476" cy="108" r="3" fill="#58a6ff"/>
+    <text x="484" y="108" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">置顶 + 颜色标记</text>
+    <text x="476" y="126" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">博客置顶排序 + 6 色圆点</text>
+    <text x="476" y="143" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">blue / green / amber / red / purple / gray</text>
+  </g>
+
+  <!-- Bottom features -->
+  <g transform="translate(20, 266)">
+    <rect x="0" y="0" width="100" height="22" rx="11" fill="#1e2433"/>
+    <text x="50" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">Ctrl+O 快速切换</text>
+    <rect x="108" y="0" width="80" height="22" rx="11" fill="#1e2433"/>
+    <text x="148" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">专注模式</text>
+    <rect x="196" y="0" width="80" height="22" rx="11" fill="#1e2433"/>
+    <text x="236" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">自动草稿</text>
+    <rect x="284" y="0" width="90" height="22" rx="11" fill="#1e2433"/>
+    <text x="329" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">历史版本回滚</text>
+  </g>
+
+  <text x="360" y="325" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#484f58">写作前先选模板 — 预设标题、格式和标签，新建时自动应用</text>
+</svg>

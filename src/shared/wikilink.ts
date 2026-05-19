@@ -8,12 +8,17 @@ const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 // Tags whose inner content should NOT have wikilinks processed (R174 known limitation fix)
 const CODE_TAGS = /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>)/gi;
 
+/** Map of [[title]] → { type, id } for direct link resolution */
+export type WikiLinkResolver = Map<string, { type: string; id: number }>;
+
 /**
- * Replace [[target]] and [[target|alias]] wikilinks with search links.
+ * Replace [[target]] and [[target|alias]] wikilinks with direct or search links.
  * Code blocks (<pre>/<code>) are preserved untouched.
- * Title→ID resolution happens at save time via syncWikilinkRefs (R219).
+ *
+ * If `resolver` is provided, resolved titles become direct links (href="/blog/N" etc.).
+ * Unresolved titles fall back to search links (href="/blog?q=title").
  */
-export function renderWikilinks(html: string): string {
+export function renderWikilinks(html: string, resolver?: WikiLinkResolver): string {
   // Extract code blocks to protect them from wikilink replacement
   const codeBlocks: string[] = [];
   const protected_ = html.replace(CODE_TAGS, (match) => {
@@ -27,9 +32,19 @@ export function renderWikilinks(html: string): string {
     const display = (alias as string | undefined)?.trim() || title;
     if (!title) return _match;
 
-    // Search link — proper resolution to direct IDs happens in syncWikilinkRefs at save time
+    // Check resolver for direct link
+    const resolved = resolver?.get(title);
+    if (resolved) {
+      const route = resolved.type === 'blog' ? `#/blog/${resolved.id}`
+        : resolved.type === 'knowledge' ? '#/knowledge'
+        : resolved.type === 'note' ? '#/notes'
+        : `#/blog?q=${encodeURIComponent(title)}`;
+      return `<a class="wiki-link" data-ref-type="${resolved.type}" data-ref-id="${resolved.id}" href="${route}">${escapeHtml(display)}</a>`;
+    }
+
+    // Fallback: search link
     const encoded = encodeURIComponent(title);
-    return `<a class="wiki-link" data-wiki-title="${escapeAttr(title)}" href="/blog?q=${encoded}">${escapeHtml(display)}</a>`;
+    return `<a class="wiki-link" data-wiki-title="${escapeAttr(title)}" href="#/blog?q=${encoded}">${escapeHtml(display)}</a>`;
   });
 
   // Restore code blocks

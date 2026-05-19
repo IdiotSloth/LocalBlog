@@ -20,6 +20,8 @@ Before starting, quick sanity check:
   - `files` should include `img/**/*` if images are needed in ASAR root
   - `asarUnpack: ["img/**"]` ensures `nativeImage.createFromPath` can read images
   - `extraResources` should copy `img/` for main process access via `process.resourcesPath`
+- `build/icon.png` — should be ≥30KB (256×256 real icon). If ~1KB it's transparent/black → NSIS installer shows black blob
+- Start Menu shortcut: may point to stale portable exe. If "no response on click", check shortcut target with VBScript `CreateShortcut().TargetPath` → verify ASAR not 28 bytes
 
 ## Pipeline
 
@@ -53,12 +55,20 @@ npx electron-builder --win --config electron-builder.yml
 
 如果方案 B 网络不通（无法下载 Electron 二进制），回退到方案 A，然后手动更新便携版 ASAR：
 ```bash
-# 手动更新便携版 ASAR（本地离线）
+# 手动更新便携版 ASAR（本地离线）— 注意：每一步都要验证！
+rm -rf /tmp/fe && mkdir -p /tmp/fe
 npx asar extract release/Idiot-win32-x64/resources/app.asar /tmp/fe
+# ⚠️ 验证: ls /tmp/fe/out/main/index.js 必须存在
 rm -rf /tmp/fe/out && cp -r out/ /tmp/fe/out
-npx asar pack /tmp/fe release/Idiot-win32-x64/resources/app.asar
-rm -rf /tmp/fe
+cp package.json /tmp/fe/
+cp -r node_modules/ /tmp/fe/node_modules/  # 可选, 但包含 devDeps 会使 ASAR 膨胀 ~1.6x
+npx asar pack /tmp/fe /tmp/app.asar
+# ⚠️ 验证: ls -la /tmp/app.asar — 如果是 28 bytes 说明打包失败(临时目录为空)
+# ⚠️ 验证: npx asar extract /tmp/app.asar /tmp/verify && ls /tmp/verify/out/ 必须有内容
+cp /tmp/app.asar release/Idiot-win32-x64/resources/app.asar
+rm -rf /tmp/fe /tmp/app.asar /tmp/verify
 ```
+**常见陷阱**: 不要用 `2>/dev/null` 隐藏 asar 错误输出。28 bytes ASAR = `{"files":{}}` → exe 启动即崩溃。
 
 ### Step 3: Verify
 
@@ -81,6 +91,12 @@ rm -rf /tmp/fe
 2. `ls dist2/win-unpacked/resources/app.asar.unpacked/img/` — asarUnpack, 同上
 3. `npx asar list dist2/win-unpacked/resources/app.asar | grep "out/renderer/img/"` — post-build.js 注入, 同上
 4. 可选：`md5sum` 对比源文件和打包文件，排除损坏
+5. `build/icon.png` — 检查 ≥ 30KB。若 ~1KB 需用 Electron nativeImage 从 `img/favicon.ico` 重生成：
+   ```bash
+   # 写入临时脚本, 用 run.js 剥离 ELECTRON_RUN_AS_NODE 后执行
+   node scripts/run.js npx electron scripts/convert-icon.js
+   ```
+   脚本内容: `nativeImage.createFromPath('img/favicon.ico').resize({width:256,height:256}).toPNG()` → `build/icon.png`
 
 ### Step 4: Commit
 

@@ -78,7 +78,7 @@ export function CalendarView({ onDateSelect }: { onDateSelect?: (date: string) =
   const scheduleMap = useMemo(() => {
     const map = new Map<string, Note[]>();
     for (const s of schedules) {
-      const dateKey = s.dueDate ? s.dueDate.slice(0, 10) : s.createdAt.slice(0, 10);
+      const dateKey = s.dueDate ? String(s.dueDate).slice(0, 10) : String(s.createdAt).slice(0, 10);
       const list = map.get(dateKey) || [];
       list.push(s);
       map.set(dateKey, list);
@@ -241,7 +241,7 @@ export function CalendarView({ onDateSelect }: { onDateSelect?: (date: string) =
                 key={dateStr}
                 type="button"
                 onClick={() => handleDayClick(day)}
-                className="relative flex flex-col items-center rounded-[4px] py-2 text-[13px] transition-colors hover:opacity-80"
+                className="relative flex flex-col items-center rounded-[4px] py-1.5 text-[13px] transition-colors hover:opacity-80"
                 style={{
                   background: isTodayDay ? 'var(--bg-tertiary)' : 'transparent',
                   color: isTodayDay ? 'var(--accent-blue)' : 'var(--text-primary)',
@@ -249,21 +249,20 @@ export function CalendarView({ onDateSelect }: { onDateSelect?: (date: string) =
                 }}
               >
                 <span>{day}</span>
-                {daySchedules.length > 0 && (
-                  <div className="mt-0.5 flex gap-0.5">
-                    {daySchedules.slice(0, 3).map((s, i) => (
-                      <div
-                        key={i}
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: 'var(--accent-blue)' }}
-                      />
-                    ))}
-                    {daySchedules.length > 3 && (
-                      <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                        +{daySchedules.length - 3}
-                      </span>
-                    )}
-                  </div>
+                {daySchedules.length > 0 ? (
+                  <span
+                    className="mt-0.5 text-[10px] font-semibold rounded-full px-1.5"
+                    style={{
+                      background: 'var(--accent-blue)',
+                      color: '#fff',
+                      minWidth: 18,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {daySchedules.length}
+                  </span>
+                ) : (
+                  <span className="mt-0.5 h-[18px]" />
                 )}
               </button>
             );

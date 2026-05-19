@@ -149,7 +149,7 @@
 - **XSS**: all `dangerouslySetInnerHTML` must go through `DOMPurify.sanitize()`
 - **a11y**: form inputs need `placeholder`, `title`, or `aria-label`
 
-## CSS Tokens (complete list)
+## CSS Tokens (Phase 20 — 3-color system)
 | Token | Usage |
 |-------|-------|
 | `--text-primary` | Primary text color |
@@ -163,22 +163,20 @@
 | `--bg-code` | Code block background |
 | `--border-default` | Default borders |
 | `--border-emphasis` | Emphasis borders |
-| `--accent-blue` | Blue accent (links, active) |
+| `--accent-blue` | Blue accent (links, active, pinned) |
 | `--accent-green` | Green accent (success, local-first) |
-| `--accent-amber` | Amber accent (warnings, tips) |
 | `--accent-red` | Red accent (danger, delete) |
-| `--accent-purple` | Purple accent (code, prose) |
 | `--text-on-accent` | Text on accent-colored backgrounds |
 | `--font-mono` | Monospace font family |
 | `--color-bg-card` | Card background variant (Tailwind mapped) |
 | `--color-bg-base` | Base background variant (Tailwind mapped) |
 | `--color-bg-sidebar` | Sidebar background variant (Tailwind mapped) |
-| `--shadow-card` | Card shadow (dark + light override) |
 | `--shadow-dropdown` | Dropdown shadow (dark + light override) |
-| `--shadow-hover` | Hover shadow (dark + light override) |
 | `--heatmap-0` | Heatmap empty cell |
 | `--heatmap-1` ~ `--heatmap-4` | Heatmap intensity levels (theme-adaptive) |
 
+**Removed** (Phase 20): `--accent-amber`, `--accent-purple`, `--shadow-card`, `--shadow-hover`.
+**Card style**: 8px radius, border-only, no shadow, hover changes border-color. No translateY.
 **Rule**: All tokens that differ between dark/light must have BOTH `:root` and `.light` definitions.
 
 ## Common Patterns
@@ -207,6 +205,54 @@
 - **Worker onerror**: Every Worker must have `self.onerror` + `worker.onerror` + postMessage try-catch. Crash without handlers = silent failure (R133).
 - **buildRestore updated_at**: All restore handlers must set `updated_at = nowMySQL()`. Missing = recovered items sort by deletion time (R134).
 - **Server recycle user_id**: recycle_bin DELETE must include `AND user_id = ?`. Otherwise user A can delete user B's entries (R135).
+
+## Phase 20: Architecture Upgrade (R170-R224)
+
+### Wikilink System
+- **Dual scanner**: `syncWikilinkRefs` must use BOTH `extractWikilinkRefs` (HTML `<a class="wiki-link">` tags) and `extractWikilinkTitles` (`[[...]]` plain text). Never use only one.
+- **Turndown wikilink rule**: Must add custom turndown rule to preserve wikilinks as `[[Title]]` instead of `[Title](url)`. Without it, wikilink data attributes are lost.
+- **resolveTitles**: sourceType and sourceId must come from function parameters, never hardcoded (was hardcoded to `sourceId: 0`).
+- **WikilinkSuggestion**: Tiptap extension triggers on `[[`, searches via `refSearch`/`noteList`, inserts `<a class="wiki-link">`. Keyboard nav: ArrowDown/Up/Enter/Escape.
+- **Ref sync points**: blog:create/update/quickCreate, note:create/update, knowledge:import — all call `syncWikilinkRefs`.
+- **Blog delete cleanup**: DELETE FROM refs WHERE source_type='blog' AND source_id=? + target_type='blog' AND target_id=? (R208).
+- **Transaction**: syncWikilinkRefs wrapped in BEGIN/COMMIT/ROLLBACK. Use `BEGIN` (not `BEGIN IMMEDIATE` — MySQL incompatible).
+
+### Design System (Phase 20)
+- **3 colors only**: blue (active), green (success), red (danger). No amber, no purple.
+- **Card style**: `.card` class — 8px radius, border-only, no shadow, hover only changes `border-color`.
+- **Animations**: 150ms `border-color`/`color` transitions only. No keyframe effects (fadeUp/edge-breathe removed).
+- **Reading themes**: 3 (dark/light/sepia). localStorage migration: `{ forest:'dark', sakura:'light', paper:'sepia', midnight:'dark' }`.
+
+### 3-Column Layout + ContextPanel
+- **Sidebar**: Fixed 220px, manual toggle → 48px. Toggle button needs `aria-expanded` + `aria-label` + `Ctrl+B`.
+- **ContextPanel**: 280px right panel. `useContextPanel()` hook with `registerTabs(tabs)` → returns cleanup.
+- **Ownership token**: sessionId increments on route change. Cleanup checks sessionId match before clearing tabs (R186).
+- **Route whitelist**: Only `/blog/:id`, `/blog/:id/edit`, `/knowledge`, `/graph` show the panel. Others degrade to 2-column (R195).
+- **Responsive**: Panel hides when `window.innerWidth < 1200` (R200).
+
+### Knowledge Graph (D3)
+- **D3 forceSimulation** (D49): `forceLink` + `forceManyBody` + `forceCenter` + `forceCollide`. `sim.tick(N)` cold start, `sim.stop()` in cleanup.
+- **graph:getData IPC**: All 6 queries must include `user_id` WHERE clause AND `ORDER BY ... DESC` before `LIMIT`.
+- **MiniGraph**: HomePage 200×180 SVG, listens to onBlogRefresh/onKbRefresh/onNoteRefresh (R223).
+- **GraphPage**: `/graph` route, drag-to-pan + wheel-zoom + Ctrl-wheel fine-zoom + type filter buttons + hover tooltip.
+
+### MCP Server
+- **HTTP**: Express route `POST /api/mcp/message` on port 3456, JWT Cookie auth (requireAuth middleware).
+- **stdio**: `src/mcp-server/index.ts` standalone CLI, `npm run mcp` script. No Electron dependency.
+- **7 tools**: search, list_blogs, list_knowledge, list_notes, list_tags, get_stats, get_refs.
+
+### MySQL Strict Mode
+- **TEXT columns**: Never use `TEXT DEFAULT '...'` in MySQL DDL. MySQL strict mode forbids defaults on TEXT/BLOB. Omit DEFAULT, handle NULL in application code.
+- MySQL DDL and SQLite DDL may differ on DEFAULT clauses — check both when adding columns.
+
+### Router Safety
+- **404 catch-all**: `{ path: '*', element: <NotFoundPage /> }` with "回到仪表盘" link.
+- **HashRouter anchors**: Never `<a href="#xxx">` — HashRouter intercepts as route. Use `<button onClick={...}>` with `scrollIntoView`/`focus()`.
+- **errorElement vs ErrorBoundary**: ErrorBoundary wraps each page. errorElement would replace entire layout (including sidebar) — don't use at root level.
+
+### IPC Cross-Module Dependencies
+- When importing from another IPC handler (e.g., note.ts imports `syncWikilinkRefs` from blog.ts), verify ALL transitive imports exist.
+- Missing import like `dbGet` causes `ReferenceError` → main process silent crash → window disappears instantly.
 
 ## Phase 20: Session-Level Patterns (R158-R169)
 
@@ -248,3 +294,48 @@
 
 ### FloatingBlogTabs: Need Visible Entry Point
 - BlogPreviewPage must have "最小化" button calling `addTab()` from floating-tabs-state.ts
+
+## Phase 21: Editor Evolution + Search + Knowledge + Polish
+
+### MySQL FULLTEXT CJK Search
+- **ngram parser required**: `ALTER TABLE ... ADD FULLTEXT INDEX ... WITH PARSER ngram`. Default parser treats contiguous CJK as single token — "面试通关手册" as one token, "面试" never matches.
+- **CJK fallback**: `hasCjk(s)` check — if FULLTEXT returns empty AND query has CJK characters, fall back to LIKE `%q%`. Covers pre-migration databases.
+- **Migration**: DROP old index → ADD new WITH PARSER ngram. `DROP INDEX ... ON ...` or `ALTER TABLE ... DROP INDEX ...`. Both wrapped in try-catch (idempotent).
+
+### React Hooks Rules
+- **Hooks before returns**: ALL `useState`/`useEffect`/`useCallback` must come before ANY `if (x) return` conditional return. Hook count mismatch during re-render = "Rendered more hooks than during the previous render" crash.
+- **HMR-safe module state**: `let`/`const` module-level variables reset on Vite HMR. Store in `window.__key` via `getStore()` wrapper with lazy init pattern.
+
+### HashRouter Link Safety
+- **`#` prefix required**: Every `<a href>` MUST use `#/blog/N` format. Without `#`, HashRouter doesn't intercept → direct file:// navigation → 404.
+- **Affected locations**: `renderWikilinks()`, TiptapEditor wikilink insertContent, any dynamically generated `<a>` tags.
+
+### Wikilink Resolution
+- **WikiLinkResolver**: `Map<string, { type: string; id: number }>` — built from `refGetFrom` + `refGetTo` data. Key = `[[title]]` target, value = resolved DB id + type.
+- **renderWikilinks signature**: `renderWikilinks(html: string, resolver?: WikiLinkResolver): string`. With resolver → direct links (`#/blog/N`). Without → search links (`#/blog?q=title`).
+- **BlogPreviewPage pattern**: useEffect loads both refGetFrom + refGetTo → builds resolver Map → passes to renderWikilinks.
+
+### SplitPane + ContextPanel D84
+- **Ownership token**: `{ paneId: string, sessionId: number }` tuple. Per-pane tab storage: `getStore().paneStates` Map.
+- **Active pane tracking**: `useSplit()` provides `activePaneId`, `focusPane(id)`. ContextPanel shows tabs for active pane.
+- **Pane-aware registerTabs**: Captures `ownerPaneId` at registration. Cleanup checks `getStore().currentPaneId === ownerPaneId`.
+
+### Search Architecture
+- **Three-layer CJK**: Unigram (single char, weight 0.25) + Bigram (2-char, weight 0.5) + Word (Intl.Segmenter, weight 1.0). LS key `lbkb_fts_index_v3`.
+- **searchDirect()**: Exported from use-search.ts. Worker via `window.__searchWorker`. MySQL via `searchQuery` IPC. D88 unified ref search.
+- **Hybrid scoring**: `0.6 × vector_score + 0.4 × keyword_score`. Keyword normalized to [0,1] by dividing by max score before merge.
+- **Embedding worker**: `embedding.worker.ts` — `@xenova/transformers` + `Xenova/multilingual-e5-small` (384-dim). IndexedDB for vector cache. Batch writes per transaction.
+
+### Preview Security
+- **escHtml() 5-char**: `& <> "'` all escaped. Defined in PreviewService, used in all HTML template injection points.
+- **HTML sanitization**: Strip `<script>`, `on*` event handlers, `<iframe>` from user/file content before HTML template injection. Applies to: PDF export bodyHtml, PDF preview text extraction, DOCX mammoth output.
+- **iframe sandbox**: Must include `allow-scripts` for interactive previews (XLSX sort/filter, PDF text search JS).
+
+### Database Patterns
+- **Multi-step DML transaction**: 2+ UPDATE/DELETE/INSERT → `BEGIN` → try { ops } → `COMMIT` → catch { `ROLLBACK` }. TAG_MERGE pattern.
+- **D86 dual-guard path safety**: `path.resolve(workspace, filePath)` → `fs.realpathSync(workspace)` → `startsWith(realWorkspace + sep)`.
+- **FULLTEXT ngram migration**: `DROP INDEX` → `ADD FULLTEXT INDEX ... WITH PARSER ngram`. Idempotent via try-catch.
+
+### Type Safety
+- **dueDate**: Always `String(s.dueDate).slice(0, 10)` — dueDate may be Date object or null from different code paths.
+- **CalendarView date keys**: `const dateStr = \`${year}-${pad(month+1)}-${pad(day)}\`` — zero-padded for consistent Map lookup matching `String(dueDate).slice(0,10)`.

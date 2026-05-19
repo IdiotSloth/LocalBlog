@@ -200,6 +200,33 @@ export function SettingsPage() {
           )}
         </section>
 
+        {/* T2109: AI / MCP Configuration */}
+        <section
+          className="rounded-[6px] border p-5"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+        >
+          <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            AI 接入
+          </h3>
+          <p className="mb-3 mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            MCP Server 已就绪。Claude Code / VS Code 可通过以下方式连接：
+          </p>
+          <div className="space-y-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+            <div className="rounded-[4px] px-3 py-2" style={{ background: 'var(--bg-primary)' }}>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>stdio 模式</span>
+              <br />
+              <code className="text-[11px]" style={{ color: 'var(--accent-blue)' }}>npm run mcp</code>
+              <span className="ml-2">— Claude Code / VS Code 本地直连</span>
+            </div>
+            <div className="rounded-[4px] px-3 py-2" style={{ background: 'var(--bg-primary)' }}>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>HTTP 模式</span>
+              <br />
+              <code className="text-[11px]" style={{ color: 'var(--accent-blue)' }}>POST http://localhost:3456/api/mcp/message</code>
+              <span className="ml-2">— 远程 AI 接入 (JWT 认证)</span>
+            </div>
+          </div>
+        </section>
+
         {/* About */}
         <section
           className="rounded-[6px] border p-5"

@@ -55,6 +55,8 @@ export interface WindowApi {
   blogListAttachments(blogId: number): Promise<ApiResponse<{ filename: string; size: number; usedInBlog: boolean }[]>>;
   blogDeleteAttachment(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   blogCleanupAttachments(blogId: number): Promise<ApiResponse<{ deleted: number }>>;
+  blogSetPinned(data: { id: number; userId: number; isPinned: number }): Promise<ApiResponse<void>>;
+  blogSetColor(data: { id: number; userId: number; color: string | null }): Promise<ApiResponse<void>>;
   blogQuickCreate(data: Record<string, unknown>): Promise<ApiResponse<Blog>>;
   blogSeriesList(userId: number): Promise<ApiResponse<{ seriesId: string; seriesName: string; count: number }[]>>;
   blogSeriesGet(seriesId: string): Promise<ApiResponse<BlogWithTags[]>>;
@@ -68,6 +70,7 @@ export interface WindowApi {
   tagCreate(data: Record<string, unknown>): Promise<ApiResponse<Tag>>;
   tagUpdate(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   tagDelete(data: { userId: number; tagId: number }): Promise<ApiResponse<void>>;
+  tagMerge(data: { userId: number; sourceId: number; targetId: number }): Promise<ApiResponse<void>>;
   tagSetBlog(data: Record<string, unknown>): Promise<ApiResponse<void>>;
   tagSetFile(data: Record<string, unknown>): Promise<ApiResponse<void>>;
 
@@ -81,6 +84,7 @@ export interface WindowApi {
   kbPreview(data: { fileId: number; userId: number }): Promise<ApiResponse<{ html?: string; fileType?: string }>>;
   kbOpenExternal(data: { fileId: number; userId: number }): Promise<ApiResponse<void>>;
   kbSetProperties(data: { fileId: number; userId: number; properties: Record<string, string> }): Promise<ApiResponse<void>>;
+  kbUpdateContent(data: { fileId: number; userId: number; content: string }): Promise<ApiResponse<void>>;
   kbBatchDelete(data: { userId: number; fileIds: number[] }): Promise<ApiResponse<{ deleted: number }>>;
 
   // Search

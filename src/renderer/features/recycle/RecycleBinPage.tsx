@@ -103,6 +103,9 @@ export function RecycleBinPage() {
                 <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
                   删除时间
                 </th>
+                <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  剩余
+                </th>
                 <th className="px-4 py-3 text-right font-medium" style={{ color: 'var(--text-secondary)' }}>
                   操作
                 </th>
@@ -132,6 +135,9 @@ export function RecycleBinPage() {
                   <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {formatDate(item.deletedAt)}
                   </td>
+                  <td className="px-4 py-3 text-[12px]">
+                    <RecycleCountdown deletedAt={item.deletedAt} />
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
@@ -150,4 +156,23 @@ export function RecycleBinPage() {
       )}
     </div>
   );
+}
+
+/** T2109: Countdown badge showing days until permanent deletion (30-day window) */
+function RecycleCountdown({ deletedAt }: { deletedAt: string }) {
+  const deleted = new Date(deletedAt);
+  const expires = new Date(deleted.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const remaining = Math.ceil((expires.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (remaining <= 0) {
+    return <span style={{ color: 'var(--accent-red)' }}>即将清理</span>;
+  }
+  if (remaining <= 3) {
+    return <span style={{ color: 'var(--accent-red)' }}>还剩 {remaining} 天</span>;
+  }
+  if (remaining <= 7) {
+    return <span style={{ color: '#f59e0b' }}>还剩 {remaining} 天</span>;
+  }
+  return <span style={{ color: 'var(--text-secondary)' }}>还剩 {remaining} 天</span>;
 }

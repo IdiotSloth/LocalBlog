@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Reference } from '../../../shared/types';
+import { searchDirect } from '../../lib/use-search';
 
 interface RefItem {
   id: number;
@@ -35,13 +36,10 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
-    const r = await window.api.refSearch({
-      userId,
-      scope: sourceType === 'blog' ? 'knowledge' : 'all',
-      query: query.trim(),
-    });
-    if (r.success) setResults(r.data);
-  }, [userId, query, sourceType]);
+    // D88: Use FTS5 Worker search (CJK-aware, TF-IDF scored) instead of SQL LIKE
+    const results = await searchDirect(query.trim(), userId);
+    setResults(results.map((r) => ({ id: r.id, type: r.type, title: r.title })));
+  }, [userId, query]);
 
   const handleAdd = async (targetType: string, targetId: number) => {
     await window.api.refAdd({ sourceType, sourceId, targetType, targetId });

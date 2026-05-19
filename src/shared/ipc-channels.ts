@@ -22,12 +22,15 @@ export const IPC = {
   BLOG_SAVE_DRAFT: 'blog:save-draft',
   BLOG_GET_HISTORY: 'blog:get-history',
   BLOG_ROLLBACK: 'blog:rollback',
+  BLOG_SET_PINNED: 'blog:set-pinned',
+  BLOG_SET_COLOR: 'blog:set-color',
 
   // Tag
   TAG_LIST: 'tag:list',
   TAG_CREATE: 'tag:create',
   TAG_UPDATE: 'tag:update',
   TAG_DELETE: 'tag:delete',
+  TAG_MERGE: 'tag:merge',
   TAG_SET_BLOG: 'tag:set-blog',
   TAG_SET_FILE: 'tag:set-file',
 
@@ -56,6 +59,7 @@ export const IPC = {
   KB_PREVIEW: 'kb:preview',
   KB_OPEN_EXTERNAL: 'kb:open-external',
   KB_SET_PROPERTIES: 'kb:set-properties',
+  KB_UPDATE_CONTENT: 'kb:update-content',
 
   // Search
   SEARCH_GLOBAL: 'search:global',

@@ -41,8 +41,8 @@ async function createShortcut(): Promise<boolean> {
   // Always create a .bat launcher that clears ELECTRON_RUN_AS_NODE for the shortcut
   const launcherBatPath = path.join(app.getPath('userData'), 'launcher.bat');
 
-  // Prefer packaged exe if available (from npm run make)
-  const packagedExe = path.join(projectRoot, 'release', 'LocalBlogKB-win32-x64', 'LocalBlogKB.exe');
+  // Prefer packaged exe if available (matches main/index.ts path)
+  const packagedExe = path.join(projectRoot, 'release', 'Idiot-win32-x64', 'Idiot.exe');
   let batContent: string;
   let workingDir: string;
 
@@ -55,19 +55,23 @@ async function createShortcut(): Promise<boolean> {
   }
 
   fs.writeFileSync(launcherBatPath, batContent, 'utf-8');
-  const targetPath = launcherBatPath;
 
-  const psCmd = `
-    $ws = New-Object -ComObject WScript.Shell;
-    $sc = $ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');
-    $sc.TargetPath = '${targetPath.replace(/'/g, "''")}';
-    $sc.WorkingDirectory = '${workingDir.replace(/'/g, "''")}';
-    $sc.Save();
-    Write-Output 'OK';
-  `;
+  // Write PS1 script to temp location to avoid escaping issues with Windows paths
+  const ps1Path = path.join(app.getPath('userData'), 'lbkb-shortcut.ps1');
+  const psScript = [
+    `$ws = New-Object -ComObject WScript.Shell`,
+    `$sc = $ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}')`,
+    `$sc.TargetPath = '${launcherBatPath.replace(/'/g, "''")}'`,
+    `$sc.WorkingDirectory = '${workingDir.replace(/'/g, "''")}'`,
+    `$sc.Save()`,
+    `Write-Output 'OK'`,
+  ].join('\n');
+  fs.writeFileSync(ps1Path, psScript, 'utf-8');
 
   return new Promise((resolve) => {
-    exec(`powershell -NoProfile -Command "${psCmd.replace(/"/g, '\\"')}"`, (err, stdout) => {
+    exec(`powershell -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"`, (err, stdout) => {
+      // Clean up temp file
+      try { fs.unlinkSync(ps1Path); } catch { /* ignore */ }
       resolve(!err && stdout.includes('OK'));
     });
   });
@@ -97,10 +101,14 @@ export function registerAppHandlers(): void {
 
   ipcMain.handle(IPC.APP_SET_AUTO_START, async (_event, enabled: boolean) => {
     try {
-      if (app.isPackaged) {
+      // Use Electron's native login item settings whenever we have a real exe
+      // (packaged NSIS, portable build, or dev mode with electron).
+      // Fall back to Startup folder .bat only when running from source.
+      const portableExe = path.join(getProjectRoot(), 'release', 'Idiot-win32-x64', 'Idiot.exe');
+      if (app.isPackaged || fs.existsSync(portableExe)) {
         app.setLoginItemSettings({ openAtLogin: enabled });
       } else {
-        // Dev mode: create/remove .bat script in Windows Startup folder
+        // Dev mode — no real exe, use Startup folder .bat
         const startupDir = getStartupDir();
         const batPath = getStartupBatPath();
         if (enabled) {
@@ -120,7 +128,8 @@ export function registerAppHandlers(): void {
   ipcMain.handle(IPC.APP_GET_AUTO_START, async () => {
     try {
       let enabled: boolean;
-      if (app.isPackaged) {
+      const portableExe = path.join(getProjectRoot(), 'release', 'Idiot-win32-x64', 'Idiot.exe');
+      if (app.isPackaged || fs.existsSync(portableExe)) {
         const settings = app.getLoginItemSettings();
         enabled = settings.openAtLogin;
       } else {

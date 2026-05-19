@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
 import { addTab } from '../../components/blog/floating-tabs-state';
+import { LocalGraph } from '../../components/common/LocalGraph';
 import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { recordRecentBlog } from '../../hooks/useRecentHistory';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
@@ -187,6 +188,7 @@ export function BlogPreviewPage() {
   const [progress, setProgress] = useState(0);
   const [readingTheme, setReadingTheme] = useState<string>(() => migrateTheme(localStorage.getItem('reading-theme')));
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
+  const [wikiResolver, setWikiResolver] = useState<Map<string, { type: string; id: number }> | undefined>();
   const articleElRef = useRef<HTMLElement | null>(null);
   const isEditMode = searchParams.get('mode') === 'edit';
   const scrollContainerRef = useCallback((el: HTMLDivElement | null) => {
@@ -271,8 +273,17 @@ export function BlogPreviewPage() {
       }
     }
 
+    // T2111: Local graph tab — 1-degree neighborhood
+    if (user) {
+      tabs.push({
+        id: 'graph',
+        label: '图谱',
+        content: <LocalGraph centerId={`blog-${blog.id}`} userId={user.id} />,
+      });
+    }
+
     return contextPanel.registerTabs(tabs);
-  }, [blog, contextPanel, activeHeadingId]); // R201: re-register when active heading changes
+  }, [blog, contextPanel, activeHeadingId, user]);
 
   // Save progress on unmount via localStorage
   useEffect(() => {
@@ -292,6 +303,26 @@ export function BlogPreviewPage() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
+
+  // Load refs to resolve [[wikilinks]] to direct links
+  useEffect(() => {
+    if (!id || !user) return;
+    Promise.all([
+      window.api.refGetFrom({ sourceType: 'blog', sourceId: Number(id) }),
+      window.api.refGetTo({ targetType: 'blog', targetId: Number(id) }),
+    ]).then(([from, to]) => {
+      const map = new Map<string, { type: string; id: number }>();
+      const addRef = (r: any) => {
+        const title = r.targetTitle || r.sourceTitle || '';
+        const type = r.targetType || r.sourceType || '';
+        const rid = r.targetId || r.sourceId || 0;
+        if (title && type && rid) map.set(title, { type, id: rid });
+      };
+      if (from.success && from.data) from.data.forEach(addRef);
+      if (to.success && to.data) to.data.forEach(addRef);
+      setWikiResolver(map);
+    }).catch(() => setWikiResolver(undefined));
+  }, [id, user]);
 
   if (loading)
     return (
@@ -317,7 +348,7 @@ export function BlogPreviewPage() {
 
   // R174: md.render → wikilink regex → DOMPurify.sanitize → dangerouslySetInnerHTML
   const rawHtml = blog.format === 'md' ? md.render(blog.content) : blog.content;
-  const rendered = renderWikilinks(rawHtml);
+  const rendered = renderWikilinks(rawHtml, wikiResolver);
   const readingMinutes = estimateReadingTime(blog.content);
   const charTotal = countChars(blog.content);
   const theme = READING_THEMES[readingTheme] ?? READING_THEMES.dark;

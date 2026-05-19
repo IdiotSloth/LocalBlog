@@ -4,6 +4,7 @@ import { FolderTree } from '../../components/common/FolderTree';
 import { TagSelector } from '../../components/common/TagSelector';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
+import { KbContentEditor } from '../../components/knowledge/KbContentEditor';
 import { formatDate, formatFileSize } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 import type { FolderTreeNode, KnowledgeFileWithTags, Reference, Tag } from '../../../shared/types';
@@ -85,8 +86,20 @@ export function knowledgeListReducer(state: KnowledgeListState, action: Knowledg
 }
 
 
+/** T2112: Extract raw text from preview HTML for editing. Used to pre-fill TXT editors. */
+function stripHtmlForEdit(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 export function KnowledgeListPage() {
   const user = useAuthStore((s) => s.user);
+  const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [state, dispatch] = useReducer(knowledgeListReducer, {
     files: [],
     total: 0,
@@ -487,8 +500,21 @@ export function KnowledgeListPage() {
                     return (
                       <tr
                         key={f.id}
-                        className="border-t transition-colors duration-[0.15s]"
+                        tabIndex={0}
+                        className="border-t transition-colors duration-[0.15s] focus:bg-[var(--bg-tertiary)] outline-none"
                         style={{ borderColor: 'var(--border-default)' }}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ' && !(e.target instanceof HTMLInputElement)) {
+                            e.preventDefault();
+                            dispatch({ type: 'PREVIEW_START', title: f.filename, fileId: f.id, fileType: f.fileType || '' });
+                            window.api.refGetTo({ targetType: 'knowledge', targetId: f.id })
+                              .then((r) => { if (r.success && r.data) dispatch({ type: 'SET_BACKREFS', refs: r.data.filter((ref: Reference) => ref.sourceType === 'blog') }); })
+                              .catch(() => dispatch({ type: 'SET_BACKREFS', refs: [] }));
+                            window.api.kbPreview({ fileId: f.id, userId: user.id })
+                              .then((r: any) => { const html = (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>'; dispatch({ type: 'PREVIEW_HTML', html }); })
+                              .catch(() => dispatch({ type: 'PREVIEW_HTML', html: '<p style=color:var(--text-secondary)>预览失败</p>' }));
+                          }
+                        }}
                       >
                         {batch.isBatchMode && (
                           <td className="px-3 py-2.5">
@@ -728,19 +754,42 @@ export function KnowledgeListPage() {
             <h3 className="truncate text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>
               {previewTitle}
             </h3>
-            <button
-              type="button"
-              onClick={() => {
-                dispatch({ type: 'PREVIEW_CLOSE' });
-              }}
-              className="text-[13px]"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              关闭
-            </button>
+            <div className="flex items-center gap-2">
+              {/* T2112: Edit button for TXT/MD files */}
+              {(previewFileType === 'txt' || previewFileType === 'md') && user && previewFileId && (
+                <button
+                  type="button"
+                  onClick={() => setEditingFileId(previewFileId)}
+                  className="text-[12px] rounded-[4px] px-2 py-0.5 transition-opacity hover:opacity-85"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}
+                >
+                  编辑
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  dispatch({ type: 'PREVIEW_CLOSE' });
+                  setEditingFileId(null);
+                }}
+                className="text-[13px]"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                关闭
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-auto">
-            {previewing ? (
+            {editingFileId && user ? (
+              <KbContentEditor
+                fileId={editingFileId}
+                userId={user.id}
+                fileType={previewFileType}
+                initialContent={previewFileType === 'txt' ? stripHtmlForEdit(previewHtml) : ''}
+                onClose={() => setEditingFileId(null)}
+                onSaved={() => { setEditingFileId(null); dispatch({ type: 'PREVIEW_CLOSE' }); }}
+              />
+            ) : previewing ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
                 <div className="w-full max-w-[200px] rounded-full h-2 overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
                   <div className="h-full rounded-full animate-pulse" style={{ background: 'var(--accent-blue)', width: '60%' }} />
@@ -768,7 +817,7 @@ export function KnowledgeListPage() {
                 srcDoc={previewHtml}
                 className="w-full h-full border-0"
                 title="preview"
-                sandbox="allow-same-origin"
+                sandbox="allow-same-origin allow-scripts"
               />
             )}
           </div>

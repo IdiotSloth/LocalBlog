@@ -259,7 +259,7 @@ Boss 裁决的工单你不再争议
 
 ## 本项目常见 bug 模式
 
-基于 Phase 1-19+ 的审计经验，以下是反复出现的 bug 类别：
+基于 Phase 1-20 的审计经验，以下是反复出现的 bug 类别：
 
 | 模式 | 特征 | 排查方向 |
 |------|------|----------|
@@ -304,6 +304,25 @@ Boss 裁决的工单你不再争议
 | **数据查询缺范围过滤（UI 状态与查询参数脱节）** | CalendarView 有 currentMonth/currentYear 状态但 `noteList(userId, 'schedule')` 不传 due_date 范围 → 加载全量数据。UI 暗示"当月"但查询是"全部" (R164) | 审计数据加载组件时：验证 UI 展示的时间/分类/分页范围是否与 IPC 请求参数一致 |
 | **Promise 链缺 .catch() 导致永久 loading** | `.then(r => {...; setLoading(false)})` 无 `.catch()` → 网络/超时异常时 `setLoading(false)` 永不执行，UI 卡死 (R165) | 审计所有 .then() 链条：链尾必须有 .catch() 或改用 async/await + try-catch。`.finally()` 比分别在 .then/.catch 中设 loading 更安全 |
 | **组件内重定义 shared/types.ts 已有类型** | ContinueWritingPage 本地定义 DraftItem/RecentBlog/KnowledgeItem，shared/types.ts 已有 DraftItem/LastBlog/RecentFile → 类型不同步，一处改另一处不知 (R166) | 审计组件类型定义：所有 interface/type 优先从 shared/types.ts 导入。本地类型仅用于纯 UI 状态（非数据实体） |
+| **格式转换管道断裂 (Phase 20 最致命 bug)** | WikilinkSuggestion 插入 `<a class="wiki-link">` HTML → turndown 转 Markdown 丢失 data 属性 → `extractWikilinkTitles` 只扫 `[[...]]` 纯文本 → 引用永久为零。三层断裂：① 编辑器插入 HTML tag ② turndown 丢失语义 ③ 扫描器只匹配纯文本 (R206) | 审计内容管道时追踪完整数据流：编辑器输出格式 → 保存前转换（turndown/序列化）→ IPC handler 接收格式 → 下游扫描器期望格式。每一步都可能引入格式断裂。关键检查：turndown 自定义规则是否保留了业务语义标签 |
+| **IPC handler 参数未解构导致 ReferenceError** | `ipcMain.handle('blog:batchDelete', async (_e, data) => { return { deleted: blogIds.length } })` — 参数名是 `data`，但用裸名 `blogIds`。TypeScript 报 TS2304，运行时 ReferenceError 静默吞入 catch (R204/R205) | 审计每个 IPC handler 的参数使用：逐一对比参数名与函数体内的变量引用。参数名为 `data` 但代码用 `xxx` = bug |
+| **多步 DML 无事务导致部分写入** | `syncWikilinkRefs` 先 SELECT → N 次 INSERT → M 次 DELETE，无 BEGIN/COMMIT。并发保存或进程崩溃 → refs 表部分更新 → 图谱数据损坏 (R207) | 审计含 ≥2 个 DML 语句的函数：必须有事务包裹。即使单用户桌面应用，进程崩溃也可能发生。`dbRun('BEGIN IMMEDIATE')` / `COMMIT` / catch 中 `ROLLBACK` |
+| **export 缺失导致跨模块不可用** | `syncWikilinkRefs` 在 blog.ts 为 module-private → knowledge.ts/note.ts 无法 import → wikilink 只对博客生效，知识和便签不通 (R219) | 审计新功能的跨 domain 覆盖：功能若声称支持多 domain（三向链接），必须 grep 验证每个 domain 的 handler 都有调用入口。函数是否 export 是第一个检查点 |
+| **D3 forceSimulation 未 stop 导致内存泄漏** | D3 simulation 创建后不停发 tick 事件，组件卸载时不调 `sim.stop()` → 后台持续消耗 CPU/内存，React 开发环境 HMR 叠加多个 simulation (T2013/T2014) | 审计 D3 组件：`useEffect` 的 cleanup 必须调 `simulation.stop()`。同时检查 `d3-force` 精确导入而非全量 `d3` |
+| **CSS token 清理生命周期断裂** | T2001 定义别名 `--accent-amber: var(--text-secondary)` 标注"T2017 cleanup" → T2017 未执行删除 → 别名和清理注释残留。30+ 组件已迁移到新 token，但别名定义仍占据 CSS 变量表 (R192/T2017) | 审计跨任务 token 生命周期时：T2001 保留别名 → T2017 清理别名的链条必须两端对齐。T2017 结项条件 = grep 确认旧 token 在 index.css 中已删除 |
+| **Spec-Implementation 文档脱节** | STYLE.md 描述 5 色系/12px 圆角/旧阴影值/fadeUp 动画/780px content-max，但 CSS 实际为 3 色/8px/none/已删除/720px。12 项不匹配 (T2001/T2017) | 审计设计方案变更时：代码和文档的同步本身就是一项检查。grep STYLE.md 中的数值/变量名，逐项对比 index.css 实际值 |
+| **ELECTRON_RUN_AS_NODE 环境变量穿透** | 系统级 `ELECTRON_RUN_AS_NODE=1` → `delete process.env` 不生效 → Windows `cmd.exe` 从注册表重读 → `require('electron')` 返回路径字符串 → `app.disableHardwareAcceleration()` 崩溃：`TypeError: Cannot read properties of undefined` | 审计启动脚本时：`spawn()` 必须显式传 `env` 对象且删除目标变量。`shell: true` + `delete process.env` 在 Windows 上不足够 |
+| **Graph LIMIT 无 ORDER BY 导致非确定性** | `graph:getData` 7 处查询全部 `LIMIT ?` 无 `ORDER BY` → SQLite 默认 rowid 顺序在 VACUUM/DELETE 后变化 → 图谱节点每次不同 (R207b) | 审计带 LIMIT 的 SELECT：必须有 ORDER BY 保证确定性。尤其图谱这种视觉化展示——用户期望每次看到相同的节点 |
+| **IPC handler 死代码（有后端无前端）** | `KB_SET_PROPERTIES` handler 完整实现 → preload 暴露 → WindowApi 类型化 → 但 renderer 中零调用方 → handler 是死代码。`KB_GET_PROPERTIES` 读取通道也不存在 (T2009) | 审计新增 IPC 通道时必须验证双向：writer（哪个 UI 触发？）和 reader（哪个页面展示？）。grep renderer 目录确认有调用方 |
+| **CommandPalette Tab 键逃逸（WCAG 键盘陷阱）** | GlobalSearch 打开时仅处理 Arrow/Enter/Escape，Tab 键焦点逃逸到被遮罩的背景页面 → 用户可与不可见元素交互 (R215) | 审计模态/弹窗组件：必须验证 Tab/Shift+Tab 在组件内循环。grep `handleKeyDown` 确认有 `Tab` case |
+| **深色主题 + sepia 阅读模式链接对比度** | sepia 背景 `#f8f5ef` + 全局 `--accent-blue: #58a6ff`（深色模式）→ 对比度 2.2:1，WCAG AA 需 4.5:1。`theme.accent` 定义但从未用于链接样式 (R217) | 审计多主题系统时：必须交叉检查所有主题组合。全局主题 × 阅读主题 = N×M 种组合，CSS 变量覆盖可能不完全 |
+| **Phase 21: 搜索系统分裂** | 全局搜索 (Ctrl+K) 走 FTS5 Worker + CJK 三层索引，引用搜索 ([[补全 + ReferencePicker) 走 SQL LIKE '%q%' → 同一项目内两套搜索系统零共享 (R225/D88) | 审计所有搜索入口：grep 确认是否全部走同一后端。不一致 = 功能分裂 + CJK 修复单边失效 |
+| **Phase 21: 函数体空实现导致功能全线失效** | `buildEmbeddingIndex` 函数体仅含注释 `// handled in caller`，无 postMessage → 120MB 模型从未下载 → 语义搜索永不启用 (R229) | 审计新功能端到端数据流：函数体空实现（仅注释）是最高危信号——代码存在但功能死路 |
+| **Phase 21: HTML 转义覆盖不一致** | 4 条预览路径 (PDF bodyHtml / PDF 文本提取 / DOCX mammoth / XLSX 单元格) 各自实现转义，3 条初始版本漏转义 (R276/R277/R279/R273) | 审计所有 HTML 注入路径：逐条验证转义函数覆盖。CSV 做了转义但 XLSX 没做 = 典型不一致 |
+| **Phase 21: 混合打分量纲未校准** | keyword TF-IDF (0~∞) vs semantic cosine [0,1]，混合公式 `0.6×vector + 0.4×keyword` 在归一化前由 keyword 主导 (R239) | 审计多信号融合时验证所有信号归一化到同一量纲。`score / max(score)` 最小修复 |
+| **Phase 21: 函数签名变更跨模块传播** | `syncWikilinkRefs` 签名加 `userId` → blog.ts/knowledge.ts/note.ts 5 处调用点需同步更新，遗漏任一处 = `undefined` 传入 SQL | 审计签名变更时 grep 所有调用点，验证参数顺序和数量一致 |
+| **Phase 21: 模块级可变状态 HMR 脆弱** | `panelSubscribers`/`paneStates`/`currentPaneId` 为模块级 let/const → React Fast Refresh 重置但旧组件未取消订阅 (R231) | 审计模块级 mutable 状态：任何 React 组件文件顶层 `let`/`const` 都是 HMR 风险，应封装在 useRef 内 |
+| **Phase 21: 异步 import 卸载时泄漏** | `import('d3-force').then(...)` 在 useEffect cleanup 执行后才 resolve → 卸载组件创建完整 simulation (R233) | 审计动态 import 的 .then 回调：首行必须有 `if (!ref.current) return` 守卫 |
 
 ---
 
@@ -397,24 +416,25 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-17, Phase 19 后全量审计修复后):
-- `as any`: renderer 0, shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
-- `: any` 类型标注: renderer **0 处** ✅ — Phase 19 后二次修复首次达成归零
-- `Record<string,unknown>` in WindowApi: **0 处** ✅ — Phase 19 T1912 全部类型化
-- IPC 通道: **100** (handle) + **6** (EVT_ event channels)
-- 测试: **87/87** unit (12 files), 11/11 e2e
-- `noUncheckedIndexedAccess`: ✅ 永久启用 (Phase 15 T1502)
-- tsc: 项目级零错误 ✅
-- P0+P1+P2+P3: **全零** ✅ (R158-R169 修复后二度清零)
-- `: any` renderer: **首次达成 0** (Phase 19 后审计发现 11→修复至 0)
-- tsc: 项目级零错误 ✅
-- P0+P1+P2+P3: **首次全优先级全零** ✅ (R144-R157 修复后)
-- CRUD 双写: ✅ blog + knowledge (Phase 18) + folder (Phase 19 folder-crud.ts)。search/tag 待 Phase 20
-- Server user_id 隔离: ✅ P1 5 项已修复 (Phase 16) + Service 6 项已修复 (Phase 17) + KB_GET/PREVIEW/OPEN_EXTERNAL userId 守卫 (Phase 19 R145)
-- FTS5 全文搜索: ✅ Worker 倒排索引 + MySQL FULLTEXT INDEX + stripHtml 防污染 + onmessageerror 守卫
-- 错误反馈: ✅ uncaughtException → IPC → Toast (Phase 18 T1803)
-- 组件状态收敛: ✅ TagManagePage(12→1) + BlogListPage(19→1) + KnowledgeListPage(19→1) 共 50 useState→3 useReducer
-- 全局快捷键: ✅ ShortcutService.reregisterAll() 动态注册 (Phase 19 T1903)
-- 路径穿越防御: ✅ validateFilename() path.basename (Phase 19 R147)
-- 构建: 50 main + 2 preload + 227 renderer
-- 累计: 169 个工单 (R01-R169), 50 个决策点 (D01-D50), ~465h
+**当前质量基线** (2026-05-19, Phase 21 结项):
+- `as any`: renderer 6 (全预存: D3/worker/ContextPanel), shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
+- `: any` 类型标注: renderer **4 处** (全预存: D3/worker/inline handlers)。Phase 21 新增文件零新增
+- IPC 通道: **120** (handle) + **9** (EVT_ event channels)
+- 测试: **87/87** unit (12 files)
+- `noUncheckedIndexedAccess`: ✅ 永久启用
+- tsc: **三配置全部零错误** ✅ (tsc --noEmit / tsconfig.node / tsconfig.web)
+- P0+P1+P2+P3: **P0+P1 清零** ✅ (遗留 2 项 P2/P3 非阻断)
+- CRUD 双写收敛: ✅ blog + knowledge (Phase 18) + folder (Phase 19) + search (Phase 15 Worker)
+- [[wikilink]]: ✅ Tiptap 补全 + turndown 保留语法 + 双扫描器 (text+HTML) + resolveTitles user_id 过滤 (R251) + 三向链接全覆盖 (blog/knowledge/note)
+- 图谱: ✅ D3 forceSimulation + 拖拽平移 + 滚轮缩放 + 局部图谱 (ContextPanel) + refresh 事件监听
+- MCP Server: ✅ 7 tools + HTTP(Express 路由) + stdio CLI + JWT 认证
+- 3 栏布局: ✅ 侧边栏 220↔48px + ContextPanel 280px + 分屏 (SplitPane) + Ctrl+\ MD 预览 + paneId 所有权
+- 设计系统: ✅ 3 色系 + 8px 圆角 + 卡片无阴影 + Lucide 图标 + 3 阅读主题 + 指南页重写 (Lucide 配图)
+- 搜索: ✅ CJK Unigram+Bigram+Word 三层索引 + 语义搜索 (multilingual-e5-small) + 搜索统一 (D88 searchDirect) + QuickSwitcher (Ctrl+O) + 搜索操作符 type:
+- 编辑器: ✅ 斜杠命令 18 种 + Callout Tiptap Node + 模板变量 {{date}} + MetadataPanel + Pin/Color
+- 知识库: ✅ 多格式编辑 (TXT/MD) + DOCX/XLSX/PDF/CSV 预览增强 + shiki 代码高亮 + KB Space 预览 + kb:updateContent D86 双重校验
+- 浏览器剪藏: ✅ Chrome Extension (Manifest V3) + POST /api/clip + readability/turndown
+- 其他: ✅ TAG_MERGE (事务) + 回收站倒计时 + Skeleton + EmptyState + Settings AI/MCP 配置
+- 安全: ✅ PDF/DOCX/XLSX/CSV 预览全路径 HTML 转义覆盖 + PDF 导出 XSS 修复 + D86 符号链接防护
+- 构建: 53 main + 2 preload + 225 renderer
+- 累计: 281 个工单 (R01-R281), 88 个决策点 (D01-D88), ~615h

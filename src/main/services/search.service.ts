@@ -132,6 +132,12 @@ export class SearchService {
         [query, userId, query],
       );
 
+      // If FULLTEXT returned nothing and query has CJK chars, fall back to LIKE.
+      // ngram parser migration may not have run yet (pre-Phase-21 databases).
+      if (rows.length === 0 && SearchService.hasCjk(query)) {
+        return SearchService.fallbackBlogSearch(query, userId);
+      }
+
       return rows.map((row) => ({
         id: row.id,
         type: 'blog' as const,
@@ -163,6 +169,10 @@ export class SearchService {
         [query, userId, query],
       );
 
+      if (rows.length === 0 && SearchService.hasCjk(query)) {
+        return SearchService.fallbackKnowledgeSearch(query, userId);
+      }
+
       return rows.map((row) => ({
         id: row.id,
         type: 'knowledge' as const,
@@ -176,45 +186,41 @@ export class SearchService {
     }
   }
 
-  /**
-   * Fallback: LIKE-based search when FULLTEXT index is unavailable (e.g., during migration).
-   */
-  private static async fallbackBlogSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
+  private static fallbackBlogSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
     const like = `%${query}%`;
-    const rows = await dbAll<{ id: number; title: string; content: string }>(
-      `SELECT id, title, SUBSTRING(content, 1, 200) as content
-       FROM blogs
-       WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 20`,
+    return dbAll<{ id: number; title: string; content: string }>(
+      "SELECT id, title, SUBSTRING(content, 1, 200) as content FROM blogs WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?) LIMIT 20",
       [userId, like, like],
+    ).then((rows) =>
+      rows.map((r) => ({
+        id: r.id,
+        type: 'blog' as const,
+        title: r.title,
+        snippet: (r.content || '').slice(0, 200),
+        score: 0,
+      })),
     );
-    return rows.map((row) => ({
-      id: row.id,
-      type: 'blog' as const,
-      title: row.title,
-      snippet: (row.content || '').slice(0, 200),
-      score: 0,
-    }));
   }
 
-  private static async fallbackKnowledgeSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
+  private static fallbackKnowledgeSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
     const like = `%${query}%`;
-    const rows = await dbAll<{ id: number; filename: string; content_text: string }>(
-      `SELECT id, filename, SUBSTRING(content_text, 1, 200) as content_text
-       FROM knowledge_files
-       WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 20`,
+    return dbAll<{ id: number; filename: string; content_text: string }>(
+      "SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?) LIMIT 20",
       [userId, like, like],
+    ).then((rows) =>
+      rows.map((r) => ({
+        id: r.id,
+        type: 'knowledge' as const,
+        title: r.title,
+        snippet: (r.content_text || '').slice(0, 200),
+        score: 0,
+      })),
     );
-    return rows.map((row) => ({
-      id: row.id,
-      type: 'knowledge' as const,
-      title: row.filename,
-      snippet: (row.content_text || '').slice(0, 200),
-      score: 0,
-    }));
+  }
+
+  /** Returns true if the string contains any CJK character */
+  private static hasCjk(s: string): boolean {
+    return /[一-鿿㐀-䶿豈-﫿]/.test(s);
   }
 
   /**

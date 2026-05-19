@@ -24,6 +24,8 @@ const api: WindowApi = {
   blogSaveDraft: (data) => ipcRenderer.invoke(IPC.BLOG_SAVE_DRAFT, data),
   blogGetHistory: (blogId) => ipcRenderer.invoke(IPC.BLOG_GET_HISTORY, blogId),
   blogRollback: (data) => ipcRenderer.invoke(IPC.BLOG_ROLLBACK, data),
+  blogSetPinned: (data) => ipcRenderer.invoke(IPC.BLOG_SET_PINNED, data),
+  blogSetColor: (data) => ipcRenderer.invoke(IPC.BLOG_SET_COLOR, data),
   blogListAttachments: (blogId) => ipcRenderer.invoke(IPC.BLOG_LIST_ATTACHMENTS, blogId),
   blogDeleteAttachment: (data) => ipcRenderer.invoke(IPC.BLOG_DELETE_ATTACHMENT, data),
   blogCleanupAttachments: (blogId) => ipcRenderer.invoke(IPC.BLOG_CLEANUP_ATTACHMENTS, blogId),
@@ -40,6 +42,7 @@ const api: WindowApi = {
   tagCreate: (data) => ipcRenderer.invoke(IPC.TAG_CREATE, data),
   tagUpdate: (data) => ipcRenderer.invoke(IPC.TAG_UPDATE, data),
   tagDelete: (data) => ipcRenderer.invoke(IPC.TAG_DELETE, data),
+  tagMerge: (data) => ipcRenderer.invoke(IPC.TAG_MERGE, data),
   tagSetBlog: (data) => ipcRenderer.invoke(IPC.TAG_SET_BLOG, data),
   tagSetFile: (data) => ipcRenderer.invoke(IPC.TAG_SET_FILE, data),
 
@@ -54,6 +57,7 @@ const api: WindowApi = {
   kbOpenExternal: (data) => ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
   kbSetProperties: (data) => ipcRenderer.invoke(IPC.KB_SET_PROPERTIES, data),
+  kbUpdateContent: (data) => ipcRenderer.invoke(IPC.KB_UPDATE_CONTENT, data),
 
   // Search
   searchGlobal: (data) => ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),

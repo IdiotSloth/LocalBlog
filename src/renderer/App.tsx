@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { CardSkeleton } from './components/common/Skeleton';
 import { NotFoundPage } from './features/misc/NotFoundPage';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
@@ -54,10 +55,8 @@ const GraphPage = lazy(() =>
 );
 function PageSkeleton() {
   return (
-    <div className="animate-pulse space-y-4 p-6">
-      <div className="h-8 w-1/3 rounded" style={{ background: 'var(--bg-tertiary)' }} />
-      <div className="h-4 w-2/3 rounded" style={{ background: 'var(--bg-tertiary)' }} />
-      <div className="h-64 rounded" style={{ background: 'var(--bg-tertiary)' }} />
+    <div className="p-6">
+      <CardSkeleton />
     </div>
   );
 }

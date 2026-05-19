@@ -182,6 +182,12 @@ export async function initDatabase(): Promise<void> {
   // R176: properties column for knowledge_files (T2009)
   try { sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'"); } catch { /* column exists */ }
 
+  // T2103+T2108: blogs metadata columns (cover_image, icon, is_pinned, color)
+  try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN cover_image TEXT DEFAULT NULL'); } catch { /* exists */ }
+  try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN icon TEXT DEFAULT NULL'); } catch { /* exists */ }
+  try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN is_pinned INTEGER DEFAULT 0'); } catch { /* exists */ }
+  try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN color TEXT DEFAULT NULL'); } catch { /* exists */ }
+
   sqlJsSave();
   useMySQL = false;
   console.log('[DB] sql.js initialized at', sqlJsPath);
@@ -335,12 +341,12 @@ async function migrateSqlJsToMySQL(): Promise<void> {
       );
     }
 
-    // Migrate blogs (R158: include content/folder_id/series_id/series_name from ALTER TABLE)
+    // Migrate blogs (R158: include content/folder_id/series_id/series_name + T2103 cover_image/icon/is_pinned/color)
     const blogs = sqlJsQuery(oldDb, 'SELECT * FROM blogs');
     for (const b of blogs) {
       await _mysqlRun(
-        'INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        [b.id, b.user_id, b.title, (b.content as string) ?? '', b.format, b.status, (b.folder_id as number | null) ?? null, (b.series_id as string | null) ?? null, (b.series_name as string | null) ?? null, b.created_at, b.updated_at],
+        'INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, cover_image, icon, is_pinned, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [b.id, b.user_id, b.title, (b.content as string) ?? '', b.format, b.status, (b.folder_id as number | null) ?? null, (b.series_id as string | null) ?? null, (b.series_name as string | null) ?? null, (b.cover_image as string) ?? null, (b.icon as string) ?? null, (b.is_pinned as number) ?? 0, (b.color as string) ?? null, b.created_at, b.updated_at],
       );
     }
 

@@ -5,7 +5,7 @@ export type ShortcutMap = Record<string, () => void>;
 
 const GLOBAL_SHORTCUTS: Record<string, string> = {
   'Ctrl+N': '/blog/new',
-  'Ctrl+H': '/dashboard',
+  'Ctrl+H': '/',
 };
 
 /** Register global keyboard shortcuts */

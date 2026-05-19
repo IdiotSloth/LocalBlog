@@ -1,13 +1,13 @@
 # 历史审计档案
 
-> 收录 Phase 13-16 关键审计报告和 Phase 15-17 规格审查。审计工单详情见 [redo.md](../redo.md)，任务规格见 [phase-archive.md](phase-archive.md)。
-> 最后整理: 2026-05-14 | Boss | +Phase 17 审计
+> 收录 Phase 13-21 审计报告和决策点。工单详情见 [redo.md](../redo.md)，任务规格见 [phase-archive.md](phase-archive.md)。
+> 最后整理: 2026-05-19 | Auditor | 压缩 redo.md 至 history-audit.md
 
 ---
 
 ## 1. 审计方法论
 
-每次审计覆盖六个维度，每个维度评分 1-10：
+每次审计覆盖六个维度：
 
 | 维度 | 检查内容 |
 |------|----------|
@@ -20,298 +20,149 @@
 
 ---
 
-## 2. Phase 16 全量审计 (2026-05-08)
+## 2. 架构趋势 (Phase 14 → Phase 21)
 
-> **类型**: Full Audit — 结项后全项目健康检查
-> **范围**: 全部源文件 (shared/main/preload/server/renderer)
+| 指标 | Phase 14 | Phase 16 | Phase 18 | Phase 20 | Phase 21 |
+|------|----------|----------|----------|----------|----------|
+| IPC 通道数 | 91 | 93 | 99 | 115 | 120 |
+| `as any` (renderer) | 0 | 0 | 0 | 0 | 6* |
+| `: any` (renderer) | — | 15 | 5 | 0 | 4* |
+| tsc 错误 | 0 | 0 | 0 | 0 | 0 |
+| 测试 | — | — | 49/49 | 87/87 | 87/87 |
+| P0/P1/P2 开放 | — | — | 0/0/0 | 0/0/0 | 0/3/3 |
+| 健康度综合 | 9.0 | 7.9 | — | — | 8.5 |
 
-### 审查统计
-
-| 维度 | 检查项 | 通过 | 发现问题 |
-|------|--------|------|----------|
-| 安全性 | 17 | 10 | 7 (4 P1 + 1 P2 + 1 P3 + 1 P4) |
-| 数据完整性 | 14 | 10 | 4 (1 P2 + 1 P3 + 2 known) |
-| 类型安全 | 16 | 13 | 3 (1 P1 + 2 P2) |
-| 冗余性 | 11 | 6 | 5 (3 P2 + 2 P3) |
-| 可维护性 | 12 | 7 | 5 (3 P2 + 2 P3) |
-| 健壮性 | 18 | 7 | 11 (2 P2 + 6 P3 + 3 P4) |
-| **总计** | **88** | **53** | **35** |
-
-### 健康度评分
-
-| 维度 | 评分 | 关键因素 |
-|------|------|----------|
-| 安全性 | 8.0 | XSS/SQL注入/沙箱全部通过。Server user_id 隔离 4 个 P1 |
-| 数据完整性 | 9.0 | Schema 三处同步，时间戳/方言翻译完整 |
-| 类型安全 | 8.5 | tsc 零错误, as any renderer=0。6 Record 返回类型缺口 |
-| 冗余性 | 7.5 | Shared handler 仅覆盖 list。CRUD 双写 + 3 套映射 |
-| 可维护性 | 7.0 | 3 组件 useState 超 10 + 14/16 服务无测试 |
-| 健壮性 | 7.5 | printToPDF 无超时 + pet.ts 裸 writeFileSync |
-| **综合** | **7.9** | 35 项发现，零 P0。Server user_id 隔离是最大单一风险 |
-
-### 关键发现 (P1)
-
-| # | 问题 | 位置 |
-|---|------|------|
-| R203 | Server 文件夹删除缺少 user_id 所有权检查 | `server/routes/folder.ts:96` |
-| R204 | Server 文件夹重命名缺少 user_id 所有权检查 | `server/routes/folder.ts:84` |
-| R205 | Server 博客保存草稿未验证博客所有权 | `server/routes/blog.ts:207-220` |
-| R206 | Server 文件夹移动项目缺少 user_id 所有权检查 | `server/routes/folder.ts:103-119` |
-| R209 | api-client webApi App 方法名与 WindowApi 不匹配 | `api-client.ts:28,135-140,157` |
-
-> **全部 4 P1 + 7 P2-P4 已在 Phase 16 修复验证通过 (11/11)**
-
-### 四层治理框架评估
-
-| 层级 | 评分 | 说明 |
-|------|------|------|
-| Layer 1 (Constrain) | 8/10 | Server 路由 user_id 隔离不完整。其余约束全部合规 |
-| Layer 2 (Inform) | 8/10 | 3 组件 useState 超 10 + 15 处 `: any`。WindowApi 6 Record 类型 |
-| Layer 3 (Verify) | 8/10 | tsc 零错误 + noUncheckedIndexedAccess。14/16 Service 无测试 |
-| Layer 4 (Correct) | 7/10 | CRUD 双写使修复需同步两个路径。asyncHandler 存在但未采用 |
+> *`as any`/`:any` 全为 D3 worker/全局状态桥接等预存项。Phase 21 新增文件零新增。
 
 ---
 
-## 3. Phase 15 实施审计 (2026-05-08)
+## 3. Phase 19 审计 (2026-05-16~17)
 
-### 健康度评分
+### 实施审计 (5/16)
+**8/8 全部完成。** 构建 ✅ 测试 79/79。IPC 99→100。P0+P1+P2 从 4/0/3 降至 0/0/0。
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 安全性 | 9 | upload.ts 路径穿越防护正确，文件类型白名单，10MB 上限 |
-| 数据完整性 | 10 | Schema 三处同步完整，Server 端复用 MYSQL_DDL |
-| 类型安全 | 8 | `noUncheckedIndexedAccess` 启用是重大里程碑 |
-| 冗余性 | 9 | R106 已修复，IPC 通道无重复 |
-| 可维护性 | 9 | SeriesListPage/SeriesDetailPage 简洁，multer 是标准中间件 |
-| 健壮性 | 10 | Series 4 方法 Web stub 全覆盖，三态完整 |
-| **综合** | **9.2** | 7/7 完成。T1502 strict 永久启用 + IPC 无重复 |
+关键修复: R137-R141 + R77 + R115 + R202 + R214 + R216 + R218 + R219 (10 项批修复)
 
-### 关键成果
+### 全量审计 (5/17)
+4 Agent 并行。发现 12 新工单: P0 1 (R158 迁移缺列) + P1 1 (R159 note SELECT 缺 user_id) + P2 5 + P3 5。健康度 7.7/10。首次检测 P0 数据丢失级。
 
-1. **`noUncheckedIndexedAccess` 永久启用** — 47 个类型错误在 10 个文件中全部修复。继 Phase 14 `as any` 归零后的第二个类型安全里程碑
-2. **组织系统差异化** — tags.description 三处 DDL 同步 + Series 独立路由 + 面包屑导航
-3. **Web 功能对等基础** — multer 上传路由 + 用户隔离 + API stub 降级
-
-### 发现 (R106-R109, 4 项, 全部 P2/P3)
-
-| # | 等级 | 问题 |
-|---|------|------|
-| R106 | 🟡 P2 | BLOG_GET_ALL_SERIES 与 BLOG_SERIES_LIST 功能重复 |
-| R107 | 🟢 P3 | blogSeriesList/Get/Set 缺 Web fallback stub |
-| R108 | 🟢 P3 | SeriesDetailPage `list[0]!.seriesName` 非空断言绕过 strict |
-| R109 | 🟢 P3 | KnowledgeListPage 面包屑 `tree: any[]` |
-
-> 全部 4 项在 Phase 15 内修复验证通过。
+### 全量审计修复 (5/17)
+12/12 + `:any`→0 全部修复 ✅。构建 51+2+225 ✅。测试 87/87 ✅。`: any` renderer 首次达成 0。
 
 ---
 
-## 4. Phase 14 实施审计 (2026-05-07)
+## 4. Phase 20 审计 (2026-05-18)
 
-### 健康度评分
+### 立案前审查
+4 Agent 并行规格审查。24 项问题: P0 5 + P1 5 + P2 8 + P3 6。9 项 Boss 裁决 D54-D62。健康度 4.7/10。
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 安全性 | 9 | 无新攻击面。preview.service 路径来自 DB 非用户输入 |
-| 数据完整性 | 10 | 零 Schema 变更。ShortcutService/ProgressService 用 userData JSON |
-| 类型安全 | 9 | renderer `as any` 32→0 是重大里程碑 |
-| 冗余性 | 8 | R102 ProgressService 死存储（有写无读） |
-| 可维护性 | 9 | T1402 reducer 分离干净。ShortcutSettings 独立组件 |
-| 健壮性 | 9 | T1412 10s 超时 + 降级。T1407 冲突检测 + 5s 录制超时 |
-| **综合** | **9.0** | 11/11 任务完成 |
+关键 P0 发现: R170 refs CHECK 冲突 / R171 notes CHECK 冲突 / R172 MCP 进程模型 / R173 非原子 ref / R174 DOMPurify 管线
 
-### 关键成果
-
-1. **`as any` renderer 32→0** — 13 个 Phase 中类型安全最大的单次跃升
-2. **状态机重构** — BlogEditorPage 30 useState → useReducer + 18 actions
-3. **成就精简 + canvas 热力图** — 365 DOM → 单 canvas
-
-### 发现 (R102-R105, 4 项, 全部 P2/P3)
-
-| # | 等级 | 问题 |
-|---|------|------|
-| R102 | 🟡 P2 | ProgressService 有写无读 — JSON 文件为死存储 |
-| R103 | 🟢 P3 | ShortcutSettings 录制时 listener 泄漏 |
-| R104 | 🟢 P3 | BlogEditorPage drafts 类型残留 `any[]` |
-| R105 | 🟢 P3 | 热力图色彩硬编码不跟随主题 |
-
-> 全部 4 项在 Phase 14 内修复验证通过。
+### 终审
+18/18 全部完成 ✅。修复: 管道三重断裂(R206) / batchDelete 崩溃(R204/R205) / syncWikilinkRefs 事务(R207)。新增: wikilink / 图谱 / 3栏布局 / MCP Server / CommandPalette / 设计系统重塑。
 
 ---
 
-## 5. Phase 13 实施审计 (2026-05-07)
+## 5. Phase 21 审计 (2026-05-19)
 
-### 健康度评分
+### 规格审查
+4 Agent 并行。发现 5 个 D 编号 D83-D88: CJK 索引策略 / 分屏 ContextPanel / 热修复调度 / 路径安全 / 语义搜索 Worker。Boss 全部裁决 ✅。
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 安全性 | 9 | 无新攻击面。ZIP writer 纯 Buffer 操作无注入 |
-| 数据完整性 | 10 | 零 Schema 变更。ContinueService 全参数化查询 |
-| 类型安全 | 8 | WindowApi/preload 双向闭合。3 处 P3 常量问题 |
-| 冗余性 | 10 | 零新重复。ContinueService 是独立新增领域 |
-| 可维护性 | 9 | ContinueWritingPage 仅 3 useState |
-| 健壮性 | 9 | T1304 双保险(useBlocker+beforeunload) |
-| **综合** | **9.2** | 7/7 任务全部合格，零 P0/P1/P2，3 项 P3 |
+### 引用搜索排查
+发现搜索系统分裂: ref:search 用 SQL LIKE vs 全局搜索用 FTS5 Worker → R225/R226/R227 + D88。
 
-### 发现 (R98-R100, 3 项, 全部 P3)
+### 实施审计 (首轮)
+4 Agent 并行。发现 23 新工单: P0 3 (R228 metadata.title / R229 buildEmbeddingIndex 空函数 / R230 word TF bug) + P1 5 + P2 7 + P3 6。
 
-| # | 问题 |
-|---|------|
-| R98 | ContinueService 传输完整全文，UI 仅用 150 字符 — 延后 |
-| R99 | `app:visibility` 4 处硬编码未用 IPC 常量 — 已修复 |
-| R100 | NOTE IPC 常量分散两处 — Boss 关闭（审美偏好） |
+### 深度审计 + 规格差异
+4 Agent 并行。任务完成度: 4/12 全完 + 8 PARTIAL。P0 2: R249 PDF RCE + R250 openSplit 死代码。P1 8 规格缺口。
 
----
+### 终审修复验证 (多轮)
+R228-R230 修 + R249-R250 修 + R271-R275 修 + R276-R281 修 + D88 修。全部验证通过 ✅。
 
-## 6. 重大事件
+关键架构成果:
+- CJK Unigram+Bigram+Word 三层索引 + 语义搜索 (multilingual-e5-small)
+- SplitPane 通用分屏 + ContextPanel D84 所有权 + Ctrl+\ toggle
+- 斜杠命令 18 条 + Callout Tiptap Node + 模板变量
+- 搜索统一 (D88 searchDirect 替代 SQL LIKE)
+- 浏览器剪藏 Chrome Extension + TAG_MERGE
+- 知识库多格式编辑 + DOCX/XLSX/PDF 预览增强
+- 指南页重写 (Lucide + 配图)
+- shiki 语法高亮 + Skeleton + EmptyState
 
-### R101 🔴 P0 — HashRouter→data router 迁移 (2026-05-07)
-
-**问题**: `useBlocker()` 在 legacy `<HashRouter>` 下不可用，导致 BlogEditorPage 渲染崩溃（Phase 13 T1304 引入的回归）。
-
-**修复**: `<HashRouter>` → `createHashRouter` data router。App.tsx 路由从 JSX `<Routes>` 改为 JS 对象数组。1.5h。
-
-**影响**: 此后所有 React Router v6.4+ API（useBlocker、loader、action）均可正常使用。
+### 存留 (3 项非阻断)
+R251 resolveTitles 跨用户 / R264 KB_SET_PROPERTIES datetime / R272 搜索操作符未过滤
 
 ---
 
-## 7. 架构趋势 (Phase 14 → Phase 16)
+## 6. 决策点索引 (Phase 18-21)
 
-| 指标 | Phase 14 | Phase 15 | Phase 16 | 趋势 |
-|------|----------|----------|----------|------|
-| IPC 通道数 | 91 | 91 | 93 | ↑ 受控 |
-| `as any` (renderer) | 0 | 0 | 0 | → 维持 |
-| `as any` (shared+preload) | 0 | 0 | 0 | → 维持 |
-| `: any` 类型标注 | — | — | 15 | 新发现 |
-| `Record<string,unknown>` in WindowApi | 9 | — | 6 | ↓ 改善 |
-| tsc 错误 | 0 | 0 | 0 | → 维持 |
-| `noUncheckedIndexedAccess` | 未启用 | ✅ 已启用 | ✅ 已启用 | 里程碑 |
-| Server user_id 隔离缺口 | — | — | 4 (P1) | 新发现→已修复 |
-| Service 无测试率 | — | — | 87.5% (14/16) | 新发现 |
-| 组件 useState >10 | BlogEditorPage(30) | — | 3 组件 (12-20) | BlogEditorPage已收敛 |
-| 健康度综合评分 | 9.0 | 9.2 | 7.9 | 全量审计更严 |
-
----
-
-## 8. Phase 17 实施审计 (2026-05-14)
-
-> **类型**: Implementation Audit — 代码已完成
-> **范围**: Phase 17 全部 9 项任务
-
-### 验证结果
-
-**9/9 全部通过。** tsc 零错误 | 构建 ✅ | 测试 27/27 pass | 零新工单。
-
-### 架构趋势 (Phase 16 → Phase 17)
-
-| 指标 | Phase 16 | Phase 17 | 趋势 |
-|------|----------|----------|------|
-| IPC 通道数 | 93 | 95 | +2 (blog:seriesRename, shell:openExternal) |
-| `as any` (renderer) | 0 | 0 | → |
-| `: any` 类型标注 | 15 | 5 | ↓ 10 (T1709) |
-| Service user_id 覆盖率 | 部分 | 100% (6/6 UPDATE/DELETE) | ↑ 重大里程碑 |
-| 安装包 | 仅绿色版 | NSIS 安装程序 | ↑ 新能力 |
-| Schema 变更 | 0 | 0 | → |
-| 新依赖 | 0 | 1 (electron-builder, 构建时) | +1 |
-
-### 审计附注 (非工单)
-
-1. `blog.service.ts` SELECT before UPDATE 未校验 user_id。单用户桌面端无影响。多用户化后评估。
-2. `blog_tags` junction 表 DELETE 无 user_id。中间表设计约束，低风险。
-3. `ReferenceService.removeRef` — refs 表无 user_id 列。预存设计约束。
-
----
-
-## 9. 规格审查索引
-
-### Phase 17 (2026-05-14)
-
-| 编号 | 决策点 | 裁决 | 关键理由 |
-|------|--------|------|----------|
-| D36 | T1702 IPC 通道 | A — 新建 `blog:seriesRename` | blogSeriesSet 是单 blog，系列改名需批量 UPDATE |
-| D37 | T1704 IPC 桥 | A — 新增 `shell:openExternal` | IPC 层协议白名单校验 |
-| D38 | T1701 编辑器架构 | B — 新建 WebEditorPage.tsx | 桌面端零改动，Web 端 ~150 行独立组件 |
-
-### Phase 16 (2026-05-08)
-
-| 编号 | 决策点 | 裁决 | 关键理由 |
-|------|--------|------|----------|
-| D28 | T1602 cheerio vs linkedom | B — linkedom | 已安装，零新依赖 |
-| D29 | T1603 spec 描述偏差 | 修正 spec | TOC 交互代码已存在，只需 heading id |
-| D30 | T1601 风险缓冲 | A — 全量 scrollRatio | 不加 scrollRatio 就是改了个 query param |
-
-### Phase 15 (2026-05-08)
-
-| 编号 | 决策点 | 裁决 | 关键理由 |
-|------|--------|------|----------|
-| D23 | T1504 Web 上传存储 | A — server/uploads/{userId}/ | Base64 膨胀 33% 不可接受 |
-| D24 | T1504 multer 引入 | A — 引入 | Express 事实标准 |
-| D25 | T1509 Series IPC | B — 复用 + 1 通道 | Series 非独立实体 |
-| D26 | T1502 strict 影响面 | dry-run 前置 | 按错误数分档决策 |
-| D27 | T1506 验收标准 | 补 6 条硬性标准 | 全含具体数值 |
-
-### Phase 14 (2026-05-07)
+### Phase 21 (D63-D88)
 
 | 编号 | 决策点 | 裁决 |
 |------|--------|------|
-| D12 | T1402 reducer 范围 | A — 严格 reducer 迁移 |
-| D13 | T1403 as any 范围 | B — shared+preload+Service+IPC |
-| D14 | T1405/T1411 冲突 | A — T1411 先做 |
-| D15 | T1407 存储机制 | B — userData JSON 文件 |
-| D16 | T1406 movable 冲突 | A — 仅便签窗+抓取窗 |
-| D17 | T1410 存储机制 | A — userData JSON 文件 |
+| D63-D72 | Boss 原始提案裁决 (Toggle/Embed/视图/AI/闪卡等) | 见 todo.md |
+| D73 | T2101 分屏架构 | A — 通用 SplitPane |
+| D74 | Ctrl+O 快速切换 | 纳入 T2104 |
+| D75 | 局部图谱 | 纳入 T2111 |
+| D76 | 标签页系统 | 延 Phase 22 |
+| D77 | 模板变量 | 纳入 T2109 |
+| D78 | Bookmarks | 延 Phase 22 |
+| D79 | CJK 搜索修复 | 纳入 T2104 (P0) |
+| D80 | 语义搜索方案 | multilingual-e5-small |
+| D81 | 知识库编辑能力 | 纳入 T2112 |
+| D82 | 模型下载策略 | A — 首次空闲后台下载 |
+| D83 | CJK 单字搜索索引 | A — Unigram+Bigram+Word |
+| D84 | 分屏 ContextPanel | B — 跟随焦点 Pane |
+| D85 | CJK 修复调度 | A — 热修复前置 |
+| D86 | kb:updateContent 安全 | B — 双重校验 |
+| D87 | 语义搜索 Worker | B — 独立 embedding.worker |
+| D88 | 引用搜索后端 | A — 接入 FTS5 Worker |
+
+### Phase 20 (D46-D62)
+
+| 编号 | 决策点 | 裁决 |
+|------|--------|------|
+| D46-D53 | 设计/架构决策 (侧边栏/面板/链接/图谱/主题等) | 见 todo.md |
+| D54 | refs CHECK 约束 | A — 移除 CHECK |
+| D55 | MCP Server 进程模型 | A — 拆分入口 |
+| D56 | MCP HTTP CSRF | 由 D55 解决 |
+| D57 | 自动创建时机 | A — HomePage 挂载 |
+| D58 | wikilink 引用删除 | A — 扫描+diff |
+| D59 | 主题迁移 | A — 加载时映射 |
+| D60 | 托盘菜单 emoji | A — 纯文本 |
+| D61 | Dashboard/ContinueWriting 去留 | A — 删除 |
+| D62 | 工时调整 | A — 不限工时 |
+
+### Phase 18 (D39-D45)
+
+| 编号 | 决策点 | 裁决 |
+|------|--------|------|
+| D39 | FTS5 方案 | Worker 倒排 |
+| D40 | CRUD 双写范围 | blog + knowledge 先行 |
+| D41 | Service 测试范围 | 4 核心 Service |
+| D42 | 错误反馈方案 | uncaughtException→IPC→Toast |
+| D43 | FULLTEXT INDEX | A — INDEX 不算 Schema 变更 |
+| D44 | Worker 位置 | A — Renderer Worker |
+| D45 | shared handler 范围 | A — SQL 构建 |
 
 ---
 
-## 10. Phase 18 实施审计 (2026-05-14)
-
-> **类型**: Implementation Audit — 代码已完成
-
-### 验证结果
-
-**7/7 实施完成。13 项发现。6 项 P1+P2 全部修复。**
-
-### 首次 P0+P1+P2 全零 ⭐
-
-自 Phase 11 引入分级修复机制以来，这是第一次所有三个严重级别同时为零。
-
-### 发现 (R130-R141)
-
-| 等级 | 数 | 典型问题 |
-|------|-----|------|
-| P1 | 2→0 | FULLTEXT INDEX 错列 (title→filename) + format 硬编码 'md' |
-| P2 | 4→0 | 搜索竞态 (单槽→Map+correlationId) + Worker 无 onerror + restore 缺 updated_at + recycle 缺 user_id |
-| P3 | 7 | 超时泄漏/unmount 守卫/HTML 未剥离/tsc 预存 |
-
-### 架构趋势 (Phase 17 → Phase 18)
-
-| 指标 | Phase 17 | Phase 18 | 趋势 |
-|------|----------|----------|------|
-| IPC 通道数 | 95 | 99 | +4 |
-| 单元测试 | 27/27 (3 files) | 49/49 (6 files) | +22 |
-| CRUD 双写 | 存在 | blog+knowledge 收敛 | 重大里程碑 |
-| FTS5 | 无 | Worker 倒排 + MySQL FULLTEXT | 新能力 |
-| 错误反馈 | 无 | uncaughtException→IPC→Toast | 新能力 |
-| P0/P1/P2 | 0/0/5 | **0/0/0** | 首次全零 ⭐ |
-
----
-
-## 11. 安全里程碑时间线
+## 7. 安全里程碑
 
 | Phase | 里程碑 | 日期 |
 |-------|--------|------|
-| Phase 11 | DOMPurify XSS 加强 + catch{} 全量修复 + DB 参数化 | 2026-05-06 |
+| Phase 11 | DOMPurify XSS + catch{} 全量修复 + DB 参数化 | 2026-05-06 |
 | Phase 14 | `as any` renderer 32→0 | 2026-05-07 |
-| Phase 15 | `noUncheckedIndexedAccess` 永久启用 (47 errors→0) | 2026-05-08 |
-| Phase 15 | multer 上传路径穿越防护 + 文件类型白名单 | 2026-05-08 |
+| Phase 15 | `noUncheckedIndexedAccess` 永久启用 | 2026-05-08 |
 | Phase 16 | Server user_id 隔离 4 P1 全部修复 | 2026-05-08 |
-| Phase 16 | IPC 事件硬编码全量替换 (6 处 → IPC 常量) | 2026-05-08 |
-| Phase 16 | 11/11 P1-P4 首轮修复验证通过 | 2026-05-08 |
-| Phase 17 | Service user_id 隔离 — 6 Service UPDATE/DELETE 全量守卫 | 2026-05-14 |
-| Phase 17 | shell:openExternal IPC — 协议白名单 (http/https) + 超链接事件委托 | 2026-05-14 |
-| Phase 17 | electron-builder NSIS 安装包 + requestSingleInstanceLock 单实例 | 2026-05-14 |
+| Phase 16 | IPC 事件硬编码全量替换 | 2026-05-08 |
+| Phase 17 | Service user_id 6/6 UPDATE/DELETE 全量守卫 | 2026-05-14 |
 | Phase 17 | renderer `: any` 14→5 | 2026-05-14 |
-| Phase 18 | CRUD 双写收敛 — blog-crud.ts 17 + knowledge-crud.ts 13 | 2026-05-14 |
-| Phase 18 | FTS5 Worker 倒排索引 + MySQL FULLTEXT INDEX | 2026-05-14 |
-| Phase 18 | 错误反馈通道 — uncaughtException→IPC→Toast | 2026-05-14 |
-| Phase 18 | Service 测试 27→49 (6 files) | 2026-05-14 |
+| Phase 18 | CRUD 双写收敛 blog+knowledge | 2026-05-14 |
+| Phase 18 | FTS5 Worker 倒排索引 + MySQL FULLTEXT | 2026-05-14 |
 | Phase 18 | P0+P1+P2 首次全零 ⭐ | 2026-05-14 |
+| Phase 19 | renderer `: any` → 0 (首次归零) ⭐ | 2026-05-17 |
+| Phase 20 | wikilink/图谱/3栏/MCP/设计系统 | 2026-05-18 |
+| Phase 21 | CJK 三层索引/语义搜索/分屏/搜索统一 | 2026-05-19 |
+| Phase 21 | XSS 全量修复 (PDF/DOCX/XLSX/CSV 预览) | 2026-05-19 |

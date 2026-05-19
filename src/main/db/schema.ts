@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS blogs (
   folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE SET NULL,
   series_id TEXT DEFAULT NULL,
   series_name TEXT DEFAULT NULL,
+  cover_image TEXT DEFAULT NULL,
+  icon TEXT DEFAULT NULL,
+  is_pinned INTEGER DEFAULT 0,
+  color TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

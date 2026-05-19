@@ -8,6 +8,7 @@ import { closeMySQL, initMySQL } from './db';
 import { errorHandler } from './middleware/error-handler';
 import { authRouter } from './routes/auth';
 import { blogRouter } from './routes/blog';
+import { clipRouter } from './routes/clip';
 import { folderRouter } from './routes/folder';
 import { knowledgeRouter } from './routes/knowledge';
 import { recycleRouter } from './routes/recycle';
@@ -41,6 +42,7 @@ app.use('/api/workspace', workspaceRouter);
 app.use('/api/recycle', recycleRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/scrape', scrapeRouter);
+app.use('/api/clip', clipRouter);
 app.use('/api/mcp', mcpRouter);
 
 // Unified error handler (must be last middleware)

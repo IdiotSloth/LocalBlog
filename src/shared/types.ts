@@ -19,9 +19,17 @@ export interface Blog {
   seriesId?: string;
   seriesName?: string;
   folderId?: number | null;
+  coverImage?: string;
+  icon?: string;
+  isPinned?: number;
+  color?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/** T2108: Preset color labels for blog organization */
+export const BLOG_COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'gray'] as const;
+export type BlogColor = (typeof BLOG_COLORS)[number];
 
 export interface BlogWithTags extends Blog {
   tags: Tag[];
@@ -261,4 +269,8 @@ export interface GraphFilter {
   dateRange?: { from?: string; to?: string };
   tagIds?: number[];
   maxNodes?: number;
+  /** T2111: Local graph mode — return 1-degree neighborhood around centerId */
+  scope?: 'global' | 'local';
+  centerId?: string; // e.g. "blog-123", "knowledge-456"
+  depth?: number; // default 1
 }

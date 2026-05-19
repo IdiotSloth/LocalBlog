@@ -1,11 +1,14 @@
+import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import TurndownService from 'turndown';
 import type { DraftItem, Tag } from '../../../shared/types';
 import type { BlogTemplate } from '../../../shared/templates';
+import { expandTemplateVars } from '../../../shared/template-vars';
 import { ReferencePicker } from '../../components/common/ReferencePicker';
 import { TagSelector } from '../../components/common/TagSelector';
+import { useSplit } from '../../components/layout/SplitPane';
 import { useToast } from '../../components/common/Toast';
 import { FocusMode } from '../../components/editor/FocusMode';
 import { TiptapEditor } from '../../components/editor/TiptapEditor';
@@ -144,6 +147,7 @@ export function BlogEditorPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const { toast } = useToast();
+  const { openSplit, closeSplit, isSplit } = useSplit();
   const isNew = !id;
   const [state, dispatch] = useReducer(editorReducer, initialState);
   const [bottomTab, setBottomTab] = useState<string>('tags');
@@ -157,6 +161,12 @@ export function BlogEditorPage() {
   const [restoreDraft, setRestoreDraft] = useState<{ content: string; savedAt: string } | null>(null);
   const [draftSavedIndicator, setDraftSavedIndicator] = useState(false);
   const draftIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // T2108: Pin and color label state
+  const [isPinned, setIsPinned] = useState(0);
+  const [colorLabel, setColorLabel] = useState<string | null>(null);
+  const COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'gray'] as const;
+  const COLOR_MAP_EDITOR: Record<string, string> = { blue: '#3b82f6', green: '#22c55e', amber: '#f59e0b', red: '#ef4444', purple: '#a855f7', gray: '#6b7280' };
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -197,13 +207,16 @@ export function BlogEditorPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [state.isDirty]);
 
-  // Apply template on selection
+  // Apply template on selection (T2109: expand {{date}} etc.)
   const handleTemplateSelect = useCallback((tpl: BlogTemplate) => {
     dispatch({ type: 'SET_TEMPLATE', payload: tpl });
-    if (tpl.content) dispatch({ type: 'SET_CONTENT', payload: tpl.format === 'md' ? md.render(tpl.content) : tpl.content });
+    if (tpl.content) {
+      const expanded = expandTemplateVars(tpl.content, { title: state.title });
+      dispatch({ type: 'SET_CONTENT', payload: tpl.format === 'md' ? md.render(expanded) : expanded });
+    }
     dispatch({ type: 'SET_FORMAT', payload: tpl.format });
     if (tpl.tags.length > 0) dispatch({ type: 'SET_PENDING_TAGS', payload: null });
-  }, []);
+  }, [state.title]);
 
   useEffect(() => {
     if (!user) return;
@@ -226,6 +239,9 @@ export function BlogEditorPage() {
             seriesName: r.data.seriesName || '',
           },
         });
+        // T2108: Sync pin/color from loaded blog
+        setIsPinned(r.data.isPinned ?? 0);
+        setColorLabel(r.data.color ?? null);
       }
       dispatch({ type: 'SET_LOADING', payload: false });
     }).catch(() => dispatch({ type: 'SET_LOADING', payload: false }));
@@ -352,6 +368,35 @@ export function BlogEditorPage() {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [handleSave]);
+
+  // T2101: Ctrl+\ toggles MD split preview
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === '\\' && e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (isSplit) {
+          closeSplit();
+        } else {
+          const rendered = state.format === 'md'
+            ? md.render(state.content || '')
+            : DOMPurify.sanitize(state.content || '');
+          openSplit(
+            <div className="overflow-auto p-6" style={{ background: 'var(--bg-primary)' }}>
+              <h2 className="text-[20px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                {state.title || '预览'}
+              </h2>
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: rendered }}
+              />
+            </div>,
+          );
+        }
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [isSplit, closeSplit, openSplit, state.content, state.format, state.title]);
 
   // Loading state for existing blog
   if (!isNew && state.loading) {
@@ -484,6 +529,46 @@ export function BlogEditorPage() {
             >
               忽略
             </button>
+          </div>
+        )}
+        {/* T2108: Pin + Color metadata bar */}
+        {!isNew && user && (
+          <div className="flex items-center gap-4 py-2 px-1">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!blogIdRef.current) return;
+                const v = isPinned ? 0 : 1;
+                await window.api.blogSetPinned({ id: blogIdRef.current, userId: user.id, isPinned: v });
+                setIsPinned(v);
+              }}
+              className={`text-[12px] rounded-[4px] px-2 py-1 transition-colors ${isPinned ? 'font-semibold' : ''}`}
+              style={{ color: isPinned ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+              title={isPinned ? '取消置顶' : '置顶'}
+            >
+              📌 {isPinned ? '已置顶' : '置顶'}
+            </button>
+            <div className="flex items-center gap-1.5" title="颜色标记">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={async () => {
+                    if (!blogIdRef.current) return;
+                    const v = colorLabel === c ? null : c;
+                    await window.api.blogSetColor({ id: blogIdRef.current, userId: user.id, color: v });
+                    setColorLabel(v);
+                  }}
+                  className="w-4 h-4 rounded-full border-2 transition-transform hover:scale-125"
+                  style={{
+                    background: COLOR_MAP_EDITOR[c],
+                    borderColor: colorLabel === c ? 'var(--text-primary)' : 'transparent',
+                    transform: colorLabel === c ? 'scale(1.25)' : undefined,
+                  }}
+                  aria-label={`颜色: ${c}`}
+                />
+              ))}
+            </div>
           </div>
         )}
         <div className="flex-1">

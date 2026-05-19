@@ -168,6 +168,10 @@ export function mapBlogRow(row: Record<string, unknown>): Blog {
     seriesId: row.series_id as string | undefined,
     seriesName: row.series_name as string | undefined,
     folderId: row.folder_id as number | null | undefined,
+    coverImage: row.cover_image as string | undefined,
+    icon: row.icon as string | undefined,
+    isPinned: row.is_pinned as number | undefined,
+    color: row.color as string | undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

@@ -35,13 +35,28 @@ export function GlobalSearch() {
     { id: 'settings', label: '设置', shortcut: 'Ctrl+,', action: () => navigate('/settings') },
   ];
 
+  // T2104: Parse search operators (tag:, type:, after:, before:) from query
+  const parseOperators = (q: string): { cleanQuery: string; tagName?: string; typeFilter?: string } => {
+    let clean = q;
+    let tagName: string | undefined;
+    let typeFilter: string | undefined;
+    const tagMatch = clean.match(/\btag:(\S+)/);
+    if (tagMatch) { tagName = tagMatch[1]!; clean = clean.replace(tagMatch[0]!, ''); }
+    const typeMatch = clean.match(/\btype:(blog|knowledge)\b/);
+    if (typeMatch) { typeFilter = typeMatch[1]!; clean = clean.replace(typeMatch[0]!, ''); }
+    return { cleanQuery: clean.trim(), tagName, typeFilter };
+  };
+
   const handleChange = (val: string) => {
     setQuery(val);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      if (val.trim().length >= 2) search(val);
+      const { cleanQuery } = parseOperators(val);
+      if (cleanQuery.length >= 1) search(cleanQuery);
     }, 200);
   };
+
+  const operators = parseOperators(query);
 
   const handleNavigate = (type: 'blog' | 'knowledge', id: number) => {
     setOpen(false);
@@ -106,7 +121,10 @@ export function GlobalSearch() {
   }, []);
 
   const showCommands = !query.trim();
-  const allResults = results;
+  // R272: Apply search operators — type: filters results by doc type
+  const allResults = operators.typeFilter
+    ? results.filter((r) => r.type === operators.typeFilter)
+    : results;
 
   return (
     <>
@@ -119,13 +137,29 @@ export function GlobalSearch() {
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (!open) { setOpen(true); setRecentBlogs(getRecentBlogs().slice(0, 5)); } }}
-          placeholder="搜索博客和知识库... (Ctrl+K)"
+          placeholder="搜索 tag:标签 type:blog|knowledge (Ctrl+K)"
           className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-1.5 text-sm outline-none transition-all focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]/30 placeholder:text-[var(--color-text-muted)]"
         />
 
         {/* Dropdown panel */}
         {open && (
           <div className="absolute left-0 right-0 top-full mt-1.5 max-h-[420px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50">
+            {/* T2104: Active operator chips */}
+            {(operators.tagName || operators.typeFilter) && (
+              <div className="flex items-center gap-2 px-4 py-2 border-b text-[11px]" style={{ borderColor: 'var(--border-default)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>筛选:</span>
+                {operators.tagName && (
+                  <span className="rounded-[3px] px-1.5 py-0.5" style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}>
+                    tag: {operators.tagName}
+                  </span>
+                )}
+                {operators.typeFilter && (
+                  <span className="rounded-[3px] px-1.5 py-0.5" style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-green)' }}>
+                    type: {operators.typeFilter}
+                  </span>
+                )}
+              </div>
+            )}
             {showCommands && (
               <>
                 <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>命令</div>
@@ -187,7 +221,7 @@ export function GlobalSearch() {
                 ))}
               </>
             )}
-            {!showCommands && query.trim().length >= 2 && allResults.length === 0 && (
+            {!showCommands && query.trim().length >= 1 && allResults.length === 0 && (
               <div className="px-4 py-6 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>未找到匹配结果</div>
             )}
           </div>

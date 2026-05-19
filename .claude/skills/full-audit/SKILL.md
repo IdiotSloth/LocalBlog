@@ -59,6 +59,10 @@ Check each of these concrete patterns:
 | Electron sandbox | `nodeIntegration` must be `false`. `contextIsolation` must be `true`. `sandbox` must be `true`. Preload scripts must be minimal | 🔵 P4 |
 | Input validation | All user input (body, query params, URL params) must be validated. Check for zod schema usage or equivalent. Empty strings, negative numbers, oversized payloads must be rejected | 🟠 P1 |
 | Rate limiting | Check for rate limiting on auth endpoints (login/register). Absence means brute-force is possible | 🔵 P4 |
+| Format conversion pipeline breakage | Content goes through multiple format transformations: editor (Tiptap HTML) → turndown (Markdown) → IPC handler → downstream scanner. Each step can lose semantic data. WikilinkSuggestion inserted `<a class="wiki-link">` but turndown converted it to `[Title](url)`, losing `data-ref-type`/`data-ref-id` → `syncWikilinkRefs` found zero refs (R206). Trace the FULL pipeline, not just individual steps | 🔴 P0 |
+| Multi-theme color contrast | Global theme (dark/light) × reading theme (dark/light/sepia) = 6 combinations. CSS variables may not override correctly in all combos. sepia `#f8f5ef` + dark `--accent-blue: #58a6ff` = 2.2:1 contrast ratio, failing WCAG AA 4.5:1 (R217). Check ALL N×M combinations, not just "each theme individually" | 🟡 P2 |
+| HTML escaping coverage across preview paths | Preview-like features (PDF export, PDF text extraction, DOCX mammoth, XLSX cells, CSV cells) each construct HTML differently. Grep for ALL template literal `${...}` interpolations inside HTML strings, and verify each has HTML escaping applied (R276/R277/R279/R273). Same-file inconsistency where CSV escapes but XLSX doesn't is a red flag | 🟠 P1 |
+| Search backend uniformity | Every search entry point in the application (global search, reference picker, wikilink autocomplete, quick switcher) must share the same search backend. Split systems where one uses FTS5 Worker (CJK-aware, TF-IDF ranked) and another uses SQL LIKE (title-only, no CJK) means CJK fixes only benefit half the search UX (R225/D88). Grep all `search`/`query` call sites and verify they trace to the same backend | 🟡 P2 |
 
 ### 2. Data Integrity
 
@@ -77,6 +81,9 @@ Check each of these concrete patterns:
 | Shared handler ByUser/ById variant audit | IPC read paths (GET, PREVIEW, OPEN_EXTERNAL) must use `*ByUser` shared handler variants. `*ById` variants lack `AND user_id = ?` and should only be used post-ownership-check. Finding: `buildKnowledgeSelect(id)` called from KB_GET/KB_PREVIEW/KB_OPEN_EXTERNAL enabled cross-user access (R145) | 🟠 P1 |
 | Service read-back SELECT user_id guard | After UPDATE/DELETE (which have user_id guards), the subsequent read-back SELECT often only uses `WHERE id = ?` without `AND user_id = ?`. This is NOT defense-in-depth — if the write affected 0 rows (wrong user), the read leaks another user's data (R159: note.service updateNote + togglePin) | 🟠 P1 |
 | Server delete TOCTOU window | Using `buildXxxSelectByUser` for ownership check followed by `buildXxxDeleteById` (no userId) for execution creates a time-of-check-time-of-use gap. Always use the ByUser variant for both check AND operation (R160: blog.ts + knowledge.ts delete routes) | 🟡 P2 |
+| Multi-step DML without transaction | ≥2 DML statements (SELECT→INSERT→DELETE) in a single function without BEGIN/COMMIT wrapping. Concurrent saves or process crash → partial writes → inconsistent DB state. `syncWikilinkRefs` had 3 INSERTs + 3 DELETEs with no transaction — one crash leaves refs table corrupted (R207) | 🔴 P0 |
+| IPC handler dead code (backend exists, no frontend caller) | Handler fully implemented → preload exposes → WindowApi typed → BUT grep renderer shows ZERO call sites. `KB_SET_PROPERTIES` was a complete handler that nothing called (T2009). Audit both write-side AND read-side for each new IPC channel | 🟡 P2 |
+| LIMIT without ORDER BY | SELECT with LIMIT but no ORDER BY returns non-deterministic rows. SQLite/mysql row order changes after DELETE/VACUUM. Graph nodes displayed differently each time user visits (R207b). Every LIMIT query must have ORDER BY | 🟡 P2 |
 
 ### 3. Type Safety
 
@@ -142,6 +149,10 @@ Check each of these concrete patterns:
 | Debounce on frequent writes | sql.js `saveToDisk()` (which writes the entire DB to disk) must be debounced. Check `db/index.ts` for debounce timer logic | 🟡 P2 |
 | CSS variable theme coverage | Every new CSS variable defined in `:root` (dark theme) must have a corresponding override in `.light` (light theme). A variable defined only in `:root` leaves the light theme using dark-mode colors. Check `index.css` for variables present in `:root` but absent in `.light` | 🟢 P3 |
 | Spec-implementation gap | For tasks with explicit spec constraints (e.g., "不加载全文", "亮/暗色自适应"), verify the implementation matches. Flag mismatches even if they don't cause runtime errors — the gap between spec intent and implementation is itself a finding | 🟢 P3 |
+| Function body no-op detection | A function whose body is only a comment (e.g., `// handled in caller`) with no actual implementation is a silent feature kill. `buildEmbeddingIndex` was a complete no-op, causing the entire semantic search pipeline to never activate (R229). Grep for functions with empty bodies or comment-only bodies — especially async functions that are expected to post messages or trigger side effects | 🔴 P0 |
+| Hybrid scoring calibration | When combining multiple scoring signals (e.g., keyword TF-IDF + semantic cosine similarity), verify all signals are normalized to the same range before weighting. Unbounded TF-IDF scores (0~∞) mixed with bounded cosine similarity [0,1] renders fixed weights meaningless — the unbounded signal dominates (R239). Check for `max()` normalization or rank-fusion alternatives | 🟡 P2 |
+| Dynamic import unmount guard | `import('heavy-module').then(mod => { ... })` inside useEffect can resolve after component unmount. The .then() callback creates DOM nodes, starts simulations, or sets state on an unmounted component (R233). Every dynamic import's .then() must check a ref guard (`if (!svgRef.current) return`) before any side effects | 🟡 P2 |
+| Module-level mutable state HMR safety | `let`/`const` module-level variables in React component files are reset by HMR/Fast Refresh but old component instances still reference them, causing subscriber leaks and stale state (R231). All cross-component state must live in React context, useRef, or a dedicated store — not module scope | 🟡 P2 |
 | Functional coverage completeness | For selector/whitelist-based features (e.g., TOC extraction, file type mapping), verify the coverage set is not artificially narrow. 4-framework selector list missing 7 common frameworks is a spec-implementation gap (R128) | 🟡 P2 |
 | Interaction placement vs feature value | Verify critical UI entry points are placed where users naturally encounter them. A feature whose core value is "instant access" but whose button is hidden at page bottom is a design-level implementation defect (R129) | 🟠 P1 |
 | useEffect cleanup return type | React Strict Mode double-invoke unmasks non-function cleanup values. `useEffect(() => { return someObject }, [])` causes `destroy is not a function` → ErrorBoundary crash (R126). Defensive pattern: `typeof cleanup === 'function'` guard | 🔴 P0 |
@@ -153,6 +164,10 @@ Check each of these concrete patterns:
 | Type narrowing across async closure boundaries | TypeScript cannot narrow `number \| null` across async function boundaries even after early-return guard. `if (!x) return;` before defining `async function init()` does NOT narrow `x` inside `init()`. Capture narrowed value: `const x2 = x;` before async function definition (R141) | 🟡 P2 |
 | Shared handler migration completeness | When a domain's CRUD SQL moves to shared handlers, mapping functions (mapFile/rowToFile), type-detection helpers (detectFileType/typeMap), and validation logic should also be unified — not just SQL builders. Check for duplicate mappers/detectors in server routes vs main services (R139) | 🟡 P2 |
 | HTML tags in tokenizer input | Worker/segmenter tokenizers that receive raw HTML input will index markup tokens (`<div>`, `class`, etc.), polluting the inverted index. Check that text is stripped of HTML tags before tokenization: `text.replace(/<[^>]*>/g, '')` (R140) | 🟢 P3 |
+| D3 forceSimulation lifecycle | D3 `forceSimulation` fires continuous `tick` events. Without `sim.stop()` in `useEffect` cleanup, simulation runs forever — consuming CPU + leaking memory. HMR compounds the leak. Also check: `d3-force` targeted import vs full `d3` bundle (T2013/T2014) | 🔴 P0 |
+| IPC handler parameter destructuring | `ipcMain.handle('xxx', async (_e, data) => { return { count: blogIds.length } })` — parameter named `data` but code uses bare `blogIds`. TypeScript reports TS2304, runtime throws ReferenceError silenced by catch (R204/R205). Verify every variable in handler body matches its actual parameter name | 🔴 P0 |
+| Turndown custom rule for business semantics | When converting HTML→Markdown via turndown, custom elements with business meaning (`.wiki-link`, `.math-block`) lose their semantics unless explicit rules preserve them. Wikilink `<a class="wiki-link">` was converted to `[text](url)`, destroying `[[...]]` syntax needed by downstream scanners (R206 fix). Audit turndown rules against all HTML elements carrying business data attributes | 🔴 P0 |
+| Modal/overlay focus trapping | Modals, palettes, and panels with backdrop overlays must trap Tab/Shift+Tab focus within the component. Without it, users can Tab to invisible background elements — WCAG 2.1.2 violation (R215: GlobalSearch allowed Tab escape). Check `handleKeyDown` for Tab/Shift+Tab handling | 🟡 P2 |
 
 ---
 
@@ -228,6 +243,16 @@ Compare key metrics with previous audit (if data available):
 | Worker error handling coverage | N | M | — |
 | Promise concurrency safety | N | M | — |
 | P0+P1+P2+P3 total count | N | M | ↓ |
+| CSS token alias cleanup completion | — | — | — |
+| D3 force simulation lifecycle (stop on unmount) | — | — | — |
+| Format conversion pipeline integrity (turndown rules) | — | — | — |
+| IPC handler param destructuring (TS2304 risk) | — | — | — |
+| Multi-step DML transaction coverage | — | — | — |
+| Graph/SVG accessibility (role + tabIndex) | — | — | — |
+| Spec-documentation drift (STYLE.md vs index.css) | — | — | — |
+| MCP tool count vs spec requirement | N | M | — |
+| MCP stdio CLI entry point | — | — | — |
+| Wikilink ref sync domain coverage (blog+knowledge+note) | — | — | — |
 | DDL migration catch block safety | N | M | — |
 | sql.js→MySQL migration table coverage | N | M | — |
 | Service→WindowApi type chain alignment | N | M | — |
@@ -243,6 +268,16 @@ Compare key metrics with previous audit (if data available):
 | Duplicate local types vs shared types | N | M | — |
 | Migration INSERT column coverage (vs ALTER TABLE) | N | M | — |
 | Service read-back SELECT user_id guard | N | M | — |
+| Search backend uniformity (all entries same engine) | — | — | — |
+| Function body no-op detection (comment-only implementations) | — | — | — |
+| HTML escaping coverage (all preview paths) | N | M | — |
+| Multi-signal hybrid score calibration | — | — | — |
+| Function signature change caller propagation | — | — | — |
+| Module-level mutable state HMR safety | N | M | — |
+| Dynamic import unmount guard coverage | N | M | — |
+| IPC handler 5-step chain completeness | N | M | — |
+| New dependency package.json declaration | N | M | — |
+| Search operator implementation completeness | N | M | — |
 ```
 
 ### 5. New Findings Summary

@@ -17,7 +17,7 @@ export function NotFoundPage() {
         className="no-underline rounded-[6px] px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-85"
         style={{ background: 'var(--accent-blue)', color: '#fff' }}
       >
-        回到仪表盘
+        回到今日
       </Link>
     </div>
   );

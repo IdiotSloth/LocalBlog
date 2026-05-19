@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340">
+  <rect width="720" height="340" fill="#0d1117"/>
+
+  <text x="360" y="30" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="20" font-weight="700" fill="#c9d1d9">知识库</text>
+  <text x="360" y="50" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="12" fill="#8b949e">多格式预览 + 内容编辑 + 图谱连接</text>
+
+  <g transform="translate(20, 70)">
+    <!-- Row 1 -->
+    <rect x="0" y="0" width="215" height="76" fill="#161b22"/><circle cx="12" cy="20" r="3" fill="#3fb950"/>
+    <text x="20" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">多格式预览</text>
+    <text x="12" y="40" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">DOCX / XLSX (排序过滤) / PDF</text>
+    <text x="12" y="57" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">(文本搜索) / CSV / 图片 / 音视频</text>
+
+    <rect x="232" y="0" width="215" height="76" fill="#161b22"/><circle cx="244" cy="20" r="3" fill="#3fb950"/>
+    <text x="252" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">内容编辑</text>
+    <text x="244" y="40" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">TXT / MD 文本编辑 · 保存即写盘</text>
+    <text x="244" y="57" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">代码文件 shiki 语法高亮 + 行号</text>
+
+    <rect x="464" y="0" width="236" height="76" fill="#161b22"/><circle cx="476" cy="20" r="3" fill="#3fb950"/>
+    <text x="484" y="20" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">局部图谱</text>
+    <text x="476" y="40" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">ContextPanel 图谱 Tab</text>
+    <text x="476" y="57" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">当前文件 1 度连接关系 · D3 力导向</text>
+
+    <!-- Row 2 -->
+    <rect x="0" y="92" width="215" height="76" fill="#161b22"/><circle cx="12" cy="112" r="3" fill="#3fb950"/>
+    <text x="20" y="112" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">拖放导入</text>
+    <text x="12" y="132" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">直接拖文件到知识库页面</text>
+    <text x="12" y="149" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">自动解析文本内容生成预览</text>
+
+    <rect x="232" y="92" width="215" height="76" fill="#161b22"/><circle cx="244" cy="112" r="3" fill="#3fb950"/>
+    <text x="252" y="112" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">文件夹 + 标签</text>
+    <text x="244" y="132" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">多层文件夹组织 + 标签</text>
+    <text x="244" y="149" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">多维度交叉检索过滤</text>
+
+    <rect x="464" y="92" width="236" height="76" fill="#161b22"/><circle cx="476" cy="112" r="3" fill="#3fb950"/>
+    <text x="484" y="112" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" font-weight="600" fill="#c9d1d9">博客反向引用</text>
+    <text x="476" y="132" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">ContextPanel 链接 Tab</text>
+    <text x="476" y="149" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#8b949e">显示引用此文件的所有博客 · 点击跳转</text>
+  </g>
+
+  <!-- Bottom features -->
+  <g transform="translate(20, 268)">
+    <rect x="0" y="0" width="85" height="22" rx="11" fill="#1e2433"/>
+    <text x="42" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">Space 快速预览</text>
+    <rect x="93" y="0" width="65" height="22" rx="11" fill="#1e2433"/>
+    <text x="125" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">D86 路径安全</text>
+    <rect x="166" y="0" width="85" height="22" rx="11" fill="#1e2433"/>
+    <text x="208" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">文件属性编辑</text>
+    <rect x="259" y="0" width="80" height="22" rx="11" fill="#1e2433"/>
+    <text x="299" y="15" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="10" fill="#8b949e">KB 属性面板</text>
+  </g>
+
+  <text x="360" y="325" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="11" fill="#484f58">知识库从博客附件仓库升级为独立内容中枢</text>
+</svg>
