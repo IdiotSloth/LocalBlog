@@ -92,6 +92,7 @@ const webApi = {
   workspaceSetPath: () => Promise.resolve({ success: true }),
   workspaceMigrate: () => Promise.resolve({ success: true }),
   workspaceOpenInFolder: () => Promise.resolve({ success: false, error: '网页版不支持打开文件夹' }),
+  workspaceExportMd: () => Promise.resolve({ success: false, error: '网页版不支持导出' }),
 
   // Recycle
   recycleList: () => request('GET', '/api/recycle/list'),
@@ -145,7 +146,29 @@ const webApi = {
   refGetTo: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),
   refSearch: () => Promise.resolve({ success: false, error: '网页版暂不支持引用' }),
 
+  // Bookmarks (T2209)
+  bookmarkAdd: () => Promise.resolve({ success: false, error: '网页版暂不支持收藏' }),
+  bookmarkRemove: () => Promise.resolve({ success: false, error: '网页版暂不支持收藏' }),
+  bookmarkList: () => Promise.resolve({ success: true, data: [] }),
+
+  // AI (T2204) — web mode uses server route POST /api/chat
+  aiChat: async (data: any) => {
+    try {
+      const resp = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.request || data) });
+      const json = await resp.json();
+      return json;
+    } catch { return { success: false, error: 'AI 请求失败' }; }
+  },
+  aiTagSuggest: async (data: any) => {
+    try {
+      const resp = await fetch('/api/chat/tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.request || data) });
+      const json = await resp.json();
+      return json;
+    } catch { return { success: false, error: 'AI 请求失败' }; }
+  },
+
   // App
+  bgImageRead: (_data: { filePath: string; userId: number }) => Promise.resolve({ success: false, error: '网页版暂不支持背景图片功能' }),
   shellOpenExternal: () => Promise.resolve({ success: false, error: '网页版暂不支持打开外部链接' }),
   appGetVersion: () => Promise.resolve({ success: true, data: '0.3.0-web' }),
   appGetSystemLanguage: () => Promise.resolve({ success: true, data: navigator.language }),
@@ -153,6 +176,9 @@ const webApi = {
   appGetAutoStart: () => Promise.resolve({ success: true, data: { enabled: false } }),
   appCreateStartMenuShortcut: () => Promise.resolve({ success: false, error: '网页版不支持' }),
   appHasStartMenuShortcut: () => Promise.resolve({ success: true, data: { exists: false } }),
+  appCheckUpdate: () => Promise.resolve({ success: false, error: '网页版不支持更新检查' }),
+  appDownloadUpdate: () => Promise.resolve({ success: false, error: '网页版不支持下载更新' }),
+  appInstallUpdate: () => Promise.resolve({ success: false, error: '网页版不支持安装更新' }),
 
   // Notes (desktop-only)
   noteList: () => Promise.resolve({ success: false, error: '便签为桌面专属功能' }),
@@ -173,6 +199,26 @@ const webApi = {
   continueGetLastBlog: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   continueGetRecentFiles: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   graphGetData: () => Promise.resolve({ success: false, error: '知识图谱为桌面专属功能' }),
+
+  // Quick Note (T2304)
+  quickNoteShow: () => Promise.resolve(),
+  onQuickNoteTrigger: () => () => {},
+
+  // Clipboard (T2304)
+  clipboardHistory: () => Promise.resolve({ success: true, data: [] }),
+  clipboardClear: () => Promise.resolve({ success: true }),
+  clipboardToggle: () => Promise.resolve({ success: true }),
+  clipboardStatus: () => Promise.resolve({ success: true, data: false }),
+
+  // Whiteboard (T2307)
+  whiteboardGet: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
+  whiteboardNodes: () => Promise.resolve({ success: true, data: [] }),
+  whiteboardNodeCreate: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
+  whiteboardNodeUpdate: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
+  whiteboardNodeDelete: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
+  whiteboardEdges: () => Promise.resolve({ success: true, data: [] }),
+  whiteboardEdgeCreate: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
+  whiteboardEdgeDelete: () => Promise.resolve({ success: false, error: '网页版暂不支持白板' }),
 };
 
 /** Detect environment and return the appropriate API */

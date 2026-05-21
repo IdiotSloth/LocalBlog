@@ -214,13 +214,26 @@ Boss 裁决的工单你不再争议
 
 ## Phase 规格审查（Boss 新需求评估）
 
-当 Boss 在 todo.md 写入新 Phase 时，你应对照 AGENTS.md 约束逐项评估每项任务：
+当 Boss 在 todo.md 写入新 Phase 时，你应对照 AGENTS.md 约束逐项评估每项任务。
+
+**审查前置 (必读)**: 如果 `suggest.md` 存在且包含相关提案，必须先读 suggest.md 理解设计意图，再读 todo.md 看 Boss 规格，最后对照代码。三者可能逐层漂移——suggest→todo→代码。
 
 1. **安全性** — 新 IPC 通道是否 sandbox 合规？是否引入新的用户输入面？
-2. **数据完整性** — 是否涉及 Schema 变更？是否与现有 DDL 三处同步约束冲突（T1105 冻结）？
+2. **数据完整性** — 是否涉及 Schema 变更？是否与现有 DDL 三处同步约束冲突？**"settings 表"不存在于 schema.ts 是常见陷阱**
 3. **架构影响** — 是否引入新依赖？是否增加进程间耦合？是否违反目录约束？
-4. **工时现实性** — 对照现有代码量估计。Spec 模糊项单独标注"需澄清"。
+4. **工时现实性** — 对照现有代码量估计。多 BrowserWindow/React Flow 等全新架构模式需追加 50%+ 风险缓冲
 5. **输出** — 逐项分析表 + Boss 裁决建议（D 编号），写入 redo.md。
+
+### Spec 逐字对照法 (Phase 22-23 核心方法论)
+
+审计 spec 实现时，不使用模糊判断（"大概有了"、"基本实现了"），而是：
+- 提取 spec 中的**每个数字**：350ms → grep `350ms` 或 `0.35s`
+- 提取 spec 中的**每个 CSS 值**：`border:none` / `bg:transparent` / `padding:0` → grep 验证
+- 提取 spec 中的**每个选项数**："8 选项" → 计数 themes 数组长度
+- 提取 spec 中的**每个 hex 色值**：`#1a1816` → 与 themes.css 逐 token 对比
+- 提取 spec 中的**每个节点类型**："6 种卡片" → 计数 nodeTypes 键数
+
+输出格式: `X/Y 约束完全吻合 (Z%)` + 每项 ✅/⚠️/❌ + 文件:行号 + 偏差说明
 
 ### 规格审查 Checklist
 
@@ -324,6 +337,24 @@ Boss 裁决的工单你不再争议
 | **Phase 21: 模块级可变状态 HMR 脆弱** | `panelSubscribers`/`paneStates`/`currentPaneId` 为模块级 let/const → React Fast Refresh 重置但旧组件未取消订阅 (R231) | 审计模块级 mutable 状态：任何 React 组件文件顶层 `let`/`const` 都是 HMR 风险，应封装在 useRef 内 |
 | **Phase 21: 异步 import 卸载时泄漏** | `import('d3-force').then(...)` 在 useEffect cleanup 执行后才 resolve → 卸载组件创建完整 simulation (R233) | 审计动态 import 的 .then 回调：首行必须有 `if (!ref.current) return` 守卫 |
 
+## Phase 22-23 新 bug 模式 (2026-05-20 更新)
+
+| 模式 | 特征 | 排查方向 |
+|------|------|----------|
+| **Phase 22: suggest.md 色值漂移** | themes.css 与 suggest.md 提案色值大量偏差 (90%+ hex 不一致)，`--bg-code` 系统性使用实色代替 `rgba()` 半透明 — 设计意图丢失 | 审计主题/视觉实现时：逐 token 对照 suggest.md 或 Boss 提供的色板规范。特别检查 `rgba()` 透明度语义是否保留 |
+| **Phase 22: Spec 约束逐字对照法** | "3px accent 竖条" 在代码中是 `borderLeft '3px solid'` 还是完全没有？"350ms 过渡" 在 CSS 中是 `350ms` 还是 `200ms`？"8 选项" 是 8 个还是 6 个？— 每个数字/关键词都是可验证的 | 审计 spec 实现时：提取 spec 中的每个数字、每个关键词 (border:none/bg:transparent/padding:0)，用 grep 精确验证。不可模糊判断"大概有了" |
+| **Phase 22: 三文档交叉验证** | suggest.md (设计意图) → todo.md (Boss 规格) → 代码 (实际实现) — 三层可能逐层漂移：色值/交互细节/架构选择在传递中丢失。Phase 23 初期 themes.css 完全偏离 suggest.md | 审计前必读 suggest.md (如有) + todo.md + AGENTS.md，然后三者对照代码。发现偏差立即标注偏差方向和幅度 |
+| **Phase 22: BlogCard 存在但不被使用** | `BlogCard.tsx` 组件定义了、import 了，但 BlogListPage 的 JSX 从不渲染它 — 组件是死代码，页面仍用内联渲染 | 审计组件复用：grep 组件名的 import 位置，再 grep JSX 中的使用。import 不等于使用 |
+| **Phase 22: WindowApi 类型声明缺失 → 全链 tsc 错误 + as any 爆发** | `window-api.ts` 缺 8 个 whiteboard 方法 → WhiteboardPage.tsx 被迫 7 处 `as any` + 11 个 tsc 错误 | 审计新增 IPC 通道时立即检查 WindowApi 类型声明。preload 有实现但 WindowApi 无声明 = 类型安全空洞 |
+| **Phase 22: /graph 路由重复定义** | App.tsx 中 `/graph` 定义两次 — 第一次 GraphPage 组件 (L128)，第二次 Navigate 重定向 (L132)。React Router first-match 导致重定向永远是死代码，图谱页仍可访问 | 审计路由表时：grep 每个路径确认只出现一次。重定向和组件不能共享同一路径 |
+| **Phase 22: 备份路径穿越 (BACKUP_DELETE)** | BACKUP_RESTORE 加了 `path.basename()` 但 BACKUP_DELETE 忘加 — 同一文件内的不对称防护 | 审计路径安全时：检查所有同类型 handler (RESTORE+DELETE) 是否对称防护。一个修了另一个没修是常见模式 |
+| **Phase 22: BrowserWindow nodeIntegration=true** | Phase 23 新建快捷便签 BrowserWindow 时未配置安全参数，默认 nodeIntegration=true → 内联 HTML 获得完整 Node.js 访问 | 审计所有 `new BrowserWindow()` 调用：验证 nodeIntegration:false, contextIsolation:true, preload 最小化。每个 BrowserWindow 独立审计 |
+| **Phase 23: 剪贴板隐私遮蔽** | 剪贴板内容自动存入数据库前需正则遮蔽手机号/身份证/邮箱。遮蔽时机 (写入前 vs 展示时) 影响安全性和可用性 | 审计剪贴板功能：验证正则遮蔽存在 + 遮蔽时机符合 spec + 开关默认关闭 |
+| **Phase 23: 白板 IPC 所有 handler 缺 user_id 隔离** | whiteboard IPC 首次实现时 8 个 handler 中 6 个缺 `AND user_id = ?` — 是 Phase 22 常见 bug 模式在新模块的重复 | 审计全新模块的 IPC handler 时：假设初始实现缺 user_id 隔离。逐 handler 验证所有权检查，不要假定 Developer 会记住 |
+| **Phase 23: 拖入/融和点全部缺失** | Spec 描述白板是"所有模块的终点"——5 个融合点 (从博客/KB/便签/标签/书签拖入白板) — 但初期实现 0 个融合，白板与知识库完全隔离 | 审计"融合/集成"类 spec 时：列出所有声称的集成点，逐项 grep 代码确认两端 (源端 draggable + 目标端 onDrop) 都已实现 |
+| **Phase 23: md.render() 无 DOMPurify** | BlogEditorPage Ctrl+\ 分屏预览中 md.render() 结果直接传入 dangerouslySetInnerHTML — 与 BlogPreviewPage 的安全管线不一致 | 审计所有 dangerouslySetInnerHTML 路径：验证 DOMPurify 覆盖。同一数据的不同渲染入口可能有不同安全级别 |
+| **Phase 23: clipboard_history 表缺失** | 剪贴板功能声称持久化到 DB，但 schema 中无 clipboard_history 表 — 实际仅存内存数组，重启丢失 | 审计新功能数据持久化：验证 spec 声称的每张表/每个存储键在 schema.ts + db-schema-mysql.ts + migrateDatabase() 中都有定义。不要信任 Developer 的报告，直接读 DDL |
+
 ---
 
 ## redo.md 工单格式 (Boss 核定)
@@ -397,6 +428,20 @@ npx tsc -p tsconfig.web.json --noEmit     # renderer + shared
 | 逐项对照 spec 验证实施正确性，标记 spec-implementation gap | 修改 spec 或自行解释模糊需求（Boss 定） |
 | 输出六维度健康度评分 + 架构趋势对比 | 更新 AGENTS.md 约束（Boss 巡检后写） |
 | 发现 CSS 变量主题半边覆盖（`:root` 有 `.light` 无） | 补 `.light` 值（Developer 补） |
+| **推进"零延后"原则**: 所有 P0-P2 必须清零，P3 给出修复建议 | 接受 Developer 以"设计权衡"为由将 P2 延后 |
+
+### 并行多 Agent 审计模式 (Phase 22-23 核心工作模式)
+
+大规模审计 (Phase 完成、全量审查) 始终使用 3-4 个并行 Agent：
+
+```
+Agent 1: 修复验证 + 退化检查 + tsc
+Agent 2: Spec 逐约束差异 + 功能完整性
+Agent 3: 安全+数据完整性+健壮性
+Agent 4: (可选) CSS/路由/类型/设计一致性
+```
+
+每个 Agent 接收**具体文件路径和行号**作为检查目标，而非概括性描述。Agent 返回后 Auditor 汇总写入 redo.md。
 
 ---
 
@@ -416,7 +461,24 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-19, Phase 21 结项):
+**当前质量基线** (2026-05-20, Phase 23 结项):
+- `as any`: renderer 1 (MiniMap nodeColor), shared 0, preload 0
+- `: any` 类型标注: renderer 5 处 (全预存: D3/worker/inline handlers)
+- IPC 通道: **130** (handle 121 + EVT 9)
+- 测试: **87/87** unit (12 files)
+- `noUncheckedIndexedAccess`: ✅ 永久启用
+- tsc --noEmit: ✅ 零错误 (tsc node/web 有预存错误但 Phase 23 零新增)
+- P0+P1: ✅ 清零
+- 5 套国风主题: ✅ 墨砚/茶竹/夜灯/宣纸/青瓷 + 75 色值与 suggest.md 100% 一致
+- 白板: ✅ React Flow 无限画布 + 6 种卡片 + 连线(关联/依赖/引用) + 双向同步 + /graph→302
+- 侧边栏: ✅ 三分区 + 3px accent 竖条 + 数量 badge + 16px Lucide
+- AI: ✅ RAG 问答 + 编辑器 AI + 自动标签 (OpenAI/Claude/DeepSeek/Ollama)
+- 便签: ✅ Alt+Space 快捷便签 + 草稿持久化 + 剪贴板监听(500ms轮询+隐私遮蔽)
+- KB: ✅ 卡片画布 + 10 文件类型 Lucide + 拖入导入 + /knowledge?select=&lt;id&gt;
+- BlogCard: ✅ 卡片 Feed + 阅读时间 + 引用数 + 无限滚动 + 代码块(hljs+语言标签+复制)
+- 编辑器: ✅ 无框编辑(frameless) + BubbleMenu(受限于 Tiptap 版本) + 300ms fadeIn + 500ms 防抖预览
+- 构建: 55 main + 2 preload + 2008 renderer
+- 累计: ~320 个工单 (R01-R321), ~105 个决策点 (D01-D105), ~715h
 - `as any`: renderer 6 (全预存: D3/worker/ContextPanel), shared 0, preload 0。server routes 29 处 (MySQL 驱动豁免, D13)
 - `: any` 类型标注: renderer **4 处** (全预存: D3/worker/inline handlers)。Phase 21 新增文件零新增
 - IPC 通道: **120** (handle) + **9** (EVT_ event channels)

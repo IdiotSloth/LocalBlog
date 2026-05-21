@@ -8,6 +8,7 @@ export interface TabDef {
   id: string;
   label: string;
   content: React.ReactNode;
+  badge?: boolean; // R294: red dot badge for new/unseen content
 }
 
 interface PanelState {
@@ -196,6 +197,9 @@ export function ContextPanel() {
               }}
             >
               {tab.label}
+              {tab.badge && (
+                <span className="ml-1 inline-block w-2 h-2 rounded-full" style={{ background: 'var(--accent-red)' }} />
+              )}
             </button>
           ))}
         </div>

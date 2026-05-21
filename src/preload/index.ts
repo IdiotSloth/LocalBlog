@@ -72,6 +72,7 @@ const api: WindowApi = {
   workspaceSetPath: (data) => ipcRenderer.invoke(IPC.WORKSPACE_SET_PATH, data),
   workspaceMigrate: (data) => ipcRenderer.invoke(IPC.WORKSPACE_MIGRATE, data),
   workspaceOpenInFolder: (userId) => ipcRenderer.invoke(IPC.WORKSPACE_OPEN_IN_FOLDER, userId),
+  workspaceExportMd: (userId) => ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_MD, userId),
 
   // Recycle Bin
   recycleList: (userId) => ipcRenderer.invoke(IPC.RECYCLE_LIST, userId),
@@ -86,6 +87,39 @@ const api: WindowApi = {
   refGetFrom: (data) => ipcRenderer.invoke(IPC.REF_GET_FROM, data),
   refGetTo: (data) => ipcRenderer.invoke(IPC.REF_GET_TO, data),
   refSearch: (data) => ipcRenderer.invoke(IPC.REF_SEARCH, data),
+
+  // Bookmarks (T2209)
+  bookmarkAdd: (data) => ipcRenderer.invoke(IPC.BOOKMARK_ADD, data),
+  bookmarkRemove: (data) => ipcRenderer.invoke(IPC.BOOKMARK_REMOVE, data),
+  bookmarkList: (userId) => ipcRenderer.invoke(IPC.BOOKMARK_LIST, userId),
+
+  // AI (T2204)
+  aiChat: (data) => ipcRenderer.invoke(IPC.AI_CHAT, data),
+  aiTagSuggest: (data) => ipcRenderer.invoke(IPC.AI_TAG_SUGGEST, data),
+
+  // Quick Note (T2304)
+  quickNoteShow: (userId) => ipcRenderer.invoke(IPC.QUICK_NOTE_SHOW, userId),
+  onQuickNoteTrigger: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on(IPC.EVT_QUICK_NOTE_TRIGGER, h);
+    return () => ipcRenderer.removeListener(IPC.EVT_QUICK_NOTE_TRIGGER, h);
+  },
+
+  // Clipboard (T2304)
+  clipboardHistory: () => ipcRenderer.invoke(IPC.CLIPBOARD_HISTORY),
+  clipboardClear: () => ipcRenderer.invoke(IPC.CLIPBOARD_CLEAR),
+  clipboardToggle: (data: { enable: boolean; userId: number }) => ipcRenderer.invoke(IPC.CLIPBOARD_TOGGLE, data),
+  clipboardStatus: () => ipcRenderer.invoke(IPC.CLIPBOARD_STATUS),
+
+  // Whiteboard (T2307)
+  whiteboardGet: (userId) => ipcRenderer.invoke(IPC.WHITEBOARD_GET, userId),
+  whiteboardNodes: (whiteboardId) => ipcRenderer.invoke(IPC.WHITEBOARD_NODES, whiteboardId),
+  whiteboardNodeCreate: (data) => ipcRenderer.invoke(IPC.WHITEBOARD_NODE_CREATE, data),
+  whiteboardNodeUpdate: (data) => ipcRenderer.invoke(IPC.WHITEBOARD_NODE_UPDATE, data),
+  whiteboardNodeDelete: (nodeId) => ipcRenderer.invoke(IPC.WHITEBOARD_NODE_DELETE, nodeId),
+  whiteboardEdges: (whiteboardId) => ipcRenderer.invoke(IPC.WHITEBOARD_EDGES, whiteboardId),
+  whiteboardEdgeCreate: (data) => ipcRenderer.invoke(IPC.WHITEBOARD_EDGE_CREATE, data),
+  whiteboardEdgeDelete: (edgeId) => ipcRenderer.invoke(IPC.WHITEBOARD_EDGE_DELETE, edgeId),
 
   // Folder
   folderTree: (data) => ipcRenderer.invoke(IPC.FOLDER_TREE, data),
@@ -185,6 +219,7 @@ const api: WindowApi = {
   shortcutReset: () => ipcRenderer.invoke(IPC.SHORTCUT_RESET),
 
   // App
+  bgImageRead: (data: { filePath: string; userId: number }) => ipcRenderer.invoke(IPC.BG_IMAGE_READ, data),
   shellOpenExternal: (url: string) => ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   appGetVersion: () => ipcRenderer.invoke(IPC.APP_GET_VERSION),
   appGetSystemLanguage: () => ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
@@ -192,6 +227,9 @@ const api: WindowApi = {
   appGetAutoStart: () => ipcRenderer.invoke(IPC.APP_GET_AUTO_START),
   appCreateStartMenuShortcut: () => ipcRenderer.invoke(IPC.APP_CREATE_START_MENU_SHORTCUT),
   appHasStartMenuShortcut: () => ipcRenderer.invoke(IPC.APP_HAS_START_MENU_SHORTCUT),
+  appCheckUpdate: () => ipcRenderer.invoke(IPC.APP_CHECK_UPDATE),
+  appDownloadUpdate: () => ipcRenderer.invoke(IPC.APP_DOWNLOAD_UPDATE),
+  appInstallUpdate: () => ipcRenderer.invoke(IPC.APP_INSTALL_UPDATE),
 };
 
 contextBridge.exposeInMainWorld('api', api);

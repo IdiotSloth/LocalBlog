@@ -20,8 +20,17 @@ Before starting, quick sanity check:
   - `files` should include `img/**/*` if images are needed in ASAR root
   - `asarUnpack: ["img/**"]` ensures `nativeImage.createFromPath` can read images
   - `extraResources` should copy `img/` for main process access via `process.resourcesPath`
-- `build/icon.png` — should be ≥30KB (256×256 real icon). If ~1KB it's transparent/black → NSIS installer shows black blob
-- Start Menu shortcut: may point to stale portable exe. If "no response on click", check shortcut target with VBScript `CreateShortcut().TargetPath` → verify ASAR not 28 bytes
+  - `extraResources.to` path for `launcher.vbs` must match NSIS shortcut target in `scripts/installer.nsh` (e.g. `resources/launcher.vbs`)
+- `scripts/installer.nsh` ↔ `electron-builder.yml` consistency:
+  - Shortcut target `.nsh` → `$INSTDIR\Idiot.exe` (直接指向 exe, 不再经过 wscript.exe/VBS)
+  - Uninstall macro must delete shortcut files (same path as create)
+  - Runtime shortcut creation in `src/main/index.ts` guarded by `!app.isPackaged`
+- `build/icon.ico` — should be ≥30KB and 256×256, under 50KB. PNG→ICO 膨胀 >50KB 会导致标题栏图标裁切。当前直接使用预构建 ICO (34KB)
+- `src/renderer/assets/themes.css` — should exist (Phase 23 五套国风主题). Verify 5×14 tokens with rgba() borders
+- `chrome-extension/` — should exist (Phase 21 browser clipper). Verify manifest.json present
+- `src/renderer/workers/embedding.worker.ts` — should exist (Phase 21 semantic search, Phase 22 passive discovery)
+- `docs/guide/*.md` — should exist (Phase 23 交互式手册, 13 章)
+- `.gitignore` — must cover `out/`, `dist2/`, `.claude/worktrees/`, `release/`
 
 ## Pipeline
 
@@ -82,7 +91,9 @@ rm -rf /tmp/fe /tmp/app.asar /tmp/verify
 | webviewTag ≥ 1 | `grep -c "webviewTag" out/main/index.js` | 同 |
 | autoUpdater ≥ 1 | `grep -c "autoUpdater\|electron-updater" out/main/index.js` | 同 |
 | search.worker 已打包 | `grep "search.worker" out/renderer/assets/index-*.js` | 同 |
+| embedding.worker 已打包 | `ls out/renderer/assets/embedding.worker-*.js \| wc -l` | 同 |
 | guide SVG ≥ 1 | `ls out/renderer/assets/guide-*.svg \| wc -l` | ASAR list `grep guide-` |
+| launcher.vbs 部署 | N/A (portable 无此文件) | `ls resources/launcher.vbs` + `cat` 验证两段查找逻辑 (FileExists fallback) |
 | img/ 资源 (3 位置) | (1) `ls out/renderer/img/` (2) ASAR 根 `img/` | (1) `ls resources/img/` (extraResources) (2) `ls app.asar.unpacked/img/` (asarUnpack) (3) ASAR 内 `grep out/renderer/img/` |
 | img checksum 一致性 | `md5sum out/renderer/img/*` vs `md5sum img/*` | `md5sum resources/img/*` vs source |
 
@@ -91,12 +102,7 @@ rm -rf /tmp/fe /tmp/app.asar /tmp/verify
 2. `ls dist2/win-unpacked/resources/app.asar.unpacked/img/` — asarUnpack, 同上
 3. `npx asar list dist2/win-unpacked/resources/app.asar | grep "out/renderer/img/"` — post-build.js 注入, 同上
 4. 可选：`md5sum` 对比源文件和打包文件，排除损坏
-5. `build/icon.png` — 检查 ≥ 30KB。若 ~1KB 需用 Electron nativeImage 从 `img/favicon.ico` 重生成：
-   ```bash
-   # 写入临时脚本, 用 run.js 剥离 ELECTRON_RUN_AS_NODE 后执行
-   node scripts/run.js npx electron scripts/convert-icon.js
-   ```
-   脚本内容: `nativeImage.createFromPath('img/favicon.ico').resize({width:256,height:256}).toPNG()` → `build/icon.png`
+5. `build/icon.ico` — 检查 ≥30KB 且 <50KB, 256×256。ICO >50KB 导致任务栏/标题栏图标裁切。当前直接用 sharp 从 PNG 构建 ICO (34KB)。
 
 ### Step 4: Commit
 

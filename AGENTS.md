@@ -291,19 +291,19 @@ Boss 结项验收 → sync-docs → ship
 
 ---
 
-## 当前状态 (2026-05-19)
+## 当前状态 (2026-05-21)
 
-- **Phase 1-20**: ✅ 全部完成
-  - Phase 20 18/18：3栏布局 / [[双向链接]] / 知识图谱 / 今日中枢 / MCP Server / 设计语言重塑 ("精炼书房")
-  - Phase 19 19/19：redo 全清 / 测试 87 / 组件收敛 / 指南配图 / 便签增强
-- **当前活跃**: 无 — Phase 21 ✅ (2026-05-19 结项)
-- **审查修复**: 累计 ~281 个工单 (R01-R281), 88 个决策点 (D01-D88) 全部关闭
-- **当前待修复**: 🔴0 🟠0 🟡0 🟢0 — P2/P3 开放项延 Phase 22
-- **构建状态**: ✅ 测试 87/87 pass (12 files) | E2E 11/11 pass | tsc 零错误
-- **`noUncheckedIndexedAccess`**: 永久启用。renderer `: any` = 0, `as any` = 0
-- **IPC**: 114 通道。Service: 16。Server route: 11 (含 mcp.ts)。DB: 12 表
-- **已知缺口**: 国际化 i18n (否决 D18=C); 标签页系统 (D76 → Phase 22); Bookmarks (D78 → Phase 22)
-- **Phase 22 预告**: AI 集成 + 标签页系统 + Bookmarks + MD 全量导出 + DOCX 编辑
+- **Phase 1-22**: ✅ 全部完成
+  - Phase 22 13/13：知识活化 — HomePage重构/Obsidian日历/Blog↔KB打通/被动发现/AI集成/Transclusion/标签页/Bookmarks/Saved Search/时间轴/更新管理/剪贴板/快捷便签
+  - Phase 21 12/12：编辑器进化 + 知识连接 + 内容中枢
+  - Phase 20 18/18：3栏布局 / [[双向链接]] / 知识图谱 / 今日中枢 / MCP Server / 设计语言重塑
+- **当前活跃**: Phase 23 📋 (7 项 ~48h): "精炼书房" — 五套国风/博客卡片化/原地编辑/便签改造/KB重塑/导航重塑/白板
+- **审查修复**: 累计 ~339 个工单 (R01-R339), ~100 个决策点。D-series + R-series 全部裁决
+- **当前待修复**: 🔴0 🟠1 (R338 bgImage路径穿越) 🟡1 (R339 KB冲突) 🟢Phase23 spec gap → Phase 24
+- **构建状态**: ✅ 测试 87/87 pass (12 files) | tsc 零错误 | build ✅
+- **`noUncheckedIndexedAccess`**: 永久启用。renderer `: any` = 15, `as any` = 25 (Phase 23 新增代码引入，延 Phase 24 清零)
+- **IPC**: 139 通道。Service: 18。IPC handler files: 19。Server route: 13。DB: 12 表
+- **已知缺口**: 国际化 i18n (否决 D18=C); PDF 批注/OCR/块级引用/自定义仪表盘 (路线不重叠)
 
 ---
 

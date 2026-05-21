@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FtsSearchResult } from '../../../shared/types';
 import { getRecentBlogs, type RecentBlogEntry } from '../../hooks/useRecentHistory';
+import { useSavedQueries } from '../../hooks/useSavedQueries';
 import { useAuthStore } from '../../stores/auth-store';
 import { useSearch } from '../../lib/use-search';
 
@@ -20,10 +21,13 @@ export function GlobalSearch() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [recentBlogs, setRecentBlogs] = useState<RecentBlogEntry[]>([]);
 
   const { search, results } = useSearch(user?.id ?? null);
+  const { items: savedQueries, add: saveQuery } = useSavedQueries();
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName, setSaveName] = useState('');
 
   // Commands when query is empty
   const commands: Command[] = [
@@ -129,7 +133,7 @@ export function GlobalSearch() {
   return (
     <>
       {/* Search trigger — always visible in header */}
-      <div ref={containerRef} className="relative flex-1 max-w-xl">
+      <div ref={containerRef} className="relative w-80 lg:w-96">
         <input
           ref={inputRef}
           type="text"
@@ -137,13 +141,18 @@ export function GlobalSearch() {
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (!open) { setOpen(true); setRecentBlogs(getRecentBlogs().slice(0, 5)); } }}
+          className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none transition-all focus:outline-none"
+          style={{
+            borderColor: 'var(--border-default)',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+          }}
           placeholder="搜索 tag:标签 type:blog|knowledge (Ctrl+K)"
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-base)] px-3 py-1.5 text-sm outline-none transition-all focus:border-[var(--color-primary-light)] focus:ring-1 focus:ring-[var(--color-primary-light)]/30 placeholder:text-[var(--color-text-muted)]"
         />
 
         {/* Dropdown panel */}
         {open && (
-          <div className="absolute left-0 right-0 top-full mt-1.5 max-h-[420px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-2xl z-50">
+          <div className="absolute left-0 right-0 top-full mt-1.5 max-h-[420px] overflow-y-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] shadow-2xl z-50">
             {/* T2104: Active operator chips */}
             {(operators.tagName || operators.typeFilter) && (
               <div className="flex items-center gap-2 px-4 py-2 border-b text-[11px]" style={{ borderColor: 'var(--border-default)' }}>
@@ -221,8 +230,57 @@ export function GlobalSearch() {
                 ))}
               </>
             )}
+            {!showCommands && query.trim().length >= 1 && allResults.length > 0 && (
+              <div className="border-t px-4 py-2" style={{ borderColor: 'var(--border-default)' }}>
+                {showSaveInput ? (
+                  <div className="flex gap-2">
+                    <input type="text" value={saveName} onChange={(e) => setSaveName(e.target.value)}
+                      placeholder="查询名称..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && saveName.trim()) { saveQuery(saveName.trim(), query); setSaveName(''); setShowSaveInput(false); }
+                        if (e.key === 'Escape') { setShowSaveInput(false); setSaveName(''); }
+                      }}
+                      className="flex-1 rounded-[4px] border px-2 py-1 text-[12px] outline-none"
+                      style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                      autoFocus />
+                    <button type="button" onClick={() => { if (saveName.trim()) { saveQuery(saveName.trim(), query); setSaveName(''); setShowSaveInput(false); } }}
+                      className="rounded-[4px] px-2 py-1 text-[12px] font-medium"
+                      style={{ background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                      保存
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => { setShowSaveInput(true); setSaveName(query); }}
+                    className="w-full text-left text-[12px] py-1 hover:opacity-70"
+                    style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    + 保存此查询
+                  </button>
+                )}
+              </div>
+            )}
             {!showCommands && query.trim().length >= 1 && allResults.length === 0 && (
               <div className="px-4 py-6 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>未找到匹配结果</div>
+            )}
+            {/* T2206: Saved queries shown when empty */}
+            {showCommands && savedQueries.length > 0 && (
+              <div className="border-t px-4 py-2" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-[11px] font-medium mb-1" style={{ color: 'var(--text-muted)' }}>已保存的查询</p>
+                {savedQueries.slice(0, 5).map((sq, i) => (
+                  <button key={i} type="button"
+                    onClick={() => {
+                      setQuery(sq.query);
+                      search(sq.query);
+                      setOpen(true);
+                      setSelectedIdx(-1);
+                    }}
+                    className="w-full text-left flex items-center gap-2 rounded-[4px] px-2 py-1 text-[12px] transition-colors hover:bg-[var(--bg-primary)]"
+                    style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>🔍</span>
+                    <span className="flex-1 truncate">{sq.name}</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{sq.query}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}

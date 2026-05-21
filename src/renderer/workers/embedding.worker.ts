@@ -294,6 +294,39 @@ self.onmessage = async (e: MessageEvent) => {
       break;
     }
 
+    // T2203: Find docs similar to a given source doc
+    case 'similarity-search': {
+      const { docId, docType, limit, threshold } = msg;
+      const key = `${docId}@${docType}`;
+      const sourceVec = embeddings.get(key);
+      if (!sourceVec) {
+        self.postMessage({ type: 'similarity-results', results: [], sourceId: docId, sourceType: docType });
+        break;
+      }
+      const scores: { id: number; type: string; score: number }[] = [];
+      const minThreshold = threshold ?? 0.75;
+      for (const [otherKey, vec] of embeddings) {
+        if (otherKey === key) continue;
+        const score = cosineSimilarity(sourceVec, vec);
+        if (score >= minThreshold) {
+          const parts = otherKey.split('@');
+          const id = Number(parts[0]);
+          const type = parts[1] as string;
+          if (id && type) {
+            scores.push({ id, type, score });
+          }
+        }
+      }
+      scores.sort((a, b) => b.score - a.score);
+      self.postMessage({
+        type: 'similarity-results',
+        results: scores.slice(0, limit ?? 5),
+        sourceId: docId,
+        sourceType: docType,
+      });
+      break;
+    }
+
     case 'terminate': {
       extractor = null;
       embeddings.clear();

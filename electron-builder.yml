@@ -15,19 +15,18 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   license: LICENSE.txt
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: false
   shortcutName: Idiot
+  include: scripts/installer.nsh
 win:
   target: nsis
-  icon: build/icon.png
+  icon: build/icon.ico
 publish:
   provider: github
   owner: IdiotSloth
   repo: LocalBlog
 extraResources:
-  - from: scripts/launcher.bat
-    to: launcher.bat
   - from: img/
     to: img/
 electronDist: node_modules/electron/dist

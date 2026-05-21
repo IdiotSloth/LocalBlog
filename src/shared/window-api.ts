@@ -100,6 +100,7 @@ export interface WindowApi {
   workspaceSetPath(data: Record<string, unknown>): Promise<void>;
   workspaceMigrate(data: Record<string, unknown>): Promise<void>;
   workspaceOpenInFolder(userId: number): Promise<void>;
+  workspaceExportMd(userId: number): Promise<ApiResponse<{ dir: string; count: number }>>;
 
   // Recycle Bin
   recycleList(userId: number): Promise<ApiResponse<RecycleBinItem[]>>;
@@ -114,6 +115,35 @@ export interface WindowApi {
   refGetFrom(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
   refGetTo(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
   refSearch(data: Record<string, unknown>): Promise<ApiResponse<Reference[]>>;
+
+  // Bookmarks (T2209)
+  bookmarkAdd(data: { userId: number; targetType: string; targetId: number; title: string }): Promise<ApiResponse<{ id: number }>>;
+  bookmarkRemove(data: { userId: number; targetType: string; targetId: number }): Promise<ApiResponse<void>>;
+  bookmarkList(userId: number): Promise<ApiResponse<Array<{ id: number; targetType: string; targetId: number; title: string; createdAt: string }>>>;
+
+  // AI (T2204)
+  aiChat(data: Record<string, unknown>): Promise<ApiResponse<{ content: string }>>;
+  aiTagSuggest(data: Record<string, unknown>): Promise<ApiResponse<{ tags: string[] }>>;
+
+  // Quick Note (T2304)
+  quickNoteShow(userId: number): Promise<void>;
+  onQuickNoteTrigger(cb: () => void): () => void;
+
+  // Clipboard (T2304)
+  clipboardHistory(): Promise<ApiResponse<{ text: string; time: number }[]>>;
+  clipboardClear(): Promise<ApiResponse<void>>;
+  clipboardToggle(enable: boolean): Promise<ApiResponse<void>>;
+  clipboardStatus(): Promise<ApiResponse<boolean>>;
+
+  // Whiteboard (T2307)
+  whiteboardGet(userId: number): Promise<ApiResponse<{ id: number; title: string; description: string; createdAt: string; updatedAt: string } | null>>;
+  whiteboardNodes(data: { whiteboardId: number; userId: number }): Promise<ApiResponse<Array<{ id: number; whiteboardId: number; nodeType: string; refType: string | null; refId: number | null; title: string; summary: string; color: string; taskStatus: string; x: number; y: number; createdAt: string; updatedAt: string }>>>;
+  whiteboardNodeCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number }>>;
+  whiteboardNodeUpdate(data: Record<string, unknown>): Promise<ApiResponse<void>>;
+  whiteboardNodeDelete(data: { nodeId: number; userId: number }): Promise<ApiResponse<void>>;
+  whiteboardEdges(data: { whiteboardId: number; userId: number }): Promise<ApiResponse<Array<{ id: number; sourceNodeId: number; targetNodeId: number; edgeType: string; label: string }>>>;
+  whiteboardEdgeCreate(data: Record<string, unknown>): Promise<ApiResponse<{ id: number }>>;
+  whiteboardEdgeDelete(data: { edgeId: number; userId: number; whiteboardId: number }): Promise<ApiResponse<void>>;
 
   // Folder
   folderTree(data: Record<string, unknown>): Promise<ApiResponse<FolderTreeNode[]>>;
@@ -148,7 +178,7 @@ export interface WindowApi {
   onNoteRefresh(cb: () => void): () => void;
   onKbRefresh(cb: () => void): () => void;
   onAppError(cb: (error: { message: string }) => void): () => void;
-  onUpdateStatus(cb: (data: { status: string; version?: string; percent?: number }) => void): () => void;
+  onUpdateStatus(cb: (data: { status: string; version?: string; percent?: number; message?: string }) => void): () => void;
 
   // Notes
   noteList(userId: number, memoType?: string, dueDateFrom?: string, dueDateTo?: string): Promise<ApiResponse<Note[]>>;
@@ -179,6 +209,7 @@ export interface WindowApi {
   shortcutReset(): Promise<ApiResponse<void>>;
 
   // App
+  bgImageRead(data: { filePath: string; userId: number }): Promise<ApiResponse<string>>;
   shellOpenExternal(url: string): Promise<ApiResponse<void>>;
   appGetVersion(): Promise<ApiResponse<string>>;
   appGetSystemLanguage(): Promise<ApiResponse<string>>;
@@ -186,6 +217,9 @@ export interface WindowApi {
   appGetAutoStart(): Promise<ApiResponse<{ enabled: boolean }>>;
   appCreateStartMenuShortcut(): Promise<ApiResponse<void>>;
   appHasStartMenuShortcut(): Promise<ApiResponse<{ exists: boolean }>>;
+  appCheckUpdate(): Promise<ApiResponse<{ updateAvailable: boolean; version: string | null }>>;
+  appDownloadUpdate(): Promise<ApiResponse<void>>;
+  appInstallUpdate(): Promise<ApiResponse<void>>;
 }
 
 declare global {

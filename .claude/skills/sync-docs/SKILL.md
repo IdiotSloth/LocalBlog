@@ -45,9 +45,23 @@ Verify these claims with a quick check:
 | `noUncheckedIndexedAccess` in tsconfig | `grep "noUncheckedIndexedAccess" tsconfig.node.json tsconfig.web.json` |
 | `suggest.md` existence | Should NOT exist after Boss processes proposals |
 | `.gitignore` covers dist2/ and .claude/worktrees/ | Check these entries exist |
-| `electron-builder.yml` config sanity | `buildResources` not overlapping with app resources; `files` includes `img/**/*`; `asarUnpack` includes `img/**` |
-| `build/icon.png` size sanity | `ls -la build/icon.png` — should be ≥30KB. ~1KB → black/transparent, needs regeneration |
-| README features table vs actual modules | New modules (MCP Server, WikilinkSuggestion, ContextPanel, GraphPage, HomePage) should appear in feature table |
+| `electron-builder.yml` config sanity | `buildResources` not overlapping with app resources; `files` includes `img/**/*`; `asarUnpack` includes `img/**`; `extraResources.to` path matches `scripts/installer.nsh` shortcut targets |
+| `scripts/installer.nsh` ↔ `electron-builder.yml` consistency | Shortcut path in `.nsh` (e.g. `$INSTDIR\resources\launcher.vbs`) must match where `extraResources.to` actually puts the file; shortcuts should target `wscript.exe` not `.vbs` directly |
+| `scripts/launcher.vbs` robustness | Should handle both "VBS next to exe" (portable) and "VBS in resources/ subdir" (NSIS) via FileExists fallback |
+| `build/icon.ico` size sanity | `ls -la build/icon.ico` — should be ≥30KB and 256×256. PNG→ICO 膨胀 >50KB 会导致标题栏图标裁切 |
+| README features table vs actual modules | New modules (AI Chat/Bookmarks/Timeline/Whiteboard/TabBar/Update/SavedQuery/Transclusion/Clipboard/QuickNote/Guide 13章) should appear in feature table |
+| embedding.worker existence | `ls src/renderer/workers/embedding.worker.ts` — Phase 21 semantic search, Phase 22 passive discovery |
+| chrome-extension/ existence | `ls chrome-extension/manifest.json` — Phase 21 browser clipper |
+| SplitPane existence | `ls src/renderer/components/layout/SplitPane.tsx` — Phase 21 split framework |
+| SlashCommand existence | `ls src/renderer/components/editor/SlashCommand.tsx` — Phase 21 slash commands |
+| UpdateSection existence | `ls src/renderer/features/settings/UpdateSection.tsx` — Phase 22 update management |
+| Themes system | `ls src/renderer/assets/themes.css` — Phase 23 五套国风主题。验证 5×14 token + rgba() 边框 |
+| BlogCard existence | `ls src/renderer/components/blog/BlogCard.tsx` — Phase 23 博客卡片 |
+| WhiteboardPage existence | `ls src/renderer/features/whiteboard/WhiteboardPage.tsx` — Phase 23 白板 |
+| QuickNoteWindow existence | `ls src/main/windows/quick-note.ts` — Phase 23 快捷便签 |
+| GuidePage 13章 | `ls docs/guide/*.md` — Phase 23 交互式手册 |
+| `app.isPackaged` guard in runtime shortcut | `grep "app.isPackaged" src/main/index.ts` — prevents duplicate shortcut in NSIS installs |
+| todo.md line count sanity | `wc -l todo.md` — should be <1000 after Phase 22+ 文档瘦身 |
 
 If drift > 2 items or a stale claim exists, flag it for Boss review.
 

@@ -31,6 +31,7 @@ export async function initMySQL(): Promise<void> {
     database: cfg.database,
     waitForConnections: true,
     connectionLimit: 10,
+    dateStrings: true, // Return DATE/DATETIME as strings, not Date objects. Prevents date format mismatch.
   });
 
   // Create tables
@@ -109,6 +110,8 @@ function toMySQL(sql: string): string {
       // Bare 'now' as default value → NOW() (only after specific patterns are handled)
       .replace(/'now'/g, 'NOW()')
       .replace(/INSERT OR IGNORE INTO/gi, 'INSERT IGNORE INTO')
+      .replace(/INSERT OR REPLACE INTO/gi, 'REPLACE INTO')
+      .replace(/last_insert_rowid\(\)/gi, 'LAST_INSERT_ID()')
   );
 }
 

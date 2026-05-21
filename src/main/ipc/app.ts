@@ -180,10 +180,11 @@ export function registerAppHandlers(): void {
     try {
       const backupDir = BackupService.getBackupDir();
       const dbPath = BackupService.getDbPath();
-      const backupPath = path.join(backupDir, filename);
+      const safeFilename = path.basename(filename);
+      const backupPath = path.join(backupDir, safeFilename);
       if (!fs.existsSync(backupPath)) return { success: false, error: '备份文件不存在' };
       // Create a safety backup of current DB before restoring
-      const safetyName = `${filename}.pre-restore`;
+      const safetyName = `${safeFilename}.pre-restore`;
       try {
         fs.copyFileSync(dbPath, path.join(backupDir, safetyName));
       } catch {
@@ -198,7 +199,8 @@ export function registerAppHandlers(): void {
   ipcMain.handle(IPC.BACKUP_DELETE, async (_event, filename: string) => {
     try {
       const backupDir = BackupService.getBackupDir();
-      const backupPath = path.join(backupDir, filename);
+      const safeFilename = path.basename(filename);
+      const backupPath = path.join(backupDir, safeFilename);
       if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
       return { success: true };
     } catch (err) {
@@ -234,5 +236,51 @@ export function registerAppHandlers(): void {
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
+  });
+
+  // T2304: Clipboard history
+  ipcMain.handle(IPC.CLIPBOARD_HISTORY, async () => {
+    const { getClipboardHistory, getHistoryLength } = await import('../services/clipboard.service');
+    const data = getClipboardHistory();
+    console.log('[Clipboard IPC] history requested, count:', getHistoryLength(), 'masked:', data.length);
+    return { success: true, data };
+  });
+  ipcMain.handle(IPC.CLIPBOARD_CLEAR, async () => {
+    const { clearClipboardHistory } = await import('../services/clipboard.service');
+    clearClipboardHistory();
+    return { success: true };
+  });
+  // Background image: read file and return base64 data URL (avoids file:// block in renderer)
+  ipcMain.handle(IPC.BG_IMAGE_READ, async (_event, data: { filePath: string; userId: number }) => {
+    try {
+      // R338: Path traversal protection — only block '../' escapes. Background images
+      // can come from anywhere on disk (Pictures, Downloads, etc.), not just workspace.
+      const resolved = path.resolve(data.filePath);
+      if (path.normalize(data.filePath).includes('..')) {
+        return { success: false, error: '路径包含非法字符' };
+      }
+      const ext = path.extname(resolved).replace('.', '') || 'png';
+      if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+        return { success: false, error: '不支持的文件类型' };
+      }
+      const buf = fs.readFileSync(resolved);
+      const mime = ext === 'jpg' ? 'jpeg' : ext;
+      const b64 = buf.toString('base64');
+      return { success: true, data: `data:image/${mime};base64,${b64}` };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle(IPC.CLIPBOARD_TOGGLE, async (_event, data: { enable: boolean; userId: number }) => {
+    const { startClipboardMonitor, stopClipboardMonitor, setClipboardUserId } = await import('../services/clipboard.service');
+    if (data.userId) setClipboardUserId(data.userId);
+    if (data.enable) await startClipboardMonitor();
+    else stopClipboardMonitor();
+    return { success: true };
+  });
+  ipcMain.handle(IPC.CLIPBOARD_STATUS, async () => {
+    const { isClipboardMonitorRunning } = await import('../services/clipboard.service');
+    return { success: true, data: isClipboardMonitorRunning() };
   });
 }

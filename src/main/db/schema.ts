@@ -117,6 +117,62 @@ CREATE TABLE IF NOT EXISTS notes (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- T2209: Bookmarks
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- T2307: Whiteboards
+CREATE TABLE IF NOT EXISTS whiteboards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '我的白板',
+  description TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS whiteboard_nodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  node_type TEXT NOT NULL DEFAULT 'idea',
+  ref_type TEXT,
+  ref_id INTEGER,
+  title TEXT NOT NULL DEFAULT '',
+  summary TEXT DEFAULT '',
+  color TEXT DEFAULT 'blue',
+  task_status TEXT DEFAULT 'todo',
+  x REAL NOT NULL DEFAULT 0,
+  y REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS whiteboard_edges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE,
+  source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+  target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+  edge_type TEXT DEFAULT 'reference',
+  label TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- D106: Settings key-value store
+CREATE TABLE IF NOT EXISTS settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  UNIQUE(user_id, key)
+);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_blogs_user_status ON blogs(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_blogs_user_updated ON blogs(user_id, updated_at DESC);

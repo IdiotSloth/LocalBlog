@@ -1,9 +1,12 @@
-/** [[wikilink]] rendering — shared by BlogPreviewPage, NoteListPage, and blog:update handler.
+/** [[wikilink]] + ![[transclusion]] rendering — shared by BlogPreviewPage, NoteListPage, and blog:update handler.
  *  Pipeline order (R174): md.render → wikilink regex → DOMPurify → dangerouslySetInnerHTML
  */
 
 // Matches [[target]] or [[target|alias]], excluding match if inside <code> or <pre>
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+
+// T2205: Matches ![[target]] or ![[target|alias]] for content transclusion
+const TRANSCLUDE_RE = /!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 
 // Tags whose inner content should NOT have wikilinks processed (R174 known limitation fix)
 const CODE_TAGS = /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>)/gi;
@@ -12,11 +15,14 @@ const CODE_TAGS = /(<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>)/gi;
 export type WikiLinkResolver = Map<string, { type: string; id: number }>;
 
 /**
- * Replace [[target]] and [[target|alias]] wikilinks with direct or search links.
+ * Replace [[target]], [[target|alias]], and ![[target]] in HTML.
  * Code blocks (<pre>/<code>) are preserved untouched.
  *
- * If `resolver` is provided, resolved titles become direct links (href="/blog/N" etc.).
- * Unresolved titles fall back to search links (href="/blog?q=title").
+ * - `[[title]]` → wikilink (direct or search link)
+ * - `![[title]]` → transclusion placeholder blockquote
+ *
+ * If `resolver` is provided, resolved titles become direct links.
+ * Transclusions render as blockquote.transclusion with data attributes for async loading.
  */
 export function renderWikilinks(html: string, resolver?: WikiLinkResolver): string {
   // Extract code blocks to protect them from wikilink replacement
@@ -26,8 +32,22 @@ export function renderWikilinks(html: string, resolver?: WikiLinkResolver): stri
     return `\x00WL${codeBlocks.length - 1}\x00`;
   });
 
-  // Replace wikilinks
-  const processed = protected_.replace(WIKILINK_RE, (_match, target: string, alias: string | undefined) => {
+  // T2205: Replace transclusions (![[...]]) first, before regular wikilinks
+  const withTransclusions = protected_.replace(TRANSCLUDE_RE, (_match, target: string, alias: string | undefined) => {
+    const title = (target as string).trim();
+    const display = (alias as string | undefined)?.trim() || title;
+    if (!title) return _match;
+
+    const resolved = resolver?.get(title);
+    if (resolved) {
+      return `<blockquote class="transclusion" data-ref-type="${resolved.type}" data-ref-id="${resolved.id}" data-ref-title="${escapeAttr(title)}"><p class="transclusion-loading" style="color:var(--text-muted);font-size:13px;">加载中: ${escapeHtml(display)}...</p></blockquote>`;
+    }
+
+    return `<blockquote class="transclusion" data-ref-title="${escapeAttr(title)}" data-ref-type="unknown"><p class="transclusion-loading" style="color:var(--text-muted);font-size:13px;">加载中: ${escapeHtml(display)}...</p></blockquote>`;
+  });
+
+  // Replace regular wikilinks
+  const processed = withTransclusions.replace(WIKILINK_RE, (_match, target: string, alias: string | undefined) => {
     const title = (target as string).trim();
     const display = (alias as string | undefined)?.trim() || title;
     if (!title) return _match;
@@ -51,6 +71,17 @@ export function renderWikilinks(html: string, resolver?: WikiLinkResolver): stri
   return processed.replace(/\x00WL(\d+)\x00/g, (_match, idx: string) => {
     return codeBlocks[Number(idx)] ?? '';
   });
+}
+
+/** T2205: Collect all transclusion targets from HTML for batch loading */
+export function collectTransclusions(html: string): Array<{ title: string; type: string; id: number }> {
+  const items: Array<{ title: string; type: string; id: number }> = [];
+  const re = /<blockquote\s[^>]*class="transclusion"[^>]*data-ref-title="([^"]*)"[^>]*data-ref-type="([^"]*)"[^>]*data-ref-id="(\d+)"[^>]*>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    items.push({ title: m[1]!, type: m[2]!, id: Number(m[3]!) });
+  }
+  return items;
 }
 
 /** Scan HTML for .wiki-link elements and extract ref data. Used by blog:update handler (R173). */

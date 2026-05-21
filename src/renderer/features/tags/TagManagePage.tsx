@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { BlogWithTags, KnowledgeFileWithTags } from '../../../shared/types';
 import { useAuthStore } from '../../stores/auth-store';
+import { BlogCard } from '../../components/blog/BlogCard';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
+
+// T2306: Discrete weighted font sizes based on absolute count
+function tagCloudFontSize(count: number): string {
+  if (count >= 11) return 'var(--text-lg, 18px)';
+  if (count >= 6) return 'var(--text-base, 16px)';
+  if (count >= 3) return 'var(--text-sm, 14px)';
+  return 'var(--text-xs, 12px)';
+}
 
 interface TagItem {
   id: number;
@@ -108,6 +118,8 @@ export function TagManagePage() {
   const filteredTags = state.debouncedFilter
     ? state.tags.filter((t) => t.name.toLowerCase().includes(state.debouncedFilter.toLowerCase()))
     : state.tags;
+
+  const maxTagCount = Math.max(1, ...state.tags.map((t) => t.blogCount + t.kbCount));
 
   const handleCreate = async () => {
     if (!user || !state.newName.trim()) return;
@@ -219,7 +231,7 @@ export function TagManagePage() {
                         dispatch({ type: 'SET_RESULTS', results: items });
                       } catch { dispatch({ type: 'SET_RESULTS', results: [] }); }
                     } else { dispatch({ type: 'SET_RESULTS', results: [] }); }
-                  }} title={tag.description || `查看标签"${tag.name}"关联的内容`}>{tag.name}</span>
+                  }} title={tag.description || `查看标签"${tag.name}"关联的内容`} style={{ fontSize: tagCloudFontSize(tag.blogCount + tag.kbCount) }}>{tag.name}</span>
                   <Link to={`/blog?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 hover:bg-blue-100 transition-colors" title={`${tag.blogCount ?? 0} 篇博客`} onClick={(e) => e.stopPropagation()}>📝 {tag.blogCount ?? 0}</Link>
                   <Link to={`/knowledge?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-green-50 px-2 py-0.5 text-[11px] text-green-600 hover:bg-green-100 transition-colors" title={`${tag.kbCount ?? 0} 个知识库文件`} onClick={(e) => e.stopPropagation()}>📁 {tag.kbCount ?? 0}</Link>
                   {(tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>⚠️ 未使用</span>}
@@ -233,30 +245,101 @@ export function TagManagePage() {
       )}
 
       {state.selectedTag && (
-        <div className="mt-6 rounded-[8px] border p-5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>标签「{state.selectedTag.name}」关联的内容 ({state.results.length})</h3>
-            <button type="button" onClick={() => { dispatch({ type: 'SELECT_TAG', tag: null }); dispatch({ type: 'SET_RESULTS', results: [] }); }} className="text-[13px] hover:underline" style={{ color: 'var(--text-secondary)' }}>关闭</button>
-          </div>
-          {state.resultsLoading ? (
-            <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-          ) : state.results.length === 0 ? (
-            <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>该标签下暂无内容</p>
-          ) : (
-            <div className="space-y-2">
-              {state.results.map((item) => (
-                <Link key={`${item.type}-${item.id}`} to={item.type === 'blog' ? `/blog/${item.id}` : '/knowledge'} className="flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity" style={{ background: 'var(--bg-primary)' }}>
-                  <span>{item.type === 'blog' ? '📝' : '📄'}</span>
-                  <span className="flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
-                  <span className="rounded-[3px] px-1.5 py-0.5 text-[11px]" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>{item.type === 'blog' ? '博客' : '知识库'}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        <TagResultsSection tag={state.selectedTag} loading={state.resultsLoading} results={state.results} user={user} onClose={() => { dispatch({ type: 'SELECT_TAG', tag: null }); dispatch({ type: 'SET_RESULTS', results: [] }); }} />
       )}
 
       <p className="mt-6 text-xs text-[var(--color-text-muted)]">提示：点击标签名可查看关联的博客和知识库文件。悬停标签可编辑或删除。</p>
+    </div>
+  );
+}
+
+// T2306: Tag results with BlogCard feed + KB tab switching
+function TagResultsSection({ tag, loading, results, user, onClose }: {
+  tag: TagItem; loading: boolean; results: ResultItem[];
+  user: { id: number } | null; onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'blog' | 'knowledge'>('blog');
+  const blogs = results.filter(r => r.type === 'blog');
+  const kbItems = results.filter(r => r.type === 'knowledge');
+  const contextPanel = useContextPanel();
+
+  // T2306: ContextPanel tabs for tag context
+  useEffect(() => {
+    if (!tag) return;
+    const tabs: TabDef[] = [
+      {
+        id: 'tag-info',
+        label: '标签信息',
+        content: (
+          <div className="p-2 text-[13px] space-y-1" style={{ color: 'var(--text-secondary)' }}>
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{tag.name}</p>
+            <p>博客: {tag.blogCount ?? 0} 篇</p>
+            <p>知识库: {tag.kbCount ?? 0} 个</p>
+            {tag.description && <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>{tag.description}</p>}
+          </div>
+        ),
+      },
+    ];
+    return contextPanel.registerTabs(tabs);
+  }, [tag, contextPanel]);
+
+  return (
+    <div className="mt-6 rounded-[8px] border p-5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+          标签「{tag.name}」({results.length})
+        </h3>
+        <button type="button" onClick={onClose} className="text-[13px] hover:underline" style={{ color: 'var(--text-secondary)' }}>关闭</button>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="mb-3 flex gap-2">
+        <button type="button" onClick={() => setActiveTab('blog')}
+          className="rounded-[4px] px-3 py-1.5 text-[13px] transition-colors"
+          style={{
+            background: activeTab === 'blog' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+            color: activeTab === 'blog' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
+          }}>
+          博客 ({blogs.length})
+        </button>
+        <button type="button" onClick={() => setActiveTab('knowledge')}
+          className="rounded-[4px] px-3 py-1.5 text-[13px] transition-colors"
+          style={{
+            background: activeTab === 'knowledge' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+            color: activeTab === 'knowledge' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
+          }}>
+          知识库 ({kbItems.length})
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+      ) : results.length === 0 ? (
+        <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>该标签下暂无内容</p>
+      ) : activeTab === 'blog' ? (
+        blogs.length === 0 ? (
+          <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>该标签下暂无博客</p>
+        ) : (
+          <div className="space-y-3">
+            {blogs.map(item => (
+              <BlogCard key={`blog-${item.id}`} blog={{ id: item.id, title: item.title, updatedAt: item.updatedAt || '' } as any} showExcerpt={false} />
+            ))}
+          </div>
+        )
+      ) : (
+        kbItems.length === 0 ? (
+          <p className="text-[13px]" style={{ color: 'var(--text-placeholder)' }}>该标签下暂无知识库文件</p>
+        ) : (
+          <div className="space-y-1">
+            {kbItems.map(item => (
+              <Link key={`kb-${item.id}`} to="/knowledge" className="flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] no-underline hover:opacity-80 transition-opacity" style={{ background: 'var(--bg-primary)' }}>
+                <span className="flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
+                <span className="rounded-[3px] px-1.5 py-0.5 text-[11px]" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>知识库</span>
+              </Link>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }

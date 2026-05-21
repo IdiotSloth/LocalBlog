@@ -75,6 +75,7 @@ export const IPC = {
   WORKSPACE_SET_PATH: 'workspace:set-path',
   WORKSPACE_MIGRATE: 'workspace:migrate',
   WORKSPACE_OPEN_IN_FOLDER: 'workspace:open-in-folder',
+  WORKSPACE_EXPORT_MD: 'workspace:export-md',
 
   // Recycle Bin
   RECYCLE_LIST: 'recycle:list',
@@ -146,6 +147,7 @@ export const IPC = {
   SHORTCUT_RESET: 'shortcut:reset',
 
   // App
+  BG_IMAGE_READ: 'bgImage:read',
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   APP_VISIBILITY: 'app:visibility',
   APP_GET_VERSION: 'app:get-version',
@@ -154,6 +156,9 @@ export const IPC = {
   APP_GET_AUTO_START: 'app:get-auto-start',
   APP_CREATE_START_MENU_SHORTCUT: 'app:create-start-menu-shortcut',
   APP_HAS_START_MENU_SHORTCUT: 'app:has-start-menu-shortcut',
+  APP_CHECK_UPDATE: 'app:check-update',
+  APP_DOWNLOAD_UPDATE: 'app:download-update',
+  APP_INSTALL_UPDATE: 'app:install-update',
 
   // Pet
   PET_SCRAPE: 'pet:scrape',
@@ -173,6 +178,35 @@ export const IPC = {
   EVT_MANUAL_COLLECT_PROGRESS: 'manual:collect-progress',
   EVT_APP_ERROR: 'app:error',
   EVT_UPDATE_STATUS: 'app:update-status',
+  EVT_QUICK_NOTE_TRIGGER: 'quick-note:trigger',
+
+  // Quick Note (T2304)
+  QUICK_NOTE_SHOW: 'quick-note:show',
+
+  // Clipboard (T2304)
+  CLIPBOARD_HISTORY: 'clipboard:history',
+  CLIPBOARD_CLEAR: 'clipboard:clear',
+  CLIPBOARD_TOGGLE: 'clipboard:toggle',
+  CLIPBOARD_STATUS: 'clipboard:status',
+
+  // Whiteboard (T2307)
+  WHITEBOARD_GET: 'whiteboard:get',
+  WHITEBOARD_NODES: 'whiteboard:nodes',
+  WHITEBOARD_NODE_CREATE: 'whiteboard:node-create',
+  WHITEBOARD_NODE_UPDATE: 'whiteboard:node-update',
+  WHITEBOARD_NODE_DELETE: 'whiteboard:node-delete',
+  WHITEBOARD_EDGES: 'whiteboard:edges',
+  WHITEBOARD_EDGE_CREATE: 'whiteboard:edge-create',
+  WHITEBOARD_EDGE_DELETE: 'whiteboard:edge-delete',
+
+  // Bookmarks (T2209)
+  BOOKMARK_ADD: 'bookmark:add',
+  BOOKMARK_REMOVE: 'bookmark:remove',
+  BOOKMARK_LIST: 'bookmark:list',
+
+  // AI (T2204)
+  AI_CHAT: 'ai:chat',
+  AI_TAG_SUGGEST: 'ai:tag-suggest',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

@@ -1,22 +1,35 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { FolderTree } from '../../components/common/FolderTree';
 import { TagSelector } from '../../components/common/TagSelector';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { KbContentEditor } from '../../components/knowledge/KbContentEditor';
+import { KbFileDetail } from '../../components/knowledge/KbFileDetail';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { formatDate, formatFileSize } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import { searchSimilarDocs } from '../../lib/use-search';
 import type { FolderTreeNode, KnowledgeFileWithTags, Reference, Tag } from '../../../shared/types';
+import { File, FileCode, FileImage, FileSpreadsheet, FileText, Presentation } from 'lucide-react';
 
-const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  docx: { label: 'DOCX', color: 'var(--accent-blue)' },
-  xlsx: { label: 'XLSX', color: 'var(--accent-green)' },
-  pptx: { label: 'PPTX', color: 'var(--text-secondary)' },
-  pdf: { label: 'PDF', color: 'var(--accent-red)' },
-  txt: { label: 'TXT', color: 'var(--text-secondary)' },
-  image: { label: 'IMG', color: 'var(--accent-blue)' },
-  other: { label: 'FILE', color: 'var(--text-secondary)' },
+const TYPE_ICONS: Record<string, typeof File> = {
+  md: FileCode, txt: FileText, csv: FileSpreadsheet,
+  docx: FileText, xlsx: FileSpreadsheet, pptx: Presentation,
+  pdf: File, image: FileImage, svg: FileImage,
+  other: File,
+};
+const TYPE_COLORS: Record<string, string> = {
+  md: 'var(--accent-blue)', txt: 'var(--text-secondary)',
+  csv: 'var(--accent-green)', docx: 'var(--accent-blue)',
+  xlsx: 'var(--accent-green)', pptx: 'var(--accent-blue)',
+  pdf: 'var(--accent-red)', image: 'var(--accent-blue)',
+  svg: 'var(--accent-blue)', other: 'var(--text-secondary)',
+};
+const TYPE_LABELS: Record<string, string> = {
+  md: 'MD', txt: 'TXT', csv: 'CSV', docx: 'DOCX', xlsx: 'XLSX',
+  pptx: 'PPTX', pdf: 'PDF', image: 'IMG', svg: 'SVG', other: 'FILE',
 };
 
 /*** R143 — 19 state flags collapsed into 1 useReducer ***/
@@ -127,6 +140,10 @@ export function KnowledgeListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batch = useBatchSelect(state.files as { id: number }[]);
   const pagination = usePagination(20, state.total);
+  const contextPanel = useContextPanel();
+  const [searchParams] = useSearchParams();
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [conflictDialog, setConflictDialog] = useState<{ names: string; paths: string[]; dupes: string[]; dupeIds: number[] } | null>(null);
   const loadKbFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
@@ -164,6 +181,43 @@ export function KnowledgeListPage() {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+
+  // T2305: ContextPanel tabs when file is selected
+  useEffect(() => {
+    if (!previewFileId || !user) return;
+    const file = files.find((f: { id: number; filename?: string }) => f.id === previewFileId);
+    const tabs: TabDef[] = [];
+    if (file) {
+      tabs.push({
+        id: 'info', label: '信息',
+        content: (<div className="p-2 text-[13px] space-y-1" style={{ color: 'var(--text-secondary)' }}><p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{(file as any).filename || previewTitle}</p><p>类型: {previewFileType.toUpperCase()}</p></div>),
+      });
+    }
+    tabs.push({
+      id: 'preview', label: '预览',
+      content: previewHtml ? (<div className="p-2 text-[13px] kb-pop-in" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }} />) : (<p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>加载中...</p>),
+    });
+    tabs.push({
+      id: 'backrefs', label: `引用 (${backRefs.length})`,
+      content: backRefs.length > 0 ? (<div className="space-y-1 p-2">{backRefs.map((ref, i) => (<Link key={i} to={`/blog/${ref.sourceId}`} className="block truncate text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>{ref.sourceTitle || `博客 #${ref.sourceId}`}</Link>))}</div>) : (<p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无引用</p>),
+    });
+    tabs.push({ id: 'similar', label: '相似文件', content: <SimilarKbTab fileId={previewFileId} /> });
+    return contextPanel.registerTabs(tabs);
+  }, [previewFileId, previewHtml, previewTitle, previewFileType, backRefs, files, user, contextPanel]);
+
+  // T2305: ?select=<id> route param
+  useEffect(() => {
+    const selectId = searchParams.get('select');
+    if (selectId && user && files.length > 0) {
+      const fid = Number(selectId);
+      const file = files.find((f: { id: number }) => f.id === fid);
+      if (file && previewFileId !== fid) {
+        const ft = (file as any).fileType || 'other';
+        dispatch({ type: 'PREVIEW_START', title: (file as any).filename, fileId: fid, fileType: ft });
+        window.api.kbPreview({ fileId: fid, userId: user.id }).then((r) => { if (r.success && r.data) dispatch({ type: 'PREVIEW_HTML', html: r.data.html }); }).catch(() => {});
+      }
+    }
+  }, [searchParams, files, user]);
 
   const handleImport = async () => {
     if (!user) return;
@@ -228,17 +282,32 @@ export function KnowledgeListPage() {
         e.stopPropagation();
         dispatch({ type: 'SET_DRAG_OVER', v: false });
         if (!user || !e.dataTransfer.files.length) return;
+        // T2305: Big file warning (non-blocking toast)
+        const BIG = 50 * 1024 * 1024;
+        if (Array.from(e.dataTransfer.files).some(f => f.size > BIG)) {
+          setToastMsg('部分文件超过 50MB，导入可能较慢');
+          setTimeout(() => setToastMsg(null), 4000);
+        }
         const paths: string[] = [];
         for (const file of Array.from(e.dataTransfer.files)) {
           if ('path' in file && file.path) paths.push(file.path as string);
         }
         if (paths.length) {
+          // T2305: Conflict detection — 3-option (替换/保留两者/跳过)
+          const existingNames = new Set(files.map((f: { filename: string }) => f.filename.toLowerCase()));
+          const dupes = paths.filter(p => existingNames.has(p.split(/[/\\]/).pop()?.toLowerCase() || ''));
+          if (dupes.length > 0) {
+            const names = dupes.map(p => p.split(/[/\\]/).pop()).join(', ');
+            const dupeIds = files
+              .filter((f: { filename: string; id: number }) => dupes.some(d => d.split(/[/\\]/).pop()?.toLowerCase() === f.filename.toLowerCase()))
+              .map((f: { id: number }) => f.id);
+            setConflictDialog({ names, paths, dupes, dupeIds });
+            return;
+          }
           try {
             await window.api.kbImport({ userId: user.id, filePaths: paths, copyToWorkspace: true });
             loadFiles();
-          } catch (e) {
-            console.error(e);
-          }
+          } catch (e) { console.error(e); }
         }
       }}
     >
@@ -272,6 +341,19 @@ export function KnowledgeListPage() {
         </div>
       )}
       <div className="flex-1 min-w-0">
+        {/* T2305: KbFileDetail — Pogget "click to open, no preview page" */}
+        {previewFileId && user ? (
+          <KbFileDetail
+            fileId={previewFileId} fileType={previewFileType}
+            previewHtml={previewHtml} previewTitle={previewTitle}
+            previewing={previewing} userId={user.id}
+            backRefs={backRefs}
+            files={files as { id: number; properties?: Record<string, string> }[]}
+            onBack={() => { dispatch({ type: 'PREVIEW_CLOSE' }); setEditingFileId(null); }}
+            onSaved={() => { setEditingFileId(null); dispatch({ type: 'PREVIEW_CLOSE' }); }}
+          />
+        ) : (
+        <>
         {/* Folder breadcrumb */}
         {filterFolderId !== null && kbFolders.length > 0 && (() => {
           const findPath = (tree: { id: number; name: string; children?: { id: number; name: string; children?: unknown[] }[] }[], targetId: number, path: { id: number | null; name: string }[] = []): { id: number | null; name: string }[] | null => {
@@ -306,7 +388,9 @@ export function KnowledgeListPage() {
         })()}
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>资料库</p>
+            <div className="flex items-center gap-3">
+              <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>资料库</p>
+            </div>
             <h2 className="text-[24px] font-semibold" style={{ color: 'var(--text-primary)' }}>
               知识库{' '}
               <span className="text-[14px] font-normal" style={{ color: 'var(--text-secondary)' }}>
@@ -376,50 +460,6 @@ export function KnowledgeListPage() {
             <option value="image">图片</option>
           </select>
         </div>
-        {batch.isBatchMode && files.length > 0 && (
-          <div
-            className="mb-3 flex items-center gap-3 rounded-[6px] border p-2.5"
-            style={{ borderColor: 'var(--accent-blue)', background: 'var(--bg-secondary)' }}
-          >
-            <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>
-              已选 {batch.selectedCount} 项
-            </span>
-            <button
-              type="button"
-              onClick={batch.selectAll}
-              className="text-[12px] hover:underline"
-              style={{ color: 'var(--accent-blue)' }}
-            >
-              全选
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm(`永久删除 ${batch.selectedCount} 个文件？`)) return;
-                try {
-                  await window.api.kbBatchDelete({ userId: user.id, fileIds: [...batch.selectedIds] });
-                  batch.clearSelection();
-                  loadFiles();
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-              disabled={batch.selectedCount === 0}
-              className="text-[12px] hover:underline disabled:opacity-40"
-              style={{ color: 'var(--accent-red)' }}
-            >
-              删除所选
-            </button>
-            <button
-              type="button"
-              onClick={batch.clearSelection}
-              className="ml-auto text-[12px] hover:underline"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              取消
-            </button>
-          </div>
-        )}
         {error && (
           <div className="py-8 text-center">
             <p className="text-[14px]" style={{ color: 'var(--accent-red)' }}>{error}</p>
@@ -471,223 +511,110 @@ export function KnowledgeListPage() {
                 </button>
               </div>
             )}
-            <div className="rounded-[6px] border" style={{ borderColor: 'var(--border-default)', overflowX: 'auto' }}>
-              <table className="w-full text-[14px]">
-                <thead style={{ background: 'var(--bg-tertiary)' }}>
-                  <tr>
-                    {batch.isBatchMode && <th className="px-3 py-2.5 w-10" />}
-                    <th className="px-4 py-2.5 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      文件名
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      类型
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      大小
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      添加日期
-                    </th>
-                    <th className="px-4 py-2.5 text-right font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      操作
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.map((f: KnowledgeFileWithTags) => {
-                    const t = TYPE_LABELS[f.fileType] || TYPE_LABELS.other;
-                    const isEditing = editingTagsFileId === f.id;
-                    return (
-                      <tr
-                        key={f.id}
-                        tabIndex={0}
-                        className="border-t transition-colors duration-[0.15s] focus:bg-[var(--bg-tertiary)] outline-none"
-                        style={{ borderColor: 'var(--border-default)' }}
-                        onKeyDown={(e) => {
-                          if (e.key === ' ' && !(e.target instanceof HTMLInputElement)) {
-                            e.preventDefault();
-                            dispatch({ type: 'PREVIEW_START', title: f.filename, fileId: f.id, fileType: f.fileType || '' });
-                            window.api.refGetTo({ targetType: 'knowledge', targetId: f.id })
-                              .then((r) => { if (r.success && r.data) dispatch({ type: 'SET_BACKREFS', refs: r.data.filter((ref: Reference) => ref.sourceType === 'blog') }); })
-                              .catch(() => dispatch({ type: 'SET_BACKREFS', refs: [] }));
-                            window.api.kbPreview({ fileId: f.id, userId: user.id })
-                              .then((r: any) => { const html = (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>'; dispatch({ type: 'PREVIEW_HTML', html }); })
-                              .catch(() => dispatch({ type: 'PREVIEW_HTML', html: '<p style=color:var(--text-secondary)>预览失败</p>' }));
-                          }
-                        }}
-                      >
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+                {batch.isBatchMode && files.length > 0 && (
+                  <div className="col-span-full flex items-center gap-2 mb-1">
+                    <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>已选 {batch.selectedCount} 项</span>
+                    <button type="button" onClick={batch.selectAll} className="text-[12px] hover:underline" style={{ color: 'var(--accent-blue)' }}>全选</button>
+                    <button type="button" onClick={async () => {
+                      if (!confirm(`永久删除 ${batch.selectedCount} 个文件？`)) return;
+                      try { await window.api.kbBatchDelete({ userId: user.id, fileIds: [...batch.selectedIds] }); batch.clearSelection(); loadFiles(); }
+                      catch (e) { console.error(e); }
+                    }} disabled={batch.selectedCount === 0} className="text-[12px] hover:underline disabled:opacity-40" style={{ color: 'var(--accent-red)' }}>删除所选</button>
+                    <button type="button" onClick={batch.clearSelection} className="ml-auto text-[12px] hover:underline" style={{ color: 'var(--text-secondary)' }}>取消</button>
+                  </div>
+                )}
+                {files.map((f: KnowledgeFileWithTags) => {
+                  const ft = f.fileType || 'other';
+                  const Icon = TYPE_ICONS[ft] || File;
+                  const color = TYPE_COLORS[ft] || TYPE_COLORS.other;
+                  const label = TYPE_LABELS[ft] || TYPE_LABELS.other;
+                  const isEditing = editingTagsFileId === f.id;
+                  return (
+                    <div key={f.id}
+                      className="rounded-[8px] border p-4 transition-all duration-[0.15s] hover:border-[var(--accent-blue)] flex flex-col"
+                      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)', borderLeft: `3px solid ${color}` }}>
+                      {/* Top row: icon + filename + checkbox */}
+                      <div className="flex items-start gap-3">
+                        <Icon size={20} style={{ color, flexShrink: 0 }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{f.filename}</div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color }}>{label}</span>
+                            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatFileSize(f.fileSize)}</span>
+                            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(f.createdAt)}</span>
+                          </div>
+                        </div>
                         {batch.isBatchMode && (
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="checkbox"
-                              checked={batch.selectedIds.has(f.id)}
-                              onChange={() => batch.toggleSelect(f.id)}
-                              aria-label={`选择 ${f.filename}`}
-                            />
-                          </td>
+                          <input type="checkbox" checked={batch.selectedIds.has(f.id)} onChange={() => batch.toggleSelect(f.id)} aria-label={`选择 ${f.filename}`} className="shrink-0 mt-1" />
                         )}
-                        <td className="px-4 py-2.5">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              dispatch({ type: 'PREVIEW_START', title: f.filename, fileId: f.id, fileType: f.fileType || '' });
-                              window.api
-                                .refGetTo({ targetType: 'knowledge', targetId: f.id })
-                                .then((r) => {
-                                  if (r.success && r.data)
-                                    dispatch({ type: 'SET_BACKREFS', refs: r.data.filter((ref: Reference) => ref.sourceType === 'blog') });
-                                })
-                                .catch(() => dispatch({ type: 'SET_BACKREFS', refs: [] }));
-                              try {
-                                const timeout = new Promise<string>((_, reject) =>
-                                  setTimeout(() => reject(new Error('TIMEOUT')), 10000),
-                                );
-                                const preview = window.api.kbPreview({ fileId: f.id, userId: user.id }).then((r: { success?: boolean; data?: { html?: string }; html?: string }) => (r.success !== false ? r.data?.html || r.html : '') || '<p style=color:var(--text-secondary)>无法预览</p>');
-                                const html = await Promise.race([preview, timeout]);
-                                dispatch({ type: 'PREVIEW_HTML', html });
-                              } catch (e) {
-                                const msg = (e as Error).message === 'TIMEOUT'
-                                  ? '<p style=color:var(--text-secondary)>文件较大,解析超时。请使用外部打开查看。</p>'
-                                  : '<p style=color:var(--text-secondary)>预览失败</p>';
-                                dispatch({ type: 'PREVIEW_HTML', html: msg });
-                              }
-                            }}
-                            className="text-left hover:underline transition-colors duration-[0.15s] max-w-[300px] truncate block"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            {f.filename}
-                          </button>
-                          {f.tags?.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {f.tags.map((tg: Tag) => (
-                                <button
-                                  key={tg.id}
-                                  type="button"
-                                  className="tag text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch({ type: 'SET_TAG_FILTER', id: tg.id, name: tg.name });
-                                  }}
-                                  title={`筛选标签: ${tg.name}`}
-                                >
-                                  {tg.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isEditing && user && (
-                            <div className="mt-2">
-                              <TagSelector
-                                userId={user.id}
-                                selectedTagIds={editingTagIds}
-                                openUp
-                                onChange={async (tagIds) => {
-                                  dispatch({ type: 'SET_EDIT_TAG_IDS', ids: tagIds });
-                                  try {
-                                    await window.api.tagSetFile({ fileId: f.id, tagIds });
-                                    loadFiles();
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-                                }}
-                              />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className="rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase"
-                            style={{ color: t?.color, background: 'var(--bg-tertiary)' }}
-                          >
-                            {t?.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>
-                          {formatFileSize(f.fileSize)}
-                        </td>
-                        <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>
-                          {formatDate(f.createdAt)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <select
-                            value=""
-                            onChange={async (e) => {
-                              const fid = e.target.value ? Number(e.target.value) : null;
-                              try {
-                                await window.api.folderMoveItem({
-                                  userId: user.id,
-                                  itemType: 'knowledge_file',
-                                  itemId: f.id,
-                                  folderId: fid,
-                                });
-                                loadFiles();
-                                loadKbFolders();
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                            className="mr-2 text-[10px] rounded-[3px] border px-1 py-0.5 outline-none"
-                            style={{
-                              borderColor: 'var(--border-default)',
-                              background: 'var(--bg-primary)',
-                              color: 'var(--text-secondary)',
-                              maxWidth: 56,
-                            }}
-                            title="移至文件夹"
-                          >
-                            <option value="">移至</option>
-                            <option value="0">根目录</option>
-                            {kbFolders.map((fd: FolderTreeNode) => (
-                              <option key={fd.id} value={fd.id}>
-                                {fd.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isEditing) {
-                                dispatch({ type: 'STOP_EDIT_TAGS' });
-                              } else {
-                                dispatch({ type: 'START_EDIT_TAGS', fileId: f.id, tagIds: (f.tags || []).map((tg: Tag) => tg.id) });
-                              }
-                            }}
-                            className="mr-2 text-[12px] hover:underline"
-                            style={{ color: isEditing ? 'var(--text-secondary)' : 'var(--accent-blue)' }}
-                          >
-                            {isEditing ? '完成' : '标签'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => window.api.kbOpenExternal({ fileId: f.id, userId: user.id })}
-                            className="mr-2 text-[12px] hover:underline"
-                            style={{ color: 'var(--accent-blue)' }}
-                          >
-                            打开
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!confirm('移至回收站？')) return;
-                              try {
-                                await window.api.kbDelete({ userId: user.id, fileId: f.id, deletePhysicalFile: false });
-                                loadFiles();
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                            className="text-[12px] hover:underline"
-                            style={{ color: 'var(--accent-red)' }}
-                          >
-                            删除
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                      {/* Tags row */}
+                      {f.tags?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {f.tags.map((tg: Tag) => (
+                            <button key={tg.id} type="button" className="tag text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_TAG_FILTER', id: tg.id, name: tg.name }); }}
+                              title={`筛选标签: ${tg.name}`}>{tg.name}</button>
+                          ))}
+                        </div>
+                      )}
+                      {/* Tag editor */}
+                      {isEditing && user && (
+                        <div className="mt-2">
+                          <TagSelector userId={user.id} selectedTagIds={editingTagIds} openUp
+                            onChange={async (tagIds) => {
+                              dispatch({ type: 'SET_EDIT_TAG_IDS', ids: tagIds });
+                              try { await window.api.tagSetFile({ fileId: f.id, tagIds }); loadFiles(); }
+                              catch (e) { console.error(e); }
+                            }} />
+                        </div>
+                      )}
+                      {/* Action buttons */}
+                      <div className="mt-3 pt-3 border-t flex items-center gap-2" style={{ borderColor: 'var(--border-default)' }}>
+                        <button type="button"
+                          onClick={() => window.api.kbOpenExternal({ fileId: f.id, userId: user.id })}
+                          className="text-[12px] hover:underline font-medium" style={{ color: 'var(--accent-blue)' }}>
+                          打开
+                        </button>
+                        <button type="button"
+                          onClick={() => {
+                            if (isEditing) dispatch({ type: 'STOP_EDIT_TAGS' });
+                            else dispatch({ type: 'START_EDIT_TAGS', fileId: f.id, tagIds: (f.tags || []).map((tg: Tag) => tg.id) });
+                          }}
+                          className="text-[12px] hover:underline" style={{ color: isEditing ? 'var(--text-secondary)' : 'var(--accent-blue)' }}>
+                          {isEditing ? '完成' : '标签'}
+                        </button>
+                        <select value="" onChange={async (e) => {
+                          const fid = e.target.value ? Number(e.target.value) : null;
+                          try { await window.api.folderMoveItem({ userId: user.id, itemType: 'knowledge_file', itemId: f.id, folderId: fid }); loadFiles(); loadKbFolders(); }
+                          catch (e) { console.error(e); }
+                        }}
+                          className="text-[11px] rounded-[3px] border px-1 py-0.5 outline-none"
+                          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', maxWidth: 60 }}
+                          title="移至文件夹">
+                          <option value="">移至</option>
+                          <option value="0">根目录</option>
+                          {kbFolders.map((fd: FolderTreeNode) => (<option key={fd.id} value={fd.id}>{fd.name}</option>))}
+                        </select>
+                        <button type="button" onClick={async () => {
+                          if (!confirm('移至回收站？')) return;
+                          try { await window.api.kbDelete({ userId: user.id, fileId: f.id, deletePhysicalFile: false }); loadFiles(); }
+                          catch (e) { console.error(e); }
+                        }}
+                          className="ml-auto text-[12px] hover:underline" style={{ color: 'var(--accent-red)' }}>
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {files.length === 0 && !loading && (
+                  <div className="col-span-full text-center py-12 rounded-[8px] border border-dashed" style={{ borderColor: 'var(--border-default)' }}>
+                    <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无文件</p>
+                  </div>
+                )}
+              </div>
           </div>
         )}
 
@@ -741,124 +668,63 @@ export function KnowledgeListPage() {
             </button>
           </div>
         )}
-      </div>
-      {previewTitle && (
-        <div
-          className="w-[480px] shrink-0 rounded-[6px] border flex flex-col"
-          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}
-        >
-          <div
-            className="flex items-center justify-between border-b px-4 py-2.5"
-            style={{ borderColor: 'var(--border-default)' }}
-          >
-            <h3 className="truncate text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>
-              {previewTitle}
-            </h3>
-            <div className="flex items-center gap-2">
-              {/* T2112: Edit button for TXT/MD files */}
-              {(previewFileType === 'txt' || previewFileType === 'md') && user && previewFileId && (
-                <button
-                  type="button"
-                  onClick={() => setEditingFileId(previewFileId)}
-                  className="text-[12px] rounded-[4px] px-2 py-0.5 transition-opacity hover:opacity-85"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-blue)' }}
-                >
-                  编辑
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  dispatch({ type: 'PREVIEW_CLOSE' });
-                  setEditingFileId(null);
-                }}
-                className="text-[13px]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto">
-            {editingFileId && user ? (
-              <KbContentEditor
-                fileId={editingFileId}
-                userId={user.id}
-                fileType={previewFileType}
-                initialContent={previewFileType === 'txt' ? stripHtmlForEdit(previewHtml) : ''}
-                onClose={() => setEditingFileId(null)}
-                onSaved={() => { setEditingFileId(null); dispatch({ type: 'PREVIEW_CLOSE' }); }}
-              />
-            ) : previewing ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
-                <div className="w-full max-w-[200px] rounded-full h-2 overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-                  <div className="h-full rounded-full animate-pulse" style={{ background: 'var(--accent-blue)', width: '60%' }} />
-                </div>
-                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>正在解析文件...</p>
-              </div>
-            ) : previewFileType === 'pdf' && previewFileId ? (
-              <webview
-                src="about:blank"
-                className="w-full h-full border-0"
-                title="preview"
-                {...{ partition: 'persist:pdfview' }}
-                ref={(el) => {
-                  if (el && previewFileId) {
-                    const kbId = previewFileId;
-                    window.api.kbGet({ fileId: kbId, userId: user.id }).then((r: { success?: boolean; data?: { filePath?: string } }) => {
-                      if (r.success && r.data?.filePath)
-                        el.setAttribute('src', `file:///${r.data.filePath.replace(/\\/g, '/')}`);
-                    });
+        {/* Conflict dialog (replaces prompt()) */}
+        {conflictDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <div className="rounded-[8px] border p-6 shadow-xl min-w-[360px]" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+              <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>文件冲突</p>
+              <p className="text-[12px] mb-4" style={{ color: 'var(--text-secondary)' }}>{conflictDialog.names}</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={async () => {
+                  const { paths, dupeIds } = conflictDialog;
+                  setConflictDialog(null);
+                  // R339: Delete existing files first, then import replacements
+                  for (const fid of dupeIds) {
+                    try { await window.api.kbDelete({ userId: user.id, fileId: fid, deletePhysicalFile: true }); } catch {}
                   }
-                }}
-              />
-            ) : (
-              <iframe
-                srcDoc={previewHtml}
-                className="w-full h-full border-0"
-                title="preview"
-                sandbox="allow-same-origin allow-scripts"
-              />
-            )}
-          </div>
-          {/* T2009: Properties display */}
-          {previewFileId && (() => {
-            const file = files.find((f: { id: number; properties?: Record<string, string> }) => f.id === previewFileId);
-            const props = file?.properties;
-            if (!props || Object.keys(props).length === 0) return null;
-            return (
-              <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
-                <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>属性</p>
-                <div className="space-y-1.5">
-                  {Object.entries(props).map(([k, v]) => (
-                    <div key={k} className="flex gap-2 text-[12px]">
-                      <span style={{ color: 'var(--text-muted)', minWidth: 48 }}>{k}</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
+                  try { await window.api.kbImport({ userId: user.id, filePaths: paths, copyToWorkspace: true }); loadFiles(); } catch (e) { console.error(e); }
+                }} className="flex-1 rounded-[4px] px-3 py-2 text-[13px] font-medium transition-opacity hover:opacity-80" style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
+                  替换
+                </button>
+                <button type="button" onClick={async () => {
+                  const { paths } = conflictDialog;
+                  setConflictDialog(null);
+                  // R339: Import normally — backend auto-renames duplicates
+                  try { await window.api.kbImport({ userId: user.id, filePaths: paths, copyToWorkspace: true }); loadFiles(); } catch (e) { console.error(e); }
+                }} className="flex-1 rounded-[4px] px-3 py-2 text-[13px] font-medium transition-opacity hover:opacity-80" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+                  保留两者
+                </button>
+                <button type="button" onClick={async () => {
+                  const { paths, dupes } = conflictDialog;
+                  setConflictDialog(null);
+                  const rest = paths.filter(p => !dupes.includes(p));
+                  if (rest.length === 0) return;
+                  try { await window.api.kbImport({ userId: user.id, filePaths: rest, copyToWorkspace: true }); loadFiles(); } catch (e) { console.error(e); }
+                }} className="flex-1 rounded-[4px] px-3 py-2 text-[13px] font-medium transition-opacity hover:opacity-80" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                  跳过
+                </button>
               </div>
-            );
-          })()}
-          {backRefs.length > 0 && (
-            <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
-              <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                📝 引用了此文件的博客 ({backRefs.length})
-              </p>
-              {backRefs.map((ref: Reference) => (
-                <Link
-                  key={ref.id}
-                  to={`/blog/${ref.source_id}`}
-                  className="block text-[13px] no-underline hover:underline truncate"
-                  style={{ color: 'var(--accent-blue)' }}
-                >
-                  {ref.title || `博客 #${ref.source_id}`}
-                </Link>
-              ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+        {/* Toast */}
+        {toastMsg && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-[6px] px-4 py-2.5 text-[13px] shadow-lg" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}>
+            {toastMsg}
+          </div>
+        )}
+        </>)}
+      </div>
     </div>
   );
+}
+
+// T2305: Embedding similarity
+function SimilarKbTab({ fileId }: { fileId: number }) {
+  const [items, setItems] = useState<{ id: number; score: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setLoading(true); searchSimilarDocs(fileId, 'knowledge', 5, 0.72).then(r => { setItems(r.filter(x => x.type === 'knowledge' && (x as any).id !== fileId) as any); }).catch(() => {}).finally(() => setLoading(false)); }, [fileId]);
+  if (loading) return <p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>搜索中...</p>;
+  if (items.length === 0) return <p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无相似文件</p>;
+  return <div className="space-y-1 p-2">{items.map(item => <Link key={item.id} to={`/knowledge?select=${item.id}`} className="block truncate text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>文件 #{item.id} ({Math.round(item.score * 100)}%)</Link>)}</div>;
 }

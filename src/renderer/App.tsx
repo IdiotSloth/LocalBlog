@@ -5,6 +5,7 @@ import { CardSkeleton } from './components/common/Skeleton';
 import { NotFoundPage } from './features/misc/NotFoundPage';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
+import { TabProvider } from './stores/tab-context';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { FloatingBlogTabs } from './components/blog/FloatingBlogTabs';
@@ -50,8 +51,14 @@ const SeriesListPage = lazy(() =>
 const SeriesDetailPage = lazy(() =>
   import('./features/series/SeriesDetailPage').then((m) => ({ default: m.SeriesDetailPage })),
 );
-const GraphPage = lazy(() =>
-  import('./features/graph/GraphPage').then((m) => ({ default: m.GraphPage })),
+const TimelinePage = lazy(() =>
+  import('./features/timeline/TimelinePage').then((m) => ({ default: m.TimelinePage })),
+);
+const BookmarksPage = lazy(() =>
+  import('./features/bookmarks/BookmarksPage').then((m) => ({ default: m.BookmarksPage })),
+);
+const WhiteboardPage = lazy(() =>
+  import('./features/whiteboard/WhiteboardPage').then((m) => ({ default: m.WhiteboardPage })),
 );
 function PageSkeleton() {
   return (
@@ -115,7 +122,10 @@ const router = createHashRouter([
           { path: '/series', element: lazyPage(SeriesListPage) },
           { path: '/series/:seriesId', element: lazyPage(SeriesDetailPage) },
           { path: '/guide', element: lazyPage(GuidePage) },
-          { path: '/graph', element: lazyPage(GraphPage) },
+          { path: '/timeline', element: lazyPage(TimelinePage) },
+          { path: '/bookmarks', element: lazyPage(BookmarksPage) },
+          { path: '/whiteboards', element: lazyPage(WhiteboardPage) },
+          { path: '/graph', element: <Navigate to="/whiteboards" replace /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },
@@ -133,7 +143,16 @@ export default function App() {
   useEffect(() => {
     initSession();
     initTheme();
+    // T2301: Restore background image on startup
+    const img = localStorage.getItem('lbkb_bg_image');
+    const opacity = localStorage.getItem('lbkb_bg_opacity') || '0.92';
+    if (img) {
+      document.documentElement.style.setProperty('--bg-image', `url("${img.replace(/\\/g, '/')}")`);
+      document.documentElement.style.setProperty('--bg-image-opacity', opacity);
+    }
   }, [initSession, initTheme]);
+
+  const { user, isAuthenticated } = useAuthStore();
 
   // T1803: Listen for app errors from main process, show a Toast
   useEffect(() => {
@@ -145,6 +164,14 @@ export default function App() {
       }, 5000);
     });
   }, []);
+
+  // T2304: Alt+Space quick note trigger
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    return window.api.onQuickNoteTrigger(() => {
+      if (user) window.api.quickNoteShow(user.id);
+    });
+  }, [user, isAuthenticated]);
 
   return (
     <>

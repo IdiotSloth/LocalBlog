@@ -1,5 +1,7 @@
-import { lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import hljs from 'highlight.js';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { BookmarkButton } from '../../components/common/BookmarkButton';
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
 import { addTab } from '../../components/blog/floating-tabs-state';
@@ -8,6 +10,8 @@ import { useContextPanel, type TabDef } from '../../components/layout/ContextPan
 import { recordRecentBlog } from '../../hooks/useRecentHistory';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
+import { searchSimilarDocs } from '../../lib/use-search';
+import { useAiSettings } from '../../stores/ai-settings';
 import { useAuthStore } from '../../stores/auth-store';
 import type { BlogWithTags, Reference, Tag } from '../../../shared/types';
 
@@ -189,8 +193,11 @@ export function BlogPreviewPage() {
   const [readingTheme, setReadingTheme] = useState<string>(() => migrateTheme(localStorage.getItem('reading-theme')));
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
   const [wikiResolver, setWikiResolver] = useState<Map<string, { type: string; id: number }> | undefined>();
+  const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
+  const [aiCtxMenu, setAiCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null);
   const articleElRef = useRef<HTMLElement | null>(null);
   const isEditMode = searchParams.get('mode') === 'edit';
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useCallback((el: HTMLDivElement | null) => {
     if (!el || !id) return;
     const savedPct = sessionStorage.getItem(`blog-scroll-ratio-${id}`);
@@ -282,6 +289,16 @@ export function BlogPreviewPage() {
       });
     }
 
+    // T2203: Passive discovery — similar content recommendations
+    if (user && blog.title) {
+      tabs.push({
+        id: 'recommend',
+        label: '推荐',
+        badge: true,
+        content: <RecommendTab docId={blog.id} docType="blog" userId={user.id} />,
+      });
+    }
+
     return contextPanel.registerTabs(tabs);
   }, [blog, contextPanel, activeHeadingId, user]);
 
@@ -324,6 +341,120 @@ export function BlogPreviewPage() {
     }).catch(() => setWikiResolver(undefined));
   }, [id, user]);
 
+  // T2205: Load transclusion content after DOM is rendered
+  useEffect(() => {
+    if (!blog || !user) return;
+    // Wait for next frame to ensure DOM is painted
+    const timer = setTimeout(() => {
+      const blocks = document.querySelectorAll<HTMLElement>('.transclusion');
+      if (blocks.length === 0) return;
+
+      // D97: Batch gather all targets first, then fetch
+      const targets: Array<{ el: HTMLElement; type: string; id: number; title: string }> = [];
+      for (const el of blocks) {
+        const refType = el.getAttribute('data-ref-type');
+        const refId = Number(el.getAttribute('data-ref-id'));
+        const refTitle = el.getAttribute('data-ref-title') || '';
+        if (refId && refType && refType !== 'unknown') {
+          targets.push({ el: el as HTMLElement, type: refType, id: refId, title: refTitle });
+        }
+      }
+
+      // Load each transclusion — R283: all content through DOMPurify before innerHTML
+      for (const t of targets) {
+        const failHtml = (msg: string) => DOMPurify.sanitize(`<p style="color:var(--accent-red)">${msg}</p>`);
+        const notFoundHtml = (msg: string) => DOMPurify.sanitize(`<p style="color:var(--text-muted)">${msg}</p>`);
+
+        if (t.type === 'blog') {
+          window.api.blogGet(t.id).then((r) => {
+            if (r.success && r.data) {
+              const excerpt = escT(r.data.content || '').substring(0, 200);
+              const title = escT(r.data.title);
+              t.el.innerHTML = DOMPurify.sanitize(`<p>${excerpt}</p><div class="transclusion-source">来自博客: <a href="#/blog/${t.id}">${title}</a></div>`);
+            } else {
+              t.el.innerHTML = notFoundHtml(`无法加载嵌入内容: ${escT(t.title)}`);
+            }
+          }).catch(() => {
+            t.el.innerHTML = failHtml(`加载失败: ${escT(t.title)}`);
+          });
+        } else if (t.type === 'knowledge') {
+          window.api.kbGet({ fileId: t.id, userId: user.id }).then((r) => {
+            if (r.success && r.data) {
+              const excerpt = escT(r.data.content_text || r.data.filename || '').substring(0, 200);
+              const fname = escT(r.data.filename);
+              t.el.innerHTML = DOMPurify.sanitize(`<p>${excerpt}</p><div class="transclusion-source">来自知识库: <a href="#/knowledge">${fname}</a></div>`);
+            } else {
+              t.el.innerHTML = notFoundHtml(`无法加载嵌入内容: ${escT(t.title)}`);
+            }
+          }).catch(() => {
+            t.el.innerHTML = failHtml(`加载失败: ${escT(t.title)}`);
+          });
+        } else if (t.type === 'note') {
+          window.api.noteList(user.id, undefined).then((r) => {
+            const note = (r.success && r.data) ? r.data.find((n) => n.id === t.id) : null;
+            if (note) {
+              const excerpt = escT(note.content || '');
+              t.el.innerHTML = DOMPurify.sanitize(`<p>${excerpt}</p><div class="transclusion-source">来自便签</div>`);
+            } else {
+              t.el.innerHTML = notFoundHtml(`无法加载嵌入内容: ${escT(t.title)}`);
+            }
+          }).catch(() => {
+            t.el.innerHTML = failHtml(`加载失败: ${escT(t.title)}`);
+          });
+        }
+      }
+
+      function escT(s: string): string {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [blog, user]);
+
+  // T2302: Code highlight + copy — must be before any conditional return
+  const rawHtml = blog ? (blog.format === 'md' ? md.render(blog.content) : blog.content) : '';
+  const rendered = rawHtml ? renderWikilinks(rawHtml, wikiResolver) : '';
+  const purifyConfig: DOMPurify.Config = {
+    ADD_ATTR: ['data-ref-type', 'data-ref-id', 'data-ref-title', 'target', 'rel'],
+    ADD_TAGS: [],
+  };
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !rendered) return;
+    const pres = el.querySelectorAll('pre');
+    pres.forEach((pre) => {
+      const code = pre.querySelector('code');
+      let lang = '';
+      if (code) {
+        const cls = code.className || '';
+        const m = cls.match(/language-(\w+)/);
+        if (m) lang = m[1];
+        if (lang) { code.classList.forEach(c => { if (c.startsWith('language-')) code.classList.remove(c); }); code.classList.add('language-' + lang); hljs.highlightElement(code as HTMLElement); }
+        else { hljs.highlightElement(code as HTMLElement); }
+      }
+      if (lang && !pre.querySelector('.code-lang-label')) {
+        const lbl = document.createElement('span'); lbl.textContent = lang; lbl.className = 'code-lang-label';
+        lbl.style.cssText = 'position:absolute;top:6px;left:12px;font-size:10px;text-transform:uppercase;color:var(--text-muted);font-family:var(--font-mono)';
+        pre.style.position = 'relative'; pre.style.paddingTop = '28px'; pre.insertBefore(lbl, pre.firstChild);
+      }
+      if (!pre.querySelector('.code-copy-btn')) {
+        const btn = document.createElement('button'); btn.textContent = '复制'; btn.className = 'code-copy-btn';
+        btn.style.cssText = 'position:absolute;top:6px;right:8px;padding:1px 8px;font-size:11px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;opacity:0;transition:opacity 0.15s';
+        btn.onclick = async () => { const text = code?.textContent || ''; await navigator.clipboard.writeText(text); btn.textContent = '已复制!'; setTimeout(() => { btn.textContent = '复制'; }, 1500); };
+        pre.appendChild(btn); pre.addEventListener('mouseenter', () => { btn.style.opacity = '1'; }); pre.addEventListener('mouseleave', () => { btn.style.opacity = '0'; });
+      }
+    });
+  }, [rendered]);
+
+  const readingMinutes = blog ? estimateReadingTime(blog.content) : 0;
+  const charTotal = blog ? countChars(blog.content) : 0;
+  const theme = READING_THEMES[readingTheme] ?? READING_THEMES.dark;
+
+  const handleThemeChange = (key: string) => {
+    setReadingTheme(key);
+    localStorage.setItem('reading-theme', key);
+  };
+
   if (loading)
     return (
       <div className="flex h-64 items-center justify-center text-[14px]" style={{ color: 'var(--text-secondary)' }}>
@@ -337,26 +468,28 @@ export function BlogPreviewPage() {
       </div>
     );
 
-  // T1601: Edit mode — render BlogEditorPage inline at same route
   if (isEditMode) {
     return (
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        <BlogEditorPage />
+      <div className="flex flex-col h-full">
+        <div className="mb-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSearchParams({}, { replace: true })}
+            className="inline-flex items-center gap-1 text-[13px] hover:underline"
+            style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            ← 返回阅读
+          </button>
+          <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>编辑: {blog.title}</span>
+        </div>
+        <div className="flex-1" style={{ animation: 'fadeIn 0.3s ease' }}>
+          <Suspense fallback={<p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载编辑器...</p>}>
+            <BlogEditorPage variant="frameless" />
+          </Suspense>
+        </div>
       </div>
     );
   }
-
-  // R174: md.render → wikilink regex → DOMPurify.sanitize → dangerouslySetInnerHTML
-  const rawHtml = blog.format === 'md' ? md.render(blog.content) : blog.content;
-  const rendered = renderWikilinks(rawHtml, wikiResolver);
-  const readingMinutes = estimateReadingTime(blog.content);
-  const charTotal = countChars(blog.content);
-  const theme = READING_THEMES[readingTheme] ?? READING_THEMES.dark;
-
-  const handleThemeChange = (key: string) => {
-    setReadingTheme(key);
-    localStorage.setItem('reading-theme', key);
-  };
 
   return (
     <>
@@ -430,6 +563,13 @@ export function BlogPreviewPage() {
         <article
           className="mt-4 rounded-[8px] p-6 transition-colors duration-500 prose"
           ref={(el) => { articleElRef.current = el; }}
+          onContextMenu={(e) => {
+            const sel = window.getSelection()?.toString()?.trim();
+            if (sel && aiSettings.enabled) {
+              e.preventDefault();
+              setAiCtxMenu({ x: e.clientX, y: e.clientY, text: sel });
+            }
+          }}
           style={{
             background: theme.bg,
             fontFamily: theme.font,
@@ -471,8 +611,9 @@ export function BlogPreviewPage() {
             // For any other link, let default behavior handle it
           }}
         >
-          <h1 className="mb-3" style={{ color: theme.text }}>
+          <h1 className="mb-3 flex items-center gap-2" style={{ color: theme.text }}>
             {blog.title}
+            <BookmarkButton targetType="blog" targetId={blog.id} title={blog.title} />
           </h1>
 
           <div
@@ -509,7 +650,7 @@ export function BlogPreviewPage() {
             </div>
           )}
 
-          <div className="prose" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rendered) }} />
+          <div className="prose" ref={contentRef} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rendered, purifyConfig) }} />
         </article>
 
         {user && blog.seriesId && (
@@ -546,7 +687,104 @@ export function BlogPreviewPage() {
             导出 PDF
           </button>
         </div>
+
+        {/* Right-click AI context menu */}
+        {aiCtxMenu && (
+          <div className="fixed z-[9999] rounded-[6px] border py-1 shadow-lg min-w-[140px]"
+            style={{ left: aiCtxMenu.x, top: aiCtxMenu.y, background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+            onMouseLeave={() => setAiCtxMenu(null)}>
+            {[
+              { id: 'continue', label: 'AI 续写' },
+              { id: 'summarize', label: 'AI 摘要' },
+              { id: 'polish', label: 'AI 润色' },
+              { id: 'translate', label: 'AI 翻译' },
+            ].map((item) => (
+              <button key={item.id} type="button"
+                onClick={async () => {
+                  const text = aiCtxMenu.text;
+                  setAiCtxMenu(null);
+                  try {
+                    const resp = await window.api.aiChat({
+                      settings: { ...aiSettings, model: effectiveModel, baseUrl: effectiveBaseUrl },
+                      request: { messages: [{ role: 'user', content: `${item.id === 'continue' ? '续写' : item.id === 'summarize' ? '总结' : item.id === 'polish' ? '润色' : '翻译为中文'}:\n\n${text}` }] },
+                    });
+                    if (resp.success && resp.data) {
+                      alert(resp.data.content);
+                    }
+                  } catch { /* ignore */ }
+                }}
+                className="w-full text-left px-3 py-1.5 text-[12px] transition-colors hover:bg-[var(--bg-primary)]"
+                style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+// ── T2203: Passive discovery — similar content recommendations ──
+
+function RecommendTab({ docId, docType, userId }: { docId: number; docType: 'blog' | 'knowledge'; userId: number }) {
+  const [results, setResults] = useState<Array<{ id: number; type: string; score: number; title?: string }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    searchSimilarDocs(docId, docType, 5, 0.75)
+      .then((r) => {
+        if (cancelled) return;
+        // Fetch titles for results
+        Promise.all(r.map(async (item) => {
+          try {
+            if (item.type === 'blog') {
+              const resp = await window.api.blogGet(item.id);
+              return { ...item, title: resp.success && resp.data ? resp.data.title : `博客 #${item.id}` };
+            }
+            const resp = await window.api.kbGet({ fileId: item.id, userId });
+            return { ...item, title: resp.success && resp.data ? resp.data.filename : `知识文件 #${item.id}` };
+          } catch {
+            return { ...item, title: item.type === 'blog' ? `博客 #${item.id}` : `知识文件 #${item.id}` };
+          }
+        })).then((withTitles) => {
+          if (!cancelled) { setResults(withTitles); setLoading(false); }
+        });
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [docId, docType]);
+
+  if (loading) {
+    return <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>分析中...</p>;
+  }
+  if (results.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无相关推荐</p>
+        <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>继续创作更多内容后，系统会自动发现关联</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>基于语义相似度推荐</p>
+      {results.map((item) => (
+        <Link key={`${item.type}-${item.id}`}
+          to={item.type === 'blog' ? `/blog/${item.id}` : `/knowledge`}
+          className="no-underline block rounded-[6px] px-3 py-2 transition-colors hover:bg-[var(--bg-primary)]">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium"
+              style={{ background: item.type === 'blog' ? 'var(--accent-blue)' : 'var(--accent-green)', color: '#fff' }}>
+              {item.type === 'blog' ? '博' : '知'}
+            </span>
+            <span className="flex-1 truncate text-[13px]" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
+            <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-muted)' }}>{Math.round(item.score * 100)}%</span>
+          </div>
+        </Link>
+      ))}
+    </div>
   );
 }

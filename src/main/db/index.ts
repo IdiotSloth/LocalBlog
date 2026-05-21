@@ -188,6 +188,34 @@ export async function initDatabase(): Promise<void> {
   try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN is_pinned INTEGER DEFAULT 0'); } catch { /* exists */ }
   try { sqlJsDb.run('ALTER TABLE blogs ADD COLUMN color TEXT DEFAULT NULL'); } catch { /* exists */ }
 
+  // T2209: bookmarks table (S2 — migration for pre-Phase 22 databases)
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_type TEXT NOT NULL,
+      target_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+  } catch { /* table exists */ }
+
+  // T2307: Whiteboard tables
+  try { sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '我的白板', description TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`); } catch { /* exists */ }
+  try { sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_type TEXT NOT NULL DEFAULT 'idea', ref_type TEXT, ref_id INTEGER, title TEXT NOT NULL DEFAULT '', summary TEXT DEFAULT '', color TEXT DEFAULT 'blue', task_status TEXT DEFAULT 'todo', x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`); } catch { /* exists */ }
+  try { sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_edges (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, edge_type TEXT DEFAULT 'reference', label TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`); } catch { /* exists */ }
+
+  // D106: settings table
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      UNIQUE(user_id, key)
+    )`);
+  } catch { /* table exists */ }
+
   sqlJsSave();
   useMySQL = false;
   console.log('[DB] sql.js initialized at', sqlJsPath);
@@ -451,6 +479,28 @@ async function migrateSqlJsToMySQL(): Promise<void> {
         );
       }
     } catch { /* notes table may not exist in old DB */ }
+
+    // S2: Migrate bookmarks (T2209 — pre-Phase 22 databases won't have this table)
+    try {
+      const bookmarks = sqlJsQuery(oldDb, 'SELECT * FROM bookmarks');
+      for (const bm of bookmarks) {
+        await _mysqlRun(
+          'INSERT INTO bookmarks (id, user_id, target_type, target_id, title, created_at) VALUES (?,?,?,?,?,?)',
+          [bm.id, bm.user_id, bm.target_type, bm.target_id, bm.title, bm.created_at],
+        );
+      }
+    } catch { /* bookmarks table may not exist in old DB */ }
+
+    // D106: Migrate settings
+    try {
+      const settings = sqlJsQuery(oldDb, 'SELECT * FROM settings');
+      for (const s of settings) {
+        await _mysqlRun(
+          'INSERT INTO settings (id, user_id, `key`, value) VALUES (?,?,?,?)',
+          [s.id, s.user_id, s.key, s.value],
+        );
+      }
+    } catch { /* settings table may not exist in old DB */ }
 
     oldDb.close();
     console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);

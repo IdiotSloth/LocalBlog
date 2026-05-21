@@ -6,6 +6,7 @@ import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import { BlogCard } from '../../components/blog/BlogCard';
 import { ManualCollectTab } from './ManualCollectTab';
 import { TimelineView } from './TimelineView';
 
@@ -136,6 +137,7 @@ export function BlogListPage() {
     excludeSeries, activeTab, folderTree,
   } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
   const batch = useBatchSelect(blogs as { id: number }[]);
   const pagination = usePagination(20, total);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,16 @@ export function BlogListPage() {
       if (r.success && r.data) {
         // T2108: Pinned blogs first
         const sorted = [...r.data.blogs].sort((a, b) => (b.isPinned ?? 0) - (a.isPinned ?? 0));
-        dispatch({ type: 'SET_BLOGS', payload: { blogs: sorted, total: r.data.total } });
+        // T2302: Batch fetch ref counts for each blog
+        const withRefs = await Promise.all(
+          sorted.map(async (blog) => {
+            try {
+              const refR = await window.api.refGetFrom({ sourceType: 'blog', sourceId: blog.id });
+              return { ...blog, refCount: (refR.success && refR.data) ? refR.data.length : 0 };
+            } catch { return { ...blog, refCount: 0 }; }
+          }),
+        );
+        dispatch({ type: 'SET_BLOGS', payload: { blogs: withRefs, total: r.data.total } });
       }
     } catch (e) {
       console.error(e);
@@ -202,6 +213,19 @@ export function BlogListPage() {
     });
     return unsubscribe;
   }, [loadBlogs]);
+
+  // T2302: Infinite scroll IntersectionObserver
+  useEffect(() => {
+    const el = scrollSentinelRef.current;
+    if (!el) return;
+    const totalPages = Math.ceil(total / pagination.limit);
+    if (pagination.page >= totalPages) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) pagination.next();
+    }, { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [total, pagination.page, pagination.limit]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('移至回收站？')) return;
@@ -377,24 +401,6 @@ export function BlogListPage() {
             <h2 className="text-[24px] font-semibold text-primary">
               博客 <span className="text-[14px] font-normal text-secondary">{total} 篇</span>
             </h2>
-            <div className="flex gap-1 rounded-[4px] border p-0.5 section-border">
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'cards' })}
-                className="rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors"
-                style={{ background: viewMode === 'cards' ? 'var(--bg-tertiary)' : 'transparent' }}
-              >
-                卡片
-              </button>
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'timeline' })}
-                className="rounded-[3px] px-2 py-1 text-[12px] text-secondary transition-colors"
-                style={{ background: viewMode === 'timeline' ? 'var(--bg-tertiary)' : 'transparent' }}
-              >
-                时间线
-              </button>
-            </div>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => dispatch({ type: 'SET_SCRAPE_OPEN', payload: true })} className="btn-primary !text-[13px]">
@@ -535,10 +541,12 @@ export function BlogListPage() {
               </div>
             )}
             {blogs.map((blog: BlogWithTags) => (
-              <article
+              <BlogCard
                 key={blog.id}
-                className="card cursor-pointer group relative"
-                title={blog.title || ''}
+                blog={blog}
+                showExcerpt={true}
+                isBatchSelected={batch.isBatchMode ? batch.selectedIds.has(blog.id) : undefined}
+                onBatchToggle={batch.isBatchMode ? () => batch.toggleSelect(blog.id) : undefined}
                 onClick={() => {
                   if (batch.isBatchMode) {
                     batch.toggleSelect(blog.id);
@@ -547,58 +555,8 @@ export function BlogListPage() {
                   navigate(`/blog/${blog.id}`);
                 }}
               >
-                {batch.isBatchMode && (
-                  <input
-                    type="checkbox"
-                    checked={batch.selectedIds.has(blog.id)}
-                    onChange={() => batch.toggleSelect(blog.id)}
-                    className="absolute top-3 left-3 z-10"
-                    aria-label={`选择 ${blog.title || '无标题'}`}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                )}
-                {batch.isBatchMode ? (
-                  <span className={'text-[20px] font-semibold ml-8 text-primary'}>
-                    {blog.isPinned ? <span className="mr-1.5" title="已置顶">📌</span> : null}
-                    {blog.color ? <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style={{ background: COLOR_MAP[blog.color] }} /> : null}
-                    {blog.title || '无标题'}
-                  </span>
-                ) : (
-                  <Link
-                    to={`/blog/${blog.id}`}
-                    className="text-[20px] font-semibold no-underline hover:underline text-primary"
-                  >
-                    {blog.isPinned ? <span className="mr-1.5" title="已置顶">📌</span> : null}
-                    {blog.color ? <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style={{ background: COLOR_MAP[blog.color] }} /> : null}
-                    {blog.title || '无标题'}
-                  </Link>
-                )}
-                <p className="mt-2 text-[15px] line-clamp-2 text-secondary">点击查看全文</p>
-                <div className="mt-3 flex items-center gap-3 text-[13px] text-secondary">
-                  <span
-                    className="rounded-[3px] px-1.5 py-0.5 font-mono text-[11px] uppercase"
-                    style={{ background: 'var(--bg-tertiary)' }}
-                  >
-                    {blog.format}
-                  </span>
-                  <span>{formatDate(blog.updatedAt)}</span>
-                  {blog.tags?.length > 0 && <span>·</span>}
-                  {blog.tags?.map((t: Tag) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className="tag cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        dispatch({ type: 'SET_TAG_FILTER', payload: { id: t.id, name: t.name } });
-                      }}
-                      title={`筛选标签: ${t.name}`}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                  <div className="flex-1" />
+                {/* Footer: folder move + delete */}
+                <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s]" style={{ borderColor: 'var(--border-default)' }}>
                   <select
                     value=""
                     onChange={async (e) => {
@@ -613,95 +571,38 @@ export function BlogListPage() {
                         console.error(e);
                       }
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s] rounded-[3px] border px-1 py-0.5 outline-none"
-                    style={{
-                      borderColor: 'var(--border-default)',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-secondary)',
-                      maxWidth: 60,
-                    }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                    className="text-[10px] rounded-[3px] border px-1 py-0.5 outline-none"
+                    style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', maxWidth: 60 }}
                     title="移至文件夹"
                   >
                     <option value="">移至</option>
                     <option value="0">根目录</option>
                     {folderTree.map((f: FolderTreeNode) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
+                      <option key={f.id} value={f.id}>{f.name}</option>
                     ))}
                   </select>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      handleDelete(blog.id);
-                    }}
-                    className="text-[12px] opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s]"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDelete(blog.id); }}
+                    className="text-[12px] hover:underline"
                     style={{ color: 'var(--accent-red)' }}
                   >
                     删除
                   </button>
                 </div>
-              </article>
+              </BlogCard>
             ))}
           </div>
         )}
 
-        {/* Pagination */}
-        {total > pagination.limit && (
-          <div className="mt-6 flex items-center justify-center gap-1">
-            <button
-              type="button"
-              onClick={pagination.prev}
-              disabled={pagination.page === 1}
-              className="rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-            >
-              ←
-            </button>
-            {Array.from({ length: Math.min(5, Math.ceil(total / pagination.limit)) }, (_, i) => {
-              const totalPages = Math.ceil(total / pagination.limit);
-              let p: number;
-              if (totalPages <= 5) {
-                p = i + 1;
-              } else if (pagination.page <= 3) {
-                p = i + 1;
-              } else if (pagination.page >= totalPages - 2) {
-                p = totalPages - 4 + i;
-              } else {
-                p = pagination.page - 2 + i;
-              }
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => pagination.goTo(p)}
-                  className="rounded-[4px] px-3 py-1.5 text-[13px]"
-                  style={{
-                    background: p === pagination.page ? 'var(--accent-blue)' : 'transparent',
-                    color: p === pagination.page ? 'var(--text-on-accent)' : 'var(--text-secondary)',
-                  }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={pagination.next}
-              disabled={pagination.page >= Math.ceil(total / pagination.limit)}
-              className="rounded-[4px] border px-3 py-1.5 text-[13px] disabled:opacity-30 hover:opacity-80"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-            >
-              →
-            </button>
-          </div>
+        {/* T2302: Infinite scroll sentinel */}
+        {total > pagination.limit && pagination.page < Math.ceil(total / pagination.limit) && (
+          <div ref={scrollSentinelRef} className="h-4" />
         )}
+        {loading && <p className="text-center py-4 text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载更多...</p>}
+
+        {/* T2302: memos-style infinite scroll — no pagination buttons */}
 
         {/* Hidden file input for web import */}
         <input

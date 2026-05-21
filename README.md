@@ -3,7 +3,7 @@
 > 离线可用的个人桌面应用 — 博客撰写、知识库管理、网页收藏。
 > Electron 41 + React 19 + TypeScript + Vite 7 + sql.js
 
-构建: ✅ 通过 | 测试: 87/87 pass | E2E: 11/11 pass | Phase 1-21 ✅ | `as any`: 0 | `: any`: 0 | strict ✅ | 语义搜索 ✅
+构建: ✅ 通过 | 测试: 87/87 pass | Phase 1-22 ✅ Phase 23 📋 | IPC: 139 | Service: 18 | strict ✅ | 语义搜索 ✅
 
 ---
 
@@ -32,6 +32,15 @@
 | **AI 接入** | MCP Server (stdio + HTTP 双模式)，12 工具 (搜索/读取/创建)，Claude Code 可直接操作知识库 |
 | **指南** | 内置使用指南 (`/guide`)，配架构流程图+操作示意图，冷启动零门槛 |
 | **快捷切换** | 博客缩小化为底部浮动标签条，最多 5 篇，一键快速切换 |
+| **AI 对话** | 侧边 AI 面板，RAG 上下文自动注入 (KB+博客)，多 Provider 支持 (OpenAI/Ollama/DeepSeek)，标签自动建议 |
+| **书签** | 博客/知识库一键收藏，跨模块统一书签管理 |
+| **时间轴** | 博客/知识库按时间排列的纵向时间轴视图 |
+| **白板** | React Flow 无限画布，6 种卡片 (想法/任务/文本/博客/KB/书签)，3 种连线 (关联/依赖/引用)，右键转化，双向同步 |
+| **便签增强** | Alt+Space 快捷便签浮窗，剪贴板 MD5 去重监听，隐私遮蔽，磁贴系统 |
+| **更新管理** | 用户可控自动更新 (检查/下载/安装 3 步)，状态通知，进度显示 |
+| **国风主题** | 五套 CSS Token 驱动主题 (墨砚/茶竹/夜灯/宣纸/青瓷)，350ms 全局过渡，半透明 rgba 边框，背景图系统 |
+| **标签页** | BlogCard Feed 标签聚合页，标签云离散字号，系列卡片前 4 篇预览 |
+| **已存搜索** | 搜索查询持久化，一键复用 |
 
 ---
 
@@ -41,8 +50,8 @@
 npm install
 npm run dev        # 开发模式 (HMR)
 npm run build      # 生产构建
-npm run make       # 打包安装程序
-npm run test       # 87 单元测试 + 11 E2E
+node scripts/pack.js  # 便携版打包
+npm run test       # 87 单元测试
 ```
 
 **首次使用**: 注册 → 选择工作区目录 → 自动创建 `Blogs/` `KnowledgeBase/` `Assets/`

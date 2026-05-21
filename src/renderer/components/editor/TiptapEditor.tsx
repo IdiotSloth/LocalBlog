@@ -23,9 +23,11 @@ interface TiptapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   readOnly?: boolean;
+  /** T2303: Editor display variant */
+  variant?: 'full' | 'inline' | 'frameless';
 }
 
-export function TiptapEditor({ content, onChange, placeholder = '开始写作...', readOnly = false }: TiptapEditorProps) {
+export function TiptapEditor({ content, onChange, placeholder = '开始写作...', readOnly = false, variant = 'full' }: TiptapEditorProps) {
   const [mode, setMode] = useState<EditorMode>('wysiwyg');
   const [sourceCode, setSourceCode] = useState(content);
   const isSettingRef = useRef(false);
@@ -104,7 +106,9 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px] px-6 py-4',
+        class: variant === 'frameless'
+          ? 'prose prose-sm max-w-none focus:outline-none'
+          : 'prose prose-sm max-w-none focus:outline-none min-h-[400px] px-6 py-4',
       },
       handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
@@ -209,6 +213,30 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
     );
   }
 
+  // T2303: Frameless variant — no border, no toolbar, transparent bg
+  if (variant === 'frameless') {
+    return (
+      <div className="frameless-editor">
+        <EditorContent editor={editor} />
+        {wlQuery !== '' && wlPos && <WikilinkSuggestion query={wlQuery} position={wlPos} onSelect={handleWlSelect} onClose={handleWlClose} />}
+        {scPos && <SlashCommandPopup query={scQuery} position={scPos} onSelect={handleScSelect} onClose={handleScClose} />}
+      </div>
+    );
+  }
+
+  // T2303: Inline variant — toolbar but no outer card wrapper
+  if (variant === 'inline') {
+    return (
+      <div>
+        {!readOnly && <EditorToolbar editor={editor} mode={mode} onModeChange={setMode} />}
+        <EditorContent editor={editor} />
+        {wlQuery !== '' && wlPos && <WikilinkSuggestion query={wlQuery} position={wlPos} onSelect={handleWlSelect} onClose={handleWlClose} />}
+        {scPos && <SlashCommandPopup query={scQuery} position={scPos} onSelect={handleScSelect} onClose={handleScClose} />}
+      </div>
+    );
+  }
+
+  // Full variant — bordered card with toolbar
   return (
     <div className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] shadow-sm overflow-hidden">
       {!readOnly && <EditorToolbar editor={editor} mode={mode} onModeChange={setMode} />}
@@ -245,3 +273,4 @@ export function TiptapEditor({ content, onChange, placeholder = '开始写作...
     </div>
   );
 }
+

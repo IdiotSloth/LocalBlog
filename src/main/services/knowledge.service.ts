@@ -43,6 +43,12 @@ export class KnowledgeService {
       const originalName = path.basename(srcPath);
       const fileType = KnowledgeService.detectFileType(ext);
       const stat = fs.statSync(srcPath);
+      // P2: Skip files > 50MB with a warning
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
+      if (stat.size > MAX_FILE_SIZE) {
+        console.warn(`[Knowledge] Skipping large file (${(stat.size / 1024 / 1024).toFixed(1)}MB): ${originalName}`);
+        continue;
+      }
       let destPath: string;
       if (copyToWorkspace) {
         let destName = originalName;

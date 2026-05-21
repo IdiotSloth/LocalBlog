@@ -1,0 +1,116 @@
+/* ===== Phase 23: 五套国风主题 — [data-theme] 体系 =====
+ * 色值严格对齐 suggest.md 提案 2 精确 hex
+ * 暗色: 墨砚(赭石暖) / 茶竹(竹青绿) / 夜灯(黄铜暖)
+ * 亮色: 宣纸(靛蓝冷) / 青瓷(青釉冷)
+ * bg-code 全部使用 rgba() 半透明叠在底色上
+ */
+
+/* ── 1. 墨砚 Inkstone — 端砚灰底 + 赭石铜赤 ── */
+[data-theme="inkstone"] {
+  --bg-primary: #1a1816;
+  --bg-secondary: #211f1c;
+  --bg-sidebar: #151311;
+  --bg-tertiary: #2a2824;
+  --bg-code: rgba(255,255,255,0.025);
+  --text-primary: #e0dcd5;
+  --text-secondary: #a19b91;
+  --text-placeholder: #6b6660;
+  --text-muted: var(--text-placeholder);
+  --border-default: rgba(224,220,213,0.07);
+  --border-emphasis: rgba(224,220,213,0.12);
+  --accent-blue: #b8826a;
+  --accent-green: #7d9b6b;
+  --accent-red: #b85d5d;
+  --accent-yellow: #c09850;
+  --text-on-accent: #ffffff;
+  --color-primary: var(--accent-blue);
+  --shadow: rgba(0,0,0,0.25);
+}
+
+/* ── 2. 茶竹 Tea-Bamboo — 深烘茶棕底 + 干竹青 ── */
+[data-theme="tea-bamboo"] {
+  --bg-primary: #1e1b17;
+  --bg-secondary: #26231e;
+  --bg-sidebar: #191612;
+  --bg-tertiary: #2f2b25;
+  --bg-code: rgba(255,255,255,0.025);
+  --text-primary: #e6e0d5;
+  --text-secondary: #a69c8d;
+  --text-placeholder: #6d665c;
+  --text-muted: var(--text-placeholder);
+  --border-default: rgba(230,224,213,0.07);
+  --border-emphasis: rgba(230,224,213,0.12);
+  --accent-blue: #7a9670;
+  --accent-green: #66966b;
+  --accent-red: #b86262;
+  --accent-yellow: #c49a50;
+  --text-on-accent: #ffffff;
+  --color-primary: var(--accent-blue);
+  --shadow: rgba(0,0,0,0.25);
+}
+
+/* ── 3. 夜灯 Brass Lamp — 暖炭底 + 旧黄铜 ── */
+[data-theme="brass-lamp"] {
+  --bg-primary: #1c1b19;
+  --bg-secondary: #242321;
+  --bg-sidebar: #181715;
+  --bg-tertiary: #2c2a27;
+  --bg-code: rgba(255,255,255,0.025);
+  --text-primary: #e4e0d6;
+  --text-secondary: #a19a8e;
+  --text-placeholder: #6a645c;
+  --text-muted: var(--text-placeholder);
+  --border-default: rgba(228,224,214,0.07);
+  --border-emphasis: rgba(228,224,214,0.12);
+  --accent-blue: #b09468;
+  --accent-green: #7d9e6b;
+  --accent-red: #b86060;
+  --accent-yellow: #c09858;
+  --text-on-accent: #ffffff;
+  --color-primary: var(--accent-blue);
+  --shadow: rgba(0,0,0,0.25);
+}
+
+/* ── 4. 宣纸 Rice Paper — 生宣冷白底 + 靛蓝 ── */
+[data-theme="rice-paper"] {
+  --bg-primary: #f5f4f3;
+  --bg-secondary: #edebea;
+  --bg-sidebar: #efedec;
+  --bg-tertiary: #e4e2e0;
+  --bg-code: rgba(0,0,0,0.025);
+  --text-primary: #242321;
+  --text-secondary: #626064;
+  --text-placeholder: #95949a;
+  --text-muted: var(--text-placeholder);
+  --border-default: rgba(36,35,33,0.06);
+  --border-emphasis: rgba(36,35,33,0.11);
+  --accent-blue: #5d7a8a;
+  --accent-green: #4d8a5c;
+  --accent-red: #b05058;
+  --accent-yellow: #8a7a44;
+  --text-on-accent: #ffffff;
+  --color-primary: var(--accent-blue);
+  --shadow: rgba(0,0,0,0.05);
+}
+
+/* ── 5. 青瓷 Celadon — 青瓷胎白底 + 青釉玉色 ── */
+[data-theme="celadon"] {
+  --bg-primary: #f4f6f3;
+  --bg-secondary: #edf0eb;
+  --bg-sidebar: #eff2ed;
+  --bg-tertiary: #e3e7e1;
+  --bg-code: rgba(0,0,0,0.025);
+  --text-primary: #232522;
+  --text-secondary: #5d6257;
+  --text-placeholder: #92988b;
+  --text-muted: var(--text-placeholder);
+  --border-default: rgba(35,37,34,0.06);
+  --border-emphasis: rgba(35,37,34,0.10);
+  --accent-blue: #5a8a80;
+  --accent-green: #5c8a5c;
+  --accent-red: #b05558;
+  --accent-yellow: #9a8042;
+  --text-on-accent: #ffffff;
+  --color-primary: var(--accent-blue);
+  --shadow: rgba(0,0,0,0.05);
+}

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Calendar, Search, StickyNote, PenLine, FolderOpen, Hash, Database, ArrowRight, CheckSquare, Plus, Layout, Clock, FileText } from 'lucide-react';
 import type { DraftItem, LastBlog, Note, RecentFile, UserStats } from '../../../shared/types';
 import { MiniGraph } from '../../components/common/MiniGraph';
 import { getRecentBlogs, type RecentBlogEntry } from '../../hooks/useRecentHistory';
+import { useSavedQueries } from '../../hooks/useSavedQueries';
 import { useAuthStore } from '../../stores/auth-store';
 import { CalendarView } from '../../components/CalendarView';
 
@@ -24,6 +26,8 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type ContinueTab = 'drafts' | 'recent' | 'files';
+
 export function HomePage() {
   const user = useAuthStore((s) => s.user);
   const abortedRef = useRef(false);
@@ -34,7 +38,7 @@ export function HomePage() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
-  // Continue writing
+  // Continue panel
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
   const [lastBlog, setLastBlog] = useState<LastBlog | null>(null);
@@ -42,17 +46,25 @@ export function HomePage() {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesLoading, setRecentFilesLoading] = useState(true);
   const [recentBlogs, setRecentBlogs] = useState<RecentBlogEntry[]>([]);
+  const [continueTab, setContinueTab] = useState<ContinueTab>('drafts');
+  const { items: savedQueries } = useSavedQueries();
 
   // Todos
   const [todos, setTodos] = useState<Note[]>([]);
   const [todosLoading, setTodosLoading] = useState(true);
   const [todoInput, setTodoInput] = useState('');
   const [todoSaving, setTodoSaving] = useState(false);
+  const [completedTodoIds, setCompletedTodoIds] = useState<Set<number>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('home_completed_todos') || '[]')); }
+    catch { return new Set<number>(); }
+  });
 
   // Daily note
   const [dailyNote, setDailyNote] = useState<Note | null>(null);
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyInput, setDailyInput] = useState('');
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [dateSchedules, setDateSchedules] = useState<Note[]>([]);
 
   // Error
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -62,52 +74,44 @@ export function HomePage() {
     abortedRef.current = false;
     setLoadError(null);
 
-    // Workspace info
     setWsLoading(true);
     window.api.workspaceGetInfo(user.id)
       .then((info) => { if (!abortedRef.current) setWs(info as unknown as Record<string, number>); })
       .catch((e) => { console.error('[Home] workspace:', e); if (!abortedRef.current) setLoadError('加载工作区数据失败'); })
       .finally(() => { if (!abortedRef.current) setWsLoading(false); });
 
-    // User stats
     setStatsLoading(true);
     window.api.statsGet(user.id)
       .then((r) => { if (!abortedRef.current && r.success && r.data) setStats(r.data); })
       .catch((e) => { console.error('[Home] stats:', e); if (!abortedRef.current) setLoadError('加载统计数据失败'); })
       .finally(() => { if (!abortedRef.current) setStatsLoading(false); });
 
-    // Drafts
     setDraftsLoading(true);
     window.api.continueGetDrafts(user.id)
       .then((r) => { if (!abortedRef.current && r.success && r.data) setDrafts(r.data); })
       .catch((e) => { console.error('[Home] drafts:', e); })
       .finally(() => { if (!abortedRef.current) setDraftsLoading(false); });
 
-    // Last blog
     setLastBlogLoading(true);
     window.api.continueGetLastBlog(user.id)
       .then((r) => { if (!abortedRef.current && r.success && r.data) setLastBlog(r.data); })
       .catch((e) => { console.error('[Home] lastBlog:', e); })
       .finally(() => { if (!abortedRef.current) setLastBlogLoading(false); });
 
-    // Recent files
     setRecentFilesLoading(true);
     window.api.continueGetRecentFiles(user.id)
       .then((r) => { if (!abortedRef.current && r.success && r.data) setRecentFiles(r.data); })
       .catch((e) => { console.error('[Home] recentFiles:', e); })
       .finally(() => { if (!abortedRef.current) setRecentFilesLoading(false); });
 
-    // Recent blogs
     setRecentBlogs(getRecentBlogs());
 
-    // Todos
     setTodosLoading(true);
     window.api.noteList(user.id, 'todo')
       .then((r) => { if (!abortedRef.current && r.success && r.data) setTodos(r.data); })
       .catch((e) => { console.error('[Home] todos:', e); if (!abortedRef.current) setLoadError('加载待办失败'); })
       .finally(() => { if (!abortedRef.current) setTodosLoading(false); });
 
-    // Daily note — check if today's exists (R194: SELECT before INSERT pattern)
     setDailyLoading(true);
     const today = todayStr();
     window.api.noteList(user.id, 'daily', today, today)
@@ -148,12 +152,15 @@ export function HomePage() {
     finally { setTodoSaving(false); }
   };
 
-  const handleCompleteTodo = async (todo: Note) => {
-    if (!user) return;
-    try {
-      await window.api.noteCreate({ userId: user.id, noteId: todo.id, content: todo.content, title: todo.title, memoType: 'note', dueDate: todo.dueDate });
-      loadData();
-    } catch (e) { console.error('[Home] complete todo:', e); }
+  const handleCompleteTodo = (todo: Note) => {
+    const next = new Set(completedTodoIds);
+    if (next.has(todo.id)) {
+      next.delete(todo.id);
+    } else {
+      next.add(todo.id);
+    }
+    setCompletedTodoIds(next);
+    localStorage.setItem('home_completed_todos', JSON.stringify([...next]));
   };
 
   const handleDeleteTodo = async (noteId: number) => {
@@ -162,17 +169,26 @@ export function HomePage() {
     catch (e) { console.error('[Home] delete todo:', e); }
   };
 
-  // T2005: Click calendar date → load daily note for that date
   const handleCalendarDateSelect = useCallback(async (dateStr: string) => {
+    setSelectedDate(dateStr);
     if (!user) return;
-    const r = await window.api.noteList(user.id, 'daily', dateStr, dateStr);
-    if (r.success && r.data && r.data.length > 0) {
-      const note = r.data[0]!;
+    // R328: Load both daily notes and schedules for selected date
+    const [dailyR, schedR] = await Promise.all([
+      window.api.noteList(user.id, 'daily', dateStr, dateStr),
+      window.api.noteList(user.id, 'schedule', dateStr, dateStr),
+    ]);
+    if (dailyR.success && dailyR.data && dailyR.data.length > 0) {
+      const note = dailyR.data[0]!;
       setDailyNote(note);
       setDailyInput(note.content || '');
     } else {
       setDailyNote(null);
       setDailyInput('');
+    }
+    if (schedR.success && schedR.data) {
+      setDateSchedules(schedR.data);
+    } else {
+      setDateSchedules([]);
     }
   }, [user]);
 
@@ -181,38 +197,33 @@ export function HomePage() {
     if (!user) return;
     try {
       if (dailyNote) {
-        await window.api.noteCreate({ userId: user.id, noteId: dailyNote.id, content: dailyInput, title: todayStr(), memoType: 'daily', dueDate: todayStr() });
+        await window.api.noteCreate({ userId: user.id, noteId: dailyNote.id, content: dailyInput, title: selectedDate, memoType: 'daily', dueDate: selectedDate });
       } else {
-        await window.api.noteCreate({ userId: user.id, content: dailyInput, title: todayStr(), memoType: 'daily', dueDate: todayStr() });
+        await window.api.noteCreate({ userId: user.id, content: dailyInput, title: selectedDate, memoType: 'daily', dueDate: selectedDate });
       }
       loadData();
     } catch (e) { console.error('[Home] save daily:', e); }
   };
 
-  // Derived state
   const hasStats = !wsLoading && !statsLoading && ws;
-  const statCards = hasStats
-    ? [
-        { label: '博客', val: ws?.blogCount ?? 0, sub: stats?.monthlyCount ? `本月 +${stats.monthlyCount}` : '', icon: '✍', c: 'var(--accent-blue)' },
-        { label: '知识库', val: ws?.knowledgeCount ?? 0, icon: '📁', c: 'var(--accent-green)' },
-        { label: '标签', val: ws?.tagCount ?? 0, icon: '#', c: 'var(--text-secondary)' },
-        { label: '存储', val: fmt(ws?.storageSize || 0), icon: '💾', c: 'var(--text-secondary)' },
-      ]
-    : [];
+
+  const CONTINUE_TABS: { id: ContinueTab; label: string; icon: typeof Layout; count: number }[] = [
+    { id: 'drafts', label: '草稿', icon: PenLine, count: drafts.length },
+    { id: 'recent', label: '最近打开', icon: Clock, count: (lastBlog ? 1 : 0) + recentBlogs.length },
+    { id: 'files', label: '最近素材', icon: FileText, count: recentFiles.length },
+  ];
 
   return (
     <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}>
       {/* ═══ Hero ═══ */}
-      <div
-        className="relative mb-8 overflow-hidden rounded-[16px] border p-8 md:p-10"
-        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
-      >
+      <div className="relative mb-4 overflow-hidden rounded-[16px] border p-5"
+        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
         <div className="absolute -right-8 -top-8 h-[120px] w-[120px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)' }} />
         <div className="absolute -bottom-6 -left-6 h-[100px] w-[100px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, var(--accent-green) 0%, transparent 70%)' }} />
         <div className="relative">
-          <p className="text-[14px] tracking-wide" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{getGreeting()}</p>
-          <h1 className="mt-1 text-[38px] font-bold leading-tight tracking-tight" style={{ color: 'var(--text-primary)' }}>{user?.username || '...'}</h1>
-          <p className="mt-2 text-[16px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>本地博客与知识库</p>
+          <p className="text-[14px] tracking-wide" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{getGreeting()}，{user?.username || '...'}</p>
+          <h1 className="mt-1 text-[38px] font-bold leading-tight tracking-tight" style={{ color: 'var(--text-primary)' }}>本地博客与知识库</h1>
+          <p className="mt-2 text-[16px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>离线优先的个人知识中枢</p>
         </div>
         {statsLoading ? (
           <div className="relative mt-5 h-8 rounded-[6px] animate-pulse" style={{ background: 'var(--bg-tertiary)', width: 200 }} />
@@ -239,123 +250,29 @@ export function HomePage() {
         </div>
       )}
 
-      {/* ═══ Stats + Quick Actions ═══ */}
-      <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <div className="grid grid-cols-2 gap-3">
-          {statCards.map((card) => (
-            <div key={card.label} className="rounded-[10px] border p-5 transition-colors duration-[0.15s] hover:border-[var(--accent-blue)]" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-              <div className="text-[20px]">{card.icon}</div>
-              <div className="mt-2 text-[28px] font-bold" style={{ color: card.c }}>{card.val}</div>
-              <div className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>{card.label}{card.sub && <span className="ml-1 text-[11px]" style={{ color: 'var(--accent-green)' }}>{card.sub}</span>}</div>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-3">
-          <div className="rounded-[10px] border p-5 flex-1" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-            <h3 className="mb-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>快捷操作</h3>
-            <div className="space-y-2">
-              {[
-                { to: '/blog/new', label: '写博客', detail: '创建一篇新文章', icon: '✍', c: 'var(--accent-blue)' },
-                { to: '/knowledge', label: '知识库', detail: '导入与管理文件', icon: '📁', c: 'var(--accent-green)' },
-                { to: '/tags', label: '标签管理', detail: '整理分类标签', icon: '#', c: 'var(--text-secondary)' },
-                { to: '/blog', label: '看博客', detail: '浏览全部文章', icon: '→', c: 'var(--text-secondary)' },
-              ].map((a) => (
-                <Link key={a.to} to={a.to} className="flex items-center gap-3 rounded-[6px] px-3 py-2.5 text-[14px] no-underline transition-all duration-[0.15s] hover:translate-x-1" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[16px]" style={{ background: 'var(--bg-tertiary)' }}>{a.icon}</span>
-                  <div className="flex-1"><span className="font-medium" style={{ color: a.c }}>{a.label}</span><span className="ml-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>{a.detail}</span></div>
-                </Link>
-              ))}
-            </div>
-          </div>
-          {recentBlogs.length > 0 && (
-            <div className="rounded-[10px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-              <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>最近浏览</h3>
-              <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                {recentBlogs.slice(0, 5).map((entry) => (
-                  <Link key={entry.id} to={`/blog/${entry.id}`} className="no-underline shrink-0 rounded-[6px] border px-3 py-2 text-[13px] font-medium transition-all hover:border-[var(--accent-blue)]" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)', maxWidth: 160 }}>
-                    <span className="line-clamp-2 block">{entry.title}</span>
-                    <span className="mt-1 block text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(entry.timestamp).toLocaleDateString('zh-CN')}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* T2013: Mini knowledge graph */}
-          {user && (
-            <div className="rounded-[10px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-              <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>关系图谱</h3>
-              <MiniGraph userId={user.id} />
-            </div>
-          )}
-        </div>
+      {/* ═══ Quick actions bar ═══ */}
+      <div className="mb-8 flex flex-wrap gap-3">
+        {[
+          { to: '/blog/new', label: '写博客', icon: PenLine, c: 'var(--accent-blue)' },
+          { to: '/knowledge', label: '知识库', icon: FolderOpen, c: 'var(--accent-green)' },
+          { to: '/tags', label: '标签', icon: Hash, c: 'var(--text-secondary)' },
+          { to: '/blog', label: '浏览', icon: ArrowRight, c: 'var(--text-secondary)' },
+        ].map((a) => (
+          <Link key={a.to} to={a.to}
+            className="inline-flex items-center gap-2 rounded-[8px] border px-4 py-2 text-[14px] font-medium no-underline transition-all duration-[0.15s] hover:border-[var(--accent-blue)]"
+            style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)', color: a.c }}>
+            <a.icon size={16} />
+            {a.label}
+          </Link>
+        ))}
       </div>
-
-      {/* ═══ Continue Writing ═══ */}
-      {(drafts.length > 0 || !lastBlogLoading || !recentFilesLoading) && (
-        <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {/* Drafts */}
-          <div className="rounded-[10px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-            <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>最近草稿</h3>
-            {draftsLoading ? <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-            : drafts.length === 0 ? <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无草稿</p>
-            : drafts.slice(0, 3).map((d) => (
-              <Link key={d.id} to={`/blog/${d.blogId}/edit`} className="no-underline block rounded-[6px] border p-3 mb-2 transition-all hover:border-[var(--accent-blue)]" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)' }}>
-                <div className="text-[14px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{d.blogTitle}</div>
-                <div className="mt-0.5 text-[12px] line-clamp-1" style={{ color: 'var(--text-secondary)' }}>{d.content?.substring(0, 100) || '(空)'}</div>
-                <div className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(d.savedAt).toLocaleDateString('zh-CN')}</div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Last blog + Recent files */}
-          <div className="flex flex-col gap-3">
-            {lastBlogLoading ? (
-              <div className="rounded-[10px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载上次停留...</p>
-              </div>
-            ) : lastBlog ? (
-              <Link to={`/blog/${lastBlog.id}`} className="no-underline rounded-[10px] border p-5 transition-all hover:border-[var(--accent-blue)]" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-                <h3 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>上次停留</h3>
-                <div className="text-[15px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{lastBlog.title}</div>
-                <div className="mt-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>{new Date(lastBlog.updatedAt).toLocaleDateString('zh-CN')}</div>
-              </Link>
-            ) : null}
-
-            {recentFiles.length > 0 && (
-              <div className="rounded-[10px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-                <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>最近素材</h3>
-                <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                  {recentFiles.map((f) => (
-                    <Link key={f.id} to="/knowledge" className="no-underline shrink-0 rounded-[6px] border p-3 text-[13px] font-medium transition-all hover:border-[var(--accent-blue)]" style={{ width: 140, borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                      <span className="line-clamp-2 block">{f.filename}</span>
-                      <span className="mt-1 block text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(f.createdAt).toLocaleDateString('zh-CN')}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ═══ Calendar ═══ */}
-      <section className="mb-8 rounded-[14px] border p-6 md:p-8" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-        <div className="mb-5 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[10px] text-[20px]" style={{ background: 'var(--bg-tertiary)' }}>📅</span>
-          <div>
-            <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>日程</h2>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>点击日期添加日程安排</p>
-          </div>
-        </div>
-        <CalendarView onDateSelect={handleCalendarDateSelect} />
-      </section>
 
       {/* ═══ Daily Note + Todos side-by-side ═══ */}
       <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
         {/* Daily Note */}
         <section className="rounded-[14px] border p-6" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
           <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] text-[20px]" style={{ background: 'var(--bg-tertiary)' }}>📓</span>
+            <StickyNote size={20} style={{ color: 'var(--accent-blue)' }} />
             <div>
               <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>今日便签</h2>
               <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{todayStr()}</p>
@@ -365,20 +282,14 @@ export function HomePage() {
             <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
           ) : (
             <>
-              <textarea
-                value={dailyInput}
-                onChange={(e) => setDailyInput(e.target.value)}
+              <textarea value={dailyInput} onChange={(e) => setDailyInput(e.target.value)}
                 placeholder="记录今天的想法..."
                 aria-label="今日便签内容"
                 className="w-full rounded-[8px] border p-4 text-[14px] leading-relaxed resize-none outline-none transition-all focus:border-[var(--accent-blue)]"
-                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', minHeight: 160 }}
-              />
-              <button
-                type="button"
-                onClick={handleSaveDaily}
+                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', minHeight: 160 }} />
+              <button type="button" onClick={handleSaveDaily}
                 className="mt-3 rounded-[6px] px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-85"
-                style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}
-              >
+                style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
                 {dailyNote ? '更新今日便签' : '保存今日便签'}
               </button>
             </>
@@ -388,15 +299,22 @@ export function HomePage() {
         {/* Todos */}
         <section className="rounded-[14px] border p-6" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
           <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] text-[20px]" style={{ background: 'var(--bg-tertiary)' }}>✅</span>
+            <CheckSquare size={20} style={{ color: 'var(--accent-green)' }} />
             <div>
               <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>待办</h2>
               <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{todos.length > 0 ? `${todos.length} 项待完成` : '暂无待办事项'}</p>
             </div>
           </div>
           <div className="mb-3 flex gap-2">
-            <input type="text" value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()} placeholder="添加待办事项..." aria-label="添加待办事项" className="flex-1 rounded-[6px] border px-3 py-2 text-[13px] outline-none transition-all focus:border-[var(--accent-blue)]" style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
-            <button type="button" onClick={handleAddTodo} disabled={!todoInput.trim() || todoSaving} className="rounded-[6px] px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-85 disabled:opacity-40" style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>{todoSaving ? '...' : '添加'}</button>
+            <input type="text" value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()}
+              placeholder="添加待办事项..." aria-label="添加待办事项"
+              className="flex-1 rounded-[6px] border px-3 py-2 text-[13px] outline-none transition-all focus:border-[var(--accent-blue)]"
+              style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
+            <button type="button" onClick={handleAddTodo} disabled={!todoInput.trim() || todoSaving}
+              className="rounded-[6px] px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-85 disabled:opacity-40"
+              style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
+              {todoSaving ? '...' : '添加'}
+            </button>
           </div>
           {todosLoading ? (
             <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
@@ -406,18 +324,194 @@ export function HomePage() {
             </div>
           ) : (
             <div className="space-y-1 max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-              {todos.map((todo) => (
+              {todos.map((todo) => {
+                const isCompleted = completedTodoIds.has(todo.id);
+                return (
                 <div key={todo.id} className="group flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-colors duration-[0.15s] hover:bg-[var(--bg-primary)]">
-                  <button type="button" onClick={() => handleCompleteTodo(todo)} title="标记为已完成" aria-label="标记为已完成" className="shrink-0 text-[16px] transition-all hover:text-[var(--accent-green)]" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>☐</button>
+                  <button type="button" onClick={() => handleCompleteTodo(todo)} title={isCompleted ? '取消完成' : '标记为已完成'} aria-label={isCompleted ? '取消完成' : '标记为已完成'}
+                    className="shrink-0 rounded-[4px] w-5 h-5 border transition-all flex items-center justify-center"
+                    style={{ borderColor: isCompleted ? 'var(--accent-green)' : 'var(--text-muted)', background: isCompleted ? 'var(--accent-green)' : 'none', cursor: 'pointer', color: isCompleted ? '#fff' : 'transparent', fontSize: 12 }}>
+                    ✓
+                  </button>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-[13px]" style={{ color: 'var(--text-primary)' }}>{todo.title || todo.content}</p>
-                    {todo.dueDate && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{todo.dueDate.slice(0, 10)}</p>}
+                    <p className="truncate text-[13px]" style={{ color: isCompleted ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isCompleted ? 'line-through' : 'none' }}>{todo.title || todo.content}</p>
+                    {todo.dueDate && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{String(todo.dueDate).slice(0, 10)}</p>}
                   </div>
-                  <button type="button" onClick={() => handleDeleteTodo(todo.id)} aria-label="删除待办" className="shrink-0 rounded-[4px] px-2 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-all" style={{ color: 'var(--accent-red)' }}>删除</button>
+                  <button type="button" onClick={() => handleDeleteTodo(todo.id)} aria-label="删除待办"
+                    className="shrink-0 rounded-[4px] px-2 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-all"
+                    style={{ color: 'var(--accent-red)' }}>删除</button>
+                </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* ═══ 继续... unified panel ═══ */}
+      <div className="mb-8 rounded-[14px] border p-6" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+        <div className="mb-4 flex items-center gap-3">
+          <Layout size={20} style={{ color: 'var(--text-secondary)' }} />
+          <h2 className="text-[16px] font-semibold" style={{ color: 'var(--text-primary)' }}>继续...</h2>
+        </div>
+
+        {/* Tab bar */}
+        <div className="mb-4 flex border-b" style={{ borderColor: 'var(--border-default)' }}>
+          {CONTINUE_TABS.map((tab) => (
+            <button key={tab.id} type="button" onClick={() => setContinueTab(tab.id)}
+              className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium transition-colors duration-[0.15s] border-b-2"
+              style={{
+                color: continueTab === tab.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                borderColor: continueTab === tab.id ? 'var(--accent-blue)' : 'transparent',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}>
+              <tab.icon size={14} />
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="ml-1 rounded-full px-1.5 text-[11px]" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div>
+          {/* Drafts tab */}
+          {continueTab === 'drafts' && (
+            draftsLoading ? (
+              <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+            ) : drafts.length === 0 ? (
+              <div className="rounded-[8px] border border-dashed p-6 text-center" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无草稿 — 在编辑器中未保存的内容会自动保存为草稿</p>
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[240px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                {drafts.slice(0, 5).map((d) => (
+                  <Link key={d.id} to={`/blog/${d.blogId}/edit`}
+                    className="no-underline flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-all hover:bg-[var(--bg-primary)]"
+                    style={{ color: 'var(--text-primary)' }}>
+                    <PenLine size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <span className="flex-1 truncate text-[13px] font-medium">{d.blogTitle}</span>
+                    <span className="shrink-0 text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(d.savedAt).toLocaleDateString('zh-CN')}</span>
+                  </Link>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* Recent tab */}
+          {continueTab === 'recent' && (
+            <div className="space-y-1 max-h-[240px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+              {lastBlogLoading ? (
+                <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+              ) : (
+                <>
+                  {lastBlog && (
+                    <Link to={`/blog/${lastBlog.id}`}
+                      className="no-underline flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-all hover:bg-[var(--bg-primary)]"
+                      style={{ color: 'var(--text-primary)' }}>
+                      <Clock size={14} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+                      <span className="flex-1 truncate text-[13px] font-medium">{lastBlog.title}</span>
+                      <span className="shrink-0 text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(lastBlog.updatedAt).toLocaleDateString('zh-CN')}</span>
+                      <span className="shrink-0 rounded-full px-1.5 text-[10px]" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>上次停留</span>
+                    </Link>
+                  )}
+                  {recentBlogs.filter((b) => !lastBlog || b.id !== lastBlog.id).slice(0, 4).map((entry) => (
+                    <Link key={entry.id} to={`/blog/${entry.id}`}
+                      className="no-underline flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-all hover:bg-[var(--bg-primary)]"
+                      style={{ color: 'var(--text-primary)' }}>
+                      <Clock size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      <span className="flex-1 truncate text-[13px]">{entry.title}</span>
+                      <span className="shrink-0 text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(entry.timestamp).toLocaleDateString('zh-CN')}</span>
+                    </Link>
+                  ))}
+                  {!lastBlog && recentBlogs.length === 0 && (
+                    <div className="rounded-[8px] border border-dashed p-6 text-center" style={{ borderColor: 'var(--border-default)' }}>
+                      <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无最近浏览记录</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Files tab */}
+          {continueTab === 'files' && (
+            recentFilesLoading ? (
+              <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+            ) : recentFiles.length === 0 ? (
+              <div className="rounded-[8px] border border-dashed p-6 text-center" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无最近导入的文件</p>
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[240px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                {recentFiles.slice(0, 5).map((f) => (
+                  <Link key={f.id} to="/knowledge"
+                    className="no-underline flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-all hover:bg-[var(--bg-primary)]"
+                    style={{ color: 'var(--text-primary)' }}>
+                    <FileText size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <span className="flex-1 truncate text-[13px]">{f.filename}</span>
+                    <span className="shrink-0 text-[11px]" style={{ color: 'var(--text-muted)' }}>{new Date(f.createdAt).toLocaleDateString('zh-CN')}</span>
+                  </Link>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* Saved Queries (T2206) */}
+      {savedQueries.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {savedQueries.slice(0, 6).map((sq, i) => (
+            <Link key={i} to={`/blog?q=${encodeURIComponent(sq.query)}`}
+              className="no-underline inline-flex items-center gap-1.5 rounded-[6px] border px-3 py-1.5 text-[12px] font-medium transition-colors hover:border-[var(--accent-blue)]"
+              style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+              <Search size={12} />
+              {sq.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ Calendar + MiniGraph ═══ */}
+      <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        {/* Calendar */}
+        <section className="rounded-[14px] border p-6 md:p-8" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+          <div className="mb-5 flex items-center gap-3">
+            <Calendar size={20} style={{ color: 'var(--text-secondary)' }} />
+            <div>
+              <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>日历</h2>
+              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>蓝点 = 每日便签 · 绿点 = 日程 · 蓝+绿 = 两者都有</p>
+            </div>
+          </div>
+          <CalendarView onDateSelect={handleCalendarDateSelect} />
+          {dateSchedules.length > 0 && (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
+              <p className="text-[12px] font-medium mb-1" style={{ color: 'var(--accent-green)' }}>
+                {selectedDate} 行程 ({dateSchedules.length})
+              </p>
+              {dateSchedules.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-[13px] py-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)', display: 'inline-block', flexShrink: 0 }} />
+                  <span>{s.title || s.content?.slice(0, 60)}</span>
                 </div>
               ))}
             </div>
           )}
+        </section>
+
+        {/* MiniGraph */}
+        <section className="rounded-[14px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+          <div className="mb-4 flex items-center gap-3">
+            <Database size={20} style={{ color: 'var(--text-secondary)' }} />
+            <div>
+              <h2 className="text-[16px] font-semibold" style={{ color: 'var(--text-primary)' }}>关系图谱</h2>
+              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>知识连接概览</p>
+            </div>
+          </div>
+          {user && <MiniGraph userId={user.id} />}
         </section>
       </div>
     </div>

@@ -18,7 +18,7 @@ export function QuickSwitcher() {
   const [items, setItems] = useState<SwitchItem[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const searchTitles = useCallback(async (q: string) => {
     if (!user || !q.trim()) { setItems([]); return; }

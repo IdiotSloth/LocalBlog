@@ -11,9 +11,10 @@ interface Props {
   userId: number;
   sourceType: string;
   sourceId: number;
+  readOnly?: boolean;
 }
 
-export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
+export function ReferencePicker({ userId, sourceType, sourceId, readOnly }: Props) {
   const [refs, setRefs] = useState<(RefItem & { refId: number })[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -62,14 +63,16 @@ export function ReferencePicker({ userId, sourceType, sourceId }: Props) {
         <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
           关联
         </span>
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="text-[11px] hover:underline"
-          style={{ color: 'var(--accent-blue)' }}
-        >
-          + 添加引用
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="text-[11px] hover:underline"
+            style={{ color: 'var(--accent-blue)' }}
+          >
+            + 添加引用
+          </button>
+        )}
       </div>
 
       {loading ? (

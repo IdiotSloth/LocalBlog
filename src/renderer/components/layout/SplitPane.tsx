@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTabs } from '../../stores/tab-context';
 
 // ==================== Split Context (D84 foundation) ====================
 
@@ -135,11 +136,14 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
     );
   }
 
+  const { tabs, activeTabId } = useTabs();
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+
   return (
     <div ref={containerRef} className="flex flex-1 overflow-hidden" style={{ minWidth: 0 }}>
       {/* Left pane */}
       <div
-        className="overflow-y-auto"
+        className="flex flex-col overflow-hidden"
         style={{
           width: `${ratio}%`,
           minWidth: 0,
@@ -148,7 +152,13 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
         }}
         onClick={() => focusPane('left')}
       >
-        {left}
+        {/* R293: Mini tab bar for left pane */}
+        <div className="flex items-center shrink-0 px-3 border-b" style={{ height: 28, borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+          <span className="text-[11px] font-medium truncate" style={{ color: activePaneId === 'left' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+            {activeTab?.label || '主视图'}
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto">{left}</div>
       </div>
 
       {/* Divider — minimal, 1px, accent on hover */}
@@ -182,7 +192,7 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
 
       {/* Right pane */}
       <div
-        className="overflow-y-auto"
+        className="flex flex-col overflow-hidden"
         style={{
           width: `${100 - ratio}%`,
           minWidth: 0,
@@ -191,7 +201,13 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
         }}
         onClick={() => focusPane('right')}
       >
-        {right}
+        {/* R293: Mini tab bar for right pane */}
+        <div className="flex items-center shrink-0 px-3 border-b" style={{ height: 28, borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+          <span className="text-[11px] font-medium truncate" style={{ color: activePaneId === 'right' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+            分屏视图
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto">{right}</div>
       </div>
     </div>
   );

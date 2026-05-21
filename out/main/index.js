@@ -51,11 +51,14 @@ const IPC = {
   BLOG_SAVE_DRAFT: "blog:save-draft",
   BLOG_GET_HISTORY: "blog:get-history",
   BLOG_ROLLBACK: "blog:rollback",
+  BLOG_SET_PINNED: "blog:set-pinned",
+  BLOG_SET_COLOR: "blog:set-color",
   // Tag
   TAG_LIST: "tag:list",
   TAG_CREATE: "tag:create",
   TAG_UPDATE: "tag:update",
   TAG_DELETE: "tag:delete",
+  TAG_MERGE: "tag:merge",
   TAG_SET_BLOG: "tag:set-blog",
   TAG_SET_FILE: "tag:set-file",
   // Quick Note
@@ -80,6 +83,7 @@ const IPC = {
   KB_PREVIEW: "kb:preview",
   KB_OPEN_EXTERNAL: "kb:open-external",
   KB_SET_PROPERTIES: "kb:set-properties",
+  KB_UPDATE_CONTENT: "kb:update-content",
   // Search
   SEARCH_GLOBAL: "search:global",
   SEARCH_BLOGS: "search:blogs",
@@ -93,6 +97,7 @@ const IPC = {
   WORKSPACE_SET_PATH: "workspace:set-path",
   WORKSPACE_MIGRATE: "workspace:migrate",
   WORKSPACE_OPEN_IN_FOLDER: "workspace:open-in-folder",
+  WORKSPACE_EXPORT_MD: "workspace:export-md",
   // Recycle Bin
   RECYCLE_LIST: "recycle:list",
   RECYCLE_RESTORE: "recycle:restore",
@@ -150,6 +155,7 @@ const IPC = {
   SHORTCUT_UPDATE: "shortcut:update",
   SHORTCUT_RESET: "shortcut:reset",
   // App
+  BG_IMAGE_READ: "bgImage:read",
   SHELL_OPEN_EXTERNAL: "shell:openExternal",
   APP_VISIBILITY: "app:visibility",
   APP_GET_VERSION: "app:get-version",
@@ -158,6 +164,9 @@ const IPC = {
   APP_GET_AUTO_START: "app:get-auto-start",
   APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
   APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut",
+  APP_CHECK_UPDATE: "app:check-update",
+  APP_DOWNLOAD_UPDATE: "app:download-update",
+  APP_INSTALL_UPDATE: "app:install-update",
   // Pet
   PET_SCRAPE: "pet:scrape",
   PET_SCRAPE_IMPORT: "pet:scrape-import",
@@ -174,7 +183,31 @@ const IPC = {
   EVT_KB_REFRESH: "kb:refresh",
   EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress",
   EVT_APP_ERROR: "app:error",
-  EVT_UPDATE_STATUS: "app:update-status"
+  EVT_UPDATE_STATUS: "app:update-status",
+  EVT_QUICK_NOTE_TRIGGER: "quick-note:trigger",
+  // Quick Note (T2304)
+  QUICK_NOTE_SHOW: "quick-note:show",
+  // Clipboard (T2304)
+  CLIPBOARD_HISTORY: "clipboard:history",
+  CLIPBOARD_CLEAR: "clipboard:clear",
+  CLIPBOARD_TOGGLE: "clipboard:toggle",
+  CLIPBOARD_STATUS: "clipboard:status",
+  // Whiteboard (T2307)
+  WHITEBOARD_GET: "whiteboard:get",
+  WHITEBOARD_NODES: "whiteboard:nodes",
+  WHITEBOARD_NODE_CREATE: "whiteboard:node-create",
+  WHITEBOARD_NODE_UPDATE: "whiteboard:node-update",
+  WHITEBOARD_NODE_DELETE: "whiteboard:node-delete",
+  WHITEBOARD_EDGES: "whiteboard:edges",
+  WHITEBOARD_EDGE_CREATE: "whiteboard:edge-create",
+  WHITEBOARD_EDGE_DELETE: "whiteboard:edge-delete",
+  // Bookmarks (T2209)
+  BOOKMARK_ADD: "bookmark:add",
+  BOOKMARK_REMOVE: "bookmark:remove",
+  BOOKMARK_LIST: "bookmark:list",
+  // AI (T2204)
+  AI_CHAT: "ai:chat",
+  AI_TAG_SUGGEST: "ai:tag-suggest"
 };
 const MYSQL_DDL = [
   `CREATE TABLE IF NOT EXISTS users (
@@ -200,6 +233,8 @@ const MYSQL_DDL = [
     title VARCHAR(200) NOT NULL, format ENUM('md','html') DEFAULT 'md',
     content LONGTEXT, status ENUM('active','trash') DEFAULT 'active',
     series_id VARCHAR(36) DEFAULT NULL, series_name VARCHAR(100) DEFAULT NULL,
+    cover_image TEXT, icon VARCHAR(16) DEFAULT NULL,
+    is_pinned TINYINT DEFAULT 0, color VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -259,9 +294,38 @@ const MYSQL_DDL = [
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // T2209: Bookmarks
+  `CREATE TABLE IF NOT EXISTS bookmarks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // D106: Settings key-value store
+  `CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    \`key\` VARCHAR(100) NOT NULL,
+    value TEXT NOT NULL,
+    UNIQUE KEY uk_user_key (user_id, \`key\`),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 const MYSQL_MIGRATIONS = [
+  // T2209: bookmarks table (if upgrading from older schema)
+  `CREATE TABLE IF NOT EXISTS bookmarks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   "ALTER TABLE blogs ADD COLUMN folder_id INT DEFAULT NULL",
   "ALTER TABLE blogs ADD COLUMN series_id VARCHAR(36) DEFAULT NULL",
   "ALTER TABLE blogs ADD COLUMN series_name VARCHAR(100) DEFAULT NULL",
@@ -273,13 +337,75 @@ const MYSQL_MIGRATIONS = [
   // T1801: MySQL FULLTEXT INDEX for full-text search
   "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)",
   "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)",
+  // Phase 21: Rebuild FULLTEXT indexes with ngram parser for CJK search.
+  // The original indexes (T1801) use the default parser which treats CJK
+  // as single tokens — "面试通关手册" indexed as one token, so searching
+  // "面试" never matches. ngram parser breaks into bigrams.
+  "ALTER TABLE blogs DROP INDEX ft_blogs",
+  "ALTER TABLE knowledge_files DROP INDEX ft_knowledge",
+  "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content) WITH PARSER ngram",
+  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text) WITH PARSER ngram",
   // T1906: notes +4 columns (title, memo_type, due_date, updated_at)
   "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
   "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
   "ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL",
   "ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
   // T2009: knowledge_files properties JSON column (R176)
-  "ALTER TABLE knowledge_files ADD COLUMN properties TEXT"
+  "ALTER TABLE knowledge_files ADD COLUMN properties TEXT",
+  // T2307: Whiteboards
+  `CREATE TABLE IF NOT EXISTS whiteboards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL DEFAULT '我的白板',
+    description TEXT,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS whiteboard_nodes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    whiteboard_id INT NOT NULL,
+    user_id INT NOT NULL,
+    node_type VARCHAR(20) NOT NULL DEFAULT 'idea',
+    ref_type VARCHAR(20),
+    ref_id INT,
+    title VARCHAR(500) NOT NULL DEFAULT '',
+    summary TEXT,
+    color VARCHAR(20) DEFAULT 'blue',
+    task_status VARCHAR(20) DEFAULT 'todo',
+    x DOUBLE NOT NULL DEFAULT 0,
+    y DOUBLE NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS whiteboard_edges (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    whiteboard_id INT NOT NULL,
+    source_node_id INT NOT NULL,
+    target_node_id INT NOT NULL,
+    edge_type VARCHAR(20) DEFAULT 'reference',
+    label VARCHAR(500) DEFAULT '',
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // D106: settings table
+  `CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    \`key\` VARCHAR(100) NOT NULL,
+    value TEXT NOT NULL,
+    UNIQUE KEY uk_user_key (user_id, \`key\`),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // T2103+T2108: blogs metadata columns (cover_image, icon, is_pinned, color)
+  "ALTER TABLE blogs ADD COLUMN cover_image TEXT",
+  "ALTER TABLE blogs ADD COLUMN icon VARCHAR(16) DEFAULT NULL",
+  "ALTER TABLE blogs ADD COLUMN is_pinned TINYINT NOT NULL DEFAULT 0",
+  "ALTER TABLE blogs ADD COLUMN color VARCHAR(20) DEFAULT NULL"
 ];
 let pool = null;
 function getMySQLConfig() {
@@ -305,7 +431,9 @@ async function initMySQL() {
     password: cfg.password,
     database: cfg.database,
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 10,
+    dateStrings: true
+    // Return DATE/DATETIME as strings, not Date objects. Prevents date format mismatch.
   });
   const conn = await pool.getConnection();
   try {
@@ -341,7 +469,7 @@ function toMySQL(sql) {
   }).replace(/datetime\('now'\)/g, "NOW()").replace(/date\('now'\)/gi, "CURDATE()").replace(/time\('now'\)/gi, "CURTIME()").replace(/strftime\('([^']+)',\s*([^)]+)\)/gi, (_m, fmt, expr) => {
     const mysqlFmt = fmt.replace(/%Y/g, "%Y").replace(/%m/g, "%m").replace(/%d/g, "%d").replace(/%H/g, "%H").replace(/%M/g, "%i").replace(/%S/g, "%s").replace(/%w/g, "%w").replace(/%j/g, "%j");
     return `DATE_FORMAT(${expr.trim()}, '${mysqlFmt}')`;
-  }).replace(/'now'/g, "NOW()").replace(/INSERT OR IGNORE INTO/gi, "INSERT IGNORE INTO");
+  }).replace(/'now'/g, "NOW()").replace(/INSERT OR IGNORE INTO/gi, "INSERT IGNORE INTO").replace(/INSERT OR REPLACE INTO/gi, "REPLACE INTO").replace(/last_insert_rowid\(\)/gi, "LAST_INSERT_ID()");
 }
 async function run$1(sql, params = []) {
   const p = getPool();
@@ -389,6 +517,10 @@ CREATE TABLE IF NOT EXISTS blogs (
   folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE SET NULL,
   series_id TEXT DEFAULT NULL,
   series_name TEXT DEFAULT NULL,
+  cover_image TEXT DEFAULT NULL,
+  icon TEXT DEFAULT NULL,
+  is_pinned INTEGER DEFAULT 0,
+  color TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -474,6 +606,62 @@ CREATE TABLE IF NOT EXISTS notes (
   due_date TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- T2209: Bookmarks
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- T2307: Whiteboards
+CREATE TABLE IF NOT EXISTS whiteboards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '我的白板',
+  description TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS whiteboard_nodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  node_type TEXT NOT NULL DEFAULT 'idea',
+  ref_type TEXT,
+  ref_id INTEGER,
+  title TEXT NOT NULL DEFAULT '',
+  summary TEXT DEFAULT '',
+  color TEXT DEFAULT 'blue',
+  task_status TEXT DEFAULT 'todo',
+  x REAL NOT NULL DEFAULT 0,
+  y REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS whiteboard_edges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE,
+  source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+  target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+  edge_type TEXT DEFAULT 'reference',
+  label TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- D106: Settings key-value store
+CREATE TABLE IF NOT EXISTS settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  UNIQUE(user_id, key)
 );
 
 -- Performance indexes
@@ -631,6 +819,55 @@ async function initDatabase() {
     sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'");
   } catch {
   }
+  try {
+    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN cover_image TEXT DEFAULT NULL");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN icon TEXT DEFAULT NULL");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN is_pinned INTEGER DEFAULT 0");
+  } catch {
+  }
+  try {
+    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN color TEXT DEFAULT NULL");
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_type TEXT NOT NULL,
+      target_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '我的白板', description TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_type TEXT NOT NULL DEFAULT 'idea', ref_type TEXT, ref_id INTEGER, title TEXT NOT NULL DEFAULT '', summary TEXT DEFAULT '', color TEXT DEFAULT 'blue', task_status TEXT DEFAULT 'todo', x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_edges (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, edge_type TEXT DEFAULT 'reference', label TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+  } catch {
+  }
+  try {
+    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      UNIQUE(user_id, key)
+    )`);
+  } catch {
+  }
   sqlJsSave();
   useMySQL = false;
   console.log("[DB] sql.js initialized at", sqlJsPath);
@@ -642,6 +879,10 @@ function run(sql, params = []) {
   if (!sqlJsDb) throw new Error("DB not initialized");
   sqlJsDb.run(sql, params);
   sqlJsSave();
+}
+async function runAsync(sql, params = []) {
+  if (useMySQL) return run$1(sql, params);
+  run(sql, params);
 }
 function get(sql, params = []) {
   if (useMySQL) throw new Error("MySQL requires async; use dbGet instead");
@@ -656,6 +897,10 @@ function get(sql, params = []) {
   stmt.free();
   return void 0;
 }
+async function getAsync(sql, params = []) {
+  if (useMySQL) return get$1(sql, params);
+  return get(sql, params);
+}
 function all(sql, params = []) {
   if (useMySQL) throw new Error("MySQL requires async; use dbAll instead");
   if (!sqlJsDb) throw new Error("DB not initialized");
@@ -665,6 +910,10 @@ function all(sql, params = []) {
   while (stmt.step()) rows.push(stmt.getAsObject());
   stmt.free();
   return rows;
+}
+async function allAsync(sql, params = []) {
+  if (useMySQL) return all$1(sql, params);
+  return all(sql, params);
 }
 async function dbGet(sql, params = []) {
   if (useMySQL) return get$1(sql, params);
@@ -680,6 +929,9 @@ async function dbRun(sql, params = []) {
     return;
   }
   run(sql, params);
+}
+function saveToDisk() {
+  if (!useMySQL) sqlJsSaveNow();
 }
 function closeDatabase() {
   if (useMySQL) {
@@ -741,8 +993,8 @@ async function migrateSqlJsToMySQL() {
     const blogs = sqlJsQuery(oldDb, "SELECT * FROM blogs");
     for (const b of blogs) {
       await run$1(
-        "INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        [b.id, b.user_id, b.title, b.content ?? "", b.format, b.status, b.folder_id ?? null, b.series_id ?? null, b.series_name ?? null, b.created_at, b.updated_at]
+        "INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, cover_image, icon, is_pinned, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [b.id, b.user_id, b.title, b.content ?? "", b.format, b.status, b.folder_id ?? null, b.series_id ?? null, b.series_name ?? null, b.cover_image ?? null, b.icon ?? null, b.is_pinned ?? 0, b.color ?? null, b.created_at, b.updated_at]
       );
     }
     const tags = sqlJsQuery(oldDb, "SELECT * FROM tags");
@@ -830,6 +1082,26 @@ async function migrateSqlJsToMySQL() {
       }
     } catch {
     }
+    try {
+      const bookmarks = sqlJsQuery(oldDb, "SELECT * FROM bookmarks");
+      for (const bm of bookmarks) {
+        await run$1(
+          "INSERT INTO bookmarks (id, user_id, target_type, target_id, title, created_at) VALUES (?,?,?,?,?,?)",
+          [bm.id, bm.user_id, bm.target_type, bm.target_id, bm.title, bm.created_at]
+        );
+      }
+    } catch {
+    }
+    try {
+      const settings = sqlJsQuery(oldDb, "SELECT * FROM settings");
+      for (const s of settings) {
+        await run$1(
+          "INSERT INTO settings (id, user_id, `key`, value) VALUES (?,?,?,?)",
+          [s.id, s.user_id, s.key, s.value]
+        );
+      }
+    } catch {
+    }
     oldDb.close();
     console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);
   } catch (err) {
@@ -843,18 +1115,137 @@ function sqlJsQuery(db, sql) {
   stmt.free();
   return rows;
 }
+function lastInsertRowId() {
+  if (!sqlJsDb) return 0;
+  const result = sqlJsDb.exec("SELECT last_insert_rowid() as id");
+  if (result.length > 0 && (result[0]?.values?.length ?? 0) > 0) {
+    return result[0].values[0][0];
+  }
+  return 0;
+}
 const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   all,
+  allAsync,
   closeDatabase,
   dbAll,
   dbGet,
   dbRun,
   get,
+  getAsync,
   initDatabase,
   isUsingMySQL,
-  run
+  lastInsertRowId,
+  run,
+  runAsync,
+  saveToDisk
 }, Symbol.toStringTag, { value: "Module" }));
+function buildSystemPrompt(context) {
+  const base = "你是 Local Blog KB 的 AI 助手。你可以访问用户的知识库内容来回答问题。请用中文回复，保持简洁、有帮助。";
+  if (context) {
+    return `${base}
+
+以下是用户知识库中与问题相关的内容：
+
+${context}
+
+请基于以上内容回答用户的问题。如果引用了特定文档，请在回答中标注来源。`;
+  }
+  return base;
+}
+async function callOpenAiCompatible(config, messages, context) {
+  const systemMsg = { role: "system", content: buildSystemPrompt(context) };
+  const allMessages = [systemMsg, ...messages.filter((m) => m.role !== "system")];
+  const resp = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${config.apiKey}`
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: allMessages,
+      temperature: 0.7,
+      max_tokens: 2e3
+    }),
+    signal: AbortSignal.timeout(3e4)
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`AI API 错误 (${resp.status}): ${errText.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || "(空响应)";
+}
+async function callAnthropic(config, messages, context) {
+  const systemParts = [buildSystemPrompt(context)];
+  const userMessages = messages.filter((m) => m.role === "user").map((m) => m.content);
+  const lastUserMsg = userMessages[userMessages.length - 1] || "";
+  const resp = await fetch(`${config.baseUrl}/v1/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": config.apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: config.model,
+      system: systemParts.join("\n\n"),
+      messages: [{ role: "user", content: lastUserMsg }],
+      max_tokens: 2e3
+    }),
+    signal: AbortSignal.timeout(3e4)
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`AI API 错误 (${resp.status}): ${errText.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  return data.content?.map((b) => b.text || "").join("") || "(空响应)";
+}
+class AiService {
+  static async chat(config, request) {
+    if (!config.apiKey) throw new Error("AI 未配置: 请在设置中填写 API Key");
+    const { messages, context } = request;
+    if (config.provider === "anthropic") {
+      return callAnthropic(config, messages, context);
+    }
+    return callOpenAiCompatible(config, messages, context);
+  }
+  static async suggestTags(config, request, existingTags) {
+    if (!config.apiKey) throw new Error("AI 未配置");
+    const existingStr = existingTags.length > 0 ? `
+现有标签: ${existingTags.join(", ")}。请优先从现有标签中选择，必要时建议新标签。` : "";
+    const prompt = `根据以下博客内容，建议 3-5 个标签。只返回标签名，用逗号分隔，不要解释。
+
+标题: ${request.title}
+
+内容: ${request.content.slice(0, 1e3)}${existingStr}`;
+    const raw = await callOpenAiCompatible(
+      config,
+      [{ role: "user", content: prompt }]
+    );
+    return raw.split(/[,，]/).map((t) => t.trim().replace(/^["'「」]/g, "").replace(/["'「」]$/g, "")).filter((t) => t.length > 0 && t.length < 50).slice(0, 5);
+  }
+}
+function registerAiHandlers() {
+  electron.ipcMain.handle(IPC.AI_CHAT, async (_event, data) => {
+    try {
+      const content = await AiService.chat(data.settings, data.request);
+      return { success: true, data: { content } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.AI_TAG_SUGGEST, async (_event, data) => {
+    try {
+      const tags = await AiService.suggestTags(data.settings, data.request, data.existingTags || []);
+      return { success: true, data: { tags } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
 const DIR_BLOGS = "Blogs";
 const DIR_KNOWLEDGE_BASE = "KnowledgeBase";
 const DIR_ASSETS = "Assets";
@@ -1142,6 +1533,22 @@ class StatsService {
       [userId]
     );
     const { currentStreak, longestStreak } = calcStreak(allDates.map((r) => r.d));
+    const noteRow = await dbGet(
+      "SELECT COUNT(*) as total FROM notes WHERE user_id = ?",
+      [userId]
+    );
+    const seriesRow = await dbGet(
+      "SELECT COUNT(DISTINCT series_id) as total FROM blogs WHERE user_id = ? AND series_id IS NOT NULL AND series_id != ''",
+      [userId]
+    );
+    const bookmarkRow = await dbGet(
+      "SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ?",
+      [userId]
+    );
+    const wbRow = await dbGet(
+      "SELECT COUNT(*) as total FROM whiteboards WHERE user_id = ?",
+      [userId]
+    );
     return {
       totalBlogs: blogRow?.total || 0,
       totalWords: blogRow?.words || 0,
@@ -1150,6 +1557,10 @@ class StatsService {
       currentStreak,
       longestStreak,
       uniqueTags: tagRow?.unique || 0,
+      totalNotes: noteRow?.total || 0,
+      totalSeries: seriesRow?.total || 0,
+      totalBookmarks: bookmarkRow?.total || 0,
+      totalWhiteboards: wbRow?.total || 0,
       hasMdBlog: (blogRow?.mdCount || 0) > 0,
       hasHtmlBlog: (blogRow?.htmlCount || 0) > 0,
       hasNightBlog: nightCount > 0,
@@ -1220,7 +1631,7 @@ async function createShortcut() {
   const shortcutPath = getShortcutPath();
   const projectRoot = getProjectRoot();
   const launcherBatPath = path.join(electron.app.getPath("userData"), "launcher.bat");
-  const packagedExe = path.join(projectRoot, "release", "LocalBlogKB-win32-x64", "LocalBlogKB.exe");
+  const packagedExe = path.join(projectRoot, "release", "Idiot-win32-x64", "Idiot.exe");
   let batContent;
   let workingDir;
   if (fs.existsSync(packagedExe)) {
@@ -1238,17 +1649,22 @@ start "" npm run dev\r
     workingDir = projectRoot;
   }
   fs.writeFileSync(launcherBatPath, batContent, "utf-8");
-  const targetPath = launcherBatPath;
-  const psCmd = `
-    $ws = New-Object -ComObject WScript.Shell;
-    $sc = $ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');
-    $sc.TargetPath = '${targetPath.replace(/'/g, "''")}';
-    $sc.WorkingDirectory = '${workingDir.replace(/'/g, "''")}';
-    $sc.Save();
-    Write-Output 'OK';
-  `;
+  const ps1Path = path.join(electron.app.getPath("userData"), "lbkb-shortcut.ps1");
+  const psScript = [
+    `$ws = New-Object -ComObject WScript.Shell`,
+    `$sc = $ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}')`,
+    `$sc.TargetPath = '${launcherBatPath.replace(/'/g, "''")}'`,
+    `$sc.WorkingDirectory = '${workingDir.replace(/'/g, "''")}'`,
+    `$sc.Save()`,
+    `Write-Output 'OK'`
+  ].join("\n");
+  fs.writeFileSync(ps1Path, psScript, "utf-8");
   return new Promise((resolve) => {
-    node_child_process.exec(`powershell -NoProfile -Command "${psCmd.replace(/"/g, '\\"')}"`, (err, stdout) => {
+    node_child_process.exec(`powershell -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"`, (err, stdout) => {
+      try {
+        fs.unlinkSync(ps1Path);
+      } catch {
+      }
       resolve(!err && stdout.includes("OK"));
     });
   });
@@ -1274,7 +1690,8 @@ function registerAppHandlers() {
   });
   electron.ipcMain.handle(IPC.APP_SET_AUTO_START, async (_event, enabled) => {
     try {
-      if (electron.app.isPackaged) {
+      const portableExe = path.join(getProjectRoot(), "release", "Idiot-win32-x64", "Idiot.exe");
+      if (electron.app.isPackaged || fs.existsSync(portableExe)) {
         electron.app.setLoginItemSettings({ openAtLogin: enabled });
       } else {
         const startupDir = getStartupDir();
@@ -1299,7 +1716,8 @@ start "" npm run dev\r
   electron.ipcMain.handle(IPC.APP_GET_AUTO_START, async () => {
     try {
       let enabled;
-      if (electron.app.isPackaged) {
+      const portableExe = path.join(getProjectRoot(), "release", "Idiot-win32-x64", "Idiot.exe");
+      if (electron.app.isPackaged || fs.existsSync(portableExe)) {
         const settings = electron.app.getLoginItemSettings();
         enabled = settings.openAtLogin;
       } else {
@@ -1346,9 +1764,10 @@ start "" npm run dev\r
     try {
       const backupDir = BackupService.getBackupDir();
       const dbPath = BackupService.getDbPath();
-      const backupPath = path.join(backupDir, filename);
+      const safeFilename = path.basename(filename);
+      const backupPath = path.join(backupDir, safeFilename);
       if (!fs.existsSync(backupPath)) return { success: false, error: "备份文件不存在" };
-      const safetyName = `${filename}.pre-restore`;
+      const safetyName = `${safeFilename}.pre-restore`;
       try {
         fs.copyFileSync(dbPath, path.join(backupDir, safetyName));
       } catch {
@@ -1362,7 +1781,8 @@ start "" npm run dev\r
   electron.ipcMain.handle(IPC.BACKUP_DELETE, async (_event, filename) => {
     try {
       const backupDir = BackupService.getBackupDir();
-      const backupPath = path.join(backupDir, filename);
+      const safeFilename = path.basename(filename);
+      const backupPath = path.join(backupDir, safeFilename);
       if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
       return { success: true };
     } catch (err) {
@@ -1398,11 +1818,56 @@ start "" npm run dev\r
       return { success: false, error: err.message };
     }
   });
+  electron.ipcMain.handle(IPC.CLIPBOARD_HISTORY, async () => {
+    const { getClipboardHistory, getHistoryLength } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    const data = getClipboardHistory();
+    console.log("[Clipboard IPC] history requested, count:", getHistoryLength(), "masked:", data.length);
+    return { success: true, data };
+  });
+  electron.ipcMain.handle(IPC.CLIPBOARD_CLEAR, async () => {
+    const { clearClipboardHistory } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    clearClipboardHistory();
+    return { success: true };
+  });
+  electron.ipcMain.handle(IPC.BG_IMAGE_READ, async (_event, data) => {
+    try {
+      const resolved = path.resolve(data.filePath);
+      if (path.normalize(data.filePath).includes("..")) {
+        return { success: false, error: "路径包含非法字符" };
+      }
+      const ext = path.extname(resolved).replace(".", "") || "png";
+      if (!["png", "jpg", "jpeg", "webp"].includes(ext)) {
+        return { success: false, error: "不支持的文件类型" };
+      }
+      const buf = fs.readFileSync(resolved);
+      const mime = ext === "jpg" ? "jpeg" : ext;
+      const b64 = buf.toString("base64");
+      return { success: true, data: `data:image/${mime};base64,${b64}` };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.CLIPBOARD_TOGGLE, async (_event, data) => {
+    const { startClipboardMonitor, stopClipboardMonitor, setClipboardUserId } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    if (data.userId) setClipboardUserId(data.userId);
+    if (data.enable) await startClipboardMonitor();
+    else stopClipboardMonitor();
+    return { success: true };
+  });
+  electron.ipcMain.handle(IPC.CLIPBOARD_STATUS, async () => {
+    const { isClipboardMonitorRunning } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    return { success: true, data: isClipboardMonitorRunning() };
+  });
 }
 function toMySQLDateTime(date = /* @__PURE__ */ new Date()) {
   return date.toISOString().replace("T", " ").slice(0, 19);
 }
 const nowMySQL = () => toMySQLDateTime();
+const datetime = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  nowMySQL,
+  toMySQLDateTime
+}, Symbol.toStringTag, { value: "Module" }));
 const TOKEN_BYTES = 48;
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -1725,7 +2190,7 @@ function ensureMiniPreload() {
 }
 let miniNoteWin = null;
 let miniScrapeWin = null;
-function showQuickNote() {
+function showQuickNote$1() {
   if (miniNoteWin && !miniNoteWin.isDestroyed()) {
     miniNoteWin.focus();
     return;
@@ -2102,7 +2567,7 @@ async function handleClipboardNote() {
 }
 function petMenu() {
   return electron.Menu.buildFromTemplate([
-    { label: "📝 快速便签", click: () => showQuickNote() },
+    { label: "📝 快速便签", click: () => showQuickNote$1() },
     { label: "📄 新建博客", click: () => showStandaloneEditor() },
     { label: "📥 导入 MD", click: () => handleImportMd() },
     { label: "📎 导入文件", click: () => handleImportFile() },
@@ -2202,7 +2667,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
   petWin.once("ready-to-show", () => petWin?.show());
   registerPetIpc();
   setPetActions({
-    "quick-note": showQuickNote,
+    "quick-note": showQuickNote$1,
     "md-float": showMdFloatWindow,
     "new-blog": showStandaloneEditor,
     "import-md": handleImportMd,
@@ -2223,7 +2688,7 @@ function showManualCollect() {
 function initPetActions() {
   registerPetIpc();
   setPetActions({
-    "quick-note": showQuickNote,
+    "quick-note": showQuickNote$1,
     "md-float": showMdFloatWindow,
     "new-blog": showStandaloneEditor,
     "import-md": handleImportMd,
@@ -2430,6 +2895,10 @@ function mapBlogRow(row) {
     seriesId: row.series_id,
     seriesName: row.series_name,
     folderId: row.folder_id,
+    coverImage: row.cover_image,
+    icon: row.icon,
+    isPinned: row.is_pinned,
+    color: row.color,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -2794,14 +3263,14 @@ const blog_service = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.define
   __proto__: null,
   BlogService
 }, Symbol.toStringTag, { value: "Module" }));
-async function syncWikilinkRefs(sourceType, sourceId, newContent, oldContent) {
+async function syncWikilinkRefs(sourceType, sourceId, newContent, userId, oldContent) {
   const newHtmlRefs = extractWikilinkRefs(newContent, sourceType, sourceId);
   const newTitles = extractWikilinkTitles(newContent);
-  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId);
+  const newTextRefs = await resolveTitles(newTitles, sourceType, sourceId, userId);
   const newRefs = [...newHtmlRefs, ...newTextRefs];
   const oldHtmlRefs = oldContent ? extractWikilinkRefs(oldContent, sourceType, sourceId) : [];
   const oldTitles = oldContent ? extractWikilinkTitles(oldContent) : [];
-  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId) : [];
+  const oldTextRefs = oldContent ? await resolveTitles(oldTitles, sourceType, sourceId, userId) : [];
   const oldRefs = [...oldHtmlRefs, ...oldTextRefs];
   const newSet = new Set(newRefs.map((r) => `${r.targetType}:${r.targetId}`));
   const oldSet = new Set(oldRefs.map((r) => `${r.targetType}:${r.targetId}`));
@@ -2836,26 +3305,27 @@ async function syncWikilinkRefs(sourceType, sourceId, newContent, oldContent) {
     throw e;
   }
 }
-async function resolveTitles(titles, sourceType, sourceId) {
+async function resolveTitles(titles, sourceType, sourceId, userId) {
   if (titles.length === 0) return [];
   const refs = [];
+  const placeholders = titles.map(() => "?").join(",");
   const blogs = await dbAll(
-    `SELECT id, title FROM blogs WHERE title IN (${titles.map(() => "?").join(",")}) AND status = 'active'`,
-    titles
+    `SELECT id, title FROM blogs WHERE title IN (${placeholders}) AND status = 'active' AND user_id = ?`,
+    [...titles, userId]
   );
   for (const b of blogs) {
     refs.push({ sourceType, sourceId, targetType: "blog", targetId: b.id });
   }
   const kfs = await dbAll(
-    `SELECT id, filename FROM knowledge_files WHERE filename IN (${titles.map(() => "?").join(",")}) AND status = 'active'`,
-    titles
+    `SELECT id, filename FROM knowledge_files WHERE filename IN (${placeholders}) AND status = 'active' AND user_id = ?`,
+    [...titles, userId]
   );
   for (const k of kfs) {
     refs.push({ sourceType, sourceId, targetType: "knowledge", targetId: k.id });
   }
   const notes = await dbAll(
-    `SELECT id, title FROM notes WHERE title IN (${titles.map(() => "?").join(",")})`,
-    titles
+    `SELECT id, title FROM notes WHERE title IN (${placeholders}) AND user_id = ?`,
+    [...titles, userId]
   );
   for (const n of notes) {
     refs.push({ sourceType, sourceId, targetType: "note", targetId: n.id });
@@ -2896,7 +3366,7 @@ function registerBlogHandlers() {
     async (_event, data) => {
       try {
         const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
-        if (data.content) await syncWikilinkRefs("blog", blog.id, data.content);
+        if (data.content) await syncWikilinkRefs("blog", blog.id, data.content, data.userId);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
       } catch (err) {
@@ -2912,7 +3382,7 @@ function registerBlogHandlers() {
         oldContent = old?.content;
       }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
-      if (data.content) await syncWikilinkRefs("blog", data.blogId, data.content, oldContent);
+      if (data.content) await syncWikilinkRefs("blog", data.blogId, data.content, data.userId, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
     } catch (err) {
@@ -2978,6 +3448,22 @@ function registerBlogHandlers() {
   electron.ipcMain.handle(IPC.BLOG_ROLLBACK, async (_event, data) => {
     try {
       await BlogService.rollback(data.userId, data.blogId, data.draftId);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.BLOG_SET_PINNED, async (_event, data) => {
+    try {
+      await dbRun("UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.isPinned, nowMySQL(), data.id, data.userId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.BLOG_SET_COLOR, async (_event, data) => {
+    try {
+      await dbRun("UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.color, nowMySQL(), data.id, data.userId]);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3051,7 +3537,10 @@ function registerBlogHandlers() {
         const MarkdownIt = (await import("markdown-it")).default;
         const md = new MarkdownIt({ html: false, linkify: true });
         bodyHtml = md.render(bodyHtml);
+      } else {
+        bodyHtml = bodyHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "").replace(/\son\w+\s*=\s*"[^"]*"/gi, "").replace(/\son\w+\s*=\s*'[^']*'/gi, "").replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
       }
+      const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         :root {
           --text-primary: #2c2c2c; --text-secondary: #666; --text-muted: #999;
@@ -3075,8 +3564,8 @@ function registerBlogHandlers() {
         hr{border:none;border-top:1px solid #e5e7eb;margin:24px 0}
         .footer{margin-top:48px;padding-top:16px;border-top:1px solid #eee;color:#aaa;font-size:12px}
       </style></head><body>
-        <h1>${blog.title}</h1>
-        <p style="color:#888;font-size:14px">${blog.createdAt}</p>
+        <h1>${esc(blog.title)}</h1>
+        <p style="color:#888;font-size:14px">${esc(blog.createdAt)}</p>
         ${bodyHtml}
         <div class="footer">由 Local Blog KB 导出</div>
       </body></html>`;
@@ -3108,7 +3597,7 @@ function registerBlogHandlers() {
   electron.ipcMain.handle(IPC.BLOG_QUICK_CREATE, async (_event, data) => {
     try {
       const blog = await BlogService.quickCreate(data.userId, data.title, data.content);
-      if (data.content) await syncWikilinkRefs("blog", blog.id, data.content);
+      if (data.content) await syncWikilinkRefs("blog", blog.id, data.content, data.userId);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true, data: blog };
     } catch (err) {
@@ -3243,6 +3732,59 @@ function registerBlogHandlers() {
       const buffer = await Packer.toBuffer(doc);
       fs.writeFileSync(filePath, buffer);
       return { success: true, data: { path: filePath } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
+function registerBookmarkHandlers() {
+  electron.ipcMain.handle(IPC.BOOKMARK_ADD, async (_event, data) => {
+    try {
+      const existing = await dbGet(
+        "SELECT id FROM bookmarks WHERE user_id = ? AND target_type = ? AND target_id = ?",
+        [data.userId, data.targetType, data.targetId]
+      );
+      if (existing) {
+        return { success: true, data: { id: existing.id } };
+      }
+      const now = nowMySQL();
+      await dbRun(
+        "INSERT INTO bookmarks (user_id, target_type, target_id, title, created_at) VALUES (?, ?, ?, ?, ?)",
+        [data.userId, data.targetType, data.targetId, data.title, now]
+      );
+      const row = await dbGet("SELECT last_insert_rowid() as id");
+      return { success: true, data: { id: row?.id ?? 0 } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.BOOKMARK_REMOVE, async (_event, data) => {
+    try {
+      await dbRun(
+        "DELETE FROM bookmarks WHERE user_id = ? AND target_type = ? AND target_id = ?",
+        [data.userId, data.targetType, data.targetId]
+      );
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.BOOKMARK_LIST, async (_event, userId) => {
+    try {
+      const rows = await dbAll(
+        "SELECT id, target_type, target_id, title, created_at FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC",
+        [userId]
+      );
+      return {
+        success: true,
+        data: rows.map((r) => ({
+          id: r.id,
+          targetType: r.target_type,
+          targetId: r.target_id,
+          title: r.title,
+          createdAt: r.created_at
+        }))
+      };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -3445,6 +3987,9 @@ function registerFolderHandlers() {
 function registerGraphHandlers() {
   electron.ipcMain.handle(IPC.GRAPH_GET_DATA, async (_event, userId, filter) => {
     try {
+      if (filter?.scope === "local" && filter?.centerId) {
+        return await getLocalGraph(userId, filter.centerId);
+      }
       const maxNodes = filter?.maxNodes ?? 100;
       const types = filter?.types ?? ["blog", "knowledge", "tag", "note"];
       const nodes = [];
@@ -3522,6 +4067,99 @@ function registerGraphHandlers() {
       return { success: false, error: err.message };
     }
   });
+}
+async function getLocalGraph(userId, centerId) {
+  const parts = centerId.split("-");
+  const srcType = parts[0];
+  const srcId = Number(parts[1]);
+  if (!srcType || !srcId || Number.isNaN(srcId)) {
+    return { success: false, error: 'Invalid centerId format. Expected "type-id"' };
+  }
+  const nodes = [];
+  const edges = [];
+  const nodeIds = /* @__PURE__ */ new Set();
+  nodeIds.add(centerId);
+  if (srcType === "blog") {
+    const row = await dbAll("SELECT id, title FROM blogs WHERE id = ? AND user_id = ?", [srcId, userId]);
+    if (row[0]) {
+      nodes.push({ id: centerId, label: row[0].title, type: "blog" });
+      row[0].title;
+    }
+  } else if (srcType === "knowledge") {
+    const row = await dbAll("SELECT id, filename FROM knowledge_files WHERE id = ? AND user_id = ?", [srcId, userId]);
+    if (row[0]) {
+      nodes.push({ id: centerId, label: row[0].filename, type: "knowledge" });
+      row[0].filename;
+    }
+  } else if (srcType === "note") {
+    const row = await dbAll("SELECT id, title FROM notes WHERE id = ? AND user_id = ?", [srcId, userId]);
+    if (row[0]) {
+      nodes.push({ id: centerId, label: row[0].title || "(便签)", type: "note" });
+      row[0].title || "";
+    }
+  }
+  if (nodes.length === 0) return { success: true, data: { nodes: [], edges: [] } };
+  const refs = await dbAll(
+    `SELECT source_type, source_id, target_type, target_id FROM refs
+     WHERE (source_type = ? AND source_id = ?) OR (target_type = ? AND target_id = ?)
+     LIMIT 50`,
+    [srcType, srcId, srcType, srcId]
+  );
+  for (const r of refs) {
+    const srcNodeId = `${r.source_type}-${r.source_id}`;
+    const tgtNodeId = `${r.target_type}-${r.target_id}`;
+    edges.push({ source: srcNodeId, target: tgtNodeId, type: "ref" });
+    if (!nodeIds.has(srcNodeId)) {
+      nodeIds.add(srcNodeId);
+      const label = await resolveNodeLabel(r.source_type, r.source_id, userId);
+      nodes.push({ id: srcNodeId, label, type: r.source_type });
+    }
+    if (!nodeIds.has(tgtNodeId)) {
+      nodeIds.add(tgtNodeId);
+      const label = await resolveNodeLabel(r.target_type, r.target_id, userId);
+      nodes.push({ id: tgtNodeId, label, type: r.target_type });
+    }
+  }
+  const tagEdges = await getTagEdgesForNode(srcType, srcId, userId);
+  for (const te of tagEdges) {
+    const tagNodeId = `tag-${te.tagId}`;
+    edges.push({ source: centerId, target: tagNodeId, type: "tag" });
+    if (!nodeIds.has(tagNodeId)) {
+      nodeIds.add(tagNodeId);
+      nodes.push({ id: tagNodeId, label: `#${te.name}`, type: "tag" });
+    }
+  }
+  return { success: true, data: { nodes, edges } };
+}
+async function resolveNodeLabel(type, id, userId) {
+  if (type === "blog") {
+    const rows = await dbAll("SELECT title FROM blogs WHERE id = ? AND user_id = ?", [id, userId]);
+    return rows[0]?.title ?? `Blog #${id}`;
+  }
+  if (type === "knowledge") {
+    const rows = await dbAll("SELECT filename FROM knowledge_files WHERE id = ? AND user_id = ?", [id, userId]);
+    return rows[0]?.filename ?? `File #${id}`;
+  }
+  if (type === "note") {
+    const rows = await dbAll("SELECT title FROM notes WHERE id = ? AND user_id = ?", [id, userId]);
+    return rows[0]?.title ?? `Note #${id}`;
+  }
+  return `${type} #${id}`;
+}
+async function getTagEdgesForNode(srcType, srcId, userId) {
+  if (srcType === "blog") {
+    return dbAll(
+      "SELECT t.id as tagId, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ? AND t.user_id = ?",
+      [srcId, userId]
+    );
+  }
+  if (srcType === "knowledge") {
+    return dbAll(
+      "SELECT t.id as tagId, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ? AND t.user_id = ?",
+      [srcId, userId]
+    );
+  }
+  return [];
 }
 function buildKnowledgeSelect(id) {
   return { sql: "SELECT * FROM knowledge_files WHERE id = ?", params: [id] };
@@ -3601,6 +4239,11 @@ class KnowledgeService {
       const originalName = path.basename(srcPath);
       const fileType = KnowledgeService.detectFileType(ext);
       const stat = fs.statSync(srcPath);
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
+      if (stat.size > MAX_FILE_SIZE) {
+        console.warn(`[Knowledge] Skipping large file (${(stat.size / 1024 / 1024).toFixed(1)}MB): ${originalName}`);
+        continue;
+      }
       let destPath;
       if (copyToWorkspace) {
         let destName = originalName;
@@ -3794,6 +4437,8 @@ class PreviewService {
         case ".xlsx":
         case ".xls":
           return await withTimeout(PreviewService.previewXlsx(filePath), 3e4, "XLSX");
+        case ".csv":
+          return PreviewService.previewCsv(filePath);
         case ".pdf":
           return await withTimeout(PreviewService.previewPdf(filePath), 3e4, "PDF");
         case ".txt":
@@ -3830,44 +4475,196 @@ class PreviewService {
   static async openExternal(filePath) {
     await electron.shell.openPath(filePath);
   }
+  // ---- Shared interactive table helpers (T2112) ----
+  static escHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  /** Reusable sort+filter JS for XLSX/CSV table previews */
+  static sortFilterJS() {
+    return `
+      function filterTable(tableId, query) {
+        const rows = document.getElementById(tableId).querySelectorAll('tbody tr');
+        const q = query.toLowerCase();
+        rows.forEach(r => { r.style.display = q ? (r.textContent.toLowerCase().includes(q) ? '' : 'none') : ''; });
+      }
+      function sortTable(tableId, colIdx) {
+        const table = document.getElementById(tableId);
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const arrows = table.querySelectorAll('.sort-arrow');
+        arrows.forEach(a => a.textContent = '');
+        const arrow = table.querySelectorAll('th')[colIdx].querySelector('.sort-arrow');
+        const asc = table.dataset.sortDir !== 'asc';
+        rows.sort((a, b) => {
+          const va = a.children[colIdx]?.textContent || '';
+          const vb = b.children[colIdx]?.textContent || '';
+          const na = parseFloat(va), nb = parseFloat(vb);
+          if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+          return asc ? va.localeCompare(vb, 'zh-CN') : vb.localeCompare(va, 'zh-CN');
+        });
+        rows.forEach(r => tbody.appendChild(r));
+        arrow.textContent = asc ? ' ▲' : ' ▼';
+        table.dataset.sortDir = asc ? 'asc' : 'desc';
+      }`;
+  }
   // ---- Internal converters ----
   static async previewDocx(filePath) {
     const buffer = fs.readFileSync(filePath);
-    const result = await mammoth.convertToHtml({ buffer });
+    const result = await mammoth.convertToHtml({
+      buffer,
+      styleMap: [
+        "p[style-name='Heading 1'] => h1:fresh",
+        "p[style-name='Heading 2'] => h2:fresh",
+        "p[style-name='Heading 3'] => h3:fresh",
+        "r[style-name='Strong'] => strong",
+        "r[style-name='Emphasis'] => em"
+      ]
+    });
+    const sanitized = result.value.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "").replace(/\son\w+\s*=\s*"[^"]*"/gi, "").replace(/\son\w+\s*=\s*'[^']*'/gi, "").replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
     return {
       html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; line-height: 1.8; max-width: 800px; margin: 0 auto; color: #333; }
-        h1,h2,h3 { color: #1f4e79; }
-        table { border-collapse: collapse; width: 100%; }
-        td,th { border: 1px solid #ddd; padding: 8px; }
-        img { max-width: 100%; }
-      </style></head><body>${result.value}</body></html>`
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 24px; line-height: 1.9; max-width: 820px; margin: 0 auto; color: #2c2c2c; }
+        h1 { font-size: 26px; color: #1a3a5c; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; margin-top: 28px; }
+        h2 { font-size: 20px; color: #1f4e79; margin-top: 22px; }
+        h3 { font-size: 17px; color: #2c5f8a; margin-top: 18px; }
+        p { margin: 10px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13px; }
+        td,th { border: 1px solid #d0d0d0; padding: 8px 12px; text-align: left; }
+        th { background: #f0f4f8; font-weight: 600; }
+        img { max-width: 100%; height: auto; border-radius: 4px; margin: 12px 0; }
+        blockquote { border-left: 3px solid #1f4e79; padding: 4px 16px; margin: 16px 0; color: #555; background: #f8fafc; }
+        ul,ol { padding-left: 24px; } li { margin: 4px 0; }
+      </style></head><body>${sanitized}</body></html>`
     };
   }
   static async previewXlsx(filePath) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
-    const sheets = workbook.worksheets.map((sheet) => {
-      let tableHtml = `<h3>${sheet.name}</h3><table>`;
-      sheet.eachRow((row) => {
+    const sheetTabs = [];
+    const sheetContents = [];
+    workbook.worksheets.forEach((sheet, idx) => {
+      const sheetId = `sheet-${idx}`;
+      const safeName = PreviewService.escHtml(sheet.name);
+      sheetTabs.push(
+        `<button class="sheet-tab${idx === 0 ? " active" : ""}" onclick="switchSheet('${sheetId}', this)">${safeName}</button>`
+      );
+      let tableHtml = `<div class="sheet-content" id="${sheetId}" style="display:${idx === 0 ? "block" : "none"}">`;
+      tableHtml += `<div class="sheet-search"><input type="text" placeholder="过滤 ${safeName}..." oninput="filterTable('${sheetId}-table', this.value)" /></div>`;
+      tableHtml += `<div class="table-wrap"><table id="${sheetId}-table"><thead><tr>`;
+      const firstRow = sheet.getRow(1);
+      firstRow.eachCell((cell) => {
+        const val = PreviewService.escHtml(cell.value?.toString() || "");
+        tableHtml += `<th onclick="sortTable('${sheetId}-table', this.cellIndex)">${val} <span class="sort-arrow"></span></th>`;
+      });
+      tableHtml += "</tr></thead><tbody>";
+      sheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
         tableHtml += "<tr>";
         row.eachCell((cell) => {
-          const val = cell.value?.toString() || "";
-          tableHtml += `<td>${val}</td>`;
+          const val = PreviewService.escHtml(cell.value?.toString() || "");
+          tableHtml += `<td>${val || "&nbsp;"}</td>`;
         });
         tableHtml += "</tr>";
       });
-      tableHtml += "</table>";
-      return tableHtml;
+      tableHtml += "</tbody></table></div></div>";
+      sheetContents.push(tableHtml);
     });
+    const sheetSwitchJS = `
+      function switchSheet(id, btn) {
+        document.querySelectorAll('.sheet-content').forEach(s => s.style.display = 'none');
+        document.querySelectorAll('.sheet-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).style.display = 'block';
+        btn.classList.add('active');
+      }`;
     return {
       html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; color: #333; }
-        h3 { color: #1f4e79; margin-top: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; font-size: 13px; }
-        td,th { border: 1px solid #ddd; padding: 6px 10px; }
-        tr:nth-child(even) { background: #f9f9f9; }
-      </style></head><body>${sheets.join("")}</body></html>`
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 16px; color: #333; background: #fafafa; }
+        .sheet-tabs { display: flex; gap: 2px; margin-bottom: 12px; flex-wrap: wrap; }
+        .sheet-tab { padding: 6px 16px; border: 1px solid #d0d0d0; border-bottom: none; border-radius: 6px 6px 0 0; background: #eee; cursor: pointer; font-size: 13px; transition: background 0.15s; }
+        .sheet-tab.active { background: #fff; font-weight: 600; color: #1f4e79; }
+        .sheet-tab:hover { background: #e0e0e0; }
+        .sheet-search { margin-bottom: 8px; }
+        .sheet-search input { width: 100%; max-width: 300px; padding: 6px 10px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 13px; outline: none; }
+        .sheet-search input:focus { border-color: #1f4e79; }
+        .table-wrap { overflow-x: auto; border-radius: 6px; border: 1px solid #e0e0e0; }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; background: #fff; }
+        th { background: #f0f4f8; font-weight: 600; padding: 8px 12px; border-bottom: 2px solid #d0d0d0; cursor: pointer; white-space: nowrap; user-select: none; }
+        th:hover { background: #e0e8f0; }
+        td { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; }
+        tr:nth-child(even) td { background: #fafbfc; }
+        tr:hover td { background: #f0f4f8; }
+        .sort-arrow { font-size: 10px; color: #999; }
+      </style></head><body>
+        <div class="sheet-tabs">${sheetTabs.join("")}</div>
+        ${sheetContents.join("")}
+        <script>${sheetSwitchJS}${PreviewService.sortFilterJS()}<\/script>
+      </body></html>`
+    };
+  }
+  /** T2112: CSV preview with sortable/filterable table (reuses XLSX table UI) */
+  static previewCsv(filePath) {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length === 0) return { html: "<p>CSV 文件为空</p>" };
+    const rows = lines.map((line) => {
+      const cells = [];
+      let current = "";
+      let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+          continue;
+        }
+        if (ch === "," && !inQuotes) {
+          cells.push(current);
+          current = "";
+          continue;
+        }
+        current += ch;
+      }
+      cells.push(current);
+      return cells;
+    });
+    if (rows.length === 0) return { html: "<p>CSV 解析失败</p>" };
+    const maxCols = Math.min(Math.max(...rows.map((r) => r.length)), 50);
+    const maxRows = Math.min(rows.length, 200);
+    const moreRows = rows.length > 200 ? `<p class="more">显示前 200 行 (共 ${rows.length} 行)</p>` : "";
+    let tableHtml = "<table><thead><tr>";
+    for (let c = 0; c < maxCols; c++) {
+      const headerVal = PreviewService.escHtml(rows[0]?.[c] || `列${c + 1}`);
+      tableHtml += `<th onclick="sortTable('csvTable', ${c})">${headerVal}<span class="sort-arrow"></span></th>`;
+    }
+    tableHtml += "</tr></thead><tbody>";
+    for (let r = 1; r < maxRows; r++) {
+      tableHtml += "<tr>";
+      for (let c = 0; c < maxCols; c++) {
+        const val = (rows[r]?.[c] || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        tableHtml += `<td>${val || "&nbsp;"}</td>`;
+      }
+      tableHtml += "</tr>";
+    }
+    tableHtml += "</tbody></table>";
+    return {
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body { font-family: "Microsoft YaHei", sans-serif; padding: 16px; color: #333; }
+        .search-bar { margin-bottom: 12px; }
+        .search-bar input { width: 100%; max-width: 300px; padding: 6px 10px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 13px; outline: none; }
+        .search-bar input:focus { border-color: #1f4e79; }
+        .table-wrap { overflow-x: auto; border-radius: 6px; border: 1px solid #e0e0e0; }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; background: #fff; }
+        th { background: #f0f4f8; font-weight: 600; padding: 8px 12px; border-bottom: 2px solid #d0d0d0; cursor: pointer; white-space: nowrap; user-select: none; }
+        th:hover { background: #e0e8f0; }
+        td { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+        tr:nth-child(even) td { background: #fafbfc; }
+        tr:hover td { background: #f0f4f8; }
+        .sort-arrow { font-size: 10px; color: #999; }
+        .more { color: #999; font-style: italic; margin-top: 12px; }
+      </style></head><body>
+        <div class="search-bar"><input type="text" placeholder="过滤行..." oninput="filterTable('csvTable', this.value)" /></div>
+        <div class="table-wrap">${tableHtml}</div>
+        ${moreRows}
+        <script>${PreviewService.sortFilterJS()}<\/script>
+      </body></html>`
     };
   }
   static async previewPdf(filePath) {
@@ -3887,22 +4684,58 @@ class PreviewService {
         let textHtml = "";
         for (const item of textContent.items) {
           if ("str" in item) {
-            textHtml += `${item.str} `;
+            textHtml += `${PreviewService.escHtml(item.str)} `;
           }
         }
         pages.push(
           `<div class="pdf-page"><div class="page-num">第 ${i}/${totalPages} 页</div><p class="pdf-text">${textHtml}</p></div>`
         );
       }
-      const morePages = totalPages > 5 ? `<p class="more">仅显示前 5 页 (共 ${totalPages} 页)。使用系统程序打开查看完整内容。</p>` : "";
+      const morePages = totalPages > 5 ? `<p class="more" id="moreHint">仅显示前 5 页 (共 ${totalPages} 页)。使用系统程序打开查看完整内容。</p>` : "";
       return {
         html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-          body { font-family: "Microsoft YaHei", sans-serif; padding: 20px; color: #333; }
-          .pdf-page { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
-          .page-num { font-size: 12px; color: #999; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-          .pdf-text { line-height: 1.8; white-space: pre-wrap; font-size: 14px; }
-          .more { color: #999; font-style: italic; margin-top: 15px; }
-        </style></head><body>${pages.join("")}${morePages}</body></html>`
+          body { font-family: "Microsoft YaHei", sans-serif; padding: 16px; color: #333; background: #fafafa; }
+          .search-bar { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+          .search-bar input { flex: 1; max-width: 400px; padding: 6px 10px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 13px; outline: none; }
+          .search-bar input:focus { border-color: #1f4e79; }
+          .search-bar .count { font-size: 12px; color: #999; }
+          .pdf-page { margin-bottom: 16px; padding: 14px; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; }
+          .page-num { font-size: 12px; color: #999; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; font-weight: 600; }
+          .pdf-text { line-height: 1.9; white-space: pre-wrap; font-size: 14px; }
+          .pdf-text mark { background: #fff3b0; padding: 0 2px; border-radius: 2px; }
+          .more { color: #999; font-style: italic; margin-top: 12px; }
+          .no-match { color: #999; text-align: center; padding: 20px; }
+        </style></head><body>
+          <div class="search-bar"><input type="text" id="searchInput" placeholder="搜索 PDF 文本... (前5页)" oninput="searchPdf(this.value)" /><span class="count" id="matchCount"></span></div>
+          ${pages.join("")}${morePages}
+          <script>
+            function searchPdf(query) {
+              const q = query.toLowerCase().trim();
+              const pages = document.querySelectorAll('.pdf-text');
+              let total = 0;
+              pages.forEach(p => {
+                const orig = p.dataset.orig || p.textContent;
+                if (!p.dataset.orig) p.dataset.orig = orig;
+                if (!q) { p.innerHTML = orig; return; }
+                const idx = orig.toLowerCase().indexOf(q);
+                if (idx === -1) { p.innerHTML = orig; return; }
+                let html = '';
+                let last = 0;
+                let haystack = orig.toLowerCase();
+                let pos = haystack.indexOf(q);
+                while (pos !== -1) {
+                  total++;
+                  html += orig.slice(last, pos).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '<mark>' + orig.slice(pos, pos + q.length).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</mark>';
+                  last = pos + q.length;
+                  pos = haystack.indexOf(q, last);
+                }
+                html += orig.slice(last).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                p.innerHTML = html;
+              });
+              document.getElementById('matchCount').textContent = q ? (total + ' 处匹配') : '';
+            }
+          <\/script>
+        </body></html>`
       };
     } catch (err) {
       return { error: `PDF 预览失败: ${err.message}` };
@@ -3998,7 +4831,7 @@ function registerKnowledgeHandlers() {
         for (const f of files) {
           try {
             const row = await dbGet("SELECT content_text FROM knowledge_files WHERE id = ?", [f.id]);
-            if (row?.content_text) await syncWikilinkRefs("knowledge", f.id, row.content_text);
+            if (row?.content_text) await syncWikilinkRefs("knowledge", f.id, row.content_text, data.userId);
           } catch {
           }
         }
@@ -4074,6 +4907,34 @@ function registerKnowledgeHandlers() {
       const json = JSON.stringify(data.properties);
       await dbRun('UPDATE knowledge_files SET properties = ?, updated_at = datetime("now") WHERE id = ? AND user_id = ?', [
         json,
+        data.fileId,
+        data.userId
+      ]);
+      kbRefreshTarget?.send(IPC.EVT_KB_REFRESH);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.KB_UPDATE_CONTENT, async (_event, data) => {
+    try {
+      const file = await dbGet(
+        "SELECT file_path, user_id, file_type FROM knowledge_files WHERE id = ? AND user_id = ?",
+        [data.fileId, data.userId]
+      );
+      if (!file) return { success: false, error: "文件不存在或无权访问" };
+      const workspace = await getWorkspacePath(data.userId);
+      const resolved = path.resolve(workspace, file.file_path);
+      const realWorkspace = fs.existsSync(workspace) ? fs.realpathSync(workspace) : workspace;
+      if (!resolved.startsWith(realWorkspace + path.sep) && resolved !== realWorkspace) {
+        return { success: false, error: "路径验证失败" };
+      }
+      await fs.promises.mkdir(path.dirname(resolved), { recursive: true });
+      await fs.promises.writeFile(resolved, data.content, "utf-8");
+      const now = nowMySQL();
+      await dbRun("UPDATE knowledge_files SET content_text = ?, updated_at = ? WHERE id = ? AND user_id = ?", [
+        data.content,
+        now,
         data.fileId,
         data.userId
       ]);
@@ -4219,7 +5080,7 @@ function registerNoteHandlers() {
           memoType: data.memoType,
           dueDate: data.dueDate
         });
-        if (data.content) await syncWikilinkRefs("note", note2.id, data.content);
+        if (data.content) await syncWikilinkRefs("note", note2.id, data.content, data.userId);
         broadcastRefresh();
         return { success: true, data: note2 };
       }
@@ -4231,7 +5092,7 @@ function registerNoteHandlers() {
         data.memoType || "note",
         data.dueDate
       );
-      if (data.content) await syncWikilinkRefs("note", note.id, data.content);
+      if (data.content) await syncWikilinkRefs("note", note.id, data.content, data.userId);
       broadcastRefresh();
       return { success: true, data: note };
     } catch (err) {
@@ -4932,6 +5793,9 @@ class SearchService {
          LIMIT 20`,
         [query, userId, query]
       );
+      if (rows.length === 0 && SearchService.hasCjk(query)) {
+        return SearchService.fallbackBlogSearch(query, userId);
+      }
       return rows.map((row) => ({
         id: row.id,
         type: "blog",
@@ -4956,6 +5820,9 @@ class SearchService {
          LIMIT 20`,
         [query, userId, query]
       );
+      if (rows.length === 0 && SearchService.hasCjk(query)) {
+        return SearchService.fallbackKnowledgeSearch(query, userId);
+      }
       return rows.map((row) => ({
         id: row.id,
         type: "knowledge",
@@ -4968,44 +5835,39 @@ class SearchService {
       return SearchService.fallbackKnowledgeSearch(query, userId);
     }
   }
-  /**
-   * Fallback: LIKE-based search when FULLTEXT index is unavailable (e.g., during migration).
-   */
-  static async fallbackBlogSearch(query, userId) {
+  static fallbackBlogSearch(query, userId) {
     const like = `%${query}%`;
-    const rows = await dbAll(
-      `SELECT id, title, SUBSTRING(content, 1, 200) as content
-       FROM blogs
-       WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 20`,
+    return dbAll(
+      "SELECT id, title, SUBSTRING(content, 1, 200) as content FROM blogs WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?) LIMIT 20",
       [userId, like, like]
+    ).then(
+      (rows) => rows.map((r) => ({
+        id: r.id,
+        type: "blog",
+        title: r.title,
+        snippet: (r.content || "").slice(0, 200),
+        score: 0
+      }))
     );
-    return rows.map((row) => ({
-      id: row.id,
-      type: "blog",
-      title: row.title,
-      snippet: (row.content || "").slice(0, 200),
-      score: 0
-    }));
   }
-  static async fallbackKnowledgeSearch(query, userId) {
+  static fallbackKnowledgeSearch(query, userId) {
     const like = `%${query}%`;
-    const rows = await dbAll(
-      `SELECT id, filename, SUBSTRING(content_text, 1, 200) as content_text
-       FROM knowledge_files
-       WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 20`,
+    return dbAll(
+      "SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?) LIMIT 20",
       [userId, like, like]
+    ).then(
+      (rows) => rows.map((r) => ({
+        id: r.id,
+        type: "knowledge",
+        title: r.title,
+        snippet: (r.content_text || "").slice(0, 200),
+        score: 0
+      }))
     );
-    return rows.map((row) => ({
-      id: row.id,
-      type: "knowledge",
-      title: row.filename,
-      snippet: (row.content_text || "").slice(0, 200),
-      score: 0
-    }));
+  }
+  /** Returns true if the string contains any CJK character */
+  static hasCjk(s) {
+    return /[一-鿿㐀-䶿豈-﫿]/.test(s);
   }
   /**
    * Get all indexable documents for the Worker to build its inverted index.
@@ -5084,17 +5946,15 @@ function registerSearchHandlers() {
 }
 const SHORTCUTS = [
   { id: "new-blog", key: "Ctrl+N", label: "新建博客", description: "打开博客编辑器", group: "global" },
-  { id: "global-search", key: "Ctrl+F", label: "全局搜索", description: "聚焦全局搜索框", group: "global" },
-  { id: "dashboard", key: "Ctrl+H", label: "仪表盘", description: "打开仪表盘页面", group: "global" },
+  { id: "quick-note", key: "Alt+Space", label: "快捷便签", description: "打开快捷便签浮窗", group: "global" },
+  { id: "sidebar-toggle", key: "Ctrl+B", label: "侧边栏", description: "折叠/展开侧边栏", group: "global" },
   { id: "help", key: "?", label: "快捷键帮助", description: "显示快捷键列表", group: "global" },
-  { id: "escape", key: "Escape", label: "关闭弹窗", description: "关闭当前弹窗或面板", group: "global" },
-  { id: "save", key: "Ctrl+S", label: "保存", description: "保存当前内容", group: "editor" },
-  { id: "bold", key: "Ctrl+B", label: "加粗", description: "切换加粗格式", group: "editor" },
-  { id: "italic", key: "Ctrl+I", label: "斜体", description: "切换斜体格式", group: "editor" },
-  { id: "undo", key: "Ctrl+Z", label: "撤销", description: "撤销上一步操作", group: "editor" },
-  { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "重做已撤销操作", group: "editor" },
   { id: "md-float", key: "Ctrl+Shift+N", label: "MD 浮窗", description: "打开 Markdown 快捷写作浮窗", group: "global" },
-  { id: "clipboard-note", key: "Ctrl+Shift+M", label: "剪贴板→便签", description: "将剪贴板内容保存为便签", group: "global" }
+  { id: "clipboard-note", key: "Ctrl+Shift+V", label: "剪贴板→便签", description: "将剪贴板内容保存为便签", group: "global" },
+  { id: "bold", key: "Ctrl+B", label: "加粗", description: "编辑器中切换加粗格式", group: "editor" },
+  { id: "italic", key: "Ctrl+I", label: "斜体", description: "编辑器中切换斜体格式", group: "editor" },
+  { id: "undo", key: "Ctrl+Z", label: "撤销", description: "编辑器中撤销上一步操作", group: "editor" },
+  { id: "redo", key: "Ctrl+Shift+Z", label: "重做", description: "编辑器中重做已撤销操作", group: "editor" }
 ];
 let shortcutActions = {};
 class ShortcutService {
@@ -5214,6 +6074,179 @@ function registerTagHandlers() {
       return { success: false, error: err.message };
     }
   });
+  electron.ipcMain.handle(IPC.TAG_MERGE, async (_event, data) => {
+    try {
+      const tags = await TagService.listTags(data.userId);
+      const src = tags.find((t) => t.id === data.sourceId);
+      const tgt = tags.find((t) => t.id === data.targetId);
+      if (!src || !tgt) return { success: false, error: "标签不存在" };
+      if (src.id === tgt.id) return { success: false, error: "不能合并相同标签" };
+      await dbRun("BEGIN");
+      try {
+        await dbRun("UPDATE blog_tags SET tag_id = ? WHERE tag_id = ?", [data.targetId, data.sourceId]);
+        await dbRun("DELETE FROM blog_tags WHERE tag_id = ?", [data.sourceId]);
+        await dbRun("UPDATE knowledge_file_tags SET tag_id = ? WHERE tag_id = ?", [data.targetId, data.sourceId]);
+        await dbRun("DELETE FROM knowledge_file_tags WHERE tag_id = ?", [data.sourceId]);
+        await dbRun("DELETE FROM tags WHERE id = ? AND user_id = ?", [data.sourceId, data.userId]);
+        await dbRun("COMMIT");
+      } catch (innerErr) {
+        await dbRun("ROLLBACK");
+        throw innerErr;
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
+function registerWhiteboardHandlers() {
+  electron.ipcMain.handle(IPC.WHITEBOARD_GET, async (_event, userId) => {
+    try {
+      let wb = await dbGet(
+        "SELECT * FROM whiteboards WHERE user_id = ? LIMIT 1",
+        [userId]
+      );
+      if (!wb) {
+        const now = nowMySQL();
+        await dbRun(
+          "INSERT INTO whiteboards (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+          [userId, "我的白板", now, now]
+        );
+        wb = await dbGet(
+          "SELECT * FROM whiteboards WHERE user_id = ? LIMIT 1",
+          [userId]
+        );
+      }
+      return { success: true, data: wb ? { id: wb.id, title: wb.title, description: wb.description || "", createdAt: wb.created_at, updatedAt: wb.updated_at } : null };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_NODES, async (_event, data) => {
+    try {
+      const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
+      if (!wb) return { success: false, error: "无权访问" };
+      const rows = await dbAll("SELECT * FROM whiteboard_nodes WHERE whiteboard_id = ? AND user_id = ? ORDER BY created_at", [data.whiteboardId, data.userId]);
+      return { success: true, data: rows.map(mapNode) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_NODE_CREATE, async (_event, data) => {
+    try {
+      const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
+      if (!wb) return { success: false, error: "无权访问" };
+      const now = nowMySQL();
+      await dbRun(
+        "INSERT INTO whiteboard_nodes (whiteboard_id, user_id, node_type, title, x, y, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        [data.whiteboardId, data.userId, data.nodeType, data.title, data.x, data.y, data.color || "blue", now, now]
+      );
+      const row = await dbGet("SELECT last_insert_rowid() as id");
+      return { success: true, data: { id: row?.id ?? 0 } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_NODE_UPDATE, async (_event, data) => {
+    try {
+      const node = await dbGet("SELECT id FROM whiteboard_nodes WHERE id = ? AND user_id = ?", [data.id, data.userId]);
+      if (!node) return { success: false, error: "无权访问" };
+      const now = nowMySQL();
+      const sets = ["updated_at = ?"];
+      const params = [now];
+      if (data.title !== void 0) {
+        sets.push("title = ?");
+        params.push(data.title);
+      }
+      if (data.x !== void 0) {
+        sets.push("x = ?");
+        params.push(data.x);
+      }
+      if (data.y !== void 0) {
+        sets.push("y = ?");
+        params.push(data.y);
+      }
+      if (data.taskStatus !== void 0) {
+        sets.push("task_status = ?");
+        params.push(data.taskStatus);
+      }
+      if (data.color !== void 0) {
+        sets.push("color = ?");
+        params.push(data.color);
+      }
+      if (data.summary !== void 0) {
+        sets.push("summary = ?");
+        params.push(data.summary);
+      }
+      params.push(data.id);
+      await dbRun(`UPDATE whiteboard_nodes SET ${sets.join(", ")} WHERE id = ?`, params);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_NODE_DELETE, async (_event, data) => {
+    try {
+      const node = await dbGet("SELECT id FROM whiteboard_nodes WHERE id = ? AND user_id = ?", [data.nodeId, data.userId]);
+      if (!node) return { success: false, error: "无权访问" };
+      await dbRun("DELETE FROM whiteboard_nodes WHERE id = ?", [data.nodeId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_EDGES, async (_event, data) => {
+    try {
+      const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
+      if (!wb) return { success: false, error: "无权访问" };
+      const rows = await dbAll("SELECT * FROM whiteboard_edges WHERE whiteboard_id = ?", [data.whiteboardId]);
+      return { success: true, data: rows.map((r) => ({ id: r.id, sourceNodeId: r.source_node_id, targetNodeId: r.target_node_id, edgeType: r.edge_type, label: r.label || "" })) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_EDGE_CREATE, async (_event, data) => {
+    try {
+      const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
+      if (!wb) return { success: false, error: "无权访问" };
+      const now = nowMySQL();
+      await dbRun(
+        "INSERT INTO whiteboard_edges (whiteboard_id, source_node_id, target_node_id, label, created_at) VALUES (?,?,?,?,?)",
+        [data.whiteboardId, data.sourceNodeId, data.targetNodeId, data.label || "", now]
+      );
+      const row = await dbGet("SELECT last_insert_rowid() as id");
+      return { success: true, data: { id: row?.id ?? 0 } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.WHITEBOARD_EDGE_DELETE, async (_event, data) => {
+    try {
+      const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
+      if (!wb) return { success: false, error: "无权访问" };
+      await dbRun("DELETE FROM whiteboard_edges WHERE id = ?", [data.edgeId]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
+function mapNode(r) {
+  return {
+    id: r.id,
+    whiteboardId: r.whiteboard_id,
+    nodeType: r.node_type,
+    refType: r.ref_type || null,
+    refId: r.ref_id || null,
+    title: r.title || "",
+    summary: r.summary || "",
+    color: r.color || "blue",
+    taskStatus: r.task_status || "todo",
+    x: r.x,
+    y: r.y,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
 }
 function registerWorkspaceHandlers() {
   electron.ipcMain.handle(IPC.WORKSPACE_GET_INFO, async (_event, userId) => {
@@ -5272,6 +6305,87 @@ function registerWorkspaceHandlers() {
     });
     return r.canceled ? [] : r.filePaths;
   });
+  electron.ipcMain.handle(IPC.WORKSPACE_EXPORT_MD, async (_event, userId) => {
+    try {
+      const wsPath = await getWorkspacePath(userId);
+      const exportDir = path.join(wsPath, "Export");
+      await fs.promises.mkdir(exportDir, { recursive: true });
+      const blogs = await dbAll(
+        "SELECT id, title, content, format, created_at, updated_at FROM blogs WHERE user_id = ? AND status = ? ORDER BY updated_at DESC",
+        [userId, "active"]
+      );
+      const kbs = await dbAll(
+        "SELECT id, filename, file_type, file_path, created_at FROM knowledge_files WHERE user_id = ? AND status = ? ORDER BY created_at DESC",
+        [userId, "active"]
+      );
+      let count = 0;
+      for (const b of blogs) {
+        const safeTitle = path.basename(b.title.replace(/[<>:"/\\|?*]/g, "_").substring(0, 80) || "untitled");
+        const frontmatter = [
+          "---",
+          `title: "${b.title.replace(/"/g, '\\"')}"`,
+          `date: ${b.created_at}`,
+          `updated: ${b.updated_at}`,
+          `format: ${b.format}`,
+          "---",
+          ""
+        ].join("\n");
+        let body = b.format === "html" ? `<!-- HTML format blog, content not converted -->
+
+${b.content}` : b.content;
+        body = body.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, target, alias) => {
+          const t = target.trim();
+          const safeLink = t.replace(/[<>:"/\\|?*]/g, "_").substring(0, 80);
+          return `> [${(alias || t).trim()}](${safeLink}.md)`;
+        });
+        body = body.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, target, alias) => {
+          const t = target.trim();
+          const safeLink = t.replace(/[<>:"/\\|?*]/g, "_").substring(0, 80);
+          return `[${(alias || t).trim()}](${safeLink}.md)`;
+        });
+        await fs.promises.writeFile(path.join(exportDir, `${safeTitle}.md`), frontmatter + body, "utf-8");
+        count++;
+      }
+      const kbDir = path.join(exportDir, "knowledge");
+      await fs.promises.mkdir(kbDir, { recursive: true });
+      for (const k of kbs) {
+        try {
+          const safeRelPath = path.basename(k.file_path);
+          const srcPath = path.resolve(wsPath, safeRelPath);
+          const realWs = fs.existsSync(wsPath) ? fs.realpathSync(wsPath) : wsPath;
+          if (!srcPath.startsWith(realWs + path.sep) && srcPath !== realWs) continue;
+          if (fs.existsSync(srcPath)) {
+            const safeName = path.basename(k.filename.replace(/[<>:"/\\|?*]/g, "_"));
+            await fs.promises.copyFile(srcPath, path.join(kbDir, safeName));
+          }
+        } catch {
+        }
+      }
+      let index2 = "# 知识库导出\n\n";
+      index2 += `导出时间: ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19)}
+`;
+      index2 += `博客: ${blogs.length} 篇 | 知识文件: ${kbs.length} 个
+
+`;
+      index2 += "## 博客列表\n\n";
+      for (const b of blogs) {
+        const safeTitle = path.basename(b.title.replace(/[<>:"/\\|?*]/g, "_").substring(0, 80) || "untitled");
+        index2 += `- [${b.title}](${encodeURI(safeTitle)}.md) — ${b.created_at?.slice(0, 10) || ""}
+`;
+      }
+      if (kbs.length > 0) {
+        index2 += "\n## 知识文件\n\n";
+        for (const k of kbs) {
+          index2 += `- ${k.filename} (${k.file_type}) — ${k.created_at?.slice(0, 10) || ""}
+`;
+        }
+      }
+      await fs.promises.writeFile(path.join(exportDir, "index.md"), index2, "utf-8");
+      return { success: true, data: { dir: exportDir, count } };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 }
 function registerAllIpcHandlers() {
   registerAuthHandlers();
@@ -5289,60 +6403,273 @@ function registerAllIpcHandlers() {
   registerNoteHandlers();
   registerContinueHandlers();
   registerGraphHandlers();
+  registerBookmarkHandlers();
+  registerAiHandlers();
+  registerWhiteboardHandlers();
 }
+let quickNoteWin = null;
+let currentUserId = 0;
+function getQuickNoteHtml() {
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Inter,system-ui,sans-serif;background:#1a1816;color:#e0dcd5;height:100vh;display:flex;flex-direction:column}
+    .hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#151412;border-bottom:1px solid rgba(224,220,213,0.07);-webkit-app-region:drag}
+    .hdr span{font-size:13px;font-weight:600;color:#a09890}
+    .hdr button{background:none;border:none;color:#a09890;cursor:pointer;font-size:16px;-webkit-app-region:no-drag}
+    textarea{flex:1;background:transparent;border:none;color:#c9d1d9;font-size:14px;line-height:1.6;padding:14px;resize:none;outline:none;font-family:inherit}
+    .ftr{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid rgba(224,220,213,0.07);font-size:11px;color:#605850}
+    .ftr button{background:#b8826a;color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:12px;font-weight:500;cursor:pointer}
+    .ftr button:hover{opacity:.85}
+    .toast{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#8a9e7a;color:#fff;font-size:12px;padding:6px 14px;border-radius:4px;opacity:0;transition:opacity .3s}
+    .toast.show{opacity:1}
+    .clip-popover{position:fixed;bottom:52px;right:8px;width:320px;max-height:260px;overflow-y:auto;background:#211f1c;border:1px solid rgba(224,220,213,0.07);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.3);display:none;z-index:10}
+    .clip-popover.show{display:block}
+    .clip-popover .clip-item{padding:6px 10px;font-size:12px;color:#a09890;cursor:pointer;border-bottom:1px solid rgba(224,220,213,0.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .clip-popover .clip-item:hover{background:rgba(224,220,213,0.04);color:#e0dcd5}
+  </style></head><body>
+    <div class="hdr"><span>快捷便签</span><button onclick="closeWin()">&times;</button></div>
+    <textarea id="ta" placeholder="写下你的想法...&#10;&#10;Esc 关闭 | Ctrl+Enter 保存"></textarea>
+    <div class="ftr"><span id="cnt">0 字</span><span><button onclick="save()">保存</button> <button style="background:#2d2a26;color:#a09890;border:none;border-radius:4px;padding:6px 12px;font-size:12px;cursor:pointer" onclick="window.quickNote.pin(ta.value.trim());ta.value='';document.getElementById('cnt').textContent='0 字';showToast('已固定')">📌 固定</button> <button onclick="save();window.quickNote.hide()">保存并关闭</button> <button style="background:transparent;color:#a09890;border:1px solid rgba(224,220,213,0.1);border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer" onclick="window.toggleClipPopover()">📋</button></span></div>
+    <div class="toast" id="toast"></div>
+    <div class="clip-popover" id="clipPopover"></div>
+    <script>
+      const ta=document.getElementById('ta');ta.focus();
+      ta.oninput=()=>document.getElementById('cnt').textContent=ta.value.length+' 字';
+      document.onkeydown=(e)=>{
+        if(e.key==='Escape'){e.preventDefault();window.quickNote.hide()}
+        if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();save()}
+      };
+      window.closeWin=()=>window.quickNote.hide();
+      window.save=()=>{const t=ta.value.trim();if(t){window.quickNote.save(t);ta.value='';document.getElementById('cnt').textContent='0 字';showToast('已保存')}};
+      function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)}
+      var clipVisible=false;
+      var clipCache=[];
+      async function loadClipboard(){
+        try{
+          if(window.quickNote && window.quickNote.getClipboardHistory){
+            var resp=await window.quickNote.getClipboardHistory();
+            if(resp && resp.success && Array.isArray(resp.data)){clipCache=resp.data;return}
+          }
+        }catch(e){}
+        clipCache=[];
+      }
+      async function toggleClipPopover(){
+        var pop=document.getElementById('clipPopover');
+        clipVisible=!clipVisible;
+        if(clipVisible){
+          await loadClipboard();
+          if(clipCache.length===0){
+            pop.innerHTML='<div class="clip-item" style="color:#605850">暂无剪贴板记录<br><span style="font-size:10px">复制文本后 Ctrl+C，再点此按钮</span></div>';
+          }else{
+            var html='';
+            for(var i=0;i<clipCache.length;i++){
+              var t=(clipCache[i].text||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+              html+='<div class="clip-item" onclick="window.pasteClipItem('+i+')" title="点击粘贴">'+t.slice(0,80)+(t.length>80?'...':'')+'</div>';
+            }
+            pop.innerHTML=html;
+          }
+          pop.classList.add('show');
+        }else{pop.classList.remove('show')}
+      }
+      window.pasteClipItem=function(i){
+        if(clipCache[i]){ta.value=clipCache[i].text||'';ta.focus();document.getElementById('cnt').textContent=ta.value.length+' 字';showToast('已粘贴')}
+        document.getElementById('clipPopover').classList.remove('show');clipVisible=false;
+      };
+      window.toggleClipPopover=toggleClipPopover;
+    <\/script>
+  </body></html>`;
+}
+function registerQuickNote() {
+  electron.ipcMain.on("quick-note:save", async (_event, content) => {
+    try {
+      if (!currentUserId) return;
+      const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
+      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
+      const now = nowMySQL2();
+      await dbRun2(
+        "INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+        [currentUserId, content, "", "quick-note", "note", now, now]
+      );
+    } catch (e) {
+      console.error("[QuickNote]", e);
+    }
+  });
+  electron.ipcMain.on("quick-note:pin", async (_event, content) => {
+    try {
+      if (!currentUserId || !content) return;
+      const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
+      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
+      const now = nowMySQL2();
+      await dbRun2(
+        "INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+        [currentUserId, content, "", "quick-note", "pinned", now, now]
+      );
+    } catch (e) {
+      console.error("[QuickNote Pin]", e);
+    }
+  });
+  async function saveDraft(text) {
+    if (!currentUserId || !text) return;
+    try {
+      const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
+      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
+      const now = nowMySQL2();
+      await dbRun2(
+        "INSERT OR REPLACE INTO settings (user_id, key, value, updated_at) VALUES (?,?,?,?)",
+        [currentUserId, "quick_note_draft", text, now]
+      );
+    } catch {
+    }
+  }
+  async function loadDraft() {
+    if (!currentUserId) return "";
+    try {
+      const { dbGet: dbGet2 } = await Promise.resolve().then(() => index);
+      const row = await dbGet2(
+        "SELECT value FROM settings WHERE user_id = ? AND key = ?",
+        [currentUserId, "quick_note_draft"]
+      );
+      return row?.value || "";
+    } catch {
+      return "";
+    }
+  }
+  electron.ipcMain.on("quick-note:hide", () => {
+    quickNoteWin?.webContents.executeJavaScript('document.getElementById("ta")?.value || ""').then((text) => {
+      if (text.trim()) saveDraft(text);
+    }).catch(() => {
+    });
+    quickNoteWin?.hide();
+  });
+  const _origShowQuickNote = showQuickNote;
+  showQuickNote = () => {
+    _origShowQuickNote();
+    loadDraft().then((draft) => {
+      if (draft && quickNoteWin && !quickNoteWin.isDestroyed()) {
+        setTimeout(() => {
+          quickNoteWin?.webContents.executeJavaScript(`(function(){var t=document.getElementById("ta");if(t&&!t.value)t.value=${JSON.stringify(draft)};t?.focus()})()`).catch(() => {
+          });
+        }, 150);
+      }
+    });
+  };
+  electron.ipcMain.handle("quick-note:show", async (_event, userId) => {
+    currentUserId = userId;
+    showQuickNote();
+  });
+}
+let showQuickNote = function() {
+  if (quickNoteWin && !quickNoteWin.isDestroyed()) {
+    quickNoteWin.show();
+    quickNoteWin.focus();
+    quickNoteWin.webContents.executeJavaScript('document.getElementById("ta")?.focus()');
+    return;
+  }
+  try {
+    quickNoteWin = new electron.BrowserWindow({
+      width: 420,
+      height: 320,
+      center: true,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      resizable: true,
+      skipTaskbar: true,
+      backgroundColor: "#00000000",
+      title: "快捷便签",
+      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: require("path").join(__dirname, "quick-note-preload.js"), sandbox: false }
+    });
+    quickNoteWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(getQuickNoteHtml())}`);
+    quickNoteWin.on("closed", () => {
+      quickNoteWin = null;
+    });
+  } catch (e) {
+    console.error("[QuickNote] Failed to create window:", e);
+    quickNoteWin = null;
+  }
+};
+function registerQuickNoteShortcut(mainWindow2) {
+  electron.globalShortcut.register("Alt+Space", () => {
+    if (mainWindow2 && !mainWindow2.isDestroyed()) {
+      mainWindow2.webContents.send("quick-note:trigger");
+    }
+  });
+}
+let updateInfo = null;
+let checking = false;
+let downloading = false;
 function setupAutoUpdater(getMainWindow) {
-  const { app } = require("electron");
+  const { app, ipcMain } = require("electron");
   if (!app.isPackaged) return;
   let autoUpdater;
   try {
     autoUpdater = require("electron-updater").autoUpdater;
   } catch {
-    console.warn("[AutoUpdater] electron-updater not available — skipping update check");
+    console.warn("[AutoUpdater] electron-updater not available");
     return;
   }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on("checking-for-update", () => {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  const send = (data) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "checking" });
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, data);
     }
+  };
+  autoUpdater.on("checking-for-update", () => {
+    checking = true;
+    send({ status: "checking" });
   });
   autoUpdater.on("update-available", (info) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: "available",
-        version: info.version
-      });
-    }
+    checking = false;
+    updateInfo = { version: info.version };
+    send({ status: "available", version: info.version });
   });
   autoUpdater.on("update-not-available", () => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: "not-available" });
-    }
+    checking = false;
+    updateInfo = null;
+    send({ status: "not-available" });
   });
   autoUpdater.on("download-progress", (progress) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: "downloading",
-        percent: progress.percent
-      });
-    }
+    send({ status: "downloading", percent: progress.percent });
   });
   autoUpdater.on("update-downloaded", (info) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: "downloaded",
-        version: info.version
-      });
-    }
+    downloading = false;
+    updateInfo = { version: info.version };
+    send({ status: "downloaded", version: info.version });
   });
   autoUpdater.on("error", (error) => {
-    console.error("[AutoUpdater] Error:", error.message);
+    checking = false;
+    downloading = false;
+    send({ status: "error", message: error.message });
+  });
+  ipcMain.handle(IPC.APP_CHECK_UPDATE, async () => {
+    if (checking || downloading) return { success: false, error: "检查或下载已在进行中" };
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return {
+        success: true,
+        data: { updateAvailable: !!result?.updateInfo, version: result?.updateInfo?.version || null }
+      };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+  ipcMain.handle(IPC.APP_DOWNLOAD_UPDATE, async () => {
+    if (!updateInfo) return { success: false, error: "没有可用的更新信息，请先检查" };
+    if (downloading) return { success: false, error: "已在下载中" };
+    try {
+      downloading = true;
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (e) {
+      downloading = false;
+      return { success: false, error: e.message };
+    }
+  });
+  ipcMain.handle(IPC.APP_INSTALL_UPDATE, () => {
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true };
   });
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(() => {
@@ -5388,6 +6715,7 @@ if (!gotTheLock) {
     } else {
       mainWindow2.loadFile(path.join(__dirname, "../renderer/index.html"));
     }
+    mainWindow2.setMenuBarVisibility(false);
     mainWindow2.on("ready-to-show", () => {
       mainWindow2?.show();
       if (!electron.app.isPackaged) mainWindow2?.webContents.openDevTools();
@@ -5434,11 +6762,26 @@ if (!gotTheLock) {
     } catch (err) {
       console.warn("[Main] Database unavailable:", err.message);
     }
+    electron.protocol.handle("local-resource", (request) => {
+      try {
+        const url = request.url.replace("local-resource://", "");
+        const decoded = decodeURIComponent(url);
+        const filePath = decoded.replace(/^\/([a-zA-Z]:)\//, "$1\\").replace(/\//g, path.sep);
+        const buf = fs.readFileSync(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
+        return new Response(buf, { headers: { "Content-Type": mimeMap[ext] || "image/png" } });
+      } catch {
+        return new Response("Not found", { status: 404 });
+      }
+    });
     registerAllIpcHandlers();
     createWindow();
     if (mainWindow2) {
       setupTray(mainWindow2);
       setupAutoUpdater(() => mainWindow2);
+      registerQuickNote();
+      registerQuickNoteShortcut(mainWindow2);
       setNoteRefreshTarget(mainWindow2.webContents);
       setBlogRefreshTarget(mainWindow2.webContents);
       setKbRefreshTarget(mainWindow2.webContents);
@@ -5453,33 +6796,24 @@ if (!gotTheLock) {
       "clipboard-note": () => handleClipboardNote()
     });
     ShortcutService.reregisterAll();
-    const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
-    const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
-    if (!fs.existsSync(shortcutPath)) {
-      const projectRoot = path.join(__dirname, "..", "..");
-      const packagedExe = path.join(projectRoot, "release", "Idiot-win32-x64", "Idiot.exe");
-      const launcherBatPath = path.join(electron.app.getPath("userData"), "launcher.bat");
-      let batContent;
-      let workingDir;
-      if (fs.existsSync(packagedExe)) {
-        batContent = `@echo off\r
-set ELECTRON_RUN_AS_NODE=\r
-start "" "${packagedExe}"\r
-`;
-        workingDir = path.dirname(packagedExe);
-      } else {
-        batContent = `@echo off\r
-set ELECTRON_RUN_AS_NODE=\r
-cd /d "${projectRoot}"\r
-start "" npm run dev\r
-`;
-        workingDir = projectRoot;
+    if (!electron.app.isPackaged) {
+      const shortcutDir = path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs");
+      const shortcutPath = path.join(shortcutDir, "Idiot.lnk");
+      if (!fs.existsSync(shortcutPath)) {
+        const projectRoot = path.join(__dirname, "..", "..");
+        const launcherVbsPath = path.join(electron.app.getPath("userData"), "launcher.vbs");
+        const vbsContent = [
+          'Set WshShell = CreateObject("WScript.Shell")',
+          'WshShell.Environment("Process")("ELECTRON_RUN_AS_NODE") = ""',
+          `WshShell.CurrentDirectory = "${projectRoot.replace(/\\/g, "\\\\")}"`,
+          'WshShell.Run "npm run dev", 1, False'
+        ].join("\r\n");
+        fs.writeFileSync(launcherVbsPath, vbsContent, "utf-8");
+        const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherVbsPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${projectRoot.replace(/'/g, "''")}';$sc.Save()`;
+        node_child_process.exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
+          if (!err) console.log("[Main] Start Menu shortcut created");
+        });
       }
-      fs.writeFileSync(launcherBatPath, batContent, "utf-8");
-      const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherBatPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${workingDir.replace(/'/g, "''")}';$sc.Save()`;
-      node_child_process.exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
-        if (!err) console.log("[Main] Start Menu shortcut created");
-      });
     }
     electron.app.on("activate", () => {
       if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -5498,5 +6832,7 @@ start "" npm run dev\r
     if (process.platform !== "darwin") electron.app.quit();
   });
 }
+exports.datetime = datetime;
+exports.index = index;
 exports.mapKnowledgeRow = mapKnowledgeRow;
 exports.sanitizePagination = sanitizePagination;

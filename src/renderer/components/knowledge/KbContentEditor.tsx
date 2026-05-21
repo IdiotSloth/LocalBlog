@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TiptapEditor } from '../editor/TiptapEditor';
 
 interface KbContentEditorProps {
   fileId: number;
@@ -100,14 +101,24 @@ export function KbContentEditor({ fileId, userId, fileType, initialContent, onCl
           <button type="button" onClick={() => setError(null)} className="ml-2 underline">关闭</button>
         </div>
       )}
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="flex-1 w-full resize-none p-4 text-[14px] leading-relaxed outline-none border-0"
-        style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: fileType === 'md' ? 'var(--font-mono)' : 'inherit' }}
-        placeholder="输入内容..."
-        spellCheck={false}
-      />
+      {fileType === 'md' ? (
+        <div className="flex-1 overflow-auto">
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            variant="frameless"
+          />
+        </div>
+      ) : (
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className="flex-1 w-full resize-none p-4 text-[14px] leading-relaxed outline-none border-0"
+          style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+          placeholder="输入内容..."
+          spellCheck={false}
+        />
+      )}
     </div>
   );
 }

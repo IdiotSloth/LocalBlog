@@ -197,6 +197,77 @@
 - **Web Workers**: `inlineDynamicImports: true` blocks Worker chunk output → fall back to main-process `setTimeout` yield
 - **linkedom in node**: `parseHTML()` type is `Window & typeof globalThis`, cast as `as unknown as { document: Document }` in tsconfigs without DOM lib
 - **Service method names**: Renaming a method requires full-text search across the entire codebase. Mismatch = runtime bug (R122 pattern)
+
+## Phase 22 Constraints
+
+### AI System (T2204)
+- Provider config in localStorage `lbkb_ai_settings` (not DB — API key must never leave client)
+- LLM API calls ONLY in main process IPC handler (desktop) or server route (web)
+- `aiRouter.use(requireAuth)` mandatory for server chat endpoints
+- Typewriter effect: 15ms setInterval frontend simulation (not true SSE streaming)
+
+### Transclusion (T2205)
+- `![[...]]` regex processed BEFORE `[[...]]` in renderWikilinks
+- ALL innerHTML content MUST go through `escT()` + `DOMPurify.sanitize()`
+- `DOMPurify.Config.ADD_ATTR` must include `data-ref-type`, `data-ref-id`, `data-ref-title`
+
+### Bookmarks (T2209)
+- `bookmarks` table: 3-way schema sync (schema.ts + db-schema-mysql.ts + db/index.ts)
+- `migrateSqlJsToMySQL()` MUST include bookmarks table migration
+- Full 7-file IPC chain: channels → window-api → preload → handler → ipc/index → api-client
+
+### Tab System (T2208)
+- `navigate()` must NEVER be called inside `setState` callback — schedule externally
+- TabBar auto-captures routes: `useEffect` watching `location.pathname`
+- Home tab ('/') unclosable. Max 8 tabs. Ctrl+1-8 switching.
+
+### Calendar (T2201)
+- Dual data source: `Promise.all([daily, schedule])` — not merged API
+- `String(dueDate).slice(0,10)` for ALL date formatting (DB may return non-string)
+- Quick schedule creation panel on date click (no modal popup)
+
+### Timeline (T2207)
+- `blogList()` returns `{ blogs, total }` — access `.data.blogs`, NOT `.data` as array
+- `kbList()` returns `{ files, total }` — access `.data.files`
+- All date fields: `String(date).slice()` — guard against non-string runtime values
+
+### Saved Search (T2206)
+- `useSyncExternalStore` getSnapshot MUST return cached reference — new array each call = infinite loop
+- `let cached: T[]` module-level; update in `emit()` before notifying listeners
+
+## Phase 23 Constraints
+
+### Theme System (T2301)
+- `@import "./themes.css"` MUST come AFTER `:root` + `.light` + `@theme` blocks
+- Each theme has UNIQUE accent hue — all 5 cannot be blue variants
+- Borders: `rgba(R,G,B,0.07)` semi-transparent, NOT solid hex
+- `:root` defaults = new default theme (inkstone), NOT old GitHub dark
+- Migration: dark→inkstone, light→rice-paper in `initTheme()`
+- Transition: `350ms ease` on `html, body, #root, [data-theme]`
+
+### BlogCard & MD Softening (T2302)
+- `BlogCard` component exists at `src/renderer/components/blog/BlogCard.tsx`
+- MUST verify `<BlogCard` appears in BlogListPage JSX — import alone is insufficient
+- MD softening: `.prose` CSS overrides (10 elements), markdown-it pipeline unchanged (D105)
+
+### Whiteboard (T2307)
+- React Flow: `useNodesState<Node>([])` — MUST provide type parameter to avoid `never[]`
+- Optimistic create: temp ID → add to nodes → replace with server ID on success
+- Node colors: `nodeColor(name)` function returning `var(--accent-*)` — NO hardcoded hex
+- Task toggle: `onNodeClick` → check `node.type === 'task'` → cycle status
+- `deleteKeyCode={['Delete', 'Backspace']}` on ReactFlow component
+- IPC handlers ALL require user_id ownership verification (R298)
+
+### Guide Page
+- Raw markdown imports: `import md from '../../../../docs/guide/*.md?raw'` (Vite)
+- `AiChatPanel` component reused from T2204
+- 13 chapters with Lucide TOC icons, ← → keyboard navigation
+
+### Common Phase 23 Pitfalls
+- CSS dead code: classes defined but never used in JSX
+- Residual variable references after rename/delete (e.g., `NODE_COLORS`)
+- `/graph` double route: remove old GraphPage route, keep only Navigate redirect
+- KB TYPE_LABELS: use Lucide components (FileCode, FileText, etc.), not emoji strings
 - **printToPDF / long operations**: Use `Promise.race([operation, timeout])` to prevent indefinite hang
 - **Route merging**: Use `?mode=edit` + `replace` navigation instead of separate `/xxx/edit` routes. Save scroll ratio before switching.
 - **Server blog update format**: Always query existing format before `buildBlogUpdate` — never hardcode `'md'`. HTML blogs get format reset silently otherwise (R131).
@@ -339,3 +410,43 @@
 ### Type Safety
 - **dueDate**: Always `String(s.dueDate).slice(0, 10)` — dueDate may be Date object or null from different code paths.
 - **CalendarView date keys**: `const dateStr = \`${year}-${pad(month+1)}-${pad(day)}\`` — zero-padded for consistent Map lookup matching `String(dueDate).slice(0,10)`.
+
+## Phase 23: 精炼书房 Constraints
+
+### Theme & Colors
+- **suggest.md is the source of truth**: All color values must match suggest.md §提案 2 exactly. No approximate colors.
+- **bg-code must be rgba()**: `rgba(255,255,255,0.025)` for dark themes, `rgba(0,0,0,0.025)` for light themes. Never solid hex.
+- **8 theme options**: system, dark, light, inkstone, tea-bamboo, brass-lamp, rice-paper, celadon.
+- **350ms global transition**: `html, body, #root, [data-theme] { transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease }`
+- **Semantic tokens**: `var(--bg-primary)`, `var(--text-secondary)` etc. Never hardcoded hex in components.
+
+### card / BlogCard (memos pattern)
+- **group class on cards**: `.card` must include `group` for hover-reveal actions.
+- **No pagination UI**: Blog list uses IntersectionObserver sentinel + infinite scroll. No page-number buttons.
+- **BlogCard props**: `blog: BlogWithTags & { content? }`, `showExcerpt`, `showRefCount`, `isBatchSelected`, `onBatchToggle`, `children`.
+
+### Frameless Editor
+- **variant prop**: `'full' | 'inline' | 'frameless'`. Passed from BlogEditorPage → TiptapEditor.
+- **NO BubbleMenu JSX**: `@tiptap/extension-bubble-menu` exports Extension, not React component. Do not import for JSX rendering.
+- **isEditMode branch**: Must exist in BlogPreviewPage with `<BlogEditorPage variant="frameless" />`.
+- **300ms transition**: `fadeIn 0.3s ease` CSS animation on edit mode entry.
+
+### Whiteboard
+- **ReactFlowProvider wrapping**: `useReactFlow()` only callable inside descendant of `<ReactFlowProvider>`. Split WhiteboardPage → WhiteboardCanvas.
+- **No prompt()**: Electron blocks `window.prompt()`. Use custom state dialogs (quickInput, edgePicker).
+- **6 node types**: idea, task, text, blogLink, kbLink, bookmarkLink.
+- **Props sync**: Adding parameter to WhiteboardCanvas requires 3 changes: function signature + JSX prop pass + type.
+
+### Clipboard
+- **Text-first polling**: `clipboard.readText()` primary, `readHTML()` fallback. Not vice versa.
+- **data: URL onclick**: Must use `window.functionName()` prefix. Bare `functionName()` may not resolve.
+- **IPC invoke for clipboard**: Use `ipcRenderer.invoke('clipboard:history')` pattern (not `send`).
+
+### KB (Pogget philosophy)
+- **No preview page**: KbFileDetail renders in center area. No 480px sidebar preview panel.
+- **Lucide icons**: `TYPE_ICONS[ft]` not emoji. Separated from `TYPE_COLORS` and `TYPE_LABELS`.
+- **ContextPanel tabs**: info, preview, backrefs, similar (embedding). Registered via `useContextPanel().registerTabs()`.
+
+### Git Safety
+- **Never git checkout to fix files**: Uncommitted changes are permanently lost. Use `git stash` first, or revert edits individually.
+- **Verify after reset**: isEditMode branch, theme/readingMinutes/charTotal declarations, quickInput/edgePicker props.

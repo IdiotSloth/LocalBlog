@@ -1,6 +1,6 @@
 ---
 name: fix-cycle
-description: Developer (码农) fix cycle for the Local Blog KB project. Use when processing Auditor findings from redo.md, implementing tasks from todo.md, or responding to audit reports. Triggers on: "fix redo", "fix the bugs", "process redo items", "开始修 bug", "继续修复", "开始 phase N", "修复 Rxxx", audit result responses, search/semantic/embedding/index fixes, HTML escaping fixes, transaction wrapping, or any instruction to address redo.md/todo.md issues.
+description: Developer (码农) fix cycle for the Local Blog KB project. Use when processing Auditor findings from redo.md, implementing tasks from todo.md, or responding to audit reports. Triggers on: "fix redo", "fix the bugs", "process redo items", "开始修 bug", "继续修复", "开始 phase N", "修复 Rxxx", audit result responses, or any instruction to address redo.md/todo.md issues. **Iron rule: 不得有延后项 — ALL P0+P1+P2 must be cleared. P3 must be fixed unless explicitly ruled by Boss.**
 ---
 
 # Fix Cycle — Developer Workflow
@@ -109,24 +109,42 @@ Output a summary table:
 
 ---
 
-## Proven Patterns (Phase 13-16)
+## Proven Patterns (Phase 13-23)
 
-### Schema & Data
-- **T1105 Schema freeze**: Never add DB tables/columns. Boss must explicitly approve exceptions (D22 pattern).
-- **File-based storage**: `app.getPath('userData') + JSON` (posFile pattern). For new data that needs persistence.
+### Schema & Data (Phase 13-23)
+- **T1105 Schema freeze**: Never add DB tables/columns. Boss must explicitly approve exceptions.
+- **Schema sync three places**: DDL changes must appear in schema.ts + db-schema-mysql.ts + MYSQL_MIGRATIONS. New tables must be added to `migrateSqlJsToMySQL()` for data migration.
+- **settings 表**: The settings table (key-value with user_id) exists since Phase 23. Use for cross-window persistent config (drafts, clipboard history, tile positions).
 - **Atomic writes**: `writeFileSync(tmp) → renameSync(tmp, real)` to prevent corruption on crash.
-- **writeFileSync safety**: All `fs.writeFileSync` calls must be wrapped in try-catch (disk full / permission errors crash main process).
+- **writeFileSync safety**: All `fs.writeFileSync` calls must be wrapped in try-catch.
 
-### IPC & Types
-- **IPC event channels**: Use `EVT_*` prefix constants in ipc-channels.ts. Both sender (`webContents.send(IPC.EVT_XXX)`) and receiver (`ipcRenderer.on(IPC.EVT_XXX)`) must use the constant — never hardcode strings.
-- **7-file checklist**: Adding IPC channel requires changes in: ipc-channels.ts, window-api.ts, preload/index.ts, main/ipc/xxx.ts, main/ipc/index.ts, optionally main/services/xxx.ts, renderer/lib/api-client.ts.
-- **api-client mirroring**: webApi method names must EXACTLY match WindowApi (including `app` prefix, `on` event prefix). Missing methods cause `undefined is not a function` at runtime.
-- **Type convergence**: Remove intermediate `as any` casts — `window.api.xxx()` returns `ApiResponse<T>` already.
-- **noUncheckedIndexedAccess**: Permanently enabled. All `arr[i]` / `obj[key]` need guards or non-null assertions.
+### IPC & Types (Phase 13-23)
+- **7-file checklist**: Adding IPC channel requires changes in: ipc-channels.ts → window-api.ts → preload/index.ts → main/ipc/xxx.ts → main/ipc/index.ts → optionally main/services/xxx.ts → renderer/lib/api-client.ts (web stubs).
+- **WindowApi type declaration**: Missing WindowApi method declarations cause all callers to use `as any` — 11+ tsc errors from one gap. Always add type declaration when adding IPC.
+- **user_id isolation**: ALL new IPC handlers must filter by `AND user_id = ?` in every query. Even in single-user Electron apps, this is defense-in-depth.
+- **api-client mirroring**: webApi method names must EXACTLY match WindowApi.
+- **noUncheckedIndexedAccess**: Permanently enabled. All `arr[i]` / `obj[key]` need guards.
 
-### Frontend
-- **Data router**: `createHashRouter` + `RouterProvider` (NOT legacy `<HashRouter>`) — required for `useBlocker`.
-- **Route merging**: `?mode=edit` pattern merges read/edit at same route. Remove separate `/edit` routes. Use `navigate('?mode=edit', {replace: true})` to avoid history pollution.
+### Frontend (Phase 13-23)
+- **Data router**: `createHashRouter` + `RouterProvider` (NOT legacy `<HashRouter>`).
+- **Route uniqueness**: Each route path must appear ONLY ONCE in App.tsx. Duplicate paths (e.g. `/graph` defined twice) cause first-match wins and dead redirects.
+- **DOMPurify before dangerouslySetInnerHTML**: ALL content from user DB must pass through `DOMPurify.sanitize()`. This includes md.render() output, previewHtml, and transclusion innerHTML.
+- **Component existence ≠ usage**: A component can be imported but never rendered in JSX. Verify with grep on JSX usage, not just import.
+- **Suggest.md alignment**: When implementing visual features (themes, colors), cross-reference suggest.md for exact hex values. Deviation from Boss-approved design spec = redo.
+
+### BrowserWindow Safety (Phase 23+)
+- **Every `new BrowserWindow()`** must explicitly set: `nodeIntegration: false, contextIsolation: true` + minimal preload script.
+- **Preload scripts** must only expose the minimum required API via `contextBridge.exposeInMainWorld`.
+- **globalShortcut registration**: Must check for conflicts (e.g. Ctrl+Space conflicts with CJK IME).
+- **Path traversal**: All file operations must use `path.basename()` + `fs.realpathSync()` + `startsWith` triple guard.
+
+### Self-Check Before Marking "Fixed" (Phase 23+)
+1. `npx tsc --noEmit` — zero new errors
+2. `npx tsc -p tsconfig.node.json --noEmit` — zero new errors
+3. `npx tsc -p tsconfig.web.json --noEmit` — zero new errors
+4. `npm run build` — passes
+5. `npm run test` — 87/87 pass
+6. All R items claimed as fixed must have corresponding code change verifiable by `git diff`
 - **React.lazy named exports**: `.then(m => ({ default: m.NamedExport }))`.
 - **Dashboard tabs**: `useSearchParams` for URL-persistent state, not local useState.
 - **useEffect cleanup**: Event listeners registered via `window.api.onXxx()` must return the unsubscribe function. If `onXxx` might not exist (webApi), check existence first.
@@ -409,5 +427,182 @@ Output a summary table:
 - `src/shared/db-schema-mysql.ts` — FULLTEXT ngram rebuild migration
 - `src/server/routes/clip.ts` — browser clipper endpoint + timeout/size limits
 - `chrome-extension/` — 4-file Manifest V3 extension
+
+### Phase 22: Knowledge Activation — AI/Transclusion/Tabs/Bookmarks/Calendar
+
+#### AI System (T2204)
+- **IPC**: `ai:chat` + `ai:tag-suggest` (2 channels). Desktop calls AiService → OpenAI/Anthropic API with 30s AbortSignal timeout.
+- **Server**: `POST /api/chat` + `POST /api/chat/tags` — requireAuth guarded. Web mode uses fetch to these endpoints.
+- **Settings**: localStorage `lbkb_ai_settings` (provider/apiKey/model/baseUrl). API key never sent to server — only used in main process IPC handler.
+- **RAG**: `searchDirect(query, userId)` retrieves Top-3 context → injected into system prompt. Typewriter effect via 15ms setInterval.
+- **Editor AI**: `✦ AI` toolbar button dropdown (续写/摘要/润色/翻译) + Ctrl+J shortcut + right-click contextMenu. `useAiSettings()` hook provides config.
+- **Auto-tag**: Post-save `aiTagSuggest()` → toast suggested tags.
+
+#### Transclusion (T2205)
+- **Syntax**: `![[title]]` detected BEFORE regular `[[title]]` in `renderWikilinks()`.
+- **Loading**: `useEffect` 100ms setTimeout → `document.querySelectorAll('.transclusion')` → batch IPC → replace innerHTML with DOMPurify.sanitize.
+- **Security**: All transclusion content MUST go through `escT()` + `DOMPurify.sanitize()` before innerHTML. `DOMPurify.Config.ADD_ATTR` for data-ref-*.
+
+#### Bookmarks (T2209)
+- **Schema**: `bookmarks` table (id/user_id/target_type/target_id/title/created_at). 3-way sync: schema.ts + db-schema-mysql.ts + db/index.ts migration.
+- **IPC**: `bookmark:add/remove/list` (3 channels). Full 7-file chain: ipc-channels → window-api → preload → handler → ipc/index → api-client.
+- **Components**: `BookmarkButton` (toggle on BlogPreviewPage/KB), `BookmarksPage` (/bookmarks route).
+
+#### Tab System (T2208)
+- **TabContext**: Independent from SplitContext (D98). Manages open tabs via localStorage `lbkb_open_tabs`.
+- **TabBar**: Auto-captures routes via `useEffect` watching `location.pathname`. Max 8 tabs. Home tab ('/') cannot be closed. Ctrl+1-8 switching.
+- **Critical**: `navigate()` must NOT be called inside `setState` callback — causes cross-component render warning.
+
+#### Calendar (T2201)
+- **Dual data source**: `Promise.all([noteList('daily'), noteList('schedule')])` — concurrent loading.
+- **Dot system**: Blue dot (6px, --accent-blue) = daily note. Green dot (6px, --accent-green) = schedule.
+- **Quick create**: Click date → panel with input + green button → creates schedule note. No modal popup.
+
+#### Saved Search (T2206)
+- **useSavedQueries**: `useSyncExternalStore` pattern. CRITICAL: getSnapshot must return cached reference.
+- **GlobalSearch**: "保存此查询" button → saves to localStorage → HomePage display.
+
+#### Timeline (T2207)
+- **Data shape**: `blogList` returns `{ blogs, total }` NOT bare array. Access `blogR.data?.blogs`.
+- **Date safety**: `String(date).slice(0,10)` everywhere — DB timestamps may not be string type at runtime.
+
+### Phase 23: The Study — Guofeng Themes, Cards, Whiteboard, Guide
+
+#### Theme System (T2301)
+- **5 themes**: 墨砚(赭石铜赤)/茶竹(竹绿)/夜灯(黄铜)/宣纸(靛蓝)/青瓷(青釉). Each theme has UNIQUE accent hue.
+- **CSS order**: `@import "./themes.css"` MUST come AFTER `:root` + `.light` blocks — otherwise overridden.
+- **:root default**: Changed to inkstone values. Old dark→inkstone, light→rice-paper auto-migration in `initTheme()`.
+- **Transition**: 350ms ease on `html, body, #root, [data-theme]`.
+- **Borders**: Use `rgba()` semi-transparent, not solid hex.
+
+#### BlogCard & MD Softening (T2302)
+- **BlogCard component**: `src/renderer/components/blog/BlogCard.tsx` — title + date + reading time + excerpt + tags + ref count.
+- **Must verify usage**: Import is not enough — grep for `<BlogCard` in JSX to confirm rendering.
+- **MD softening**: 10 elements via `.prose` CSS overrides: h2(border-bottom), blockquote(transparent+italic), code(pill), a(underline-offset), img(rounded), hr(thin), table(semi-transparent).
+
+#### Whiteboard (T2307)
+- **React Flow**: `@xyflow/react` (MIT). `useNodesState<Node>([])` — MUST provide type to avoid `never[]`.
+- **Optimistic create**: Add node with temp ID immediately → replace with server ID on success → remove on failure.
+- **Double-click edit**: `onNodeDoubleClick` → `prompt()` → `setNodes` + `whiteboardNodeUpdate` IPC.
+- **Task toggle**: `onNodeClick` checking `node.type === 'task'` → cycle todo→in_progress→done.
+- **Delete**: `deleteKeyCode={['Delete', 'Backspace']}` on ReactFlow.
+- **Colors**: Use CSS var function `nodeColor(name)` returning `var(--accent-blue)` etc. No hardcoded hex.
+
+#### Guide Page
+- **Raw imports**: `import indexMd from '../../../../docs/guide/index.md?raw'` — Vite ?raw suffix.
+- **TOC**: 13 chapters with Lucide icons, scroll spy, ← → keyboard navigation.
+- **AI panel**: Reuse `AiChatPanel` component, toggleable from sidebar.
+- **Inline links**: `[→ 试试](url)` links throughout — user action prompts.
+
+#### Common Phase 23 Pitfalls
+- **CSS dead code**: Defining `.blog-card-*` classes but not using them in JSX.
+- **NODE_COLORS variable**: Deleting hardcoded map but missing residual references (TaskNode fallback to NODE_COLORS.green).
+- **`/graph` double route**: Two path entries — first matches, second (Navigate) never fires.
+- **Emoji in KB icons**: TYPE_LABELS using emoji strings → must use Lucide components.
+- **Sidebar header**: Changed from "~/kb" to "精炼书房". Icons from 20px to 16px.
+
+#### Updated Key Files
+- `src/renderer/components/blog/BlogCard.tsx` — blog card component (Phase 23)
+- `src/renderer/assets/themes.css` — 5 guofeng themes with [data-theme] (Phase 23)
+- `src/renderer/stores/theme-store.ts` — theme migration + data-theme attribute management (Phase 23)
+- `src/renderer/stores/tab-context.tsx` — TabProvider + useTabs hook (Phase 22)
+- `src/renderer/components/ai/AiChatPanel.tsx` — RAG chat panel (Phase 22)
+- `src/renderer/stores/ai-settings.ts` — AI config with useSyncExternalStore (Phase 22)
+- `src/renderer/features/whiteboard/WhiteboardPage.tsx` — React Flow whiteboard (Phase 23)
+- `src/renderer/features/guide/GuidePage.tsx` — interactive handbook (Phase 23)
+- `src/renderer/features/timeline/TimelinePage.tsx` — vertical timeline (Phase 22)
+- `src/renderer/features/bookmarks/BookmarksPage.tsx` — bookmarks list (Phase 22)
+- `src/renderer/hooks/useSavedQueries.ts` — localStorage-based saved search (Phase 22)
+- `src/main/quick-note.ts` — Alt+Space quick note window (Phase 23)
+- `src/main/ipc/whiteboard.ts` — whiteboard IPC handlers with user_id isolation (Phase 23)
+- `docs/guide/*.md` — 13 guide markdown files (Phase 23)
+
+### Phase 23: 精炼书房 — 竞品驱动/国风主题/收纳哲学/白板
+
+#### Design System (T2301)
+- **Theme specs**: 5 themes with exact hex values in `suggest.md` §提案 2. `themes.css` + `:root` + `.light` must match suggest.md exactly. No approximate colors.
+- **bg-code**: All themes use `rgba()` semi-transparent, not solid hex. Dark themes: `rgba(255,255,255,0.025)`. Light themes: `rgba(0,0,0,0.025)`.
+- **8 theme options**: system + dark + light + inkstone + tea-bamboo + brass-lamp + rice-paper + celadon. SettingsPage must show all 8.
+- **Background image**: `#root::before` pseudo-element + opacity slider. file:// paths blocked by Electron security in renderer.
+
+#### Card Feed (T2302)
+- **memos pattern**: Cards with `group` class for hover actions. No pagination buttons — pure infinite scroll via IntersectionObserver sentinel.
+- **BlogCard component**: `src/renderer/components/blog/BlogCard.tsx` — title anchor (text-lg), meta (text-xs muted), excerpt (line-clamp-3), footer (tags + refs + hover ops).
+- **Code blocks**: highlight.js + language label (top-left) + copy button (top-right, hover visible).
+
+#### Frameless Editor (T2303)
+- **variant prop**: `TiptapEditor` supports `'full' | 'inline' | 'frameless'`. `BlogEditorPage` passes variant through. `BlogPreviewPage` edit mode uses `variant="frameless"`.
+- **300ms transition**: `isEditMode` → fadeIn 0.3s CSS animation, no route jump.
+- **BubbleMenu**: NOT available — `@tiptap/extension-bubble-menu` exports Extension, not JSX component. Do not import and render as component.
+- **Transclusion**: `renderWikilinks()` already processes `![[...]]` via `TRANSCLUDE_RE` before wikilinks. Full pipeline: md.render → renderWikilinks → DOMPurify.sanitize.
+
+#### Quick Note + Clipboard (T2304)
+- **Alt+Space**: BrowserWindow 420×320, `transparent:true`, `backgroundColor:'#00000000'` (花笺 style).
+- **Clipboard monitor**: 500ms polling via `clipboard.readText()` (text-first, HTML fallback). MD5 dedup, settings table persistence, privacy masking.
+- **Preload pattern**: `quick-note-preload.ts` exposes `window.quickNote.{save,pin,hide,getClipboardHistory}`. `ipcRenderer.invoke` for clipboard (not `send`).
+- **Popover**: data: URL onclick must use `window.functionName` prefix. Local `clipCache[]` array avoids repeat IPC.
+
+#### KB Redesign (T2305)
+- **Pogget philosophy**: "Don't transport files, present them directly. Click to open, no preview page."
+- **KbFileDetail**: `src/renderer/components/knowledge/KbFileDetail.tsx` — renders in center area (not 480px side panel). Conditional on `previewFileId != null`.
+- **Card grid**: Lucide icons (`TYPE_ICONS[ft]`) + 3px left color border + title + metadata. Grid with `repeat(auto-fill, minmax(280px, 1fr))`.
+- **Drag to whiteboard**: KB cards `draggable` + `application/lbkb-whiteboard` dataTransfer. Whiteboard `onDrop` creates kbLink node.
+- **Conflict detection**: Drop handler checks existing filenames. 3-option prompt: 1=替换, 2=保留两者, 3=跳过.
+
+#### Navigation (T2306)
+- **Sidebar**: 3 sections (写作/收纳/思考) + fixed footer. 3px accent left bar on active item. Count badges via `statsGet`.
+- **Tag cloud**: Discrete font sizes (1-2→12px, 3-5→14px, 6-10→16px, 11+→18px). BlogCard feed when selected.
+- **Series pages**: Card previews (first 4 titles). BlogCard with ①②③. Bottom navigation bar. Reading progress via localStorage.
+
+#### Whiteboard (T2307)
+- **ReactFlowProvider wrapping**: `useReactFlow()` must be called INSIDE ReactFlowProvider. Split into WhiteboardPage (provider wrapper) + WhiteboardCanvas (inner component).
+- **6 node types**: idea, task, text, blogLink, kbLink, bookmarkLink. LinkNode uses Lucide icons (FileEdit/Library/Bookmark).
+- **Edge picker**: 3-button floating UI (关联/依赖/引用) replacing blocked `prompt()`.
+- **quickInput dialog**: Custom state-based prompt (`{msg, resolve}`) replacing blocked `prompt()` for node editing.
+- **Bidirectional sync**: EVT_BLOG_REFRESH/EVT_KB_REFRESH events → `reloadNodes()`. Blog link title edit → `blogUpdate`. KB link title edit → `kbRename`.
+- **Props sync**: WhiteboardCanvas parameters must be updated in 3 places (function signature + JSX props + state declaration).
+
+#### Electron-Specific Gotchas
+- **prompt() blocked**: `window.prompt()` throws in Electron renderer. Use custom state dialogs everywhere.
+- **file:// blocked**: Background images, Image() probes all fail in renderer. Design around this limitation.
+
+#### Updated Self-Audit Checklist (Phase 23 additions)
+- [ ] themes.css: all colors match suggest.md exact hex (not approximate)
+- [ ] bg-code: rgba() semi-transparent (not solid hex)
+- [ ] 8 theme options in SettingsPage
+- [ ] BlogCard: `group` in className for hover patterns
+- [ ] No pagination buttons in blog list (infinite scroll sentinel only)
+- [ ] TiptapEditor: variant prop passed through BlogEditorPage
+- [ ] BlogPreviewPage: isEditMode branch renders BlogEditorPage variant="frameless"
+- [ ] Code blocks: highlight.js + language label + copy button
+- [ ] KB: KbFileDetail in center area, not 480px side panel
+- [ ] KB: Card grid uses TYPE_ICONS[ft] (Lucide, not emoji)
+- [ ] Whiteboard: ReactFlowProvider wrapping, no useReactFlow() outside
+- [ ] Whiteboard: WhiteboardCanvas params match props passed
+- [ ] Whiteboard: edgePicker + quickInput not using prompt()
+- [ ] Quick note: transparent:true + backgroundColor:'#00000000'
+- [ ] Quick note: data: URL onclick uses window. prefix
+- [ ] Clipboard: poll() text-first, not HTML-first
+- [ ] No prompt() calls in renderer code
+- [ ] No @tiptap/extension-bubble-menu JSX rendering (tsc error)
+
+#### Updated Key Files
+- `src/renderer/assets/themes.css` — 5 themes with exact suggest.md hex
+- `src/renderer/assets/index.css` — :root/:light aligned to inkstone/rice-paper specs
+- `src/renderer/components/blog/BlogCard.tsx` — card with group/refCount/tags
+- `src/renderer/components/editor/TiptapEditor.tsx` — variant prop (full/inline/frameless)
+- `src/renderer/components/knowledge/KbFileDetail.tsx` — center-pane file detail (NEW)
+- `src/renderer/features/knowledge/KnowledgeListPage.tsx` — KbFileDetail + card grid + ContextPanel
+- `src/renderer/features/blog/BlogPreviewPage.tsx` — isEditMode frameless editor + hljs copy
+- `src/renderer/features/blog/BlogEditorPage.tsx` — variant prop → TiptapEditor
+- `src/renderer/features/whiteboard/WhiteboardPage.tsx` — ReactFlowProvider + 6 node types + edgePicker
+- `src/renderer/features/dashboard/HomePage.tsx` — calendar selectedDate fix
+- `src/renderer/features/settings/SettingsPage.tsx` — BackgroundImageSection + ClipboardSection + 8 themes
+- `src/renderer/components/layout/MainLayout.tsx` — accent bar + badges + fixed footer
+- `src/main/quick-note.ts` — transparent window + clipboard popover JS
+- `src/main/quick-note-preload.ts` — getClipboardHistory invoke
+- `src/main/services/clipboard.service.ts` — 500ms poll + text-first + privacy masking + settings persistence
+- `src/main/ipc/app.ts` — clipboard IPC handlers (history/toggle/status/clear)
+- `docs/guide/*.md` — 13 guide chapters updated for Phase 23
 
 For detailed constraints, read `references/constraints.md`.

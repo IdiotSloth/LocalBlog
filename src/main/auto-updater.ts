@@ -1,76 +1,102 @@
 import type { BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc-channels';
 
-export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
-  const { app } = require('electron');
+let updateInfo: { version: string } | null = null;
+let checking = false;
+let downloading = false;
 
-  // Only check for updates in packaged app
+export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
+  const { app, ipcMain } = require('electron');
+
   if (!app.isPackaged) return;
 
-  // Dynamic require — electron-updater may not be resolvable in all packaging modes
   let autoUpdater: typeof import('electron-updater').autoUpdater;
   try {
     autoUpdater = require('electron-updater').autoUpdater;
   } catch {
-    console.warn('[AutoUpdater] electron-updater not available — skipping update check');
+    console.warn('[AutoUpdater] electron-updater not available');
     return;
   }
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // User-controlled: never auto-download
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
 
-  autoUpdater.on('checking-for-update', () => {
+  const send = (data: Record<string, unknown>) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: 'checking' });
+      win.webContents.send(IPC.EVT_UPDATE_STATUS, data);
     }
+  };
+
+  autoUpdater.on('checking-for-update', () => {
+    checking = true;
+    send({ status: 'checking' });
   });
 
   autoUpdater.on('update-available', (info) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: 'available',
-        version: info.version,
-      });
-    }
+    checking = false;
+    updateInfo = { version: info.version };
+    send({ status: 'available', version: info.version });
   });
 
   autoUpdater.on('update-not-available', () => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, { status: 'not-available' });
-    }
+    checking = false;
+    updateInfo = null;
+    send({ status: 'not-available' });
   });
 
   autoUpdater.on('download-progress', (progress) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: 'downloading',
-        percent: progress.percent,
-      });
-    }
+    send({ status: 'downloading', percent: progress.percent });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    const win = getMainWindow();
-    if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC.EVT_UPDATE_STATUS, {
-        status: 'downloaded',
-        version: info.version,
-      });
-    }
+    downloading = false;
+    updateInfo = { version: info.version };
+    send({ status: 'downloaded', version: info.version });
   });
 
   autoUpdater.on('error', (error) => {
-    console.error('[AutoUpdater] Error:', error.message);
+    checking = false;
+    downloading = false;
+    send({ status: 'error', message: error.message });
   });
 
-  // Start checking after a 5-second delay to avoid slowing startup
+  // --- IPC handlers for manual control ---
+
+  ipcMain.handle(IPC.APP_CHECK_UPDATE, async () => {
+    if (checking || downloading) return { success: false, error: '检查或下载已在进行中' };
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return {
+        success: true,
+        data: { updateAvailable: !!result?.updateInfo, version: result?.updateInfo?.version || null },
+      };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(IPC.APP_DOWNLOAD_UPDATE, async () => {
+    if (!updateInfo) return { success: false, error: '没有可用的更新信息，请先检查' };
+    if (downloading) return { success: false, error: '已在下载中' };
+    try {
+      downloading = true;
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (e) {
+      downloading = false;
+      return { success: false, error: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(IPC.APP_INSTALL_UPDATE, () => {
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true };
+  });
+
+  // Initial check on startup (5s delay, silent — only notifies if update available)
   setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(() => {
-      // Silently fail — updates are best-effort
-    });
+    autoUpdater.checkForUpdates().catch(() => {});
   }, 5000);
 }

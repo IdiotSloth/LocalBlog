@@ -37,12 +37,13 @@ export function CodePreview({ content, language, onClose }: CodePreviewProps) {
         });
         if (!aborted) { setHtml(result); setLoading(false); }
       } catch {
-        // Fallback: plain text with line numbers
+        // Fallback: plain text with line numbers (R300: escape user content)
         if (!aborted) {
+          const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
           const lines = content.split('\n');
           setHtml(
             `<pre style="font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--text-primary)">${
-              lines.map((l, i) => `<span style="color:var(--text-muted);user-select:none">${String(i + 1).padStart(4, ' ')} </span>${l}`).join('\n')
+              lines.map((l, i) => `<span style="color:var(--text-muted);user-select:none">${String(i + 1).padStart(4, ' ')} </span>${esc(l)}`).join('\n')
             }</pre>`,
           );
           setLoading(false);

@@ -1060,3 +1060,99 @@ Phase 11 以来首次 🔴0 🟠0 🟡0。累计 109 项修复、141 个工单�
 - 嵌套文件夹 → Phase 19
 - 组件状态收敛 → Phase 19
 - 键盘可访问性 → Phase 19
+
+---
+
+## Phase 19 — 质量收敛 + 体验深化 ✅
+
+> 结项: 2026-05-16 | 8/8 | IPC 99 | 测试 79→87 | P0-P3 首次全零
+
+| 任务 | 名称 | 状态 |
+|------|------|------|
+| T1913 | 10 项批修复 — R137-R139/R77/R115/R214/R216/R218/R219/R202 | ✅ |
+| T1914 | 5 新 Service 测试 (30 tests, total 87) | ✅ |
+| T1915 | 标签关联面板 — blogCount/kbCount 拆分 | ✅ |
+| T1916 | 博客自动保存 — 草稿恢复提示 + Toast | ✅ |
+| T1917 | 最近浏览历史 — localStorage LRU (max 10) | ✅ |
+| T1918 | 编辑器字数/阅读时间状态栏 | ✅ |
+| T1919 | 便签 Markdown 渲染 — DOMPurify 管线 | ✅ |
+| T1920 | 构建+测试验证 — 87/87 green | ✅ |
+
+核心命题: 清偿修复项 + 服务测试全覆盖。不限工时 Phase。首次 P0+P1+P2+P3 全零。renderer `:any`=0, `as any`=0。
+
+---
+
+## Phase 20 — 信息架构升级 ✅
+
+> 结项: 2026-05-18 | 18/18 | IPC 99→114 | 测试 87/87 | ~85h
+
+| 任务 | 名称 | 类型 | 状态 |
+|------|------|------|------|
+| T2001 | 设计Token升级 — CSS变量/Lucide/STYLE.md/托盘去emoji | 设计 | ✅ |
+| T2002 | MainLayout 3栏 — 侧边栏固定+ContextPanel+响应式(<1200px) | 架构 | ✅ |
+| T2003 | ContextPanel — React Context+所有权token(R186)+4 Tab | 架构 | ✅ |
+| T2004 | HomePage — 融合Dashboard+ContinueWriting+今日便签+迷你图谱 | 体验 | ✅ |
+| T2005 | 今日便签 — memoType='daily'+应用层校验(D54) | 体验 | ✅ |
+| T2006 | [[wikilink]] — Tiptap扩展+DOMPurify(R174)+scan+diff(D58) | 产品 | ✅ |
+| T2007 | 上下文面板·链接Tab — 反向链接+正向引用 | 体验 | ✅ |
+| T2008 | 上下文面板·大纲Tab — 标题树+位置高亮 | 体验 | ✅ |
+| T2009 | 知识文件属性 — 4处迁移(R176)+预设字段MVP | 产品 | ✅ |
+| T2010 | 底部Tab化 — 标签/附件/引用/系列水平切换 | 体验 | ✅ |
+| T2011 | 阅读主题精简 — 5→3+迁移映射(R183/D59) | 体验 | ✅ |
+| T2012 | 图谱数据层 — GraphNode/Edge/Data/Filter(R180)+IPC | 产品 | ✅ |
+| T2013 | 迷你图谱 — Home D3 力导向(15-20节点) | 产品 | ✅ |
+| T2014 | 全屏图谱页 — /graph+过滤+缩放+详情 | 产品 | ✅ |
+| T2015 | CommandPalette — Ctrl+K 全局搜索升级 | 体验 | ✅ |
+| T2016 | MCP Server — stdio CLI+HTTP(D55)+12 tools+JWT | 平台 | ✅ |
+| T2017 | 设计打磨 — 去阴影/弹跳/旧token清理(R192) | 设计 | ✅ |
+| T2018 | 测试+build — tsc+build+新功能测试+三元态(R189)+abortedRef(R190) | 验证 | ✅ |
+
+核心命题: 从"功能孤岛"升级为"知识中枢" — 3栏布局 + [[双向链接]] + 图谱 + 今日中枢 + 设计语言重塑为"精炼书房"。
+
+### 关键决策 (D46-D62)
+
+D46=A(侧边栏固定) D47=A(280px) D48=A(三向链接) D49=A(D3) D50=A(3主题) D51=A(stdio+HTTP) D52=A(HEX) D53=A(合并HomePage) D54=A(移除CHECK) D55=A(拆分入口) D56(由D55解决) D57=A(挂载检查) D58=A(扫描diff) D59=A(映射迁移) D60=A(纯文本) D61=A(删除源文件) D62=A(不限工时~85h)
+
+### 里程碑
+
+首个不限工时 Phase。IPC 99→114。3栏布局。[双向链接] 扫描diff。D3 知识图谱。MCP Server 12 tools。设计语言从"玩具"→"书房"。
+
+遗留: P2/P3 终审项 (R198/R207-R209/R220-R224) → Phase 21
+
+---
+
+## Phase 21 — 编辑器进化 + 知识连接 + 内容中枢 ✅
+
+> 结项: 2026-05-19 | 12/12 | IPC 114 | 测试 87/87 | ~67.3h
+
+| 任务 | 名称 | 类型 | 状态 |
+|------|------|------|------|
+| T2101 | SplitPane 分屏框架 + FocusMode + ContextPanel 焦点所有权(D84) | 架构 | ✅ |
+| T2102 | 斜杠命令 — SlashCommand 14 种块命令 | 体验 | ✅ |
+| T2103 | 元数据面板 — MetadataPanel + cover_image/icon | 产品 | ✅ |
+| T2104 | CJK 三层索引修复 + embedding.worker 语义搜索 + ref:search Worker 统一(D88) + Ctrl+O | 产品 | ✅ |
+| T2105 | 快速捕获 — note:clipboard IPC | 体验 | ✅ |
+| T2106 | 浏览器剪藏 — POST /api/clip + Chrome 扩展 | 平台 | ✅ |
+| T2107 | Callout 提示块 — Tiptap Callout Node 4 类型 | 体验 | ✅ |
+| T2108 | 置顶/颜色 + KB 空格预览 — is_pinned/color + Space | 体验 | ✅ |
+| T2109 | 体验打磨 — EmptyState/Skeleton/mergeTags/倒计时/模板变量/AI 配置 | 体验 | ✅ |
+| T2110 | Phase 20 终审修复 + D88/R226/R227 | 修复 | ✅ |
+| T2111 | 局部图谱 — ContextPanel Graph Tab + D3 1-degree | 产品 | ✅ |
+| T2112 | KB 多格式编辑 — TXT/MD/CSV 编辑 + DOCX/XLSX/PDF/Code 预览增强 | 产品 | ✅ |
+
+核心命题: Phase 20 建骨架, Phase 21 让血液流动 — 编辑器变创作利器, 信息流入, 知识长出连接。
+
+### 技术亮点
+
+- **CJK 搜索**: Unigram + Bigram + Word 三层索引, 单字可搜, 索引 v3
+- **语义搜索**: Transformers.js + embedding.worker.ts, multilingual-e5-small, 混合打分
+- **架构**: SplitPane 通用分屏 + D88 搜索系统统一 + R186 所有权二元组
+- **新依赖**: @xenova/transformers, shiki, react-data-grid
+
+### 关键决策 (D63-D88)
+
+D63-D72(提案裁决 10纳入2延后) D73=A(SplitPane通用) D74(纳入Ctrl+O) D75(纳入局部图谱) D76(标签页延22) D77(纳入模板变量) D78(Bookmarks延22) D79(纳入CJK fix) D80(纳入multilingual-e5-small) D81(纳入KB编辑) D82=A(空闲下载) D83=A(Unigram) D84=B(焦点Pane) D85=A(热修复前置) D86=B(双重校验) D87=B(独立worker) D88=A(接入Worker)
+
+26 个决策点全部关闭。首次引入 ML 模型。搜索从 SQL LIKE → 三层 CJK + 语义混合检索。
+
+遗留: P2/P3 → Phase 22 T2212 | 标签页 (D76) → Phase 22 | Bookmarks (D78) → Phase 22

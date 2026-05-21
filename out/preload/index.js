@@ -19,11 +19,14 @@ const IPC = {
   BLOG_SAVE_DRAFT: "blog:save-draft",
   BLOG_GET_HISTORY: "blog:get-history",
   BLOG_ROLLBACK: "blog:rollback",
+  BLOG_SET_PINNED: "blog:set-pinned",
+  BLOG_SET_COLOR: "blog:set-color",
   // Tag
   TAG_LIST: "tag:list",
   TAG_CREATE: "tag:create",
   TAG_UPDATE: "tag:update",
   TAG_DELETE: "tag:delete",
+  TAG_MERGE: "tag:merge",
   TAG_SET_BLOG: "tag:set-blog",
   TAG_SET_FILE: "tag:set-file",
   // Quick Note
@@ -48,6 +51,7 @@ const IPC = {
   KB_PREVIEW: "kb:preview",
   KB_OPEN_EXTERNAL: "kb:open-external",
   KB_SET_PROPERTIES: "kb:set-properties",
+  KB_UPDATE_CONTENT: "kb:update-content",
   // Search
   SEARCH_GLOBAL: "search:global",
   SEARCH_BLOGS: "search:blogs",
@@ -60,6 +64,7 @@ const IPC = {
   WORKSPACE_SET_PATH: "workspace:set-path",
   WORKSPACE_MIGRATE: "workspace:migrate",
   WORKSPACE_OPEN_IN_FOLDER: "workspace:open-in-folder",
+  WORKSPACE_EXPORT_MD: "workspace:export-md",
   // Recycle Bin
   RECYCLE_LIST: "recycle:list",
   RECYCLE_RESTORE: "recycle:restore",
@@ -117,6 +122,7 @@ const IPC = {
   SHORTCUT_UPDATE: "shortcut:update",
   SHORTCUT_RESET: "shortcut:reset",
   // App
+  BG_IMAGE_READ: "bgImage:read",
   SHELL_OPEN_EXTERNAL: "shell:openExternal",
   APP_VISIBILITY: "app:visibility",
   APP_GET_VERSION: "app:get-version",
@@ -125,6 +131,9 @@ const IPC = {
   APP_GET_AUTO_START: "app:get-auto-start",
   APP_CREATE_START_MENU_SHORTCUT: "app:create-start-menu-shortcut",
   APP_HAS_START_MENU_SHORTCUT: "app:has-start-menu-shortcut",
+  APP_CHECK_UPDATE: "app:check-update",
+  APP_DOWNLOAD_UPDATE: "app:download-update",
+  APP_INSTALL_UPDATE: "app:install-update",
   // Events (main → renderer via webContents.send)
   EVT_TRAY_ACTION: "tray-action",
   EVT_PET_ACTION: "pet-action",
@@ -134,7 +143,31 @@ const IPC = {
   EVT_KB_REFRESH: "kb:refresh",
   EVT_MANUAL_COLLECT_PROGRESS: "manual:collect-progress",
   EVT_APP_ERROR: "app:error",
-  EVT_UPDATE_STATUS: "app:update-status"
+  EVT_UPDATE_STATUS: "app:update-status",
+  EVT_QUICK_NOTE_TRIGGER: "quick-note:trigger",
+  // Quick Note (T2304)
+  QUICK_NOTE_SHOW: "quick-note:show",
+  // Clipboard (T2304)
+  CLIPBOARD_HISTORY: "clipboard:history",
+  CLIPBOARD_CLEAR: "clipboard:clear",
+  CLIPBOARD_TOGGLE: "clipboard:toggle",
+  CLIPBOARD_STATUS: "clipboard:status",
+  // Whiteboard (T2307)
+  WHITEBOARD_GET: "whiteboard:get",
+  WHITEBOARD_NODES: "whiteboard:nodes",
+  WHITEBOARD_NODE_CREATE: "whiteboard:node-create",
+  WHITEBOARD_NODE_UPDATE: "whiteboard:node-update",
+  WHITEBOARD_NODE_DELETE: "whiteboard:node-delete",
+  WHITEBOARD_EDGES: "whiteboard:edges",
+  WHITEBOARD_EDGE_CREATE: "whiteboard:edge-create",
+  WHITEBOARD_EDGE_DELETE: "whiteboard:edge-delete",
+  // Bookmarks (T2209)
+  BOOKMARK_ADD: "bookmark:add",
+  BOOKMARK_REMOVE: "bookmark:remove",
+  BOOKMARK_LIST: "bookmark:list",
+  // AI (T2204)
+  AI_CHAT: "ai:chat",
+  AI_TAG_SUGGEST: "ai:tag-suggest"
 };
 const api = {
   // Auth
@@ -157,6 +190,8 @@ const api = {
   blogSaveDraft: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SAVE_DRAFT, data),
   blogGetHistory: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_GET_HISTORY, blogId),
   blogRollback: (data) => electron.ipcRenderer.invoke(IPC.BLOG_ROLLBACK, data),
+  blogSetPinned: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SET_PINNED, data),
+  blogSetColor: (data) => electron.ipcRenderer.invoke(IPC.BLOG_SET_COLOR, data),
   blogListAttachments: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_LIST_ATTACHMENTS, blogId),
   blogDeleteAttachment: (data) => electron.ipcRenderer.invoke(IPC.BLOG_DELETE_ATTACHMENT, data),
   blogCleanupAttachments: (blogId) => electron.ipcRenderer.invoke(IPC.BLOG_CLEANUP_ATTACHMENTS, blogId),
@@ -172,6 +207,7 @@ const api = {
   tagCreate: (data) => electron.ipcRenderer.invoke(IPC.TAG_CREATE, data),
   tagUpdate: (data) => electron.ipcRenderer.invoke(IPC.TAG_UPDATE, data),
   tagDelete: (data) => electron.ipcRenderer.invoke(IPC.TAG_DELETE, data),
+  tagMerge: (data) => electron.ipcRenderer.invoke(IPC.TAG_MERGE, data),
   tagSetBlog: (data) => electron.ipcRenderer.invoke(IPC.TAG_SET_BLOG, data),
   tagSetFile: (data) => electron.ipcRenderer.invoke(IPC.TAG_SET_FILE, data),
   // Knowledge Base
@@ -185,6 +221,7 @@ const api = {
   kbOpenExternal: (data) => electron.ipcRenderer.invoke(IPC.KB_OPEN_EXTERNAL, data),
   kbBatchDelete: (data) => electron.ipcRenderer.invoke(IPC.KB_BATCH_DELETE, data),
   kbSetProperties: (data) => electron.ipcRenderer.invoke(IPC.KB_SET_PROPERTIES, data),
+  kbUpdateContent: (data) => electron.ipcRenderer.invoke(IPC.KB_UPDATE_CONTENT, data),
   // Search
   searchGlobal: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_GLOBAL, data),
   searchBlogs: (data) => electron.ipcRenderer.invoke(IPC.SEARCH_BLOGS, data),
@@ -197,6 +234,7 @@ const api = {
   workspaceSetPath: (data) => electron.ipcRenderer.invoke(IPC.WORKSPACE_SET_PATH, data),
   workspaceMigrate: (data) => electron.ipcRenderer.invoke(IPC.WORKSPACE_MIGRATE, data),
   workspaceOpenInFolder: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_OPEN_IN_FOLDER, userId),
+  workspaceExportMd: (userId) => electron.ipcRenderer.invoke(IPC.WORKSPACE_EXPORT_MD, userId),
   // Recycle Bin
   recycleList: (userId) => electron.ipcRenderer.invoke(IPC.RECYCLE_LIST, userId),
   recycleRestore: (data) => electron.ipcRenderer.invoke(IPC.RECYCLE_RESTORE, data),
@@ -209,6 +247,34 @@ const api = {
   refGetFrom: (data) => electron.ipcRenderer.invoke(IPC.REF_GET_FROM, data),
   refGetTo: (data) => electron.ipcRenderer.invoke(IPC.REF_GET_TO, data),
   refSearch: (data) => electron.ipcRenderer.invoke(IPC.REF_SEARCH, data),
+  // Bookmarks (T2209)
+  bookmarkAdd: (data) => electron.ipcRenderer.invoke(IPC.BOOKMARK_ADD, data),
+  bookmarkRemove: (data) => electron.ipcRenderer.invoke(IPC.BOOKMARK_REMOVE, data),
+  bookmarkList: (userId) => electron.ipcRenderer.invoke(IPC.BOOKMARK_LIST, userId),
+  // AI (T2204)
+  aiChat: (data) => electron.ipcRenderer.invoke(IPC.AI_CHAT, data),
+  aiTagSuggest: (data) => electron.ipcRenderer.invoke(IPC.AI_TAG_SUGGEST, data),
+  // Quick Note (T2304)
+  quickNoteShow: (userId) => electron.ipcRenderer.invoke(IPC.QUICK_NOTE_SHOW, userId),
+  onQuickNoteTrigger: (cb) => {
+    const h = () => cb();
+    electron.ipcRenderer.on(IPC.EVT_QUICK_NOTE_TRIGGER, h);
+    return () => electron.ipcRenderer.removeListener(IPC.EVT_QUICK_NOTE_TRIGGER, h);
+  },
+  // Clipboard (T2304)
+  clipboardHistory: () => electron.ipcRenderer.invoke(IPC.CLIPBOARD_HISTORY),
+  clipboardClear: () => electron.ipcRenderer.invoke(IPC.CLIPBOARD_CLEAR),
+  clipboardToggle: (data) => electron.ipcRenderer.invoke(IPC.CLIPBOARD_TOGGLE, data),
+  clipboardStatus: () => electron.ipcRenderer.invoke(IPC.CLIPBOARD_STATUS),
+  // Whiteboard (T2307)
+  whiteboardGet: (userId) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_GET, userId),
+  whiteboardNodes: (whiteboardId) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_NODES, whiteboardId),
+  whiteboardNodeCreate: (data) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_NODE_CREATE, data),
+  whiteboardNodeUpdate: (data) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_NODE_UPDATE, data),
+  whiteboardNodeDelete: (nodeId) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_NODE_DELETE, nodeId),
+  whiteboardEdges: (whiteboardId) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_EDGES, whiteboardId),
+  whiteboardEdgeCreate: (data) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_EDGE_CREATE, data),
+  whiteboardEdgeDelete: (edgeId) => electron.ipcRenderer.invoke(IPC.WHITEBOARD_EDGE_DELETE, edgeId),
   // Folder
   folderTree: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_TREE, data),
   folderCreate: (data) => electron.ipcRenderer.invoke(IPC.FOLDER_CREATE, data),
@@ -298,12 +364,16 @@ const api = {
   shortcutUpdate: (id, key) => electron.ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, id, key),
   shortcutReset: () => electron.ipcRenderer.invoke(IPC.SHORTCUT_RESET),
   // App
+  bgImageRead: (data) => electron.ipcRenderer.invoke(IPC.BG_IMAGE_READ, data),
   shellOpenExternal: (url) => electron.ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   appGetVersion: () => electron.ipcRenderer.invoke(IPC.APP_GET_VERSION),
   appGetSystemLanguage: () => electron.ipcRenderer.invoke(IPC.APP_GET_SYSTEM_LANGUAGE),
   appSetAutoStart: (enable) => electron.ipcRenderer.invoke(IPC.APP_SET_AUTO_START, enable),
   appGetAutoStart: () => electron.ipcRenderer.invoke(IPC.APP_GET_AUTO_START),
   appCreateStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_CREATE_START_MENU_SHORTCUT),
-  appHasStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_HAS_START_MENU_SHORTCUT)
+  appHasStartMenuShortcut: () => electron.ipcRenderer.invoke(IPC.APP_HAS_START_MENU_SHORTCUT),
+  appCheckUpdate: () => electron.ipcRenderer.invoke(IPC.APP_CHECK_UPDATE),
+  appDownloadUpdate: () => electron.ipcRenderer.invoke(IPC.APP_DOWNLOAD_UPDATE),
+  appInstallUpdate: () => electron.ipcRenderer.invoke(IPC.APP_INSTALL_UPDATE)
 };
 electron.contextBridge.exposeInMainWorld("api", api);

@@ -354,3 +354,79 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 89. **D72 amber 组件级例外** — Callout warning 类型可用 `#f59e0b` / `rgba(245,158,11,0.08)`，但仅在 `.callout-warning` CSS 中，不作为 `--accent-amber` 全局 token。Callout info/success/danger 用 `--accent-blue/green/red`。
 
 90. **escHtml() 必须覆盖单引号** — `s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')` — 五字符全转义。单引号在 HTML 属性值中会提前闭合 value='...'。
+
+### Phase 22: 知识活化 — AI/Transclusion/Tabs/Bookmarks/Calendar/Search (Phase 22)
+
+91. **useSyncExternalStore getSnapshot 必须返回缓存引用** — `getSnapshot()` 每次返回新对象/数组 → `Object.is` 永远不同 → `useSyncExternalStore` 无限重渲染 → "Maximum update depth exceeded" 崩溃。模块级 `let cached` + `emit()` 时刷新。影响: `useSavedQueries`、`useAiSettings` 两个 hook。
+
+92. **CSS @import 顺序决定主题是否生效** — `@import "./themes.css"` 必须在 `:root` + `.light` + `@theme` 块**之后**，否则 `[data-theme]` 选择器与 `:root` 同级特异性，后声明的覆盖前面的。主题文件在最前面 → 全部被默认覆盖 → 永远只有黑白色。
+
+93. **setState 回调内禁止调用 navigate()** — React 不允许在一个组件渲染期间更新另一个组件。`setTabs(() => { ...; navigate(...) })` → "Cannot update RouterProvider while rendering TabProvider" 警告。导航必须在 setState 回调**之外**执行。
+
+94. **blogList/kbList 返回 `{ blogs/files, total }` 非裸数组** — `window.api.blogList()` 返回 `ApiResponse<{ blogs: BlogWithTags[], total: number }>`。`for (const b of blogR.data)` 把对象当数组迭代 → 运行时 TypeError。正确写法: `blogR.data?.blogs` / `kbR.data?.files`。
+
+95. **FtsSearchResult 字段是 `snippet` 非 `excerpt`** — Phase 21 定义的类型用 `snippet`。全项目搜索 `r.excerpt` 全部 → `r.snippet`。错字段名 → 运行时 undefined → 卡片无摘要。
+
+96. **DraftItem 驼峰 `savedAt` 非 snake_case `saved_at`** — DB 列是 `saved_at` 但 TypeScript 类型映射后为 `savedAt`。`d.saved_at` → tsc 报错 + 运行时 undefined。
+
+97. **主题过渡要在 html/body/#root 上** — 仅 `[data-theme]` 上 transition 不够，背景/文字颜色由多层元素决定。`html { transition: background-color 350ms ease, color 350ms ease; }` + `body, #root, [data-theme]` 同样声明。
+
+98. **BlogWithTags 无 `content` 字段** — `BlogWithTags extends Blog` 仅加 `tags: Tag[]`，`Blog` 无 `content`。列表页取正文需 `(blog as any).content`。同理 `BlogWithTags` 无 `content_text`。
+
+99. **Lucide 图标替代 emoji** — Phase 23 设计约束：KB 文件类型用 Lucide (FileCode/FileText/FileSpreadsheet/Presentation/FileImage/File)，禁用 emoji (📝📄📊)。
+
+100. **replace_all 多行文本可能漏匹配** — 多行 old_string 与文件实际空白/注释差异会导致静默跳过。replace_all 后必须 grep 验证所有实例已替换。
+
+101. **ReactFlow onNodeClick 需检查 node.type** — 点击 task 节点切换状态，点击 idea 节点无反应。`if (node.type === 'task')` 守卫。
+
+102. **硬编码颜色字典 → CSS var 函数** — `NODE_COLORS = { blue: '#58a6ff' }` → `nodeColor(name): string` 返回 `var(--accent-blue)` 等 CSS 变量。主题切换时自动适配。删除所有硬编码颜色常量。
+
+103. **乐观更新模式** — 白板/便签等先更新 UI（临时 ID），再异步保存 DB。成功后替换真实 ID，失败则回滚。避免"点击后没反应"的用户体验。
+
+104. **日历日程创建入口** — Phase 22 移除弹窗后，点击日期必须有替代创建方式。底部内联输入框+绿色按钮，Enter 直接创建 schedule 便签。
+
+### Phase 23: 精炼书房 — 国风主题/卡片化/白板/交互式指南 (Phase 23)
+
+105. **主题色相必须有区分度** — 5 套主题的 `--accent-blue` 不能全是蓝色系。墨砚=赭石铜赤(#b8826a)、茶竹=竹绿(#7a9e7a)、夜灯=黄铜(#c4a860)、宣纸=靛蓝(#5d7a8a)、青瓷=青釉(#6b9e8a)。边框用 `rgba()` 半透明。
+
+106. **:root 默认值即主题** — `:root` 保留旧 GitHub 暗色 → 不选主题时仍是黑白。`:root` 必须改为新默认主题（墨砚）色值。旧 dark→inkstone 自动迁移。
+
+107. **CSS 类定义后必须被组件使用** — `.blog-card-excerpt` 等类在 CSS 中存在，但 BlogListPage 仍用内联样式 → 视觉效果不变。定义新 CSS 类后，必须 grep 验证至少有一处 `className` 引用。
+
+108. **BlogCard 组件导入≠使用** — `import { BlogCard }` 后在 JSX 中写 `<article>` 而非 `<BlogCard>` → 组件永远不会渲染。写完组件后 verify 它真的出现在页面中。
+
+109. **白板空页面即误导** — 用户打开白板看到空白画布 → 不知道能做什么。必须有: 工具栏按钮文字清晰(+想法/+任务/+文本)、空白处引导提示、"我的白板"标题。
+
+110. **/graph 双路由只匹配第一个** — `path: '/graph' element: GraphPage` + `path: '/graph' element: Navigate` → React Router 匹配第一个，重定向永不触发。删除死路由，保留唯一 Navigate。
+
+### Phase 23: 精炼书房 — 竞品驱动设计 + 国风主题 + 收纳哲学 + 白板 (Phase 23)
+
+111. **git checkout 会丢失未提交的 Phase 改动** — 文件被 `git checkout` 恢复后，所有未提交的渲染端改动丢失（TYPE_ICONS、ContextPanel、select=参数、卡片网格、isEditMode 分支等）。永远不要用 `git checkout` 修复被多次编辑损坏的文件——改用精确的 Edit 逐块回退，或先 `git stash` 保存当前状态。
+
+112. **Electron renderer 不支持 prompt()** — `window.prompt()` 在 Electron 渲染进程中抛出 `"prompt() is not supported"`。白板/便签等任何需要用户输入的场景，必须用自定义 state 弹窗（如 quickInput: `useState<{msg,resolve}>`）替代。白板的连线类型选择用 edgePicker 浮层替代 prompt。
+
+113. **`@tiptap/extension-bubble-menu` 导出 Extension 非 JSX 组件** — 在当前 Tiptap 版本中，BubbleMenu 从 extension 包导入的是 Extension 类型，不能作为 JSX 组件使用。tsc 报 `TS2786: cannot be used as a JSX component`。项目约定：不移除 BubbleMenu import 到 JSX 渲染。
+
+114. **色值必须严格对齐 suggest.md** — themes.css + `:root` + `.light` 中的色值如果与 suggest.md 提案 2 的精确 hex 不一致，会被审计发现。修改任何主题色时，必须逐 token 对照 suggest.md §提案 2 的 5 主题 × 14 token 色值表。偏差超过 1 个色阶即为不合格。
+
+115. **bg-code 必须用 rgba() 半透明，非实色 hex** — suggest.md 明确要求所有主题的 `--bg-code` 使用 `rgba(255/255/0, 0.025)` 叠在背景色上，暗色主题用白透、亮色主题用黑透。不能使用实色 hex（如 `#24211e`），否则主题切换时代码块颜色不随背景自然过渡。
+
+116. **ReactFlow `useReactFlow()` 必须在 ReactFlowProvider 内部调用** — 不能在渲染 `<ReactFlow>` 的同一组件中调用 `useReactFlow()`（context 不可用）。必须拆分出内部组件（如 WhiteboardCanvas），由外层 `<ReactFlowProvider>` 包裹，在内层调用 hook。
+
+117. **WhiteboardCanvas props 解构必须三处同步** — 向 WhiteboardCanvas 添加新 state（如 quickInput、edgePicker）时必须同时更新：① 函数参数解构 ② WhiteboardPage 中的 JSX prop 传递 ③ 类型定义。遗漏任一步 → 运行时 `ReferenceError: xxx is not defined`。
+
+118. **data: URL 页面的 onclick 必须用 `window.` 前缀** — 快捷便签 HTML 通过 `data:text/html` 加载，内联 `onclick="fn()"` 调用时须用 `window.toggleClipPopover()` 而非裸 `toggleClipPopover()`，确保在全局作用域正确解析。
+
+119. **clipboard.readText() 文本优先于 readHTML()** — 剪贴板监控 poll() 中应优先使用 `clipboard.readText()` 获取纯文本，仅当文本为空时才回退 `clipboard.readHTML()` + `stripHtml()`。反之会导致短文本被 HTML 条件 `length > 20` 过滤。
+
+120. **剪贴板 preload 方法存在性检查** — 快捷便签 preload 的 `window.quickNote` 在 data: URL 页面中调用前，必须检查 `window.quickNote?.getClipboardHistory` 是否存在。若 preload 加载时序有偏差，直接调用会静默失败。
+
+121. **file:// 背景图在 Electron renderer 被拦截** — `new Image()` probe 和 CSS `background-image: url("file://...")` 在 Electron 渲染进程都会被安全策略阻止。选择背景图后无法在渲染端验证文件存在性，静默回退纯色。
+
+122. **BlogPreviewPage 的 isEditMode 分支 + 关键 const 声明易丢失** — `isEditMode` 渲染分支、`theme = READING_THEMES[readingTheme]`、`readingMinutes`、`charTotal` 等声明在 git reset 中高频丢失。reset 后必须验证：点「编辑」→ 进入 frameless 编辑态、阅读主题按钮正常渲染。
+
+123. **剪贴板 popover 用本地缓存避免重复 IPC** — 不要在每次渲染/粘贴时重新 invoke `clipboard:history`。改为 `loadClipboard()` 一次性拉取存入 `clipCache[]` 数组，popover 渲染和 `pasteClipItem(i)` 都从缓存即时取值。粘贴后加 `showToast('已粘贴')` 反馈。
+
+124. **便签 `todayStr()` bug — dueDate 不能用今天代替选中日期** — `handleSaveDaily` 中 `dueDate` 不能硬编码 `todayStr()`。用户在日历上选了 5 月 15 日，保存的便签 `dueDate` 必须是 `selectedDate`（`handleCalendarDateSelect` 传入的日期），否则日历蓝点永远不会出现在其他日期。
+
+125. **iframe sandbox 组合安全性** — `sandbox="allow-same-origin allow-scripts"` 组合允许 iframe 逃逸沙箱。对于 `srcDoc` 内联内容，`allow-same-origin` 无意义且危险，仅需 `sandbox="allow-scripts"`。

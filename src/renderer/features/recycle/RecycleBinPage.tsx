@@ -32,6 +32,17 @@ export function RecycleBinPage() {
     loadItems();
   }, [loadItems]);
 
+  // T2211: Delete key to empty recycle bin
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' && items.length > 0 && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        handleEmpty();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [items.length]);
+
   const handleRestore = async (item: RecycleItem) => {
     try {
       await window.api.recycleRestore({ userId: user?.id, itemId: item.itemId, itemType: item.itemType });

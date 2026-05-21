@@ -6,6 +6,7 @@ interface SeriesItem {
   seriesId: string;
   seriesName: string;
   count: number;
+  preview?: string[]; // first 4 blog titles
 }
 
 const ACCENTS = [
@@ -26,7 +27,23 @@ export function SeriesListPage() {
     setLoading(true);
     try {
       const r = await window.api.blogSeriesList(user.id);
-      if (r.success && r.data) setSeries(r.data);
+      if (r.success && r.data) {
+        const list = r.data as SeriesItem[];
+        // T2306: Fetch first 4 titles for each series
+        const withPreviews = await Promise.all(
+          list.map(async (s) => {
+            try {
+              const detail = await window.api.blogSeriesGet(s.seriesId);
+              if (detail.success && detail.data) {
+                const blogs = detail.data as { title: string }[];
+                return { ...s, preview: blogs.slice(0, 4).map(b => b.title) };
+              }
+            } catch { /* ignore */ }
+            return s;
+          }),
+        );
+        setSeries(withPreviews);
+      }
     } catch (e) {
       console.error('[SeriesList]', e);
       setError('加载失败');
@@ -114,6 +131,16 @@ export function SeriesListPage() {
                   <p className="mt-0.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                     {s.count} 篇文章
                   </p>
+                  {/* T2306: First 4 titles preview */}
+                  {s.preview && s.preview.length > 0 && (
+                    <div className="mt-2 text-[12px] space-y-0.5">
+                      {s.preview.map((title, i) => (
+                        <div key={i} className="truncate" style={{ color: 'var(--text-muted)' }}>
+                          · {title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {/* Arrow */}
                 <span

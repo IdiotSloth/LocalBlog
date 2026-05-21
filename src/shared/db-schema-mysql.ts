@@ -96,10 +96,41 @@ export const MYSQL_DDL = [
     updated_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // T2209: Bookmarks
+  `CREATE TABLE IF NOT EXISTS bookmarks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // D106: Settings key-value store
+  `CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    \`key\` VARCHAR(100) NOT NULL,
+    value TEXT NOT NULL,
+    UNIQUE KEY uk_user_key (user_id, \`key\`),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 /** ALTER TABLE statements for columns added after initial schema */
 export const MYSQL_MIGRATIONS = [
+  // T2209: bookmarks table (if upgrading from older schema)
+  `CREATE TABLE IF NOT EXISTS bookmarks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   'ALTER TABLE blogs ADD COLUMN folder_id INT DEFAULT NULL',
   'ALTER TABLE blogs ADD COLUMN series_id VARCHAR(36) DEFAULT NULL',
   'ALTER TABLE blogs ADD COLUMN series_name VARCHAR(100) DEFAULT NULL',
@@ -130,6 +161,59 @@ export const MYSQL_MIGRATIONS = [
 
   // T2009: knowledge_files properties JSON column (R176)
   "ALTER TABLE knowledge_files ADD COLUMN properties TEXT",
+
+  // T2307: Whiteboards
+  `CREATE TABLE IF NOT EXISTS whiteboards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL DEFAULT '我的白板',
+    description TEXT,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS whiteboard_nodes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    whiteboard_id INT NOT NULL,
+    user_id INT NOT NULL,
+    node_type VARCHAR(20) NOT NULL DEFAULT 'idea',
+    ref_type VARCHAR(20),
+    ref_id INT,
+    title VARCHAR(500) NOT NULL DEFAULT '',
+    summary TEXT,
+    color VARCHAR(20) DEFAULT 'blue',
+    task_status VARCHAR(20) DEFAULT 'todo',
+    x DOUBLE NOT NULL DEFAULT 0,
+    y DOUBLE NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS whiteboard_edges (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    whiteboard_id INT NOT NULL,
+    source_node_id INT NOT NULL,
+    target_node_id INT NOT NULL,
+    edge_type VARCHAR(20) DEFAULT 'reference',
+    label VARCHAR(500) DEFAULT '',
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // D106: settings table
+  `CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    \`key\` VARCHAR(100) NOT NULL,
+    value TEXT NOT NULL,
+    UNIQUE KEY uk_user_key (user_id, \`key\`),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   // T2103+T2108: blogs metadata columns (cover_image, icon, is_pinned, color)
   'ALTER TABLE blogs ADD COLUMN cover_image TEXT',

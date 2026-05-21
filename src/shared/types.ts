@@ -159,6 +159,10 @@ export interface UserStats {
   currentStreak: number;
   longestStreak: number;
   uniqueTags: number;
+  totalNotes: number;
+  totalSeries: number;
+  totalBookmarks: number;
+  totalWhiteboards: number;
   hasMdBlog: boolean;
   hasHtmlBlog: boolean;
   hasNightBlog: boolean;

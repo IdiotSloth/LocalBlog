@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  Bookmark,
+  Bot,
+  Clock,
   FileEdit,
   GitFork,
   HelpCircle,
@@ -22,38 +25,41 @@ import { GlobalSearch } from './GlobalSearch';
 import { QuickNote } from './QuickNote';
 import { QuickSwitcher } from './QuickSwitcher';
 import { SplitPane, SplitProvider, useSplit } from './SplitPane';
+import { TabProvider } from '../../stores/tab-context';
+import { TabBar } from './TabBar';
+import { AiChatPanel } from '../ai/AiChatPanel';
 
 const navGroups = [
   {
     label: '写作',
     items: [
       { to: '/', label: '今日', Icon: Pencil },
-      { to: '/notes', label: '便签', Icon: StickyNote },
       { to: '/blog', label: '博客', Icon: FileEdit },
+      { to: '/notes', label: '便签', Icon: StickyNote },
     ],
   },
   {
-    label: '资料',
+    label: '收纳',
     items: [
       { to: '/knowledge', label: '知识库', Icon: Library },
       { to: '/tags', label: '标签', Icon: Tags },
       { to: '/series', label: '系列', Icon: Layers },
+      { to: '/bookmarks', label: '收藏', Icon: Bookmark },
     ],
   },
   {
-    label: '洞察',
+    label: '思考',
     items: [
-      { to: '/graph', label: '图谱', Icon: GitFork },
+      { to: '/whiteboards', label: '白板', Icon: GitFork },
+      { to: '/timeline', label: '时间轴', Icon: Clock },
     ],
   },
-  {
-    label: '系统',
-    items: [
-      { to: '/recycle', label: '回收站', Icon: Trash2 },
-      { to: '/guide', label: '指南', Icon: HelpCircle },
-      { to: '/settings', label: '设置', Icon: Settings },
-    ],
-  },
+];
+
+const footerItems = [
+  { to: '/guide', label: '指南', Icon: HelpCircle },
+  { to: '/settings', label: '设置', Icon: Settings },
+  { to: '/recycle', label: '回收站', Icon: Trash2 },
 ];
 
 const COLLAPSED_WIDTH = 48;
@@ -66,13 +72,47 @@ export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('lbkb_sidebar_collapsed') === 'true';
   });
+  const [badges, setBadges] = useState<Record<string, number>>({});
   useShortcuts();
 
   useEffect(() => {
     localStorage.setItem('lbkb_sidebar_collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  // T2306: Load count badges for sidebar
+  useEffect(() => {
+    if (!user) return;
+    window.api.statsGet(user.id).then(r => {
+      if (r.success && r.data) {
+        setBadges({
+          '/blog': r.data.totalBlogs ?? 0,
+          '/notes': r.data.totalNotes ?? 0,
+          '/knowledge': r.data.totalFiles ?? 0,
+          '/tags': r.data.uniqueTags ?? 0,
+          '/series': r.data.totalSeries ?? 0,
+          '/bookmarks': r.data.totalBookmarks ?? 0,
+          '/whiteboards': r.data.totalWhiteboards ?? 0,
+        });
+      }
+    }).catch(() => {});
+  }, [user]);
+
   const sidebarWidth = sidebarCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+
+  // R336: Dynamically set --content-max based on available space
+  useEffect(() => {
+    const update = () => {
+      const root = document.documentElement;
+      const w = root.clientWidth;
+      // sidebar + padding + ContextPanel reserve (ContextPanel ~280px on whitelist routes)
+      const reserve = sidebarCollapsed ? 120 : 300;
+      const max = Math.max(640, Math.min(960, w - reserve));
+      root.style.setProperty('--content-max', `${max}px`);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [sidebarCollapsed]);
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((v) => !v);
@@ -108,33 +148,36 @@ export function MainLayout() {
   return (
     <SplitProvider>
       <ContextPanelProvider>
-        <div className="flex h-full select-none">
+        <div className="flex select-none" style={{ height: '100vh', overflow: 'hidden' }}>
           {/* ===== Sidebar — fixed, manual toggle. Always 220px inner, transform for GPU animation (R218) ===== */}
           <aside
-          className="flex shrink-0 flex-col border-r border-[var(--border-default)] overflow-visible"
+          className="flex shrink-0 flex-col border-r border-[var(--border-default)]"
           style={{
             background: 'var(--bg-sidebar)',
             width: sidebarCollapsed ? 48 : 220,
             minWidth: 48,
+            height: '100vh',
             transition: 'width 0.15s ease',
             willChange: 'width',
           }}
         >
-          {/* Logo */}
+          {/* Logo — drag handle for frameless window */}
           <div
             className="flex items-center gap-3 border-b border-[var(--border-default)] px-3"
-            style={{ height: 'var(--nav-height)' }}
+            style={{ height: 'var(--nav-height)', WebkitAppRegion: 'drag' } as React.CSSProperties}
           >
             <span
               className="text-lg font-bold tracking-tight shrink-0"
               style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
             >
-              {sidebarCollapsed ? '~' : '~/kb'}
+              {sidebarCollapsed ? '~' : 'Idiot 精炼书房'}
             </span>
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 space-y-3 px-2 py-3 overflow-y-auto">
+          <nav className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
+            {/* Main nav groups — scrollable */}
+            <div className="flex-1 overflow-y-auto space-y-3 px-2 py-3" style={{ minHeight: 0 }}>
             {navGroups.map((group) => (
               <div key={group.label}>
                 {!sidebarCollapsed && (
@@ -146,29 +189,69 @@ export function MainLayout() {
                   </div>
                 )}
                 <div className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      title={sidebarCollapsed ? item.label : undefined}
-                      aria-label={sidebarCollapsed ? item.label : undefined}
-                      end={item.to === '/'}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${
-                          isActive
-                            ? 'text-[var(--accent-blue)]'
-                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                        }`
-                      }
-                      style={({ isActive }) => (isActive ? { background: 'var(--bg-tertiary)' } : {})}
-                    >
-                      <item.Icon className="w-5 h-5 shrink-0" />
-                      {!sidebarCollapsed && item.label}
-                    </NavLink>
-                  ))}
+                  {group.items.map((item) => {
+                    const count = badges[item.to];
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        title={sidebarCollapsed ? item.label : undefined}
+                        aria-label={sidebarCollapsed ? item.label : undefined}
+                        end={item.to === '/'}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${
+                            isActive
+                              ? 'text-[var(--accent-blue)]'
+                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'
+                          }`
+                        }
+                        style={({ isActive }) => ({
+                          borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                          background: isActive ? 'var(--bg-tertiary)' : undefined,
+                          paddingLeft: isActive ? '9px' : '12px',
+                        })}
+                      >
+                        <item.Icon className="w-4 h-4 shrink-0" />
+                        {!sidebarCollapsed && <span className="flex-1">{item.label}</span>}
+                        {!sidebarCollapsed && count != null && count > 0 && (
+                          <span className="text-[11px] tabular-nums rounded-full min-w-[20px] text-center px-1.5 py-0.5"
+                            style={{ background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                            {count}
+                          </span>
+                        )}
+                      </NavLink>
+                    );
+                  })}
                 </div>
               </div>
             ))}
+            </div>
+            {/* Footer items — fixed at bottom */}
+            <div className="border-t pt-2 mt-1 space-y-0.5 px-2" style={{ borderColor: 'var(--border-default)' }}>
+              {footerItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  title={sidebarCollapsed ? item.label : undefined}
+                  aria-label={sidebarCollapsed ? item.label : undefined}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors duration-[0.15s] whitespace-nowrap ${
+                      isActive
+                        ? 'text-[var(--accent-blue)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'
+                    }`
+                  }
+                  style={({ isActive }) => ({
+                    borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                    background: isActive ? 'var(--bg-tertiary)' : undefined,
+                    paddingLeft: isActive ? '9px' : '12px',
+                  })}
+                >
+                  <item.Icon className="w-4 h-4 shrink-0" />
+                  {!sidebarCollapsed && item.label}
+                </NavLink>
+              ))}
+            </div>
           </nav>
 
           {/* Quick Note — hidden when collapsed */}
@@ -250,6 +333,7 @@ export function MainLayout() {
 function MainContent() {
   const { isSplit, rightContent, closeSplit } = useSplit();
   const location = useLocation();
+  const [showChat, setShowChat] = useState(false);
 
   // Close split on route change — prevents stale right pane content
   useEffect(() => {
@@ -257,20 +341,38 @@ function MainContent() {
   }, [location.pathname]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
-      <header
-        className="flex items-center border-b border-[var(--border-default)] px-6"
-        style={{ background: 'var(--bg-secondary)', height: 'var(--nav-height)' }}
-      >
-        <GlobalSearch />
-      </header>
-      {isSplit ? (
-        <SplitPane left={<Outlet />} right={rightContent} />
-      ) : (
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
+    <TabProvider>
+      <div className="flex flex-1 flex-col overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
+        <header
+          className="flex items-center border-b border-[var(--border-default)] px-6"
+          style={{ background: 'var(--bg-secondary)', height: 'var(--nav-height)', WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <GlobalSearch />
+          </div>
+          <button type="button" onClick={() => setShowChat((v) => !v)}
+            className="ml-auto rounded-[4px] p-1.5 transition-opacity hover:opacity-70"
+            style={{ WebkitAppRegion: 'no-drag', color: showChat ? 'var(--accent-blue)' : 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' } as React.CSSProperties}
+            title="AI 对话" aria-label="AI 对话">
+            <Bot size={18} />
+          </button>
+        </header>
+        {/* T2208: Tab bar below header */}
+        <TabBar />
+        {isSplit ? (
+          <SplitPane left={<Outlet />} right={rightContent} />
+        ) : (
+          <main className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
+            <Outlet />
+          </main>
+        )}
+      </div>
+      {/* T2204: AI Chat sliding panel */}
+      {showChat && (
+        <div className="fixed right-0 top-0 bottom-0 z-50 shadow-lg" style={{ width: 380, background: 'var(--bg-secondary)', borderLeft: '1px solid var(--border-default)' }}>
+          <AiChatPanel onClose={() => setShowChat(false)} />
+        </div>
       )}
-    </div>
+    </TabProvider>
   );
 }

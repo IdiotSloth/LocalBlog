@@ -161,6 +161,7 @@ export function useSearch(userId: number | null): UseSearchReturn {
           { type: 'module' },
         );
         embedWorkerRef.current = embedWorker;
+        (window as any).__embedWorker = embedWorker; // T2203: expose for similarity-search
         embedWorker.onerror = (e) => {
           console.warn('[EmbeddingWorker] Error (semantic search unavailable):', e);
           embedReadyRef.current = false;
@@ -391,5 +392,31 @@ export async function searchDirect(query: string, userId: number): Promise<FtsSe
     }, 3000);
     worker.addEventListener('message', handler);
     worker.postMessage({ type: 'search', query: q, limit: 15, correlationId: cid });
+  });
+}
+
+/** T2203: Find docs similar to a given source doc using embedding vectors. */
+export async function searchSimilarDocs(
+  docId: number,
+  docType: 'blog' | 'knowledge',
+  limit: number = 5,
+  threshold: number = 0.75,
+): Promise<{ id: number; type: string; score: number }[]> {
+  const worker = (window as any).__embedWorker as Worker | undefined;
+  if (!worker) return [];
+
+  return new Promise((resolve) => {
+    const handler = (e: MessageEvent) => {
+      if (e.data.type === 'similarity-results' && e.data.sourceId === docId && e.data.sourceType === docType) {
+        worker.removeEventListener('message', handler);
+        resolve((e.data.results as { id: number; type: string; score: number }[]) || []);
+      }
+    };
+    const timer = setTimeout(() => {
+      worker.removeEventListener('message', handler);
+      resolve([]);
+    }, 5000);
+    worker.addEventListener('message', handler);
+    worker.postMessage({ type: 'similarity-search', docId, docType, limit, threshold });
   });
 }

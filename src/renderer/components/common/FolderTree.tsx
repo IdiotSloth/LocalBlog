@@ -14,6 +14,8 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
   const [showNewInput, setShowNewInput] = useState<number | null>(null);
   const [newName, setNewName] = useState('');
   const [contextFolder, setContextFolder] = useState<FolderTreeNode | null>(null);
+  const [renameId, setRenameId] = useState<number | null>(null);
+  const [renameName, setRenameName] = useState('');
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
   const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
 
@@ -87,13 +89,18 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
     }
   };
 
-  const handleRename = async (folderId: number, name: string) => {
-    const newName2 = prompt('重命名文件夹:', name);
-    if (newName2?.trim() && newName2.trim() !== name) {
-      await window.api.folderRename({ userId, folderId, name: newName2.trim() });
-      loadTree();
-    }
+  const handleRenameStart = (folderId: number, name: string) => {
+    setRenameId(folderId);
+    setRenameName(name);
     setContextFolder(null);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!renameId || !renameName.trim()) { setRenameId(null); return; }
+    await window.api.folderRename({ userId, folderId: renameId, name: renameName.trim() });
+    setRenameId(null);
+    setRenameName('');
+    loadTree();
   };
 
   const handleDelete = async (folderId: number) => {
@@ -151,7 +158,22 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
             <span className="w-4 shrink-0" />
           )}
           <span style={{ fontSize: 11 }}>📂</span>
-          <span className="truncate flex-1">{node.name}</span>
+          {renameId === node.id ? (
+            <input
+              type="text"
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubmit(); if (e.key === 'Escape') setRenameId(null); }}
+              onBlur={handleRenameSubmit}
+              className="flex-1 rounded-[3px] px-2 py-0.5 text-[12px] min-w-0"
+              style={{ background: 'var(--bg-primary)', border: '1px solid var(--accent-blue)', color: 'var(--text-primary)' }}
+              placeholder="重命名..."
+              title="重命名文件夹"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="truncate flex-1">{node.name}</span>
+          )}
           <span style={{ fontSize: 10, color: 'var(--text-placeholder)' }}>{node.itemCount}</span>
         </button>
         {hasChildren && isExpanded && node.children.map((child) => renderNode(child, depth + 1))}
@@ -276,7 +298,7 @@ export function FolderTree({ userId, type, selectedFolderId, onSelectFolder }: P
             type="button"
             className="block w-full px-3 py-1.5 text-left text-[12px] hover:opacity-80"
             style={{ color: 'var(--text-primary)' }}
-            onClick={() => handleRename(contextFolder.id, contextFolder.name)}
+            onClick={() => handleRenameStart(contextFolder.id, contextFolder.name)}
           >
             重命名
           </button>

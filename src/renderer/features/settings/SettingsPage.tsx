@@ -4,6 +4,132 @@ import { useAuthStore } from '../../stores/auth-store';
 import { useThemeStore } from '../../stores/theme-store';
 import { BackupSection } from './BackupSection';
 import { ShortcutSettings } from './ShortcutSettings';
+import { AiSection } from './AiSection';
+import { UpdateSection } from './UpdateSection';
+
+function BgImageSection() {
+  const user = useAuthStore((s) => s.user);
+  const [bgImage, setBgImage] = useState<string | null>(
+    () => localStorage.getItem('lbkb_bg_image'),
+  );
+  const [bgOpacity, setBgOpacity] = useState<string>(
+    () => localStorage.getItem('lbkb_bg_opacity') || '0.92',
+  );
+
+  useEffect(() => {
+    applyBg(bgImage, bgOpacity);
+  }, [bgImage, bgOpacity]);
+
+  const handlePick = async () => {
+    const files = await window.api.selectFiles(['png', 'jpg', 'jpeg', 'webp']);
+    if (!files || files.length === 0) return;
+    localStorage.setItem('lbkb_bg_image', files[0]);
+    setBgImage(files[0]);
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem('lbkb_bg_image');
+    localStorage.removeItem('lbkb_bg_opacity');
+    setBgImage(null);
+    setBgOpacity('0.92');
+    applyBg(null, '0.92');
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={handlePick}
+          className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium transition-opacity hover:opacity-85"
+          style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
+          {bgImage ? '更换图片' : '选择图片'}
+        </button>
+        {bgImage && (
+          <button type="button" onClick={handleClear}
+            className="rounded-[4px] px-3 py-1.5 text-[13px] transition-opacity hover:opacity-85"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+            清除背景
+          </button>
+        )}
+        {bgImage && <span className="text-[12px] truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>{bgImage.startsWith('data:') ? '已加载背景图' : bgImage.split(/[/\\]/).pop()}</span>}
+      </div>
+      {bgImage && (
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>不透明度</span>
+          <input type="range" min="0.85" max="0.98" step="0.01" value={bgOpacity}
+            aria-label="背景图片不透明度"
+            title={`不透明度: ${bgOpacity}`}
+            onChange={e => {
+              setBgOpacity(e.target.value);
+              localStorage.setItem('lbkb_bg_opacity', e.target.value);
+            }}
+            className="flex-1" />
+          <span className="text-[12px] font-mono" style={{ color: 'var(--text-muted)' }}>{bgOpacity}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function applyBg(image: string | null, opacity: string) {
+  if (image) {
+    let url: string;
+    if (image.startsWith('data:')) {
+      url = image;
+    } else {
+      // Convert file:// path to local-resource:// protocol (avoids CSP block)
+      const p = image.replace(/\\/g, '/').replace(/^file:\/\/\//, '');
+      url = `local-resource://${p}`;
+    }
+    document.documentElement.style.setProperty('--bg-image', `url("${url}")`);
+    document.documentElement.style.setProperty('--bg-image-opacity', opacity);
+  } else {
+    document.documentElement.style.setProperty('--bg-image', 'none');
+    document.documentElement.style.setProperty('--bg-image-opacity', '0');
+  }
+}
+
+// T2304: Clipboard monitor settings
+function ClipboardSection() {
+  const user = useAuthStore((s) => s.user);
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    window.api.clipboardStatus().then(r => {
+      if (r.success && r.data) setEnabled(r.data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    await window.api.clipboardToggle({ enable: next, userId: user?.id ?? 0 });
+  };
+
+  return (
+    <section className="rounded-[6px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+      <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+        剪贴板监听
+      </h3>
+      <p className="mb-3 mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+        自动记录复制的文本内容，方便在便签中快速引用。敏感信息 (手机号/身份证/邮箱) 自动打码。
+      </p>
+      {loading ? (
+        <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>加载中...</span>
+      ) : (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={enabled ? '关闭剪贴板监听' : '开启剪贴板监听'}
+          className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+          style={{ background: enabled ? 'var(--accent-blue)' : 'var(--bg-tertiary)' }}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      )}
+    </section>
+  );
+}
 
 export function SettingsPage() {
   const { user, deleteAccount } = useAuthStore();
@@ -46,9 +172,14 @@ export function SettingsPage() {
   };
 
   const themes = [
-    { value: 'light' as const, label: 'Light', desc: 'GitHub 风格浅色' },
-    { value: 'dark' as const, label: 'Dark', desc: '默认深色终端风' },
-    { value: 'system' as const, label: 'System', desc: '跟随操作系统' },
+    { value: 'system' as const, label: '跟随系统', desc: '自动切换墨砚/宣纸' },
+    { value: 'light' as const, label: '亮色', desc: '传统亮色模式 (无国风色调)' },
+    { value: 'dark' as const, label: '暗色', desc: '传统暗色模式 (无国风色调)' },
+    { value: 'inkstone' as const, label: '墨砚', desc: '端砚灰底+赭石铜赤 — 新默认暗色' },
+    { value: 'tea-bamboo' as const, label: '茶竹', desc: '深烘茶棕底+干竹灰绿 — 有生命力的暗色' },
+    { value: 'brass-lamp' as const, label: '夜灯', desc: '暖炭底+旧黄铜 — 稳重沉静的暗色' },
+    { value: 'rice-paper' as const, label: '宣纸', desc: '生宣冷白底+靛蓝 — 新默认亮色' },
+    { value: 'celadon' as const, label: '青瓷', desc: '瓷胎白底+青釉玉色 — 唯一冷调亮色' },
   ];
 
   return (
@@ -110,6 +241,23 @@ export function SettingsPage() {
           </div>
         </section>
 
+        {/* Background Image */}
+        <section
+          className="rounded-[6px] border p-5"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+        >
+          <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            背景图片
+          </h3>
+          <p className="mb-3 mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            选择一张图片作为全局背景 (仅本地存储, 不上传)
+          </p>
+          <BgImageSection />
+        </section>
+
+        {/* T2304: Clipboard monitor */}
+        <ClipboardSection />
+
         {/* Backup */}
         <section
           className="rounded-[6px] border p-5"
@@ -117,6 +265,28 @@ export function SettingsPage() {
         >
           <BackupSection />
         </section>
+
+        {/* T2210: MD Export */}
+        <section
+          className="rounded-[6px] border p-5"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}
+        >
+          <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>数据导出</h3>
+          <p className="mb-3 mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            将全部博客导出为 Markdown 文件（含 YAML frontmatter），知识文件原样复制
+          </p>
+          <button type="button" onClick={async () => {
+            const r = await window.api.workspaceExportMd(user?.id ?? 0);
+            alert(r.success ? `导出完成: ${r.data?.dir} (${r.data?.count} 篇博客)` : r.error || '导出失败');
+          }}
+            className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium transition-opacity hover:opacity-85"
+            style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
+            导出 Markdown
+          </button>
+        </section>
+
+        {/* Update */}
+        <UpdateSection />
 
         {/* Shortcuts */}
         <section
@@ -199,6 +369,9 @@ export function SettingsPage() {
             </p>
           )}
         </section>
+
+        {/* T2204: Built-in AI chat configuration */}
+        <AiSection />
 
         {/* T2109: AI / MCP Configuration */}
         <section

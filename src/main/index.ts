@@ -1,7 +1,7 @@
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, app, globalShortcut, shell } from 'electron';
+import { BrowserWindow, app, globalShortcut, protocol, shell } from 'electron';
 import { IPC } from '../shared/ipc-channels';
 import { closeDatabase, initDatabase } from './db';
 import { registerAllIpcHandlers } from './ipc';
@@ -13,6 +13,7 @@ import { ShortcutService } from './services/shortcut.service';
 import { BackupService } from './services/backup.service';
 import { NoteService } from './services/note.service';
 import { setupTray } from './tray';
+import { registerQuickNote, registerQuickNoteShortcut } from './quick-note';
 import { setupAutoUpdater } from './auto-updater';
 
 // T1803: Catch uncaught exceptions and notify renderer via IPC
@@ -74,6 +75,8 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  mainWindow.setMenuBarVisibility(false);
+
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
     if (!app.isPackaged) mainWindow?.webContents.openDevTools();
@@ -108,11 +111,29 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.warn('[Main] Database unavailable:', (err as Error).message);
   }
+  // Register local-resource protocol to proxy file:// access (CSP-safe)
+  protocol.handle('local-resource', (request) => {
+    try {
+      const url = request.url.replace('local-resource://', '');
+      // Decode URI-encoded path, handle Windows drive letter
+      const decoded = decodeURIComponent(url);
+      const filePath = decoded.replace(/^\/([a-zA-Z]:)\//, '$1\\').replace(/\//g, path.sep);
+      const buf = fs.readFileSync(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeMap: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
+      return new Response(buf, { headers: { 'Content-Type': mimeMap[ext] || 'image/png' } });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+  });
+
   registerAllIpcHandlers();
   createWindow();
   if (mainWindow) {
     setupTray(mainWindow);
     setupAutoUpdater(() => mainWindow);
+    registerQuickNote();
+    registerQuickNoteShortcut(mainWindow);
     setNoteRefreshTarget(mainWindow.webContents);
     setBlogRefreshTarget(mainWindow.webContents);
     setKbRefreshTarget(mainWindow.webContents);
@@ -131,27 +152,26 @@ app.whenReady().then(async () => {
   });
   ShortcutService.reregisterAll();
 
-  // Auto-create Start Menu shortcut on first launch (uses .bat launcher to avoid ELECTRON_RUN_AS_NODE)
-  const shortcutDir = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
-  const shortcutPath = path.join(shortcutDir, 'Idiot.lnk');
-  if (!fs.existsSync(shortcutPath)) {
-    const projectRoot = path.join(__dirname, '..', '..');
-    const packagedExe = path.join(projectRoot, 'release', 'Idiot-win32-x64', 'Idiot.exe');
-    const launcherBatPath = path.join(app.getPath('userData'), 'launcher.bat');
-    let batContent: string;
-    let workingDir: string;
-    if (fs.existsSync(packagedExe)) {
-      batContent = `@echo off\r\nset ELECTRON_RUN_AS_NODE=\r\nstart "" "${packagedExe}"\r\n`;
-      workingDir = path.dirname(packagedExe);
-    } else {
-      batContent = `@echo off\r\nset ELECTRON_RUN_AS_NODE=\r\ncd /d "${projectRoot}"\r\nstart "" npm run dev\r\n`;
-      workingDir = projectRoot;
+  // Auto-create Start Menu shortcut on first launch (dev mode only — NSIS
+  // installer creates its own shortcuts via installer.nsh)
+  if (!app.isPackaged) {
+    const shortcutDir = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    const shortcutPath = path.join(shortcutDir, 'Idiot.lnk');
+    if (!fs.existsSync(shortcutPath)) {
+      const projectRoot = path.join(__dirname, '..', '..');
+      const launcherVbsPath = path.join(app.getPath('userData'), 'launcher.vbs');
+      const vbsContent = [
+        'Set WshShell = CreateObject("WScript.Shell")',
+        'WshShell.Environment("Process")("ELECTRON_RUN_AS_NODE") = ""',
+        `WshShell.CurrentDirectory = "${projectRoot.replace(/\\/g, '\\\\')}"`,
+        'WshShell.Run "npm run dev", 1, False',
+      ].join('\r\n');
+      fs.writeFileSync(launcherVbsPath, vbsContent, 'utf-8');
+      const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherVbsPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${projectRoot.replace(/'/g, "''")}';$sc.Save()`;
+      exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
+        if (!err) console.log('[Main] Start Menu shortcut created');
+      });
     }
-    fs.writeFileSync(launcherBatPath, batContent, 'utf-8');
-    const psCmd = `$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('${shortcutPath.replace(/'/g, "''")}');$sc.TargetPath='${launcherBatPath.replace(/'/g, "''")}';$sc.WorkingDirectory='${workingDir.replace(/'/g, "''")}';$sc.Save()`;
-    exec(`powershell -NoProfile -Command "${psCmd}"`, (err) => {
-      if (!err) console.log('[Main] Start Menu shortcut created');
-    });
   }
 
   app.on('activate', () => {

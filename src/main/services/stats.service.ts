@@ -79,6 +79,24 @@ export class StatsService {
     );
     const { currentStreak, longestStreak } = calcStreak(allDates.map((r) => r.d));
 
+    // T2306: Additional entity counts for sidebar badges
+    const noteRow = await dbGet<{ total: number }>(
+      'SELECT COUNT(*) as total FROM notes WHERE user_id = ?',
+      [userId],
+    );
+    const seriesRow = await dbGet<{ total: number }>(
+      'SELECT COUNT(DISTINCT series_id) as total FROM blogs WHERE user_id = ? AND series_id IS NOT NULL AND series_id != \'\'',
+      [userId],
+    );
+    const bookmarkRow = await dbGet<{ total: number }>(
+      'SELECT COUNT(*) as total FROM bookmarks WHERE user_id = ?',
+      [userId],
+    );
+    const wbRow = await dbGet<{ total: number }>(
+      'SELECT COUNT(*) as total FROM whiteboards WHERE user_id = ?',
+      [userId],
+    );
+
     return {
       totalBlogs: blogRow?.total || 0,
       totalWords: blogRow?.words || 0,
@@ -87,6 +105,10 @@ export class StatsService {
       currentStreak,
       longestStreak,
       uniqueTags: tagRow?.unique || 0,
+      totalNotes: noteRow?.total || 0,
+      totalSeries: seriesRow?.total || 0,
+      totalBookmarks: bookmarkRow?.total || 0,
+      totalWhiteboards: wbRow?.total || 0,
       hasMdBlog: (blogRow?.mdCount || 0) > 0,
       hasHtmlBlog: (blogRow?.htmlCount || 0) > 0,
       hasNightBlog: nightCount > 0,
@@ -108,8 +130,8 @@ function calcStreak(dates: string[]): { currentStreak: number; longestStreak: nu
   let tempStreak = 1;
 
   for (let i = 1; i < dates.length; i++) {
-    const prev = new Date(dates[i - 1]);
-    const curr = new Date(dates[i]);
+    const prev = new Date(dates[i - 1]!);
+    const curr = new Date(dates[i]!);
     const diff = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
     if (Math.abs(diff - 1) < 0.1) {
       tempStreak++;

@@ -1,6 +1,6 @@
 ---
 name: full-audit
-description: Perform a comprehensive, multi-dimensional code audit of a Node.js/Electron/React/TypeScript full-stack project. Covers security (XSS/CORS/CSRF/injection), data integrity (schema sync/timestamp/dialect isolation), type safety (WindowApi closure/as any density), redundancy (server-main duplication/mapping functions), maintainability (component complexity/coupling/error handling), and robustness (error boundaries/timeouts/race conditions). Also handles Phase specification review (shift-left audit before implementation). Use for full project health checks, pre-release audits, new Phase spec evaluation, or when the user asks for a thorough code review, security review, or architecture assessment.
+description: Perform a comprehensive, multi-dimensional code audit. Use for: "全量审查", "pre-release audit", "健康检查", "代码审查", "安全审计", Phase spec evaluation (shift-left before implementation), and whenever the user asks to verify implementation against specs. Covers security (XSS/injection/auth/path traversal), data integrity (schema sync/timestamp/user_id isolation), type safety (WindowApi/as any density), redundancy, maintainability, and robustness. Uses parallel multi-agent mode for large audits. Also handles Phase specification review: compare suggest.md vs todo.md vs actual code to find spec-implementation gaps.
 ---
 
 # Full Audit Skill
@@ -17,10 +17,14 @@ Execute in this exact order:
 
 ### Phase 1: Context Loading
 
-1. **Read `AGENTS.md`** — absorb architecture constraints, directory rules, DB constraints, IPC constraints, common pitfalls, and the AI governance framework (four layers: Constrain → Inform → Verify → Correct)
-2. **Read `redo.md`** — note all previously reported issues (to avoid duplicates), understand current fix status
-3. **Read `src/shared/types.ts`** — understand all data structures
-4. **Read `src/shared/ipc-channels.ts`** — note all IPC channel definitions
+1. **Read `AGENTS.md`** — absorb architecture constraints, directory rules, DB constraints, IPC constraints, common pitfalls
+2. **Read `suggest.md` (if exists)** — understand design intent and original proposals. Key for color values, interaction patterns, architectural philosophy
+3. **Read `todo.md` Phase spec** — understand Boss's task descriptions, constraints, and acceptance criteria
+4. **Read `redo.md`** — note all previously reported issues (to avoid duplicates), understand current fix status
+5. **Read `src/shared/types.ts`** — understand all data structures
+6. **Read `src/shared/ipc-channels.ts`** — note all IPC channel definitions
+
+**Three-document cross-reference**: suggest.md (design intent) → todo.md (Boss spec) → code (actual implementation). Deviations can occur at each layer — track them.
 
 ### Phase 2: Systematic File Review
 

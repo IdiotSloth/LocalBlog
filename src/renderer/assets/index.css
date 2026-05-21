@@ -1,20 +1,32 @@
 @import "tailwindcss";
 
-/* ===== STYLE.md Color Tokens — Dark Mode (warm-tinted base) ===== */
+/* ===== Phase 23: Global theme transition (R318b) ===== */
+html {
+  background: #1a1816;
+  transition: background-color 350ms ease, color 350ms ease;
+}
+body, #root, [data-theme] {
+  background: var(--bg-primary);
+  transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease;
+}
+
+/* ===== Phase 23: 墨砚 Inkstone — 新默认暗色 (替换 GitHub 暗色 #0d1117) ===== */
 :root {
-  --bg-primary: #0d1117;
-  --bg-secondary: #161b22;
-  --bg-sidebar: #10141a;
-  --bg-tertiary: #1e2433;
-  --bg-code: #1a1f2b;
-  --border-default: #2d333b;
-  --border-emphasis: #484f58;
-  --text-primary: #c9d1d9;
-  --text-secondary: #8b949e;
-  --text-placeholder: #484f58;
-  --accent-blue: #58a6ff;
-  --accent-green: #3fb950;
-  --accent-red: #f85149;
+  --bg-primary: #1a1816;
+  --bg-secondary: #211f1c;
+  --bg-sidebar: #151311;
+  --bg-tertiary: #2a2824;
+  --bg-code: rgba(255,255,255,0.025);
+  --border-default: rgba(224,220,213,0.07);
+  --border-emphasis: rgba(224,220,213,0.12);
+  --text-primary: #e0dcd5;
+  --text-secondary: #a19b91;
+  --text-placeholder: #6b6660;
+  --text-muted: var(--text-placeholder);
+  --accent-blue: #b8826a;
+  --accent-green: #7d9b6b;
+  --accent-red: #b85d5d;
+  --accent-yellow: #c09850;
   --text-on-accent: #ffffff;
 
   /* Fonts */
@@ -30,7 +42,7 @@
   --space-6: 48px;
 
   /* Layout */
-  --content-max: 720px; /* R213: fits 1280px with sidebar(220)+panel(280)+padding(48) */
+  --content-max: 860px; /* fits 1280px with sidebar(220)+padding(48), ContextPanel only on blog/knowledge/graph */
   --nav-height: 56px;
 
   /* Border Radius */
@@ -61,19 +73,21 @@
 
 /* Light mode override */
 .light {
-  --bg-primary: #fffcf8;
-  --bg-secondary: #f6f2ec;
-  --bg-sidebar: #f5f2ed;
-  --bg-tertiary: #edeae5;
-  --bg-code: #f6f8fa;
-  --border-default: #d4d9df;
-  --border-emphasis: #8c959f;
-  --text-primary: #24292f;
-  --text-secondary: #57606a;
-  --text-placeholder: #8c959f;
-  --accent-blue: #0969da;
-  --accent-green: #1a7f37;
-  --accent-red: #cf222e;
+  --bg-primary: #f5f4f3;
+  --bg-secondary: #edebea;
+  --bg-sidebar: #efedec;
+  --bg-tertiary: #e4e2e0;
+  --bg-code: rgba(0,0,0,0.025);
+  --border-default: rgba(36,35,33,0.06);
+  --border-emphasis: rgba(36,35,33,0.11);
+  --text-primary: #242321;
+  --text-secondary: #626064;
+  --text-placeholder: #95949a;
+  --text-muted: var(--text-placeholder);
+  --accent-blue: #5d7a8a;
+  --accent-green: #4d8a5c;
+  --accent-red: #b05058;
+  --accent-yellow: #8a7a44;
   --text-on-accent: #ffffff;
   --shadow-card: none;
   --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -99,6 +113,9 @@
   --color-border: var(--border-default);
 }
 
+/* ===== Phase 23: 国风主题色表 (必须在 :root/.light 之后, 才能覆盖) ===== */
+@import "./themes.css";
+
 /* ===== Global Reset ===== */
 *,
 *::before,
@@ -108,14 +125,12 @@
   padding: 0;
 }
 
-html {
-  transition: background-color var(--duration-normal) var(--easing-default), color var(--duration-normal)
-    var(--easing-default);
-}
 html,
 body,
 #root {
-  height: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.75;
@@ -390,6 +405,27 @@ code {
 .callout-warning { background: rgba(245,158,11,0.08); border-color: #f59e0b; color: var(--text-primary); }
 .callout-danger { background: rgba(239,68,68,0.08); border-color: #ef4444; color: var(--text-primary); }
 
+/* T2205: Transclusion blocks — embedded ![[content]] */
+.prose .transclusion {
+  border-left: 3px solid var(--accent-blue);
+  background: var(--bg-secondary);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  position: relative;
+}
+.prose .transclusion .transclusion-source {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.prose .transclusion .transclusion-source a {
+  color: var(--accent-blue);
+  font-size: 11px;
+}
+
 .prose pre {
   background: var(--bg-code);
   border-radius: var(--radius-card);
@@ -495,5 +531,120 @@ code {
 .row-hover:hover {
   background: var(--bg-tertiary);
 }
+
+/* ===== T2302 Markdown 柔化 — 10 元素软化 (纯 CSS, markdown-it 管线不动) ===== */
+.prose h2 {
+  border-left: none;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 8px;
+}
+.prose blockquote {
+  background: transparent;
+  border-left: 2px solid color-mix(in srgb, var(--accent-blue) 30%, transparent);
+  font-style: italic;
+}
+.prose code {
+  color: var(--accent-blue);
+  background: var(--bg-code);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+.prose pre {
+  border-left: none;
+  border-radius: var(--radius-card);
+  position: relative;
+}
+.prose a {
+  text-underline-offset: 2px;
+}
+.prose a:hover {
+  text-decoration-color: color-mix(in srgb, var(--accent-blue) 50%, transparent);
+}
+.prose img { border-radius: var(--radius-card); }
+.prose hr { height: 0; border: 0; border-bottom: 1px solid var(--border-default); }
+.prose table { border-color: var(--border-default); }
+.prose table th, .prose table td {
+  border-color: color-mix(in srgb, var(--border-default) 50%, transparent);
+}
+.prose p { line-height: 1.75; }
+.prose ol, .prose ul { padding-left: 1.5em; }
+
+/* ===== T2302 BlogCard — 扩展 .card 基类 ===== */
+.card {
+  margin-bottom: 12px;
+  text-decoration: none;
+  color: var(--text-primary);
+  display: block;
+}
+.blog-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.blog-card-meta {
+  font-size: 12px;
+  color: var(--text-placeholder);
+  margin-top: 6px;
+}
+.blog-card-excerpt {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-top: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.blog-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ===== T2303: Frameless editor — inline edit mode ===== */
+.frameless-editor .ProseMirror {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--text-primary);
+  min-height: 300px;
+  outline: none;
+}
+.frameless-editor .ProseMirror:focus {
+  box-shadow: none;
+}
+
+/* ===== T2301: Background image system ===== */
+#root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--bg-image, none);
+  background-size: cover;
+  background-position: center;
+  opacity: var(--bg-image-opacity, 0);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 350ms ease;
+}
+#root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== T2305: KB card pop-in animation ===== */
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.kb-pop-in { animation: popIn 0.25s ease-out; }
 
 /* ===== Animations — Phase 20: 150ms color transitions only, no keyframe effects ===== */

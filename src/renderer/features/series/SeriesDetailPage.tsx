@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
+import { BlogCard } from '../../components/blog/BlogCard';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
+
+const CIRCLE_NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
+  '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
 
 interface Blog {
   id: number;
@@ -24,6 +29,11 @@ export function SeriesDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const contextPanel = useContextPanel();
+  const [readIds, setReadIds] = useState<Set<number>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(`series_read_${seriesId}`) || '[]')); }
+    catch { return new Set<number>(); }
+  });
 
   const loadBlogs = useCallback(async () => {
     if (!seriesId) return;
@@ -81,6 +91,50 @@ export function SeriesDetailPage() {
   useEffect(() => {
     loadBlogs();
   }, [loadBlogs]);
+
+  // T2306: ContextPanel with reading progress
+  useEffect(() => {
+    if (!seriesId) return;
+    const tabs: TabDef[] = [
+      {
+        id: 'progress',
+        label: '阅读进度',
+        content: (
+          <div className="p-2 text-[13px] space-y-2" style={{ color: 'var(--text-secondary)' }}>
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{seriesName || decodeURIComponent(seriesId)}</p>
+            <p>{readIds.size} / {blogs.length} 篇已读</p>
+            {blogs.length > 0 && (
+              <div className="h-1 rounded-full" style={{ background: 'var(--bg-tertiary)' }}>
+                <div className="h-1 rounded-full transition-all" style={{
+                  width: `${blogs.length > 0 ? (readIds.size / blogs.length) * 100 : 0}%`,
+                  background: 'var(--accent-blue)',
+                }} />
+              </div>
+            )}
+            {readIds.size < blogs.length && (
+              <button type="button" onClick={() => {
+                const all = new Set(blogs.map(b => b.id));
+                setReadIds(all);
+                localStorage.setItem(`series_read_${seriesId}`, JSON.stringify([...all]));
+              }}
+                className="text-[12px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                标记全部已读
+              </button>
+            )}
+          </div>
+        ),
+      },
+    ];
+    return contextPanel.registerTabs(tabs);
+  }, [seriesId, contextPanel, seriesName, readIds, blogs]);
+
+  // Mark blog as read on click
+  const markRead = (blogId: number) => {
+    const next = new Set(readIds);
+    next.add(blogId);
+    setReadIds(next);
+    localStorage.setItem(`series_read_${seriesId}`, JSON.stringify([...next]));
+  };
 
   return (
     <div className="mx-auto max-w-[780px]">
@@ -145,30 +199,36 @@ export function SeriesDetailPage() {
           <p className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>该系列暂无文章</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {blogs.map((blog, i) => (
-            <Link
-              key={blog.id}
-              to={`/blog/${blog.id}`}
-              className="card flex items-center justify-between !p-4 !no-underline"
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className="text-[12px] font-mono shrink-0 w-6 text-right"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {i + 1}
+        <>
+          <div className="space-y-3">
+            {blogs.map((blog, i) => (
+              <div key={blog.id} className="flex items-start gap-3">
+                <span className="shrink-0 w-6 text-center text-[14px] pt-3" style={{ color: 'var(--accent-blue)' }}>
+                  {CIRCLE_NUMS[i] || i + 1}
                 </span>
-                <span className="text-[14px]" style={{ color: 'var(--text-primary)' }}>
-                  {blog.title}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <BlogCard
+                    blog={{ id: blog.id, title: blog.title, format: blog.format, status: blog.status, createdAt: blog.createdAt, updatedAt: blog.updatedAt, tags: [] } as any}
+                    showExcerpt={false}
+                  />
+                </div>
               </div>
-              <span className="text-[12px] shrink-0" style={{ color: 'var(--text-muted)' }}>
-                {formatDate(blog.createdAt)}
-              </span>
+            ))}
+          </div>
+
+          {/* T2306: Bottom navigation bar */}
+          <div className="mt-6 flex items-center justify-between border-t pt-4" style={{ borderColor: 'var(--border-default)' }}>
+            <Link to="/series" className="text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>
+              ← 回目录
             </Link>
-          ))}
-        </div>
+            <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+              {blogs.length} 篇文章
+            </span>
+            <Link to="/series" className="text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>
+              所有系列 →
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );

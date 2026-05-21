@@ -1,15 +1,20 @@
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
+import { renderWikilinks } from '../../../shared/wikilink';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { AtSign } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { DraftItem, Tag } from '../../../shared/types';
 import type { BlogTemplate } from '../../../shared/templates';
 import { expandTemplateVars } from '../../../shared/template-vars';
 import { ReferencePicker } from '../../components/common/ReferencePicker';
 import { TagSelector } from '../../components/common/TagSelector';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { useSplit } from '../../components/layout/SplitPane';
 import { useToast } from '../../components/common/Toast';
+import { searchDirect, searchSimilarDocs } from '../../lib/use-search';
+import { useAiSettings } from '../../stores/ai-settings';
 import { FocusMode } from '../../components/editor/FocusMode';
 import { TiptapEditor } from '../../components/editor/TiptapEditor';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
@@ -142,7 +147,7 @@ export { editorReducer }; // exported for testing
 
 // ── Component ──
 
-export function BlogEditorPage() {
+export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'frameless' }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -167,6 +172,16 @@ export function BlogEditorPage() {
   const [colorLabel, setColorLabel] = useState<string | null>(null);
   const COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'gray'] as const;
   const COLOR_MAP_EDITOR: Record<string, string> = { blue: '#3b82f6', green: '#22c55e', amber: '#f59e0b', red: '#ef4444', purple: '#a855f7', gray: '#6b7280' };
+
+  // T2202: ContextPanel integration + [@] reference picker
+  const contextPanel = useContextPanel();
+  const [showAtPicker, setShowAtPicker] = useState(false);
+
+  // T2204: Editor AI
+  const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
+  const [showAiMenu, setShowAiMenu] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,11 +227,103 @@ export function BlogEditorPage() {
     dispatch({ type: 'SET_TEMPLATE', payload: tpl });
     if (tpl.content) {
       const expanded = expandTemplateVars(tpl.content, { title: state.title });
-      dispatch({ type: 'SET_CONTENT', payload: tpl.format === 'md' ? md.render(expanded) : expanded });
+      dispatch({ type: 'SET_CONTENT', payload: tpl.format === 'md' ? DOMPurify.sanitize(md.render(expanded)) : expanded });
     }
     dispatch({ type: 'SET_FORMAT', payload: tpl.format });
     if (tpl.tags.length > 0) dispatch({ type: 'SET_PENDING_TAGS', payload: null });
   }, [state.title]);
+
+  // T2202 + T2303: Register ContextPanel tabs (preview default + KB)
+  const [debouncedContent, setDebouncedContent] = useState(state.content);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedContent(state.content), 500);
+    return () => clearTimeout(t);
+  }, [state.content]);
+
+  useEffect(() => {
+    if (!user || !blogIdRef.current) return;
+    const blogId = blogIdRef.current;
+    const title = state.title;
+    // T2303: Full preview pipeline — md → wikilink → DOMPurify
+    let html = '';
+    if (debouncedContent) {
+      const rawHtml = md.render(debouncedContent);
+      const withLinks = renderWikilinks(rawHtml);
+      html = DOMPurify.sanitize(withLinks);
+    }
+
+    const tabs: TabDef[] = [
+      {
+        id: 'preview',
+        label: '预览',
+        content: (
+          <div className="prose prose-sm max-w-none p-2 text-[13px]" style={{ color: 'var(--text-primary)' }}>
+            {html ? (
+              <div dangerouslySetInnerHTML={{ __html: html }} />
+            ) : (
+              <p style={{ color: 'var(--text-muted)' }}>暂无内容</p>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'kb-related',
+        label: '知识库',
+        content: (
+          <KbRelatedTab userId={user.id} blogTitle={title} blogId={blogId} />
+        ),
+      },
+    ];
+
+    return contextPanel.registerTabs(tabs);
+  }, [user, contextPanel, state.title, debouncedContent, blogIdRef.current]);
+
+  // T2204: Editor AI action handler
+  const handleAiAction = async (action: string) => {
+    if (!aiSettings.enabled || !aiSettings.apiKey) {
+      setAiError('请在设置中配置 AI (API Key)');
+      return;
+    }
+    setShowAiMenu(false);
+    setAiLoading(true);
+    setAiError(null);
+
+    const sel = window.getSelection()?.toString()?.trim();
+    const prompts: Record<string, string> = {
+      continue: `请续写以下内容，保持风格一致。直接输出续写内容，不要解释:\n\n${sel || state.content.slice(-500)}`,
+      summarize: `请用一段话总结以下内容:\n\n${sel || state.content.slice(0, 3000)}`,
+      polish: `请润色以下文字，使其更流畅清晰。直接输出润色后的内容:\n\n${sel || state.content.slice(0, 3000)}`,
+      translate: `请将以下内容翻译为中文。直接输出译文:\n\n${sel || state.content.slice(0, 3000)}`,
+    };
+
+    try {
+      const resp = await window.api.aiChat({
+        settings: { ...aiSettings, model: effectiveModel, baseUrl: effectiveBaseUrl },
+        request: { messages: [{ role: 'user', content: prompts[action] || '' }] },
+      });
+      if (resp.success && resp.data) {
+        const result = resp.data.content;
+        if (sel) {
+          // Replace first occurrence of selection with result
+          const idx = state.content.indexOf(sel);
+          if (idx >= 0) {
+            dispatch({ type: 'SET_CONTENT', payload: state.content.slice(0, idx) + result + state.content.slice(idx + sel.length) });
+          } else {
+            dispatch({ type: 'SET_CONTENT', payload: state.content + '\n\n' + result });
+          }
+        } else {
+          dispatch({ type: 'SET_CONTENT', payload: state.content + (action === 'continue' ? '' : '\n\n') + result });
+        }
+        dispatch({ type: 'SET_DIRTY', payload: true });
+      } else {
+        setAiError(resp.error || 'AI 请求失败');
+      }
+    } catch (e) {
+      setAiError((e as Error).message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -227,13 +334,13 @@ export function BlogEditorPage() {
     dispatch({ type: 'SET_LOADING', payload: true });
     window.api.blogGet(Number(id)).then((r) => {
       if (r.success && r.data) {
-        const c = r.data.content || '';
+        const c = (r.data as any).content || '';
         dispatch({
           type: 'LOAD_BLOG',
           payload: {
             title: r.data.title,
             format: r.data.format,
-            content: r.data.format === 'md' ? md.render(c) : c,
+            content: r.data.format === 'md' ? DOMPurify.sanitize(md.render(c)) : c,
             selectedTagIds: (r.data.tags || []).map((t: Tag) => t.id),
             seriesId: r.data.seriesId || null,
             seriesName: r.data.seriesName || '',
@@ -252,9 +359,9 @@ export function BlogEditorPage() {
     if (Number(id)) {
       window.api.blogGetHistory(Number(id)).then((r) => {
         if (r.success && r.data && r.data.length > 0) {
-          const latest = r.data[0] as { content: string; saved_at: string };
-          if (latest?.saved_at) {
-            setRestoreDraft({ content: latest.content, savedAt: latest.saved_at });
+          const latest = r.data[0] as { content: string; savedAt: string } | undefined;
+          if (latest?.savedAt) {
+            setRestoreDraft({ content: latest.content, savedAt: latest.savedAt });
           }
         }
       }).catch(() => { /* draft check best-effort */ });
@@ -301,7 +408,7 @@ export function BlogEditorPage() {
   const loadHistory = useCallback(async () => {
     if (!blogIdRef.current) return;
     const r = await window.api.blogGetHistory(blogIdRef.current);
-    if (r.success) dispatch({ type: 'SET_DRAFTS', payload: r.data });
+    if (r.success && r.data) dispatch({ type: 'SET_DRAFTS', payload: r.data });
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -328,6 +435,20 @@ export function BlogEditorPage() {
           if (pt && pt.length > 0) await saveTags(r.data.id, pt);
           setRestoreDraft(null);
           navigate(`/blog/${r.data.id}`, { replace: true });
+          // R284: Trigger passive discovery after save
+          searchSimilarDocs(r.data.id, 'blog', 5).catch(() => {});
+          // R285: Trigger auto-tag suggestions if AI enabled
+          if (aiSettings.enabled && aiSettings.apiKey) {
+            window.api.aiTagSuggest({
+              settings: { ...aiSettings, model: effectiveModel, baseUrl: effectiveBaseUrl },
+              request: { title: state.title.trim(), content: contentToSave },
+              existingTags: [],
+            }).then((tr) => {
+              if (tr.success && tr.data?.tags?.length) {
+                toast(`建议标签: ${tr.data.tags.join(', ')}`, 'success');
+              }
+            }).catch(() => {});
+          }
         } else {
           dispatch({ type: 'SET_ERROR', payload: r.error || '创建失败' });
           toast(r.error || '创建失败', 'error');
@@ -347,6 +468,20 @@ export function BlogEditorPage() {
         } else {
           dispatch({ type: 'SET_DIRTY', payload: false });
           setRestoreDraft(null);
+          // R284+R285: Trigger passive discovery + auto-tag after update
+          const blogId = Number(id);
+          searchSimilarDocs(blogId, 'blog', 5).catch(() => {});
+          if (aiSettings.enabled && aiSettings.apiKey) {
+            window.api.aiTagSuggest({
+              settings: { ...aiSettings, model: effectiveModel, baseUrl: effectiveBaseUrl },
+              request: { title: state.title.trim(), content: contentToSave },
+              existingTags: [],
+            }).then((tr) => {
+              if (tr.success && tr.data?.tags?.length) {
+                toast(`建议标签: ${tr.data.tags.join(', ')}`, 'success');
+              }
+            }).catch(() => {});
+          }
         }
       }
     } catch (e) {
@@ -356,13 +491,18 @@ export function BlogEditorPage() {
     } finally {
       dispatch({ type: 'SET_SAVING', payload: false });
     }
-  }, [user, state.title, state.format, state.content, state.pendingTagIds, isNew, id, navigate, saveTags, toast]);
+  }, [user, state.title, state.format, state.content, state.pendingTagIds, isNew, id, navigate, saveTags, toast, aiSettings.enabled, aiSettings.apiKey, effectiveModel, effectiveBaseUrl]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
+      }
+      // R291: Ctrl+J opens AI command menu
+      if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
+        e.preventDefault();
+        setShowAiMenu((v) => !v);
       }
     };
     window.addEventListener('keydown', h);
@@ -378,7 +518,7 @@ export function BlogEditorPage() {
           closeSplit();
         } else {
           const rendered = state.format === 'md'
-            ? md.render(state.content || '')
+            ? DOMPurify.sanitize(md.render(state.content || ''))
             : DOMPurify.sanitize(state.content || '');
           openSplit(
             <div className="overflow-auto p-6" style={{ background: 'var(--bg-primary)' }}>
@@ -534,6 +674,49 @@ export function BlogEditorPage() {
         {/* T2108: Pin + Color metadata bar */}
         {!isNew && user && (
           <div className="flex items-center gap-4 py-2 px-1">
+            {/* T2202: [@] quick reference button */}
+            <button
+              type="button"
+              onClick={() => setShowAtPicker((v) => !v)}
+              className="text-[12px] rounded-[4px] px-2 py-1 transition-colors"
+              style={{ color: showAtPicker ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+              title="引用知识库文件 (插入 [[wikilink]])"
+            >
+              <AtSign size={14} /> 引用
+            </button>
+            {/* T2204: AI menu button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setShowAiMenu((v) => !v); setAiError(null); }}
+                disabled={aiLoading}
+                className="text-[12px] rounded-[4px] px-2 py-1 transition-colors disabled:opacity-40"
+                style={{ color: showAiMenu ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+                title="AI 辅助写作">
+                ✦ AI {aiLoading ? '...' : ''}
+              </button>
+              {showAiMenu && (
+                <div className="absolute top-full left-0 mt-1 z-50 rounded-[6px] border py-1 shadow-lg min-w-[140px]"
+                  style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+                  {[
+                    { id: 'continue', label: '续写', desc: '继续写作' },
+                    { id: 'summarize', label: '摘要', desc: '生成摘要' },
+                    { id: 'polish', label: '润色', desc: '优化表达' },
+                    { id: 'translate', label: '翻译', desc: '译为中文' },
+                  ].map((item) => (
+                    <button key={item.id} type="button" onClick={() => handleAiAction(item.id)}
+                      className="w-full text-left px-3 py-1.5 text-[12px] transition-colors hover:bg-[var(--bg-primary)]"
+                      style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                      <span className="font-medium">{item.label}</span>
+                      <span className="ml-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>{item.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {aiError && (
+              <span className="text-[11px]" style={{ color: 'var(--accent-red)' }}>{aiError}</span>
+            )}
             <button
               type="button"
               onClick={async () => {
@@ -571,8 +754,22 @@ export function BlogEditorPage() {
             </div>
           </div>
         )}
-        <div className="flex-1">
-          <TiptapEditor content={state.content} onChange={handleContentChange} />
+        {/* T2202: [@] AtPicker floating popup */}
+        {showAtPicker && user && blogIdRef.current && (
+          <AtPickerPopup
+            userId={user.id}
+            sourceId={blogIdRef.current}
+            onClose={() => setShowAtPicker(false)}
+          />
+        )}
+        <div className="flex-1" onContextMenu={(e) => {
+          const sel = window.getSelection()?.toString()?.trim();
+          if (sel && aiSettings.enabled) {
+            e.preventDefault();
+            setShowAiMenu(true);
+          }
+        }}>
+          <TiptapEditor content={state.content} onChange={handleContentChange} variant={variant} />
         </div>
         {/* T2010: Bottom panel — horizontal tab switcher (was vertical stack) */}
         {user && blogIdRef.current && (
@@ -607,7 +804,7 @@ export function BlogEditorPage() {
                 <AttachmentPanel blogId={blogIdRef.current} />
               )}
               {bottomTab === 'refs' && (
-                <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} />
+                <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} readOnly />
               )}
               {bottomTab === 'series' && (
                 <div className="flex items-center gap-3">
@@ -677,7 +874,7 @@ export function BlogEditorPage() {
             )}
             <span title="字数">{countChars(state.content)} 字</span>
             <span title="预计阅读时间">~{estimateReadingTime(state.content)} 分钟</span>
-            <span>Ctrl+S 保存</span>
+            <span>Ctrl+S 保存 · Ctrl+J AI</span>
           </span>
         </div>
       </div>
@@ -720,12 +917,12 @@ export function BlogEditorPage() {
               <div key={d.id} className="border-b px-4 py-3" style={{ borderColor: 'var(--border-default)' }}>
                 <div className="mb-1 flex items-center justify-between">
                   <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                    版本 {state.drafts.length - i} · {new Date(d.saved_at).toLocaleString('zh-CN')}
+                    版本 {state.drafts.length - i} · {new Date(d.savedAt).toLocaleString('zh-CN')}
                   </span>
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!blogIdRef.current || !confirm('恢复到该版本？')) return;
+                      if (!blogIdRef.current || !user || !confirm('恢复到该版本？')) return;
                       try {
                         await window.api.blogRollback({ userId: user.id, blogId: blogIdRef.current, draftId: d.id });
                         dispatch({ type: 'SET_CONTENT', payload: d.content });
@@ -749,6 +946,172 @@ export function BlogEditorPage() {
               </div>
             ))
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── T2202: KbRelatedTab — shows KB files related to current blog ──
+
+function KbRelatedTab({ userId, blogTitle, blogId }: { userId: number; blogTitle: string; blogId: number }) {
+  const [results, setResults] = useState<Array<{ id: number; title: string; type: string; excerpt: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    // R290: Try embedding similarity first, fall back to text search
+    (async () => {
+      try {
+        if (blogId > 0) {
+          const similar = await searchSimilarDocs(blogId, 'blog', 5);
+          if (!cancelled && similar.length > 0) {
+            const kbItems = similar.filter((s) => s.type === 'knowledge').slice(0, 3);
+            if (kbItems.length > 0) {
+              const withTitles = await Promise.all(kbItems.map(async (item) => {
+                try {
+                  const r = await window.api.kbGet({ fileId: item.id, userId });
+                  return { id: item.id, title: r.success && r.data ? r.data.filename : `知识文件 #${item.id}`, type: 'knowledge', excerpt: `${Math.round(item.score * 100)}% 相似` };
+                } catch { return { id: item.id, title: `知识文件 #${item.id}`, type: 'knowledge', excerpt: '' }; }
+              }));
+              if (!cancelled) { setResults(withTitles); setLoading(false); return; }
+            }
+          }
+        }
+      } catch { /* embedding not available, fall through */ }
+
+      // Fallback: text search
+      try {
+        const r = await searchDirect(blogTitle || ' ', userId);
+        if (cancelled) return;
+        const kb = r.filter((item) => item.type === 'knowledge').slice(0, 3);
+        setResults(kb.map((item) => ({ id: item.id, title: item.title, type: item.type, excerpt: item.snippet || '' })));
+      } catch (e) {
+        if (!cancelled) { console.error('[KbRelatedTab]', e); setError('加载失败'); }
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [blogTitle, userId, blogId]);
+
+  const doRetry = () => {
+    setLoading(true); setError(null);
+    (async () => {
+      try {
+        if (blogId > 0) {
+          const similar = await searchSimilarDocs(blogId, 'blog', 5);
+          const kbItems = similar.filter((s) => s.type === 'knowledge').slice(0, 3);
+          if (kbItems.length > 0) {
+            const withTitles = await Promise.all(kbItems.map(async (item) => {
+              const r = await window.api.kbGet({ fileId: item.id, userId });
+              return { id: item.id, title: r.success && r.data ? r.data.filename : `KB #${item.id}`, type: 'knowledge', excerpt: `${Math.round(item.score * 100)}% 相似` };
+            }));
+            setResults(withTitles); setLoading(false); return;
+          }
+        }
+      } catch { /* fall through */ }
+      const r = await searchDirect(blogTitle, userId);
+      const kb = r.filter((item) => item.type === 'knowledge').slice(0, 3);
+      setResults(kb.map((item) => ({ id: item.id, title: item.title, type: item.type, excerpt: item.snippet || '' })));
+      setLoading(false);
+    })().catch(() => { setError('加载失败'); setLoading(false); });
+  };
+
+  if (loading) {
+    return <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>分析语义相似度...</p>;
+  }
+  if (error) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-[13px]" style={{ color: 'var(--accent-red)' }}>{error}</p>
+        <button onClick={doRetry} className="mt-2 text-[12px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>重试</button>
+      </div>
+    );
+  }
+  if (results.length === 0) {
+    return <p className="text-[13px] py-4" style={{ color: 'var(--text-muted)' }}>未找到相关知识库文件。尝试给博客添加标题后再搜索。</p>;
+  }
+  return (
+    <div className="space-y-1">
+      {results.map((item) => (
+        <button key={`${item.type}-${item.id}`} type="button"
+          onClick={async () => {
+            await window.api.refAdd({ sourceType: 'blog', sourceId: blogId, targetType: 'knowledge', targetId: item.id, userId });
+          }}
+          className="w-full text-left rounded-[6px] px-3 py-2 transition-colors hover:bg-[var(--bg-primary)]"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+          <div className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</div>
+          {item.excerpt && <div className="mt-0.5 text-[11px] line-clamp-1" style={{ color: 'var(--text-muted)' }}>{item.excerpt}</div>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── T2202: AtPickerPopup — floating reference picker triggered by [@] button ──
+
+function AtPickerPopup({ userId, sourceId, onClose }: { userId: number; sourceId: number; onClose: () => void }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Array<{ id: number; title: string; type: string; excerpt: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    let cancelled = false;
+    setLoading(true);
+    const timer = setTimeout(() => {
+      searchDirect(query, userId)
+        .then((r) => {
+          if (cancelled) return;
+          setResults(r.slice(0, 8).map((item) => ({ id: item.id, title: item.title, type: item.type, excerpt: item.snippet || '' })));
+          setLoading(false);
+        })
+        .catch(() => { if (!cancelled) setLoading(false); });
+    }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query, userId]);
+
+  const typeLabel = (t: string) => t === 'blog' ? '博客' : t === 'knowledge' ? '知识库' : t === 'note' ? '便签' : t;
+  const typeColor = (t: string) => t === 'blog' ? 'var(--accent-blue)' : t === 'knowledge' ? 'var(--accent-green)' : 'var(--text-secondary)';
+
+  return (
+    <div className="mb-3 rounded-[8px] border p-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <input ref={inputRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索博客/知识库/便签..."
+          className="flex-1 rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
+          style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
+        <button type="button" onClick={onClose}
+          className="text-[18px] hover:opacity-70"
+          style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+      </div>
+      {loading && <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>搜索中...</p>}
+      {!loading && query.trim() && results.length === 0 && (
+        <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>无结果</p>
+      )}
+      {results.length > 0 && (
+        <div className="max-h-[240px] overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
+          {results.map((item) => (
+            <button key={`${item.type}-${item.id}`} type="button"
+              onClick={async () => {
+                await window.api.refAdd({ sourceType: 'blog', sourceId, targetType: item.type as 'blog' | 'knowledge' | 'note', targetId: item.id, userId });
+                onClose();
+              }}
+              className="w-full text-left flex items-center gap-2 rounded-[4px] px-2 py-1.5 transition-colors hover:bg-[var(--bg-primary)]"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <span className="shrink-0 rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: typeColor(item.type) }}>{typeLabel(item.type)}</span>
+              <span className="flex-1 truncate text-[13px]" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
