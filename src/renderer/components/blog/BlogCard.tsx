@@ -24,8 +24,8 @@ export function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, o
   const progressPercent = hasProgress ? Number(savedProgress) : 0;
   const showProgressBar = hasProgress && progressPercent > 5 && progressPercent < 95;
 
-  const excerpt = stripMarkdown((blog as any).content || '').slice(0, 200);
-  const readingMin = estimateReadingTime((blog as any).content || '');
+  const excerpt = stripMarkdown(blog.content || '').slice(0, 200);
+  const readingMin = estimateReadingTime(blog.content || '');
   const refCount = (blog as any).refCount ?? 0;
 
   useEffect(() => {

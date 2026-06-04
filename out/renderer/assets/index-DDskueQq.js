@@ -19630,13 +19630,14 @@ function MainContent() {
           className: "flex items-center border-b border-[var(--border-default)] px-6",
           style: { background: "var(--bg-secondary)", height: "var(--nav-height)", WebkitAppRegion: "drag" },
           children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { WebkitAppRegion: "no-drag" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(GlobalSearch, {}) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { WebkitAppRegion: "no-drag", marginRight: 12 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(GlobalSearch, {}) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
                 type: "button",
                 onClick: () => setShowChat((v) => !v),
-                className: "ml-auto rounded-[4px] p-1.5 transition-opacity hover:opacity-70",
+                className: "rounded-[4px] p-1.5 transition-opacity hover:opacity-70",
                 style: { WebkitAppRegion: "no-drag", color: showChat ? "var(--accent-blue)" : "var(--text-muted)", background: "none", border: "none", cursor: "pointer" },
                 title: "AI 对话",
                 "aria-label": "AI 对话",
@@ -19992,7 +19993,7 @@ const router = createHashRouter([
           { index: true, element: lazyPage(HomePage$2) },
           { path: "/dashboard", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/", replace: true }) },
           { path: "/blog", element: lazyPage(BlogListPage$2) },
-          { path: "/blog/new", element: lazyPage(isWeb ? WebEditorPage$2 : BlogEditorPage$3) },
+          { path: "/blog/new", element: lazyPage(BlogPreviewPage$2) },
           { path: "/blog/:id", element: lazyPage(BlogPreviewPage$2) },
           { path: "/blog/:id/edit", element: lazyPage(isWeb ? WebEditorPage$2 : BlogEditorPage$3) },
           { path: "/knowledge", element: lazyPage(KnowledgeListPage$2) },
@@ -20657,6 +20658,62 @@ function getGreeting() {
 function todayStr() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
+function TodoItem({ todo, isCompleted, onToggle, onDelete }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "group flex items-center gap-2 py-1.5", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "input",
+      {
+        type: "checkbox",
+        checked: isCompleted,
+        onChange: onToggle,
+        title: isCompleted ? "取消完成" : "标记完成",
+        "aria-label": isCompleted ? "取消完成" : "标记完成",
+        className: "shrink-0 rounded-sm",
+        style: { width: 14, height: 14, accentColor: "var(--accent-blue)" }
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 min-w-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-[13px]", style: { color: isCompleted ? "var(--text-muted)" : "var(--text-primary)", textDecoration: isCompleted ? "line-through" : "none" }, children: todo.title || todo.content }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onDelete,
+        "aria-label": "删除待办",
+        className: "shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+        style: { color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", fontSize: 12 },
+        children: "✕"
+      }
+    )
+  ] });
+}
+function CompletedSection({ todos, onToggle, onDelete }) {
+  const [expanded, setExpanded] = reactExports.useState(true);
+  const timerRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    timerRef.current = setTimeout(() => setExpanded(false), 2e3);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [todos.length]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 border-t pt-2", style: { borderColor: "var(--border-default)" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: () => setExpanded(!expanded),
+        className: "flex items-center gap-1 text-[11px] hover:opacity-80",
+        style: { color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: expanded ? "▾" : "▸" }),
+          "已完成 (",
+          todos.length,
+          ")"
+        ]
+      }
+    ),
+    expanded && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 space-y-1", children: todos.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(TodoItem, { todo: t, isCompleted: true, onToggle: () => onToggle(t), onDelete: () => onDelete(t.id) }, t.id)) })
+  ] });
+}
 function HomePage() {
   const user = useAuthStore((s) => s.user);
   const abortedRef = reactExports.useRef(false);
@@ -20939,38 +20996,20 @@ function HomePage() {
             }
           )
         ] }),
-        todosLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] py-2", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : todos.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] py-2", style: { color: "var(--text-muted)" }, children: "暂无待办" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1 max-h-[300px] overflow-y-auto", style: { scrollbarWidth: "thin" }, children: todos.map((todo) => {
-          const isCompleted = completedTodoIds.has(todo.id);
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "group flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-colors duration-[0.15s] hover:bg-[var(--bg-primary)]", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => handleCompleteTodo(todo),
-                title: isCompleted ? "取消完成" : "标记为已完成",
-                "aria-label": isCompleted ? "取消完成" : "标记为已完成",
-                className: "shrink-0 rounded-[4px] w-5 h-5 border transition-all flex items-center justify-center",
-                style: { borderColor: isCompleted ? "var(--accent-green)" : "var(--text-muted)", background: isCompleted ? "var(--accent-green)" : "none", cursor: "pointer", color: isCompleted ? "#fff" : "transparent", fontSize: 12 },
-                children: "✓"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-[13px]", style: { color: isCompleted ? "var(--text-muted)" : "var(--text-primary)", textDecoration: isCompleted ? "line-through" : "none" }, children: todo.title || todo.content }),
-              todo.dueDate && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px]", style: { color: "var(--text-muted)" }, children: String(todo.dueDate).slice(0, 10) })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: () => handleDeleteTodo(todo.id),
-                "aria-label": "删除待办",
-                className: "shrink-0 rounded-[4px] px-2 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-all",
-                style: { color: "var(--accent-red)" },
-                children: "删除"
-              }
-            )
-          ] }, todo.id);
-        }) })
+        todosLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] py-2", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : todos.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] py-2", style: { color: "var(--text-muted)" }, children: "暂无待办" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1 max-h-[300px] overflow-y-auto", style: { scrollbarWidth: "thin" }, children: [
+            todos.filter((t) => !completedTodoIds.has(t.id)).map((todo) => /* @__PURE__ */ jsxRuntimeExports.jsx(TodoItem, { todo, isCompleted: false, onToggle: () => handleCompleteTodo(todo), onDelete: () => handleDeleteTodo(todo.id) }, todo.id)),
+            todos.filter((t) => !completedTodoIds.has(t.id)).length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] py-2", style: { color: "var(--text-muted)" }, children: "全部完成" })
+          ] }),
+          todos.filter((t) => completedTodoIds.has(t.id)).length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            CompletedSection,
+            {
+              todos: todos.filter((t) => completedTodoIds.has(t.id)),
+              onToggle: handleCompleteTodo,
+              onDelete: (id2) => handleDeleteTodo(id2)
+            }
+          )
+        ] })
       ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-8 rounded-[14px] border p-6", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
@@ -21951,7 +21990,7 @@ function BlogListPage() {
     total,
     loading,
     query,
-    sortBy: sortBy2,
+    sortBy,
     filterTagId,
     filterTagName,
     filterFolderId,
@@ -22012,7 +22051,7 @@ function BlogListPage() {
         query: query || void 0,
         tagId: filterTagId || void 0,
         folderId: filterFolderId || void 0,
-        sortBy: sortBy2,
+        sortBy,
         sortOrder: "desc",
         offset: pagination.offset,
         limit: pagination.limit,
@@ -22038,7 +22077,7 @@ function BlogListPage() {
     } finally {
       dispatch2({ type: "SET_LOADING", payload: false });
     }
-  }, [user, query, sortBy2, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
+  }, [user, query, sortBy, filterTagId, filterFolderId, pagination.offset, pagination.limit, excludeSeries]);
   reactExports.useEffect(() => {
     const tagId = searchParams.get("tagId");
     const tagName = searchParams.get("tagName");
@@ -110419,7 +110458,7 @@ function FloatingMenu({ blogId, headings, onEdit, onBack }) {
   const [right, setRight] = reactExports.useState(32);
   const [activeId, setActiveId] = reactExports.useState(null);
   const [visible, setVisible] = reactExports.useState(true);
-  const menuRef = reactExports.useRef(null);
+  const tocRef = reactExports.useRef(null);
   reactExports.useLayoutEffect(() => {
     function updatePosition() {
       const main2 = document.querySelector("main");
@@ -110455,6 +110494,11 @@ function FloatingMenu({ blogId, headings, onEdit, onBack }) {
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [headings]);
+  reactExports.useEffect(() => {
+    if (!activeId || !tocRef.current) return;
+    const el = tocRef.current.querySelector(`[data-toc-id="${activeId}"]`);
+    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeId]);
   const handleBack = reactExports.useCallback(() => {
     const h2 = document.documentElement;
     const total = h2.scrollHeight - h2.clientHeight;
@@ -110471,8 +110515,6 @@ function FloatingMenu({ blogId, headings, onEdit, onBack }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      ref: menuRef,
-      className: "floating-menu group",
       style: {
         position: "fixed",
         right: `${right}px`,
@@ -110481,16 +110523,14 @@ function FloatingMenu({ blogId, headings, onEdit, onBack }) {
         zIndex: 40,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-        padding: "6px 2px",
         borderRadius: 8,
         border: "1px solid var(--border-default)",
         background: "var(--bg-secondary)",
         opacity: 0.25,
         transition: "opacity 200ms ease, width 200ms ease",
         width: 32,
-        overflow: "hidden"
+        overflow: "hidden",
+        maxHeight: "90vh"
       },
       onMouseEnter: (e) => {
         e.currentTarget.style.opacity = "1";
@@ -110501,27 +110541,28 @@ function FloatingMenu({ blogId, headings, onEdit, onBack }) {
         e.currentTarget.style.width = "32px";
       },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowUp, { size: 16 }), label: "回到顶部", onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowDown, { size: 16 }), label: "到达底部", onClick: () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { size: 16 }), label: "编辑", onClick: onEdit }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { size: 16 }), label: "返回列表", onClick: handleBack }),
-        headings.length >= 2 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "80%", height: 1, background: "var(--border-default)", margin: "4px 0" } }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "100%", padding: "0 4px" }, children: headings.map((h2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: () => scrollToHeading(h2.id),
-              className: "block w-full text-left truncate text-[11px] py-0.5 hover:opacity-80",
-              style: {
-                color: activeId === h2.id ? "var(--accent-blue)" : "var(--text-muted)",
-                paddingLeft: (h2.level - 2) * 12
-              },
-              children: h2.text
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 2px 4px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowUp, { size: 16 }), label: "回到顶部", onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowDown, { size: 16 }), label: "到达底部", onClick: () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { size: 16 }), label: "编辑", onClick: onEdit }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(MenuBtn$1, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { size: 16 }), label: "返回列表", onClick: handleBack })
+        ] }),
+        headings.length >= 2 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: tocRef, style: { flex: 1, overflowY: "auto", scrollbarWidth: "thin", padding: "0 4px 6px", borderTop: "1px solid var(--border-default)", margin: "0 4px" }, children: headings.map((h2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            "data-toc-id": h2.id,
+            onClick: () => scrollToHeading(h2.id),
+            className: "block w-full text-left truncate text-[11px] py-0.5 hover:opacity-80",
+            style: {
+              color: activeId === h2.id ? "var(--accent-blue)" : "var(--text-muted)",
+              paddingLeft: (h2.level - 2) * 12
             },
-            h2.id
-          )) })
-        ] })
+            title: h2.text,
+            children: h2.text
+          },
+          h2.id
+        )) })
       ]
     }
   );
@@ -110819,6 +110860,10 @@ function BlogPreviewPage() {
         }
         setLoading(false);
       }).catch(() => setLoading(false));
+    else if (!id2 && user) {
+      setBlog(null);
+      setLoading(false);
+    }
   }, [id2, user, isEditMode]);
   reactExports.useEffect(() => {
     const el = articleElRef.current;
@@ -111041,24 +111086,27 @@ function BlogPreviewPage() {
   };
   if (loading)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--text-secondary)" }, children: "加载中..." });
-  if (!blog)
+  if (!blog && id2)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--accent-red)" }, children: "博客不存在" });
-  if (isEditMode) {
+  if (isEditMode || !id2) {
     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 flex items-center gap-3", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "button",
           {
             type: "button",
-            onClick: () => setSearchParams({}, { replace: true }),
+            onClick: () => id2 ? setSearchParams({}, { replace: true }) : navigate("/blog"),
             className: "inline-flex items-center gap-1 text-[13px] hover:underline",
             style: { color: "var(--accent-blue)", background: "none", border: "none", cursor: "pointer" },
-            children: "← 返回阅读"
+            children: [
+              "← ",
+              id2 ? "返回阅读" : "返回列表"
+            ]
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[12px]", style: { color: "var(--text-muted)" }, children: [
           "编辑: ",
-          blog.title
+          blog?.title || "新建博客"
         ] })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", style: { animation: "fadeIn 0.3s ease" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载编辑器..." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, { variant: "frameless" }) }) })
@@ -111732,7 +111780,7 @@ function KnowledgeListPage() {
     dragOver: false,
     kbFolders: []
   });
-  const { query, fileType, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
+  const { query, fileType, sortBy, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
   const setFilterFolderId = (v) => dispatch2({ type: "SET_FOLDER_FILTER", v });
   const [error2, setError] = reactExports.useState(null);
   const fileInputRef = reactExports.useRef(null);
@@ -114927,7 +114975,7 @@ Draggable.defaultProps = {
   scale: 1
 };
 var cjs_default = Draggable;
-const NOTE_COLORS = ["#fefdf7", "#fef9e4", "#f0f4f8", "#f2f7f1", "#fdf2f5", "#f5f2f9"];
+const NOTE_COLORS = ["#f5f0e8", "#f7efc7", "#dce6f0", "#dce8da", "#f5dfe5", "#e8dff2"];
 function randomNoteColor() {
   return NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)];
 }
@@ -114950,9 +114998,10 @@ function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style:
         width: 180,
         height: 180,
         background: bg,
+        border: "1px solid var(--border-default)",
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
         transition: "box-shadow 150ms, transform 150ms",
-        cursor: onDragStart ? "grab" : "default",
+        cursor: "grab",
         ...style2
       },
       onMouseEnter: (e) => {
@@ -114966,7 +115015,7 @@ function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style:
         e.currentTarget.style.zIndex = "";
       },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "note-actions absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(ActionBtn, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 12 }), title: "复制", onClick: () => onCopy(note) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(ActionBtn, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { size: 12 }), title: "编辑", onClick: () => setEditing(true) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(ActionBtn, { icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Eye, { size: 12 }), title: "全文", onClick: () => onView(note) })
@@ -114983,18 +115032,18 @@ function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style:
             },
             onPaste: (e) => onImagePaste?.(e, (md2) => setEditText((prev) => prev + md2)),
             className: "flex-1 w-full resize-none border-0 bg-transparent p-2 text-[13px] outline-none",
-            style: { color: "#2c2c2c" },
+            style: { color: "var(--text-primary)" },
             autoFocus: true
           }
         ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
           "p",
           {
             className: "flex-1 p-2 text-[13px] line-clamp-4 whitespace-pre-wrap overflow-hidden",
-            style: { color: "#2c2c2c" },
+            style: { color: "var(--text-primary)" },
             children: note.content
           }
         ),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-2 pb-1.5 text-[11px]", style: { color: "rgba(0,0,0,0.35)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-2 pb-1.5 text-[11px]", style: { color: "var(--text-muted)" }, children: [
           note.createdAt ? new Date(note.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }) + " " : "",
           note.createdAt ? new Date(note.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : ""
         ] })
@@ -115298,7 +115347,7 @@ function NoteListPage() {
               defaultPosition: pos,
               onStop: (e, data) => handleDragStop(note.id, e, data),
               bounds: "parent",
-              handle: ".drag-handle",
+              cancel: ".note-actions",
               children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute drag-handle", style: { cursor: "grab" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                 NoteCard,
                 {

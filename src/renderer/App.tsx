@@ -109,7 +109,7 @@ const router = createHashRouter([
           { index: true, element: lazyPage(HomePage) },
           { path: '/dashboard', element: <Navigate to="/" replace /> },
           { path: '/blog', element: lazyPage(BlogListPage) },
-          { path: '/blog/new', element: lazyPage(isWeb ? WebEditorPage : BlogEditorPage) },
+          { path: '/blog/new', element: lazyPage(BlogPreviewPage) },
           { path: '/blog/:id', element: lazyPage(BlogPreviewPage) },
           { path: '/blog/:id/edit', element: lazyPage(isWeb ? WebEditorPage : BlogEditorPage) },
           { path: '/knowledge', element: lazyPage(KnowledgeListPage) },

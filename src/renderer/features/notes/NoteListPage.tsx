@@ -304,7 +304,7 @@ export function NoteListPage() {
                 defaultPosition={pos}
                 onStop={(e, data) => handleDragStop(note.id, e, data)}
                 bounds="parent"
-                handle=".drag-handle"
+                cancel=".note-actions"
               >
                 <div className="absolute drag-handle" style={{ cursor: 'grab' }}>
                   <NoteCard

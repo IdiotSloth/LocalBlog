@@ -133,7 +133,7 @@ export function KnowledgeListPage() {
     dragOver: false,
     kbFolders: [],
   });
-  const { query, fileType, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
+  const { query, fileType, sortBy, filterTagId, filterTagName, filterFolderId, showFolderSidebar, editingTagsFileId, editingTagIds, previewHtml, previewTitle, previewing, previewFileId, previewFileType, backRefs, kbFolders, files, total, loading } = state;
   const setFilterFolderId = (v: number | null) => dispatch({ type: 'SET_FOLDER_FILTER', v });
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

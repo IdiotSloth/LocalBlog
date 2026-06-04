@@ -345,11 +345,12 @@ function MainContent() {
           className="flex items-center border-b border-[var(--border-default)] px-6"
           style={{ background: 'var(--bg-secondary)', height: 'var(--nav-height)', WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div style={{ WebkitAppRegion: 'no-drag', marginRight: 12 } as React.CSSProperties}>
             <GlobalSearch />
           </div>
+          <div className="flex-1" />
           <button type="button" onClick={() => setShowChat((v) => !v)}
-            className="ml-auto rounded-[4px] p-1.5 transition-opacity hover:opacity-70"
+            className="rounded-[4px] p-1.5 transition-opacity hover:opacity-70"
             style={{ WebkitAppRegion: 'no-drag', color: showChat ? 'var(--accent-blue)' : 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' } as React.CSSProperties}
             title="AI 对话" aria-label="AI 对话">
             <Bot size={18} />

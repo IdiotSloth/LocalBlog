@@ -27,6 +27,49 @@ function todayStr(): string {
 
 type ContinueTab = 'drafts' | 'recent' | 'files';
 
+function TodoItem({ todo, isCompleted, onToggle, onDelete }: { todo: Note; isCompleted: boolean; onToggle: () => void; onDelete: () => void }) {
+  return (
+    <div className="group flex items-center gap-2 py-1.5">
+      <input type="checkbox" checked={isCompleted} onChange={onToggle} title={isCompleted ? '取消完成' : '标记完成'} aria-label={isCompleted ? '取消完成' : '标记完成'}
+        className="shrink-0 rounded-sm" style={{ width: 14, height: 14, accentColor: 'var(--accent-blue)' }} />
+      <div className="flex-1 min-w-0">
+        <p className="truncate text-[13px]" style={{ color: isCompleted ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isCompleted ? 'line-through' : 'none' }}>{todo.title || todo.content}</p>
+      </div>
+      <button type="button" onClick={onDelete} aria-label="删除待办"
+        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>✕</button>
+    </div>
+  );
+}
+
+function CompletedSection({ todos, onToggle, onDelete }: { todos: Note[]; onToggle: (t: Note) => void; onDelete: (id: number) => void }) {
+  const [expanded, setExpanded] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => setExpanded(false), 2000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [todos.length]);
+
+  return (
+    <div className="mt-2 border-t pt-2" style={{ borderColor: 'var(--border-default)' }}>
+      <button type="button" onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[11px] hover:opacity-80"
+        style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+        <span>{expanded ? '▾' : '▸'}</span>
+        已完成 ({todos.length})
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-1">
+          {todos.map((t) => (
+            <TodoItem key={t.id} todo={t} isCompleted={true} onToggle={() => onToggle(t)} onDelete={() => onDelete(t.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function HomePage() {
   const user = useAuthStore((s) => s.user);
   const abortedRef = useRef(false);
@@ -313,27 +356,25 @@ export function HomePage() {
             ) : todos.length === 0 ? (
               <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>暂无待办</p>
             ) : (
-            <div className="space-y-1 max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-              {todos.map((todo) => {
-                const isCompleted = completedTodoIds.has(todo.id);
-                return (
-                <div key={todo.id} className="group flex items-center gap-3 rounded-[6px] px-3 py-2.5 transition-colors duration-[0.15s] hover:bg-[var(--bg-primary)]">
-                  <button type="button" onClick={() => handleCompleteTodo(todo)} title={isCompleted ? '取消完成' : '标记为已完成'} aria-label={isCompleted ? '取消完成' : '标记为已完成'}
-                    className="shrink-0 rounded-[4px] w-5 h-5 border transition-all flex items-center justify-center"
-                    style={{ borderColor: isCompleted ? 'var(--accent-green)' : 'var(--text-muted)', background: isCompleted ? 'var(--accent-green)' : 'none', cursor: 'pointer', color: isCompleted ? '#fff' : 'transparent', fontSize: 12 }}>
-                    ✓
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-[13px]" style={{ color: isCompleted ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isCompleted ? 'line-through' : 'none' }}>{todo.title || todo.content}</p>
-                    {todo.dueDate && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{String(todo.dueDate).slice(0, 10)}</p>}
-                  </div>
-                  <button type="button" onClick={() => handleDeleteTodo(todo.id)} aria-label="删除待办"
-                    className="shrink-0 rounded-[4px] px-2 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-all"
-                    style={{ color: 'var(--accent-red)' }}>删除</button>
-                </div>
-                );
-              })}
-            </div>
+            <>
+              {/* Active todos */}
+              <div className="space-y-1 max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                {todos.filter(t => !completedTodoIds.has(t.id)).map((todo) => (
+                <TodoItem key={todo.id} todo={todo} isCompleted={false} onToggle={() => handleCompleteTodo(todo)} onDelete={() => handleDeleteTodo(todo.id)} />
+                ))}
+                {todos.filter(t => !completedTodoIds.has(t.id)).length === 0 && (
+                  <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>全部完成</p>
+                )}
+              </div>
+              {/* Completed section with auto-collapse */}
+              {todos.filter(t => completedTodoIds.has(t.id)).length > 0 && (
+                <CompletedSection
+                  todos={todos.filter(t => completedTodoIds.has(t.id))}
+                  onToggle={handleCompleteTodo}
+                  onDelete={(id) => handleDeleteTodo(id)}
+                />
+              )}
+            </>
           )}
         </section>
       </div>

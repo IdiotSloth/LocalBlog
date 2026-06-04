@@ -170,6 +170,7 @@ export function mapBlogRow(row: Record<string, unknown>): Blog {
     userId: row.user_id as number,
     title: row.title as string,
     format: row.format as BlogFormat,
+    content: row.content as string | undefined,
     status: row.status as ItemStatus,
     seriesId: row.series_id as string | undefined,
     seriesName: row.series_name as string | undefined,

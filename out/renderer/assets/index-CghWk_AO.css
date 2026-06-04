@@ -88,6 +88,7 @@
     --tracking-wider: .05em;
     --leading-tight: 1.25;
     --leading-relaxed: 1.625;
+    --radius-sm: .25rem;
     --radius-md: .375rem;
     --radius-lg: .5rem;
     --radius-xl: .75rem;
@@ -933,10 +934,6 @@
     width: calc(var(--spacing) * 4);
   }
 
-  .w-5 {
-    width: calc(var(--spacing) * 5);
-  }
-
   .w-6 {
     width: calc(var(--spacing) * 6);
   }
@@ -1364,6 +1361,10 @@
 
   .rounded-md {
     border-radius: var(--radius-md);
+  }
+
+  .rounded-sm {
+    border-radius: var(--radius-sm);
   }
 
   .rounded-xl {

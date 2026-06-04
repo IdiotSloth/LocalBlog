@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { useLayoutEffect, useRef, useState, useCallback, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Pencil, ArrowLeft } from 'lucide-react';
 
 interface TocHeading {
@@ -18,9 +18,8 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
   const [right, setRight] = useState(32);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [visible, setVisible] = useState(true);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const tocRef = useRef<HTMLDivElement>(null);
 
-  // Track main element right edge for positioning
   useLayoutEffect(() => {
     function updatePosition() {
       const main = document.querySelector('main');
@@ -38,7 +37,6 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
     return () => { ro.disconnect(); window.removeEventListener('resize', updatePosition); };
   }, []);
 
-  // TOC active heading tracking
   useLayoutEffect(() => {
     if (headings.length < 2) return;
     const els = headings.map((h) => document.getElementById(h.id)).filter(Boolean) as HTMLElement[];
@@ -55,6 +53,13 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [headings]);
+
+  // Auto-scroll TOC to active heading
+  useEffect(() => {
+    if (!activeId || !tocRef.current) return;
+    const el = tocRef.current.querySelector(`[data-toc-id="${activeId}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeId]);
 
   const handleBack = useCallback(() => {
     const h = document.documentElement;
@@ -74,8 +79,6 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
 
   return (
     <div
-      ref={menuRef}
-      className="floating-menu group"
       style={{
         position: 'fixed',
         right: `${right}px`,
@@ -84,9 +87,6 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
-        padding: '6px 2px',
         borderRadius: 8,
         border: '1px solid var(--border-default)',
         background: 'var(--bg-secondary)',
@@ -94,6 +94,7 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
         transition: 'opacity 200ms ease, width 200ms ease',
         width: 32,
         overflow: 'hidden',
+        maxHeight: '90vh',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.opacity = '1';
@@ -104,31 +105,34 @@ export function FloatingMenu({ blogId, headings, onEdit, onBack }: Props) {
         e.currentTarget.style.width = '32px';
       }}
     >
-      <MenuBtn icon={<ArrowUp size={16} />} label="回到顶部" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-      <MenuBtn icon={<ArrowDown size={16} />} label="到达底部" onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })} />
-      <MenuBtn icon={<Pencil size={16} />} label="编辑" onClick={onEdit} />
-      <MenuBtn icon={<ArrowLeft size={16} />} label="返回列表" onClick={handleBack} />
+      {/* Fixed button area */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 2px 4px' }}>
+        <MenuBtn icon={<ArrowUp size={16} />} label="回到顶部" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+        <MenuBtn icon={<ArrowDown size={16} />} label="到达底部" onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })} />
+        <MenuBtn icon={<Pencil size={16} />} label="编辑" onClick={onEdit} />
+        <MenuBtn icon={<ArrowLeft size={16} />} label="返回列表" onClick={handleBack} />
+      </div>
 
+      {/* Scrollable TOC area */}
       {headings.length >= 2 && (
-        <>
-          <div style={{ width: '80%', height: 1, background: 'var(--border-default)', margin: '4px 0' }} />
-          <div style={{ width: '100%', padding: '0 4px' }}>
-            {headings.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => scrollToHeading(h.id)}
-                className="block w-full text-left truncate text-[11px] py-0.5 hover:opacity-80"
-                style={{
-                  color: activeId === h.id ? 'var(--accent-blue)' : 'var(--text-muted)',
-                  paddingLeft: (h.level - 2) * 12,
-                }}
-              >
-                {h.text}
-              </button>
-            ))}
-          </div>
-        </>
+        <div ref={tocRef} style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'thin', padding: '0 4px 6px', borderTop: '1px solid var(--border-default)', margin: '0 4px' }}>
+          {headings.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              data-toc-id={h.id}
+              onClick={() => scrollToHeading(h.id)}
+              className="block w-full text-left truncate text-[11px] py-0.5 hover:opacity-80"
+              style={{
+                color: activeId === h.id ? 'var(--accent-blue)' : 'var(--text-muted)',
+                paddingLeft: (h.level - 2) * 12,
+              }}
+              title={h.text}
+            >
+              {h.text}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -256,6 +256,11 @@ export function BlogPreviewPage() {
         }
         setLoading(false);
       }).catch(() => setLoading(false));
+    else if (!id && user) {
+      // R365: /blog/new route — create new blog in-place
+      setBlog(null);
+      setLoading(false);
+    }
   }, [id, user, isEditMode]); // R210: re-fetch when exiting inline edit mode
 
   // R201: IntersectionObserver for outline heading highlight
@@ -479,26 +484,27 @@ export function BlogPreviewPage() {
         加载中...
       </div>
     );
-  if (!blog)
+  if (!blog && id)
     return (
       <div className="flex h-64 items-center justify-center text-[14px]" style={{ color: 'var(--accent-red)' }}>
         博客不存在
       </div>
     );
 
-  if (isEditMode) {
+  // R365: /blog/new → new blog inline editor (blog=null, id=undefined)
+  if (isEditMode || !id) {
     return (
       <div className="flex flex-col h-full">
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setSearchParams({}, { replace: true })}
+            onClick={() => id ? setSearchParams({}, { replace: true }) : navigate('/blog')}
             className="inline-flex items-center gap-1 text-[13px] hover:underline"
             style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            ← 返回阅读
+            ← {id ? '返回阅读' : '返回列表'}
           </button>
-          <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>编辑: {blog.title}</span>
+          <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>编辑: {blog?.title || '新建博客'}</span>
         </div>
         <div className="flex-1" style={{ animation: 'fadeIn 0.3s ease' }}>
           <Suspense fallback={<p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载编辑器...</p>}>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Copy, Pencil, Eye } from 'lucide-react';
 
-const NOTE_COLORS = ['#fefdf7', '#fef9e4', '#f0f4f8', '#f2f7f1', '#fdf2f5', '#f5f2f9'];
+const NOTE_COLORS = ['#f5f0e8', '#f7efc7', '#dce6f0', '#dce8da', '#f5dfe5', '#e8dff2'];
 
 export function randomNoteColor(): string {
   return NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)]!;
@@ -48,9 +48,10 @@ export function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste,
         width: 180,
         height: 180,
         background: bg,
+        border: '1px solid var(--border-default)',
         boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         transition: 'box-shadow 150ms, transform 150ms',
-        cursor: onDragStart ? 'grab' : 'default',
+        cursor: 'grab',
         ...style,
       }}
       onMouseEnter={(e) => {
@@ -64,8 +65,8 @@ export function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste,
         e.currentTarget.style.zIndex = '';
       }}
     >
-      {/* Hover action buttons */}
-      <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Hover action buttons — excluded from drag */}
+      <div className="note-actions absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <ActionBtn icon={<Copy size={12} />} title="复制" onClick={() => onCopy(note)} />
         <ActionBtn icon={<Pencil size={12} />} title="编辑" onClick={() => setEditing(true)} />
         <ActionBtn icon={<Eye size={12} />} title="全文" onClick={() => onView(note)} />
@@ -83,20 +84,20 @@ export function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste,
           }}
           onPaste={(e) => onImagePaste?.(e, (md) => setEditText((prev) => prev + md))}
           className="flex-1 w-full resize-none border-0 bg-transparent p-2 text-[13px] outline-none"
-          style={{ color: '#2c2c2c' }}
+          style={{ color: 'var(--text-primary)' }}
           autoFocus
         />
       ) : (
         <p
           className="flex-1 p-2 text-[13px] line-clamp-4 whitespace-pre-wrap overflow-hidden"
-          style={{ color: '#2c2c2c' }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {note.content}
         </p>
       )}
 
       {/* Footer */}
-      <div className="px-2 pb-1.5 text-[11px]" style={{ color: 'rgba(0,0,0,0.35)' }}>
+      <div className="px-2 pb-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
         {note.createdAt ? new Date(note.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' : ''}
         {note.createdAt ? new Date(note.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''}
       </div>

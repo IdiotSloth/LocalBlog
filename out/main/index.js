@@ -2383,6 +2383,7 @@ function mapBlogRow(row) {
     userId: row.user_id,
     title: row.title,
     format: row.format,
+    content: row.content,
     status: row.status,
     seriesId: row.series_id,
     seriesName: row.series_name,

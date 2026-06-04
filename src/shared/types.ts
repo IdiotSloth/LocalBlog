@@ -15,6 +15,7 @@ export interface Blog {
   userId: number;
   title: string;
   format: BlogFormat;
+  content?: string;
   status: ItemStatus;
   seriesId?: string;
   seriesName?: string;
