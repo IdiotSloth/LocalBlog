@@ -27,10 +27,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const electron = require("electron");
 const initSqlJs = require("sql.js");
-const mysql = require("mysql2/promise");
-const crypto = require("node:crypto");
-const ExcelJS = require("exceljs");
-const mammoth = require("mammoth");
+const crypto$1 = require("node:crypto");
 const TurndownService = require("turndown");
 const IPC = {
   // Auth
@@ -148,8 +145,7 @@ const IPC = {
   NOTE_DELETE: "note:delete",
   NOTE_PIN: "note:pin",
   NOTE_CLIPBOARD: "note:clipboard",
-  // Graph (Phase 20C)
-  GRAPH_GET_DATA: "graph:getData",
+  NOTE_IMAGE_SAVE: "note:image-save",
   // Shortcuts
   SHORTCUT_GET_ALL: "shortcut:get-all",
   SHORTCUT_UPDATE: "shortcut:update",
@@ -209,288 +205,6 @@ const IPC = {
   AI_CHAT: "ai:chat",
   AI_TAG_SUGGEST: "ai:tag-suggest"
 };
-const MYSQL_DDL = [
-  `CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(256) NOT NULL, workspace_path VARCHAR(500) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS tags (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, name VARCHAR(100) NOT NULL,
-    description TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS folders (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
-    name VARCHAR(100) NOT NULL, parent_id INT DEFAULT NULL,
-    type VARCHAR(20) NOT NULL, sort_order INT DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS blogs (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
-    title VARCHAR(200) NOT NULL, format ENUM('md','html') DEFAULT 'md',
-    content LONGTEXT, status ENUM('active','trash') DEFAULT 'active',
-    series_id VARCHAR(36) DEFAULT NULL, series_name VARCHAR(100) DEFAULT NULL,
-    cover_image TEXT, icon VARCHAR(16) DEFAULT NULL,
-    is_pinned TINYINT DEFAULT 0, color VARCHAR(20) DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_status (user_id, status)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS blog_tags (
-    id INT AUTO_INCREMENT PRIMARY KEY, blog_id INT NOT NULL, tag_id INT NOT NULL,
-    FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS blog_drafts (
-    id INT AUTO_INCREMENT PRIMARY KEY, blog_id INT NOT NULL,
-    content LONGTEXT NOT NULL, saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS knowledge_files (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
-    filename VARCHAR(500) NOT NULL, file_path VARCHAR(1000) NOT NULL,
-    file_type VARCHAR(20) NOT NULL, file_size INT DEFAULT 0,
-    status ENUM('active','trash') DEFAULT 'active',
-    properties TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS knowledge_file_tags (
-    id INT AUTO_INCREMENT PRIMARY KEY, file_id INT NOT NULL, tag_id INT NOT NULL,
-    FOREIGN KEY (file_id) REFERENCES knowledge_files(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS recycle_bin (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
-    item_type VARCHAR(20) NOT NULL, item_id INT NOT NULL,
-    deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
-    token VARCHAR(128) NOT NULL UNIQUE, expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS refs (
-    id INT AUTO_INCREMENT PRIMARY KEY, source_type VARCHAR(20) NOT NULL,
-    source_id INT NOT NULL, target_type VARCHAR(20) NOT NULL, target_id INT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_ref (source_type, source_id, target_type, target_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS notes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL, content TEXT NOT NULL,
-    pinned TINYINT NOT NULL DEFAULT 0,
-    source VARCHAR(20) NOT NULL DEFAULT 'manual',
-    title VARCHAR(200) NOT NULL DEFAULT '',
-    memo_type VARCHAR(10) NOT NULL DEFAULT 'note',
-    due_date DATETIME DEFAULT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  // T2209: Bookmarks
-  `CREATE TABLE IF NOT EXISTS bookmarks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    target_type VARCHAR(20) NOT NULL,
-    target_id INT NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    created_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  // D106: Settings key-value store
-  `CREATE TABLE IF NOT EXISTS settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    \`key\` VARCHAR(100) NOT NULL,
-    value TEXT NOT NULL,
-    UNIQUE KEY uk_user_key (user_id, \`key\`),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
-];
-const MYSQL_MIGRATIONS = [
-  // T2209: bookmarks table (if upgrading from older schema)
-  `CREATE TABLE IF NOT EXISTS bookmarks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    target_type VARCHAR(20) NOT NULL,
-    target_id INT NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    created_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  "ALTER TABLE blogs ADD COLUMN folder_id INT DEFAULT NULL",
-  "ALTER TABLE blogs ADD COLUMN series_id VARCHAR(36) DEFAULT NULL",
-  "ALTER TABLE blogs ADD COLUMN series_name VARCHAR(100) DEFAULT NULL",
-  "ALTER TABLE knowledge_files ADD COLUMN folder_id INT DEFAULT NULL",
-  "ALTER TABLE knowledge_files ADD COLUMN content_text LONGTEXT",
-  "ALTER TABLE blogs ADD CONSTRAINT fk_blogs_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
-  "ALTER TABLE tags ADD COLUMN description TEXT",
-  "ALTER TABLE knowledge_files ADD CONSTRAINT fk_kf_folder FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL",
-  // T1801: MySQL FULLTEXT INDEX for full-text search
-  "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content)",
-  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text)",
-  // Phase 21: Rebuild FULLTEXT indexes with ngram parser for CJK search.
-  // The original indexes (T1801) use the default parser which treats CJK
-  // as single tokens — "面试通关手册" indexed as one token, so searching
-  // "面试" never matches. ngram parser breaks into bigrams.
-  "ALTER TABLE blogs DROP INDEX ft_blogs",
-  "ALTER TABLE knowledge_files DROP INDEX ft_knowledge",
-  "ALTER TABLE blogs ADD FULLTEXT INDEX ft_blogs (title, content) WITH PARSER ngram",
-  "ALTER TABLE knowledge_files ADD FULLTEXT INDEX ft_knowledge (filename, content_text) WITH PARSER ngram",
-  // T1906: notes +4 columns (title, memo_type, due_date, updated_at)
-  "ALTER TABLE notes ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''",
-  "ALTER TABLE notes ADD COLUMN memo_type VARCHAR(10) NOT NULL DEFAULT 'note'",
-  "ALTER TABLE notes ADD COLUMN due_date DATETIME DEFAULT NULL",
-  "ALTER TABLE notes ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-  // T2009: knowledge_files properties JSON column (R176)
-  "ALTER TABLE knowledge_files ADD COLUMN properties TEXT",
-  // T2307: Whiteboards
-  `CREATE TABLE IF NOT EXISTS whiteboards (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    title VARCHAR(200) NOT NULL DEFAULT '我的白板',
-    description TEXT,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS whiteboard_nodes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    whiteboard_id INT NOT NULL,
-    user_id INT NOT NULL,
-    node_type VARCHAR(20) NOT NULL DEFAULT 'idea',
-    ref_type VARCHAR(20),
-    ref_id INT,
-    title VARCHAR(500) NOT NULL DEFAULT '',
-    summary TEXT,
-    color VARCHAR(20) DEFAULT 'blue',
-    task_status VARCHAR(20) DEFAULT 'todo',
-    x DOUBLE NOT NULL DEFAULT 0,
-    y DOUBLE NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  `CREATE TABLE IF NOT EXISTS whiteboard_edges (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    whiteboard_id INT NOT NULL,
-    source_node_id INT NOT NULL,
-    target_node_id INT NOT NULL,
-    edge_type VARCHAR(20) DEFAULT 'reference',
-    label VARCHAR(500) DEFAULT '',
-    created_at DATETIME NOT NULL,
-    FOREIGN KEY (whiteboard_id) REFERENCES whiteboards(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE,
-    FOREIGN KEY (target_node_id) REFERENCES whiteboard_nodes(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  // D106: settings table
-  `CREATE TABLE IF NOT EXISTS settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    \`key\` VARCHAR(100) NOT NULL,
-    value TEXT NOT NULL,
-    UNIQUE KEY uk_user_key (user_id, \`key\`),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-  // T2103+T2108: blogs metadata columns (cover_image, icon, is_pinned, color)
-  "ALTER TABLE blogs ADD COLUMN cover_image TEXT",
-  "ALTER TABLE blogs ADD COLUMN icon VARCHAR(16) DEFAULT NULL",
-  "ALTER TABLE blogs ADD COLUMN is_pinned TINYINT NOT NULL DEFAULT 0",
-  "ALTER TABLE blogs ADD COLUMN color VARCHAR(20) DEFAULT NULL"
-];
-let pool = null;
-function getMySQLConfig() {
-  return {
-    host: process.env.MYSQL_HOST || "localhost",
-    user: process.env.MYSQL_USER || "root",
-    password: process.env.MYSQL_PASSWORD || "123456",
-    database: process.env.MYSQL_DATABASE || "local_blog_kb"
-  };
-}
-async function initMySQL() {
-  const cfg = getMySQLConfig();
-  const initConn = await mysql.createConnection({
-    host: cfg.host,
-    user: cfg.user,
-    password: cfg.password
-  });
-  await initConn.execute(`CREATE DATABASE IF NOT EXISTS \`${cfg.database}\` DEFAULT CHARACTER SET utf8mb4`);
-  await initConn.end();
-  pool = mysql.createPool({
-    host: cfg.host,
-    user: cfg.user,
-    password: cfg.password,
-    database: cfg.database,
-    waitForConnections: true,
-    connectionLimit: 10,
-    dateStrings: true
-    // Return DATE/DATETIME as strings, not Date objects. Prevents date format mismatch.
-  });
-  const conn = await pool.getConnection();
-  try {
-    for (const ddl of MYSQL_DDL) await conn.execute(ddl);
-    for (const mig of MYSQL_MIGRATIONS) {
-      try {
-        await conn.execute(mig);
-      } catch {
-      }
-    }
-    console.log("[MySQL] Tables initialized");
-  } finally {
-    conn.release();
-  }
-}
-function getPool() {
-  if (!pool) throw new Error("MySQL not initialized");
-  return pool;
-}
-function fixDates(params) {
-  return params.map((p) => {
-    if (typeof p === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(p)) {
-      return p.replace("T", " ").replace(/\.\d{3}Z$/, "").replace(/Z$/, "");
-    }
-    return p;
-  });
-}
-function toMySQL(sql) {
-  return sql.replace(/datetime\('now',\s*'(-?\d+)\s*days?'\)/g, (_m, days) => {
-    const n = Number.parseInt(days, 10);
-    if (n < 0) return `DATE_SUB(NOW(), INTERVAL ${-n} DAY)`;
-    return `DATE_ADD(NOW(), INTERVAL ${n} DAY)`;
-  }).replace(/datetime\('now'\)/g, "NOW()").replace(/date\('now'\)/gi, "CURDATE()").replace(/time\('now'\)/gi, "CURTIME()").replace(/strftime\('([^']+)',\s*([^)]+)\)/gi, (_m, fmt, expr) => {
-    const mysqlFmt = fmt.replace(/%Y/g, "%Y").replace(/%m/g, "%m").replace(/%d/g, "%d").replace(/%H/g, "%H").replace(/%M/g, "%i").replace(/%S/g, "%s").replace(/%w/g, "%w").replace(/%j/g, "%j");
-    return `DATE_FORMAT(${expr.trim()}, '${mysqlFmt}')`;
-  }).replace(/'now'/g, "NOW()").replace(/INSERT OR IGNORE INTO/gi, "INSERT IGNORE INTO").replace(/INSERT OR REPLACE INTO/gi, "REPLACE INTO").replace(/last_insert_rowid\(\)/gi, "LAST_INSERT_ID()");
-}
-async function run$1(sql, params = []) {
-  const p = getPool();
-  await p.execute(toMySQL(sql), fixDates(params));
-}
-async function get$1(sql, params = []) {
-  const p = getPool();
-  const [rows] = await p.execute(toMySQL(sql), fixDates(params));
-  return rows.length > 0 ? rows[0] : void 0;
-}
-async function all$1(sql, params = []) {
-  const p = getPool();
-  const [rows] = await p.execute(toMySQL(sql), fixDates(params));
-  return rows;
-}
-function closeDatabase$1() {
-  if (pool) {
-    pool.end();
-    pool = null;
-  }
-}
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -679,215 +393,106 @@ CREATE INDEX IF NOT EXISTS idx_blog_drafts_blog ON blog_drafts(blog_id, saved_at
 -- sql.js does not include FTS5 by default; we will switch to better-sqlite3
 -- or use a custom sql.js build with FTS5 support when search is implemented.
 `;
-let sqlJsDb = null;
-let sqlJsPath = "";
-let useMySQL = false;
-function resolveSqlJsPath() {
+let db = null;
+let dbPath = "";
+function resolveDbPath() {
   const base = process.env.APPDATA || (process.platform === "darwin" ? path.join(process.env.HOME || "", "Library", "Application Support") : path.join(process.env.HOME || "", ".local", "share"));
   return path.join(base, "LocalBlogKB", "database.db");
 }
 async function initDatabase() {
-  try {
-    await initMySQL();
-    useMySQL = true;
-    console.log("[DB] MySQL initialized");
-    await migrateSqlJsToMySQL();
-    return;
-  } catch (err) {
-    console.log("[DB] MySQL unavailable, using sql.js:", err.message);
-  }
   const SQL = await initSqlJs();
-  sqlJsPath = resolveSqlJsPath();
-  const dir = path.dirname(sqlJsPath);
+  dbPath = resolveDbPath();
+  const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (fs.existsSync(sqlJsPath)) {
-    const buffer = fs.readFileSync(sqlJsPath);
-    sqlJsDb = new SQL.Database(buffer);
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(buffer);
   } else {
-    sqlJsDb = new SQL.Database();
+    db = new SQL.Database();
   }
-  sqlJsDb.run("PRAGMA journal_mode=WAL");
-  sqlJsDb.run("PRAGMA foreign_keys=ON");
-  sqlJsDb.run(SCHEMA_SQL);
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN content TEXT NOT NULL DEFAULT ''");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN folder_id INTEGER DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_id TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN series_name TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN folder_id INTEGER DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''");
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes (
+  db.run("PRAGMA journal_mode=WAL");
+  db.run("PRAGMA foreign_keys=ON");
+  db.run(SCHEMA_SQL);
+  const migrations = [
+    "ALTER TABLE blogs ADD COLUMN content TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE blogs ADD COLUMN folder_id INTEGER DEFAULT NULL",
+    "ALTER TABLE blogs ADD COLUMN series_id TEXT DEFAULT NULL",
+    "ALTER TABLE blogs ADD COLUMN series_name TEXT DEFAULT NULL",
+    "ALTER TABLE knowledge_files ADD COLUMN folder_id INTEGER DEFAULT NULL",
+    "ALTER TABLE knowledge_files ADD COLUMN content_text TEXT DEFAULT ''",
+    "ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''",
+    `CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       pinned INTEGER NOT NULL DEFAULT 0,
       source TEXT NOT NULL DEFAULT 'manual',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`);
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE notes ADD COLUMN title TEXT DEFAULT ''");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE notes ADD COLUMN memo_type TEXT DEFAULT 'note'");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE notes ADD COLUMN due_date TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
-  } catch {
-  }
-  try {
-    const refsExists = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='refs'");
-    if (refsExists.length > 0 && refsExists[0].values.length > 0) {
-      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS refs_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_type TEXT NOT NULL,
-        source_id INTEGER NOT NULL,
-        target_type TEXT NOT NULL,
-        target_id INTEGER NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        UNIQUE(source_type, source_id, target_type, target_id)
-      )`);
-      const count = sqlJsDb.exec("SELECT COUNT(*) as c FROM refs_new");
-      const newCount = count[0]?.values?.[0]?.[0] ?? 0;
-      if (newCount === 0) {
-        sqlJsDb.run("INSERT INTO refs_new SELECT * FROM refs");
-        sqlJsDb.run("DROP TABLE refs");
-        sqlJsDb.run("ALTER TABLE refs_new RENAME TO refs");
-      } else {
-        sqlJsDb.run("DROP TABLE refs_new");
-      }
-    }
-  } catch {
-  }
-  try {
-    const notesExist = sqlJsDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'");
-    if (notesExist.length > 0 && notesExist[0].values.length > 0) {
-      sqlJsDb.run(`CREATE TABLE IF NOT EXISTS notes_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        content TEXT NOT NULL,
-        pinned INTEGER NOT NULL DEFAULT 0,
-        source TEXT NOT NULL DEFAULT 'manual',
-        title TEXT NOT NULL DEFAULT '',
-        memo_type TEXT NOT NULL DEFAULT 'note',
-        due_date TEXT DEFAULT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`);
-      const count = sqlJsDb.exec("SELECT COUNT(*) as c FROM notes_new");
-      const newCount = count[0]?.values?.[0]?.[0] ?? 0;
-      if (newCount === 0) {
-        sqlJsDb.run("INSERT INTO notes_new SELECT * FROM notes");
-        sqlJsDb.run("DROP TABLE notes");
-        sqlJsDb.run("ALTER TABLE notes_new RENAME TO notes");
-      } else {
-        sqlJsDb.run("DROP TABLE notes_new");
-      }
-    }
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN cover_image TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN icon TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN is_pinned INTEGER DEFAULT 0");
-  } catch {
-  }
-  try {
-    sqlJsDb.run("ALTER TABLE blogs ADD COLUMN color TEXT DEFAULT NULL");
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS bookmarks (
+    )`,
+    "ALTER TABLE notes ADD COLUMN title TEXT DEFAULT ''",
+    "ALTER TABLE notes ADD COLUMN memo_type TEXT DEFAULT 'note'",
+    "ALTER TABLE notes ADD COLUMN due_date TEXT DEFAULT NULL",
+    "ALTER TABLE notes ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))",
+    `CREATE TABLE IF NOT EXISTS refs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_type TEXT NOT NULL, source_id INTEGER NOT NULL,
+      target_type TEXT NOT NULL, target_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(source_type, source_id, target_type, target_id)
+    )`,
+    "ALTER TABLE knowledge_files ADD COLUMN properties TEXT DEFAULT '{}'",
+    "ALTER TABLE blogs ADD COLUMN cover_image TEXT DEFAULT NULL",
+    "ALTER TABLE blogs ADD COLUMN icon TEXT DEFAULT NULL",
+    "ALTER TABLE blogs ADD COLUMN is_pinned INTEGER DEFAULT 0",
+    "ALTER TABLE blogs ADD COLUMN color TEXT DEFAULT NULL",
+    `CREATE TABLE IF NOT EXISTS bookmarks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      target_type TEXT NOT NULL,
-      target_id INTEGER NOT NULL,
+      target_type TEXT NOT NULL, target_id INTEGER NOT NULL,
       title TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`);
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '我的白板', description TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_type TEXT NOT NULL DEFAULT 'idea', ref_type TEXT, ref_id INTEGER, title TEXT NOT NULL DEFAULT '', summary TEXT DEFAULT '', color TEXT DEFAULT 'blue', task_status TEXT DEFAULT 'todo', x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS whiteboard_edges (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, edge_type TEXT DEFAULT 'reference', label TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
-  } catch {
-  }
-  try {
-    sqlJsDb.run(`CREATE TABLE IF NOT EXISTS settings (
+    )`,
+    `CREATE TABLE IF NOT EXISTS whiteboards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '我的白板', description TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE TABLE IF NOT EXISTS whiteboard_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, node_type TEXT NOT NULL DEFAULT 'idea', ref_type TEXT, ref_id INTEGER, title TEXT NOT NULL DEFAULT '', summary TEXT DEFAULT '', color TEXT DEFAULT 'blue', task_status TEXT DEFAULT 'todo', x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE TABLE IF NOT EXISTS whiteboard_edges (id INTEGER PRIMARY KEY AUTOINCREMENT, whiteboard_id INTEGER NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, source_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, target_node_id INTEGER NOT NULL REFERENCES whiteboard_nodes(id) ON DELETE CASCADE, edge_type TEXT DEFAULT 'reference', label TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      key TEXT NOT NULL,
-      value TEXT NOT NULL,
+      key TEXT NOT NULL, value TEXT NOT NULL,
       UNIQUE(user_id, key)
-    )`);
+    )`
+  ];
+  for (const sql of migrations) {
+    try {
+      db.run(sql);
+    } catch {
+    }
+  }
+  try {
+    const chk = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='refs_old'");
+    if (chk.length > 0 && chk[0].values.length > 0) {
+      const cnt = db.exec("SELECT COUNT(*) as c FROM refs");
+      if (cnt[0]?.values?.[0]?.[0] === 0) {
+        db.run("INSERT OR IGNORE INTO refs SELECT * FROM refs_old");
+        db.run("DROP TABLE refs_old");
+      }
+    }
   } catch {
   }
-  sqlJsSave();
-  useMySQL = false;
-  console.log("[DB] sql.js initialized at", sqlJsPath);
-}
-function run(sql, params = []) {
-  if (useMySQL) {
-    throw new Error("MySQL requires async; use dbRun instead");
+  try {
+    const chk = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='notes_old'");
+    if (chk.length > 0 && chk[0].values.length > 0) {
+      db.run("INSERT OR IGNORE INTO notes SELECT * FROM notes_old");
+      db.run("DROP TABLE notes_old");
+    }
+  } catch {
   }
-  if (!sqlJsDb) throw new Error("DB not initialized");
-  sqlJsDb.run(sql, params);
-  sqlJsSave();
+  scheduleSaveNow();
+  console.log("[DB] sql.js initialized at", dbPath);
 }
-async function runAsync(sql, params = []) {
-  if (useMySQL) return run$1(sql, params);
-  run(sql, params);
-}
-function get(sql, params = []) {
-  if (useMySQL) throw new Error("MySQL requires async; use dbGet instead");
-  if (!sqlJsDb) throw new Error("DB not initialized");
-  const stmt = sqlJsDb.prepare(sql);
+async function dbGet(sql, params = []) {
+  if (!db) throw new Error("DB not initialized");
+  const stmt = db.prepare(sql);
   stmt.bind(params);
   if (stmt.step()) {
     const row = stmt.getAsObject();
@@ -897,227 +502,60 @@ function get(sql, params = []) {
   stmt.free();
   return void 0;
 }
-async function getAsync(sql, params = []) {
-  if (useMySQL) return get$1(sql, params);
-  return get(sql, params);
-}
-function all(sql, params = []) {
-  if (useMySQL) throw new Error("MySQL requires async; use dbAll instead");
-  if (!sqlJsDb) throw new Error("DB not initialized");
-  const stmt = sqlJsDb.prepare(sql);
+async function dbAll(sql, params = []) {
+  if (!db) throw new Error("DB not initialized");
+  const stmt = db.prepare(sql);
   stmt.bind(params);
   const rows = [];
   while (stmt.step()) rows.push(stmt.getAsObject());
   stmt.free();
   return rows;
 }
-async function allAsync(sql, params = []) {
-  if (useMySQL) return all$1(sql, params);
-  return all(sql, params);
-}
-async function dbGet(sql, params = []) {
-  if (useMySQL) return get$1(sql, params);
-  return get(sql, params);
-}
-async function dbAll(sql, params = []) {
-  if (useMySQL) return all$1(sql, params);
-  return all(sql, params);
-}
 async function dbRun(sql, params = []) {
-  if (useMySQL) {
-    await run$1(sql, params);
-    return;
-  }
-  run(sql, params);
-}
-function saveToDisk() {
-  if (!useMySQL) sqlJsSaveNow();
-}
-function closeDatabase() {
-  if (useMySQL) {
-    closeDatabase$1();
-  } else if (sqlJsDb) {
-    sqlJsSaveNow();
-    sqlJsDb.close();
-    sqlJsDb = null;
-  }
-}
-function isUsingMySQL() {
-  return useMySQL;
+  if (!db) throw new Error("DB not initialized");
+  db.run(sql, params);
+  scheduleSave();
 }
 let saveTimer = null;
 let savePending = false;
-function sqlJsSave() {
-  if (!sqlJsDb || !sqlJsPath) return;
+function scheduleSave() {
+  if (!db || !dbPath) return;
   savePending = true;
   if (saveTimer) return;
   saveTimer = setTimeout(() => {
     savePending = false;
     saveTimer = null;
-    if (sqlJsDb && sqlJsPath) {
-      fs.writeFileSync(sqlJsPath, Buffer.from(sqlJsDb.export()));
-    }
+    scheduleSaveNow();
   }, 500);
 }
-function sqlJsSaveNow() {
+function scheduleSaveNow() {
+  if (db && dbPath) {
+    try {
+      fs.writeFileSync(dbPath, Buffer.from(db.export()));
+    } catch {
+    }
+  }
+}
+function saveToDisk() {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  if (sqlJsDb && sqlJsPath && savePending) {
+  if (db && savePending) {
     savePending = false;
-    fs.writeFileSync(sqlJsPath, Buffer.from(sqlJsDb.export()));
+    scheduleSaveNow();
   }
 }
-async function migrateSqlJsToMySQL() {
-  const sqlPath = resolveSqlJsPath();
-  if (!fs.existsSync(sqlPath)) return;
-  try {
-    console.log("[DB] Checking for sql.js data to migrate...");
-    const SQL = await initSqlJs();
-    const buffer = fs.readFileSync(sqlPath);
-    const oldDb = new SQL.Database(buffer);
-    const userCount = await get$1("SELECT COUNT(*) as c FROM users");
-    if (userCount && userCount.c > 0) {
-      console.log("[DB] MySQL already has data, skipping migration");
-      oldDb.close();
-      return;
-    }
-    const users = sqlJsQuery(oldDb, "SELECT * FROM users");
-    for (const u of users) {
-      await run$1(
-        "INSERT INTO users (id, username, password_hash, workspace_path, created_at) VALUES (?,?,?,?,?)",
-        [u.id, u.username, u.password_hash, u.workspace_path, u.created_at]
-      );
-    }
-    const blogs = sqlJsQuery(oldDb, "SELECT * FROM blogs");
-    for (const b of blogs) {
-      await run$1(
-        "INSERT INTO blogs (id, user_id, title, content, format, status, folder_id, series_id, series_name, cover_image, icon, is_pinned, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        [b.id, b.user_id, b.title, b.content ?? "", b.format, b.status, b.folder_id ?? null, b.series_id ?? null, b.series_name ?? null, b.cover_image ?? null, b.icon ?? null, b.is_pinned ?? 0, b.color ?? null, b.created_at, b.updated_at]
-      );
-    }
-    const tags = sqlJsQuery(oldDb, "SELECT * FROM tags");
-    for (const t of tags) {
-      await run$1(
-        "INSERT INTO tags (id, user_id, name, description) VALUES (?,?,?,?)",
-        [t.id, t.user_id, t.name, t.description ?? null]
-      );
-    }
-    const blogTags = sqlJsQuery(oldDb, "SELECT * FROM blog_tags");
-    for (const bt of blogTags) {
-      await run$1("INSERT INTO blog_tags (id, blog_id, tag_id) VALUES (?,?,?)", [bt.id, bt.blog_id, bt.tag_id]);
-    }
-    const sessions = sqlJsQuery(oldDb, "SELECT * FROM sessions");
-    for (const s of sessions) {
-      await run$1("INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?,?,?,?,?)", [
-        s.id,
-        s.user_id,
-        s.token,
-        s.expires_at,
-        s.created_at
-      ]);
-    }
-    const kfs = sqlJsQuery(oldDb, "SELECT * FROM knowledge_files");
-    for (const k of kfs) {
-      await run$1(
-        "INSERT INTO knowledge_files (id, user_id, filename, file_path, file_type, file_size, status, content_text, folder_id, properties, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        [k.id, k.user_id, k.filename, k.file_path, k.file_type, k.file_size, k.status, k.content_text ?? null, k.folder_id ?? null, k.properties ?? null, k.created_at, k.updated_at]
-      );
-    }
-    const kft = sqlJsQuery(oldDb, "SELECT * FROM knowledge_file_tags");
-    for (const k of kft) {
-      await run$1("INSERT INTO knowledge_file_tags (id, file_id, tag_id) VALUES (?,?,?)", [
-        k.id,
-        k.file_id,
-        k.tag_id
-      ]);
-    }
-    const rb = sqlJsQuery(oldDb, "SELECT * FROM recycle_bin");
-    for (const r of rb) {
-      await run$1("INSERT INTO recycle_bin (id, user_id, item_type, item_id, deleted_at) VALUES (?,?,?,?,?)", [
-        r.id,
-        r.user_id,
-        r.item_type,
-        r.item_id,
-        r.deleted_at
-      ]);
-    }
-    const drafts = sqlJsQuery(oldDb, "SELECT * FROM blog_drafts");
-    for (const d of drafts) {
-      await run$1("INSERT INTO blog_drafts (id, blog_id, content, saved_at) VALUES (?,?,?,?)", [
-        d.id,
-        d.blog_id,
-        d.content,
-        d.saved_at
-      ]);
-    }
-    try {
-      const folders = sqlJsQuery(oldDb, "SELECT * FROM folders");
-      for (const f of folders) {
-        await run$1(
-          "INSERT INTO folders (id, user_id, name, parent_id, type, sort_order, created_at) VALUES (?,?,?,?,?,?,?)",
-          [f.id, f.user_id, f.name, f.parent_id ?? null, f.type, f.sort_order ?? 0, f.created_at]
-        );
-      }
-    } catch {
-    }
-    try {
-      const refs = sqlJsQuery(oldDb, "SELECT * FROM refs");
-      for (const r of refs) {
-        await run$1(
-          "INSERT INTO refs (id, source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?,?)",
-          [r.id, r.source_type, r.source_id, r.target_type, r.target_id, r.created_at]
-        );
-      }
-    } catch {
-    }
-    try {
-      const notes = sqlJsQuery(oldDb, "SELECT * FROM notes");
-      for (const n of notes) {
-        await run$1(
-          "INSERT INTO notes (id, user_id, content, pinned, source, created_at, title, memo_type, due_date, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-          [n.id, n.user_id, n.content ?? "", n.pinned ?? 0, n.source ?? "manual", n.created_at, n.title ?? "", n.memo_type ?? "note", n.due_date ?? null, n.updated_at ?? n.created_at]
-        );
-      }
-    } catch {
-    }
-    try {
-      const bookmarks = sqlJsQuery(oldDb, "SELECT * FROM bookmarks");
-      for (const bm of bookmarks) {
-        await run$1(
-          "INSERT INTO bookmarks (id, user_id, target_type, target_id, title, created_at) VALUES (?,?,?,?,?,?)",
-          [bm.id, bm.user_id, bm.target_type, bm.target_id, bm.title, bm.created_at]
-        );
-      }
-    } catch {
-    }
-    try {
-      const settings = sqlJsQuery(oldDb, "SELECT * FROM settings");
-      for (const s of settings) {
-        await run$1(
-          "INSERT INTO settings (id, user_id, `key`, value) VALUES (?,?,?,?)",
-          [s.id, s.user_id, s.key, s.value]
-        );
-      }
-    } catch {
-    }
-    oldDb.close();
-    console.log(`[DB] Migration complete: ${users.length} users, ${blogs.length} blogs`);
-  } catch (err) {
-    console.log("[DB] Migration skipped:", err.message);
+function closeDatabase() {
+  if (db) {
+    scheduleSaveNow();
+    db.close();
+    db = null;
   }
-}
-function sqlJsQuery(db, sql) {
-  const stmt = db.prepare(sql);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
 }
 function lastInsertRowId() {
-  if (!sqlJsDb) return 0;
-  const result = sqlJsDb.exec("SELECT last_insert_rowid() as id");
+  if (!db) return 0;
+  const result = db.exec("SELECT last_insert_rowid() as id");
   if (result.length > 0 && (result[0]?.values?.length ?? 0) > 0) {
     return result[0].values[0][0];
   }
@@ -1125,19 +563,12 @@ function lastInsertRowId() {
 }
 const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  all,
-  allAsync,
   closeDatabase,
   dbAll,
   dbGet,
   dbRun,
-  get,
-  getAsync,
   initDatabase,
-  isUsingMySQL,
   lastInsertRowId,
-  run,
-  runAsync,
   saveToDisk
 }, Symbol.toStringTag, { value: "Module" }));
 function buildSystemPrompt(context) {
@@ -1281,9 +712,20 @@ async function getKnowledgeBaseDir(userId) {
 async function getAssetsDir(userId) {
   return path.join(await getWorkspacePath(userId), DIR_ASSETS);
 }
-async function getBlogPath(userId, blogId, format) {
+function sanitizeFileName(title) {
+  return title.replace(/[<>:"/\\|?*]/g, "_").replace(/\s+/g, " ").trim() || "untitled";
+}
+function resolveFileNameConflict(dir, baseName, ext) {
+  if (!fs.existsSync(path.join(dir, baseName + ext))) return baseName + ext;
+  let counter = 1;
+  while (fs.existsSync(path.join(dir, `${baseName}-${counter}${ext}`))) counter++;
+  return `${baseName}-${counter}${ext}`;
+}
+async function getBlogPath(userId, title, format) {
   const ext = format === "html" ? ".html" : ".md";
-  return path.join(await getBlogsDir(userId), `${blogId}${ext}`);
+  const blogsDir = await getBlogsDir(userId);
+  const safeName = resolveFileNameConflict(blogsDir, sanitizeFileName(title), ext);
+  return path.join(blogsDir, safeName);
 }
 async function getBlogAssetsDir(userId, blogId) {
   return path.join(await getAssetsDir(userId), `blog_${blogId}`);
@@ -1316,8 +758,8 @@ class BackupService {
   }
   /** Create a backup of the database */
   static createBackup() {
-    const dbPath = BackupService.getDbPath();
-    if (!fs.existsSync(dbPath)) {
+    const dbPath2 = BackupService.getDbPath();
+    if (!fs.existsSync(dbPath2)) {
       console.log("[Backup] Database file not found, skipping");
       return null;
     }
@@ -1329,7 +771,7 @@ class BackupService {
     const backupName = `database.db.backup.${timestamp}`;
     const backupPath = path.join(backupDir, backupName);
     try {
-      fs.copyFileSync(dbPath, backupPath);
+      fs.copyFileSync(dbPath2, backupPath);
       console.log(`[Backup] Created: ${backupName}`);
       return backupPath;
     } catch (err) {
@@ -1397,9 +839,9 @@ class BackupService {
     collectDir(blogsDir, "Blogs");
     collectDir(kbDir, "KnowledgeBase");
     collectDir(assetsDir, "Assets");
-    const dbPath = BackupService.getDbPath();
-    if (fs.existsSync(dbPath)) {
-      files.push({ name: "database.db", data: fs.readFileSync(dbPath) });
+    const dbPath2 = BackupService.getDbPath();
+    if (fs.existsSync(dbPath2)) {
+      files.push({ name: "database.db", data: fs.readFileSync(dbPath2) });
     }
     const crcTable = new Uint32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -1763,16 +1205,16 @@ start "" npm run dev\r
   electron.ipcMain.handle(IPC.BACKUP_RESTORE, async (_event, filename) => {
     try {
       const backupDir = BackupService.getBackupDir();
-      const dbPath = BackupService.getDbPath();
+      const dbPath2 = BackupService.getDbPath();
       const safeFilename = path.basename(filename);
       const backupPath = path.join(backupDir, safeFilename);
       if (!fs.existsSync(backupPath)) return { success: false, error: "备份文件不存在" };
       const safetyName = `${safeFilename}.pre-restore`;
       try {
-        fs.copyFileSync(dbPath, path.join(backupDir, safetyName));
+        fs.copyFileSync(dbPath2, path.join(backupDir, safetyName));
       } catch {
       }
-      fs.copyFileSync(backupPath, dbPath);
+      fs.copyFileSync(backupPath, dbPath2);
       return { success: true, data: { needsRestart: true } };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1819,27 +1261,38 @@ start "" npm run dev\r
     }
   });
   electron.ipcMain.handle(IPC.CLIPBOARD_HISTORY, async () => {
-    const { getClipboardHistory, getHistoryLength } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    const { getClipboardHistory, getHistoryLength } = await Promise.resolve().then(() => require("./clipboard.service-IDNUTGXB.js"));
     const data = getClipboardHistory();
     console.log("[Clipboard IPC] history requested, count:", getHistoryLength(), "masked:", data.length);
     return { success: true, data };
   });
   electron.ipcMain.handle(IPC.CLIPBOARD_CLEAR, async () => {
-    const { clearClipboardHistory } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    const { clearClipboardHistory } = await Promise.resolve().then(() => require("./clipboard.service-IDNUTGXB.js"));
     clearClipboardHistory();
     return { success: true };
   });
   electron.ipcMain.handle(IPC.BG_IMAGE_READ, async (_event, data) => {
     try {
-      const resolved = path.resolve(data.filePath);
-      if (path.normalize(data.filePath).includes("..")) {
+      const normalized = path.normalize(data.filePath);
+      if (normalized.includes("..")) {
         return { success: false, error: "路径包含非法字符" };
       }
-      const ext = path.extname(resolved).replace(".", "") || "png";
+      const resolved = path.resolve(normalized);
+      let realPath;
+      try {
+        realPath = fs.realpathSync(resolved);
+      } catch {
+        return { success: false, error: "文件不存在或无法访问" };
+      }
+      const ext = path.extname(realPath).replace(".", "") || "png";
       if (!["png", "jpg", "jpeg", "webp"].includes(ext)) {
         return { success: false, error: "不支持的文件类型" };
       }
-      const buf = fs.readFileSync(resolved);
+      const stat = fs.statSync(realPath);
+      if (stat.size > 50 * 1024 * 1024) {
+        return { success: false, error: "图片文件过大 (最大 50MB)" };
+      }
+      const buf = fs.readFileSync(realPath);
       const mime = ext === "jpg" ? "jpeg" : ext;
       const b64 = buf.toString("base64");
       return { success: true, data: `data:image/${mime};base64,${b64}` };
@@ -1848,30 +1301,30 @@ start "" npm run dev\r
     }
   });
   electron.ipcMain.handle(IPC.CLIPBOARD_TOGGLE, async (_event, data) => {
-    const { startClipboardMonitor, stopClipboardMonitor, setClipboardUserId } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    const { startClipboardMonitor, stopClipboardMonitor, setClipboardUserId } = await Promise.resolve().then(() => require("./clipboard.service-IDNUTGXB.js"));
     if (data.userId) setClipboardUserId(data.userId);
     if (data.enable) await startClipboardMonitor();
     else stopClipboardMonitor();
     return { success: true };
   });
   electron.ipcMain.handle(IPC.CLIPBOARD_STATUS, async () => {
-    const { isClipboardMonitorRunning } = await Promise.resolve().then(() => require("./clipboard.service-qxz3tghp.js"));
+    const { isClipboardMonitorRunning } = await Promise.resolve().then(() => require("./clipboard.service-IDNUTGXB.js"));
     return { success: true, data: isClipboardMonitorRunning() };
   });
 }
-function toMySQLDateTime(date = /* @__PURE__ */ new Date()) {
+function toDateTime(date = /* @__PURE__ */ new Date()) {
   return date.toISOString().replace("T", " ").slice(0, 19);
 }
-const nowMySQL = () => toMySQLDateTime();
+const nowTimestamp = () => toDateTime();
 const datetime = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  nowMySQL,
-  toMySQLDateTime
+  nowTimestamp,
+  toDateTime
 }, Symbol.toStringTag, { value: "Module" }));
 const TOKEN_BYTES = 48;
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
+  const salt = crypto$1.randomBytes(16).toString("hex");
+  const hash = crypto$1.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
   return `${salt}:${hash}`;
 }
 function verifyPassword(password, storedHash) {
@@ -1880,11 +1333,11 @@ function verifyPassword(password, storedHash) {
   const salt = parts[0];
   const hash = parts.slice(1).join(":");
   if (!salt || !hash) return false;
-  const computed = crypto.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
+  const computed = crypto$1.pbkdf2Sync(password, salt, 1e5, 64, "sha512").toString("hex");
   return computed === hash;
 }
 function generateToken() {
-  return crypto.randomBytes(TOKEN_BYTES).toString("base64url");
+  return crypto$1.randomBytes(TOKEN_BYTES).toString("base64url");
 }
 const TOKEN_EXPIRY_DAYS = 30;
 class AuthService {
@@ -1913,7 +1366,7 @@ class AuthService {
         username,
         passwordHash,
         workspacePath,
-        nowMySQL()
+        nowTimestamp()
       ]);
       const newUser = await dbGet("SELECT id FROM users WHERE username = ?", [username]);
       if (!newUser?.id) return { success: false, error: "创建用户失败: 数据库写入异常" };
@@ -1926,14 +1379,14 @@ class AuthService {
       return { success: false, error: `创建工作区目录失败: ${err.message}` };
     }
     const token = generateToken();
-    const expiresAt = toMySQLDateTime(new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1e3));
+    const expiresAt = toDateTime(new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1e3));
     await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
       userId,
       token,
       expiresAt,
-      nowMySQL()
+      nowTimestamp()
     ]);
-    return { success: true, user: { id: userId, username, workspacePath, createdAt: nowMySQL() }, token };
+    return { success: true, user: { id: userId, username, workspacePath, createdAt: nowTimestamp() }, token };
   }
   static async login(username, password, rememberMe) {
     console.log("[Auth] Login attempt:", username);
@@ -1949,13 +1402,13 @@ class AuthService {
     if (!valid) return { success: false, error: "用户名或密码错误" };
     const token = generateToken();
     const expiryDays = rememberMe ? TOKEN_EXPIRY_DAYS : 1;
-    const expiresAt = toMySQLDateTime(new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1e3));
+    const expiresAt = toDateTime(new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1e3));
     await dbRun("DELETE FROM sessions WHERE user_id = ?", [row.id]);
     await dbRun("INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)", [
       row.id,
       token,
       expiresAt,
-      nowMySQL()
+      nowTimestamp()
     ]);
     return {
       success: true,
@@ -2134,10 +1587,6 @@ function saveMiniPos(name, x, y) {
   } catch {
   }
 }
-let _petDir;
-function petDir() {
-  return _petDir || (_petDir = path.join(electron.app.getPath("userData"), "pet"));
-}
 let cachedUserId = null;
 function setCurrentUserId(id) {
   cachedUserId = id;
@@ -2156,23 +1605,6 @@ async function getUserId() {
   if (user?.id) cachedUserId = user.id;
   else cachedUserId = 0;
   return cachedUserId;
-}
-function ensurePetImages() {
-  const imgDir = path.join(petDir(), "img");
-  fs.mkdirSync(imgDir, { recursive: true });
-  const srcDir = fs.existsSync(path.join(process.resourcesPath || "", "img")) ? path.join(process.resourcesPath || "", "img") : path.join(__dirname, "..", "..", "img");
-  const files = ["static.png", "drug.png"];
-  for (const f of files) {
-    const dest = path.join(imgDir, f);
-    if (!fs.existsSync(dest)) {
-      const src = path.join(srcDir, f);
-      if (fs.existsSync(src)) fs.copyFileSync(src, dest);
-    }
-  }
-  return {
-    static: path.join(imgDir, "static.png").replace(/\\/g, "/"),
-    drug: path.join(imgDir, "drug.png").replace(/\\/g, "/")
-  };
 }
 function ensureMiniPreload() {
   const p = path.join(electron.app.getPath("userData"), "mini-preload.js");
@@ -2605,32 +2037,46 @@ function createPet(win) {
   mainWindow = win;
   if (petWin && !petWin.isDestroyed()) petWin.close();
   const pos = loadPosition();
-  const images = ensurePetImages();
   const preloadPath = path.join(electron.app.getPath("userData"), "pet-preload.js");
   const petHtmlPath = path.join(electron.app.getPath("userData"), "pet.html");
   try {
     fs.writeFileSync(
       petHtmlPath,
       `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{margin:0;overflow:hidden;background:transparent}
-#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .08s linear;cursor:grab;user-select:none;-webkit-user-drag:none}
-#pet:active{cursor:grabbing}
-@keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-#pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
-#pet.dragging{background-image:url('${images.drug}');animation:none;transform:scale(1.08)}
-@keyframes click-pop{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
-#pet.clicked{animation:click-pop .2s ease}
-#pet:hover{transform:scale(1.05)}
-#pet.dragging:hover{transform:scale(1.08)}
-</style></head><body><div id="pet" class="idle"></div>
-<script>
-let mouseDownPos=null,hasMoved=false;
-const pet=document.getElementById('pet');
-pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
-window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
-window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
-<\/script></html>`
+	*{margin:0;padding:0;box-sizing:border-box}
+	body{margin:0;overflow:hidden;background:transparent}
+	#orb{width:80px;height:80px;margin:24px;border-radius:50%;cursor:grab;user-select:none;-webkit-user-drag:none;transition:transform .15s ease,box-shadow .15s ease;
+	  background:radial-gradient(circle at 35% 35%,rgba(96,165,250,.9),rgba(59,130,246,.6) 40%,rgba(37,99,235,.4) 70%,rgba(29,78,216,.2));
+	  box-shadow:0 0 20px rgba(59,130,246,.4),0 0 60px rgba(59,130,246,.15),inset 0 -4px 12px rgba(0,0,0,.15)}
+	#orb:active{cursor:grabbing}
+	@keyframes breathe{0%,100%{transform:scale(1) translateY(0)}50%{transform:scale(1.04) translateY(-3px)}}
+	#orb.idle{animation:breathe 3s ease-in-out infinite}
+	@keyframes spin{0%{transform:rotate(0deg) scale(1.03)}100%{transform:rotate(360deg) scale(1.03)}}
+	#orb.thinking{animation:spin 1.5s linear infinite;box-shadow:0 0 30px rgba(59,130,246,.6),0 0 80px rgba(147,51,234,.3),inset 0 -4px 12px rgba(0,0,0,.15)}
+	#orb.dragging{animation:none;transform:scale(.9);box-shadow:0 0 8px rgba(59,130,246,.25),0 0 24px rgba(59,130,246,.08)}
+	@keyframes pop{0%{transform:scale(1)}40%{transform:scale(.88)}100%{transform:scale(1)}}
+	#orb.clicked{animation:pop .25s ease}
+	#orb:hover{transform:scale(1.06)}
+	#orb.dragging:hover{transform:scale(.9)}
+	@keyframes vortex{0%{transform:scale(1.1) rotate(0deg);box-shadow:0 0 40px rgba(59,130,246,.7),0 0 100px rgba(147,51,234,.4)}100%{transform:scale(1.15) rotate(360deg);box-shadow:0 0 60px rgba(59,130,246,.9),0 0 140px rgba(147,51,234,.6)}}
+	#orb.drop-active{animation:vortex .8s linear infinite;cursor:copy}
+	</style></head><body><div id="orb" class="idle"></div>
+	<script>
+	let mouseDownPos=null,hasMoved=false;
+	const orb=document.getElementById("orb");
+	orb.addEventListener("mousedown",e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;orb.classList.add("dragging");orb.classList.remove("idle","clicked","drop-active");window.petApi?.startDrag()});
+	window.addEventListener("mousemove",e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
+	window.addEventListener("mouseup",()=>{if(!mouseDownPos)return;orb.classList.remove("dragging");window.petApi?.stopDrag();if(!hasMoved){orb.classList.add("clicked");setTimeout(()=>orb.classList.remove("clicked"),250);orb.classList.add("idle");window.petApi?.onClick()}else{orb.classList.add("idle");window.petApi?.savePosition()}mouseDownPos=null});
+	orb.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();orb.classList.add("drop-active");orb.classList.remove("idle")});
+	orb.addEventListener("dragleave",()=>{orb.classList.remove("drop-active");orb.classList.add("idle")});
+	orb.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();orb.classList.remove("drop-active");orb.classList.add("idle");
+	  const files=Array.from(e.dataTransfer.files||[]).map(f=>({name:f.name,path:f.path||"",size:f.size}));
+	  const text=e.dataTransfer.getData("text/plain")||"";
+	  const html=e.dataTransfer.getData("text/html")||"";
+	  const url=e.dataTransfer.getData("text/uri-list")||"";
+	  if(files.length||text||url)window.petApi?.onDrop({files,text,html,url});
+	});
+	<\/script></html>`
     );
   } catch {
   }
@@ -2639,7 +2085,7 @@ window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.rem
     try {
       fs.writeFileSync(
         preloadPath,
-        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}')});`
+        `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}'),onDrop:(data)=>ipcRenderer.send('pet:drop',data)});`
       );
     } catch {
     }
@@ -2762,6 +2208,46 @@ function registerPetIpc() {
       petMenu().popup({ window: petWin, x: 64, y: 64 });
     }
   });
+  electron.ipcMain.on("pet:drop", async (_e, data) => {
+    try {
+      const uid = await getUserId();
+      if (data.files?.length) {
+        const KB_EXTENSIONS = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "pdf", "txt", "md", "png", "jpg", "jpeg", "gif", "webp", "svg"];
+        const validPaths = data.files.filter((f) => {
+          const ext = f.name.split(".").pop()?.toLowerCase() || "";
+          return KB_EXTENSIONS.includes(ext);
+        }).map((f) => f.path).filter(Boolean);
+        if (validPaths.length > 0) {
+          const { KnowledgeService: KnowledgeService2 } = await Promise.resolve().then(() => knowledge_service);
+          await KnowledgeService2.importFiles(uid, validPaths);
+          new electron.Notification({ title: "Orb Drop", body: `已导入 ${validPaths.length} 个文件到知识库` }).show();
+        }
+      }
+      if (data.text && data.text.trim().length <= 1e4) {
+        const { NoteService: NoteService2 } = await Promise.resolve().then(() => note_service);
+        await NoteService2.createNote(uid, data.text.trim().slice(0, 1e4), "orb-drop");
+        new electron.Notification({ title: "Orb Drop", body: "已保存为便签" }).show();
+      }
+      if (data.url) {
+        const urlStr = data.url.trim();
+        let parsed;
+        try {
+          parsed = new URL(urlStr);
+        } catch {
+          return;
+        }
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+        const hostname = parsed.hostname;
+        if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|localhost$)/.test(hostname)) return;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC.EVT_NAVIGATE, `/blog?url=${encodeURIComponent(urlStr)}`);
+          new electron.Notification({ title: "Orb Drop", body: "已打开剪藏" }).show();
+        }
+      }
+    } catch (e) {
+      console.error("[Orb Drop]", e);
+    }
+  });
 }
 function getPetWindow() {
   return petWin;
@@ -2823,36 +2309,42 @@ function sanitizePagination(offset, limit) {
 function buildBlogSelect(id) {
   return { sql: "SELECT * FROM blogs WHERE id = ?", params: [id] };
 }
-function buildBlogCreate(userId, title, format, content) {
-  const now = nowMySQL();
+function buildBlogCreate(userId, title, format, content, seriesId, seriesName) {
+  const now = nowTimestamp();
+  if (seriesId) {
+    return {
+      sql: "INSERT INTO blogs (user_id, title, format, content, series_id, series_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      params: [userId, title, format, content, seriesId, seriesName || "", now, now]
+    };
+  }
   return {
     sql: "INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
     params: [userId, title, format, content, now, now]
   };
 }
 function buildBlogDelete(id, userId) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId]
   };
 }
 function buildBlogRestore(id, userId) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId]
   };
 }
 function buildBlogDraftInsert(blogId, content) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)",
     params: [blogId, content, now]
   };
 }
 function buildRecycleInsert(userId, itemType, itemId) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)",
     params: [userId, itemType, itemId, now]
@@ -3018,19 +2510,19 @@ class TagService {
   }
 }
 class BlogService {
-  static async createBlog(userId, title, format, content) {
+  static async createBlog(userId, title, format, content, seriesId, seriesName) {
     if (!title || title.length > MAX_TITLE_LENGTH) throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
     if (!["md", "html"].includes(format)) throw new Error("格式必须是 md 或 html");
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ""));
-    const { sql, params } = buildBlogCreate(userId, title, format, content);
+    const { sql, params } = buildBlogCreate(userId, title, format, content, seriesId, seriesName);
     await dbRun(sql, params);
     const row = await dbGet(
       "SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1",
       [userId, title, format]
     );
     if (!row) throw new Error("创建博客失败");
-    const filePath = await getBlogPath(userId, row.id, format);
+    const filePath = await getBlogPath(userId, title, format);
     fs.writeFileSync(filePath, content, "utf-8");
     return mapBlogRow(row);
   }
@@ -3038,7 +2530,7 @@ class BlogService {
     const { sql, params } = buildBlogSelect(blogId);
     const row = await dbGet(sql, params);
     if (!row) return null;
-    const filePath = await getBlogPath(row.user_id, row.id, row.format);
+    const filePath = await getBlogPath(row.user_id, row.title, row.format);
     let content = "";
     try {
       content = fs.readFileSync(filePath, "utf-8");
@@ -3052,17 +2544,23 @@ class BlogService {
     const { sql, params } = buildBlogSelect(blogId);
     const blog = await dbGet(sql, params);
     if (!blog) throw new Error("博客不存在");
+    const oldPath = await getBlogPath(blog.user_id, blog.title, blog.format);
     if (update.title !== void 0) {
       if (!update.title || update.title.length > MAX_TITLE_LENGTH)
         throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.title, nowMySQL(), blogId, userId]);
+      await dbRun("UPDATE blogs SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.title, nowTimestamp(), blogId, userId]);
     }
     if (update.content !== void 0) {
-      const filePath = await getBlogPath(blog.user_id, blogId, blog.format);
-      const tmpPath = filePath + ".tmp." + Date.now();
+      const tmpPath = oldPath + ".tmp." + Date.now();
       fs.writeFileSync(tmpPath, update.content, "utf-8");
-      fs.renameSync(tmpPath, filePath);
-      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.content, nowMySQL(), blogId, userId]);
+      fs.renameSync(tmpPath, oldPath);
+      await dbRun("UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?", [update.content, nowTimestamp(), blogId, userId]);
+    }
+    if (update.title !== void 0 && update.title !== blog.title) {
+      const newPath = await getBlogPath(blog.user_id, update.title, blog.format);
+      if (fs.existsSync(oldPath)) {
+        fs.renameSync(oldPath, newPath);
+      }
     }
   }
   static async deleteBlog(userId, blogId) {
@@ -3097,7 +2595,7 @@ class BlogService {
       const { sql, params } = buildBlogSelect(blogId);
       const blog = await dbGet(sql, params);
       if (!blog) continue;
-      const srcPath = await getBlogPath(blog.user_id, blogId, blog.format);
+      const srcPath = await getBlogPath(blog.user_id, blog.title, blog.format);
       const ext = blog.format === "html" ? ".html" : ".md";
       try {
         fs.copyFileSync(
@@ -3222,7 +2720,7 @@ class BlogService {
   }
   static async getBlogContent(blog) {
     try {
-      return fs.readFileSync(await getBlogPath(blog.user_id, blog.id, blog.format), "utf-8");
+      return fs.readFileSync(await getBlogPath(blog.user_id, blog.title, blog.format), "utf-8");
     } catch {
       return blog.content || "";
     }
@@ -3365,7 +2863,7 @@ function registerBlogHandlers() {
     IPC.BLOG_CREATE,
     async (_event, data) => {
       try {
-        const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content, data.seriesId, data.seriesName);
         if (data.content) await syncWikilinkRefs("blog", blog.id, data.content, data.userId);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
@@ -3382,6 +2880,9 @@ function registerBlogHandlers() {
         oldContent = old?.content;
       }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      if (data.seriesId !== void 0) {
+        await BlogService.setBlogSeries(data.userId, data.blogId, data.seriesId || null, data.seriesName || null);
+      }
       if (data.content) await syncWikilinkRefs("blog", data.blogId, data.content, data.userId, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
       return { success: true };
@@ -3455,7 +2956,7 @@ function registerBlogHandlers() {
   });
   electron.ipcMain.handle(IPC.BLOG_SET_PINNED, async (_event, data) => {
     try {
-      await dbRun("UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.isPinned, nowMySQL(), data.id, data.userId]);
+      await dbRun("UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.isPinned, nowTimestamp(), data.id, data.userId]);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3463,7 +2964,7 @@ function registerBlogHandlers() {
   });
   electron.ipcMain.handle(IPC.BLOG_SET_COLOR, async (_event, data) => {
     try {
-      await dbRun("UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.color, nowMySQL(), data.id, data.userId]);
+      await dbRun("UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?", [data.color, nowTimestamp(), data.id, data.userId]);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -3747,7 +3248,7 @@ function registerBookmarkHandlers() {
       if (existing) {
         return { success: true, data: { id: existing.id } };
       }
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun(
         "INSERT INTO bookmarks (user_id, target_type, target_id, title, created_at) VALUES (?, ?, ?, ?, ?)",
         [data.userId, data.targetType, data.targetId, data.title, now]
@@ -3878,7 +3379,7 @@ class FolderService {
       trimmed,
       parentId ?? null,
       type,
-      nowMySQL()
+      nowTimestamp()
     ]);
     const row = await dbGet(
       "SELECT * FROM folders WHERE user_id = ? AND name = ? AND type = ? ORDER BY id DESC LIMIT 1",
@@ -3900,7 +3401,7 @@ class FolderService {
   }
   static async moveToFolder(userId, itemType, itemId, folderId) {
     const table = itemType === "blog" ? "blogs" : "knowledge_files";
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowMySQL(), itemId, userId]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowTimestamp(), itemId, userId]);
   }
 }
 function buildTree(rows) {
@@ -3984,209 +3485,32 @@ function registerFolderHandlers() {
     }
   );
 }
-function registerGraphHandlers() {
-  electron.ipcMain.handle(IPC.GRAPH_GET_DATA, async (_event, userId, filter) => {
-    try {
-      if (filter?.scope === "local" && filter?.centerId) {
-        return await getLocalGraph(userId, filter.centerId);
-      }
-      const maxNodes = filter?.maxNodes ?? 100;
-      const types = filter?.types ?? ["blog", "knowledge", "tag", "note"];
-      const nodes = [];
-      const edges = [];
-      if (types.includes("blog")) {
-        const blogs = await dbAll(
-          "SELECT id, title FROM blogs WHERE user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT ?",
-          [userId, maxNodes]
-        );
-        for (const b of blogs) {
-          nodes.push({ id: `blog-${b.id}`, label: b.title, type: "blog" });
-        }
-      }
-      if (types.includes("knowledge")) {
-        const kfs = await dbAll(
-          "SELECT id, filename FROM knowledge_files WHERE user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT ?",
-          [userId, maxNodes]
-        );
-        for (const k of kfs) {
-          nodes.push({ id: `knowledge-${k.id}`, label: k.filename, type: "knowledge" });
-        }
-      }
-      if (types.includes("note")) {
-        const notes = await dbAll(
-          "SELECT id, title FROM notes WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
-          [userId, maxNodes]
-        );
-        for (const n of notes) {
-          nodes.push({ id: `note-${n.id}`, label: n.title || "(便签)", type: "note" });
-        }
-      }
-      if (types.includes("tag")) {
-        const tags = await dbAll(
-          "SELECT id, name FROM tags WHERE user_id = ? ORDER BY id DESC LIMIT ?",
-          [userId, maxNodes]
-        );
-        for (const t of tags) {
-          nodes.push({ id: `tag-${t.id}`, label: `#${t.name}`, type: "tag" });
-        }
-        const btEdges = await dbAll(
-          "SELECT bt.blog_id, bt.tag_id FROM blog_tags bt JOIN blogs b ON b.id = bt.blog_id WHERE b.user_id = ? ORDER BY bt.blog_id DESC LIMIT ?",
-          [userId, maxNodes * 3]
-        );
-        for (const e of btEdges) {
-          edges.push({ source: `blog-${e.blog_id}`, target: `tag-${e.tag_id}`, type: "tag" });
-        }
-        const ktEdges = await dbAll(
-          "SELECT kft.file_id, kft.tag_id FROM knowledge_file_tags kft JOIN knowledge_files kf ON kf.id = kft.file_id WHERE kf.user_id = ? ORDER BY kft.file_id DESC LIMIT ?",
-          [userId, maxNodes * 3]
-        );
-        for (const e of ktEdges) {
-          edges.push({ source: `knowledge-${e.file_id}`, target: `tag-${e.tag_id}`, type: "tag" });
-        }
-      }
-      const refRows = await dbAll(
-        `SELECT r.source_type, r.source_id, r.target_type, r.target_id
-         FROM refs r
-         LEFT JOIN blogs b ON r.source_type = 'blog' AND r.source_id = b.id AND b.user_id = ?
-         LEFT JOIN knowledge_files kf ON r.source_type = 'knowledge' AND r.source_id = kf.id AND kf.user_id = ?
-         LEFT JOIN notes n ON r.source_type = 'note' AND r.source_id = n.id AND n.user_id = ?
-         WHERE (b.id IS NOT NULL OR kf.id IS NOT NULL OR n.id IS NOT NULL)
-         ORDER BY r.created_at DESC LIMIT ?`,
-        [userId, userId, userId, maxNodes * 5]
-      );
-      for (const r of refRows) {
-        edges.push({
-          source: `${r.source_type}-${r.source_id}`,
-          target: `${r.target_type}-${r.target_id}`,
-          type: "ref"
-        });
-      }
-      const data = { nodes, edges };
-      return { success: true, data };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
-}
-async function getLocalGraph(userId, centerId) {
-  const parts = centerId.split("-");
-  const srcType = parts[0];
-  const srcId = Number(parts[1]);
-  if (!srcType || !srcId || Number.isNaN(srcId)) {
-    return { success: false, error: 'Invalid centerId format. Expected "type-id"' };
-  }
-  const nodes = [];
-  const edges = [];
-  const nodeIds = /* @__PURE__ */ new Set();
-  nodeIds.add(centerId);
-  if (srcType === "blog") {
-    const row = await dbAll("SELECT id, title FROM blogs WHERE id = ? AND user_id = ?", [srcId, userId]);
-    if (row[0]) {
-      nodes.push({ id: centerId, label: row[0].title, type: "blog" });
-      row[0].title;
-    }
-  } else if (srcType === "knowledge") {
-    const row = await dbAll("SELECT id, filename FROM knowledge_files WHERE id = ? AND user_id = ?", [srcId, userId]);
-    if (row[0]) {
-      nodes.push({ id: centerId, label: row[0].filename, type: "knowledge" });
-      row[0].filename;
-    }
-  } else if (srcType === "note") {
-    const row = await dbAll("SELECT id, title FROM notes WHERE id = ? AND user_id = ?", [srcId, userId]);
-    if (row[0]) {
-      nodes.push({ id: centerId, label: row[0].title || "(便签)", type: "note" });
-      row[0].title || "";
-    }
-  }
-  if (nodes.length === 0) return { success: true, data: { nodes: [], edges: [] } };
-  const refs = await dbAll(
-    `SELECT source_type, source_id, target_type, target_id FROM refs
-     WHERE (source_type = ? AND source_id = ?) OR (target_type = ? AND target_id = ?)
-     LIMIT 50`,
-    [srcType, srcId, srcType, srcId]
-  );
-  for (const r of refs) {
-    const srcNodeId = `${r.source_type}-${r.source_id}`;
-    const tgtNodeId = `${r.target_type}-${r.target_id}`;
-    edges.push({ source: srcNodeId, target: tgtNodeId, type: "ref" });
-    if (!nodeIds.has(srcNodeId)) {
-      nodeIds.add(srcNodeId);
-      const label = await resolveNodeLabel(r.source_type, r.source_id, userId);
-      nodes.push({ id: srcNodeId, label, type: r.source_type });
-    }
-    if (!nodeIds.has(tgtNodeId)) {
-      nodeIds.add(tgtNodeId);
-      const label = await resolveNodeLabel(r.target_type, r.target_id, userId);
-      nodes.push({ id: tgtNodeId, label, type: r.target_type });
-    }
-  }
-  const tagEdges = await getTagEdgesForNode(srcType, srcId, userId);
-  for (const te of tagEdges) {
-    const tagNodeId = `tag-${te.tagId}`;
-    edges.push({ source: centerId, target: tagNodeId, type: "tag" });
-    if (!nodeIds.has(tagNodeId)) {
-      nodeIds.add(tagNodeId);
-      nodes.push({ id: tagNodeId, label: `#${te.name}`, type: "tag" });
-    }
-  }
-  return { success: true, data: { nodes, edges } };
-}
-async function resolveNodeLabel(type, id, userId) {
-  if (type === "blog") {
-    const rows = await dbAll("SELECT title FROM blogs WHERE id = ? AND user_id = ?", [id, userId]);
-    return rows[0]?.title ?? `Blog #${id}`;
-  }
-  if (type === "knowledge") {
-    const rows = await dbAll("SELECT filename FROM knowledge_files WHERE id = ? AND user_id = ?", [id, userId]);
-    return rows[0]?.filename ?? `File #${id}`;
-  }
-  if (type === "note") {
-    const rows = await dbAll("SELECT title FROM notes WHERE id = ? AND user_id = ?", [id, userId]);
-    return rows[0]?.title ?? `Note #${id}`;
-  }
-  return `${type} #${id}`;
-}
-async function getTagEdgesForNode(srcType, srcId, userId) {
-  if (srcType === "blog") {
-    return dbAll(
-      "SELECT t.id as tagId, t.name FROM tags t JOIN blog_tags bt ON bt.tag_id = t.id WHERE bt.blog_id = ? AND t.user_id = ?",
-      [srcId, userId]
-    );
-  }
-  if (srcType === "knowledge") {
-    return dbAll(
-      "SELECT t.id as tagId, t.name FROM tags t JOIN knowledge_file_tags kft ON kft.tag_id = t.id WHERE kft.file_id = ? AND t.user_id = ?",
-      [srcId, userId]
-    );
-  }
-  return [];
-}
 function buildKnowledgeSelect(id) {
   return { sql: "SELECT * FROM knowledge_files WHERE id = ?", params: [id] };
 }
 function buildKnowledgeCreate(userId, filename, filePath, fileType, fileSize, contentText) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     params: [userId, filename, filePath, fileType, fileSize, contentText, now, now]
   };
 }
 function buildKnowledgeDelete(id, userId) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId]
   };
 }
 function buildKnowledgeRestore(id, userId) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId]
   };
 }
 function buildKnowledgeRename(id, userId, filename, filePath) {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ? AND user_id = ?",
     params: [filename, filePath, now, id, userId]
@@ -4266,12 +3590,12 @@ class KnowledgeService {
         if ([".txt", ".md"].includes(ext)) {
           contentText = fs.readFileSync(destPath, "utf-8").substring(0, 102400);
         } else if ([".docx", ".doc"].includes(ext)) {
-          const mammoth2 = await import("mammoth");
-          const result = await mammoth2.extractRawText({ path: destPath });
+          const mammoth = await import("mammoth");
+          const result = await mammoth.extractRawText({ path: destPath });
           contentText = result.value.substring(0, 102400);
         } else if ([".xlsx", ".xls"].includes(ext)) {
-          const ExcelJS2 = (await import("exceljs")).default;
-          const wb = new ExcelJS2.Workbook();
+          const ExcelJS = (await import("exceljs")).default;
+          const wb = new ExcelJS.Workbook();
           await wb.xlsx.readFile(destPath);
           contentText = wb.worksheets.map((ws) => {
             const lines = [];
@@ -4510,6 +3834,7 @@ class PreviewService {
   // ---- Internal converters ----
   static async previewDocx(filePath) {
     const buffer = fs.readFileSync(filePath);
+    const mammoth = await import("mammoth");
     const result = await mammoth.convertToHtml({
       buffer,
       styleMap: [
@@ -4538,6 +3863,7 @@ class PreviewService {
     };
   }
   static async previewXlsx(filePath) {
+    const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
     const sheetTabs = [];
@@ -4931,7 +4257,7 @@ function registerKnowledgeHandlers() {
       }
       await fs.promises.mkdir(path.dirname(resolved), { recursive: true });
       await fs.promises.writeFile(resolved, data.content, "utf-8");
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun("UPDATE knowledge_files SET content_text = ?, updated_at = ? WHERE id = ? AND user_id = ?", [
         data.content,
         now,
@@ -4991,7 +4317,7 @@ class NoteService {
       );
       if (existing) return rowToNote(existing);
     }
-    const now = nowMySQL();
+    const now = nowTimestamp();
     await dbRun(
       "INSERT INTO notes (user_id, content, source, title, memo_type, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [userId, content, source, title, memoType, dueDate || null, now, now]
@@ -5004,7 +4330,7 @@ class NoteService {
     return rowToNote(row);
   }
   static async updateNote(noteId, userId, data) {
-    const now = nowMySQL();
+    const now = nowTimestamp();
     const sets = [];
     const params = [];
     if (data.title !== void 0) {
@@ -5038,7 +4364,7 @@ class NoteService {
   static async togglePin(userId, noteId) {
     const row = await dbGet("SELECT * FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
     if (!row) return null;
-    await dbRun("UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, nowMySQL(), noteId, userId]);
+    await dbRun("UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?", [row.pinned ? 0 : 1, nowTimestamp(), noteId, userId]);
     const updated = await dbGet("SELECT * FROM notes WHERE id = ? AND user_id = ?", [noteId, userId]);
     return updated ? rowToNote(updated) : null;
   }
@@ -5101,9 +4427,38 @@ function registerNoteHandlers() {
   });
   electron.ipcMain.handle(IPC.NOTE_DELETE, async (_event, data) => {
     try {
+      const notes = await NoteService.listNotes(data.userId);
+      const note = notes.find((n) => n.id === data.noteId);
+      if (note?.content) {
+        const imgRe = /!\[.*?\]\(notes-images\/([^)]+)\)/g;
+        let m;
+        const workspace = await getWorkspacePath(data.userId);
+        const imgDir = path.join(workspace, "notes-images");
+        while ((m = imgRe.exec(note.content)) !== null) {
+          const imgPath = path.join(imgDir, m[1]);
+          if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+        }
+      }
       await NoteService.deleteNote(data.userId, data.noteId);
       broadcastRefresh();
       return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  electron.ipcMain.handle(IPC.NOTE_IMAGE_SAVE, async (_event, data) => {
+    try {
+      const workspace = await getWorkspacePath(data.userId);
+      const imgDir = path.join(workspace, "notes-images");
+      if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+      if (!data.base64.startsWith("data:image/")) return { success: false, error: "仅支持图片粘贴" };
+      const ext = data.base64.match(/^data:image\/(\w+);/)?.[1] || "png";
+      const filename = `${crypto.randomUUID()}.${ext}`;
+      const filePath = path.join(imgDir, filename);
+      if (!path.resolve(filePath).startsWith(path.resolve(workspace))) return { success: false, error: "路径无效" };
+      const buf = Buffer.from(data.base64.split(",")[1], "base64");
+      fs.writeFileSync(filePath, buf);
+      return { success: true, data: `notes-images/${filename}` };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -5149,7 +4504,7 @@ class RecycleService {
       [userId, itemId, itemType]
     );
     if (!item) throw new Error("回收站中未找到该项目");
-    const now = nowMySQL();
+    const now = nowTimestamp();
     if (itemType === "blog")
       await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
     else if (itemType === "knowledge_file")
@@ -5173,12 +4528,12 @@ class RecycleService {
     const toDelete = [];
     const toDeleteDirs = [];
     if (item.item_type === "blog") {
-      const blog = await dbGet("SELECT user_id, format FROM blogs WHERE id = ?", [
+      const blog = await dbGet("SELECT user_id, title, format FROM blogs WHERE id = ?", [
         item.item_id
       ]);
       if (blog) {
         try {
-          toDelete.push(await getBlogPath(blog.user_id, item.item_id, blog.format));
+          toDelete.push(await getBlogPath(blog.user_id, blog.title, blog.format));
         } catch {
         }
         try {
@@ -5289,7 +4644,7 @@ class ReferenceService {
     if (!VALID_REF_TYPES.includes(sourceType) || !VALID_REF_TYPES.includes(targetType)) {
       throw new Error(`Invalid ref type: source=${sourceType}, target=${targetType}`);
     }
-    const now = nowMySQL();
+    const now = nowTimestamp();
     await dbRun("INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?)", [
       sourceType,
       sourceId,
@@ -5685,9 +5040,6 @@ function registerScrapeHandler() {
   );
 }
 class SearchService {
-  /**
-   * Legacy: global search returning old SearchResult format (used by existing GlobalSearch).
-   */
   static async globalSearch(userId, query) {
     const [blogs, knowledge] = await Promise.all([
       SearchService.searchBlogs(userId, query),
@@ -5695,9 +5047,6 @@ class SearchService {
     ]);
     return { blogs, knowledge };
   }
-  /**
-   * Legacy: blog search returning old SearchResult format.
-   */
   static async searchBlogs(userId, query) {
     const like = `%${query}%`;
     const rows = await dbAll(
@@ -5706,13 +5055,8 @@ class SearchService {
        UNION
        SELECT id, title, 'content' as match_field FROM blogs
        WHERE user_id = ? AND status = 'active' AND content LIKE ?
-       UNION
-       SELECT id, title, 'content' as match_field FROM blogs
-       WHERE user_id = ? AND status = 'active' AND id IN (
-         SELECT blog_id FROM blog_drafts WHERE content LIKE ?
-       )
        LIMIT 20`,
-      [userId, like, userId, like, userId, like]
+      [userId, like, userId, like]
     );
     return rows.map((row) => ({
       scope: "blog",
@@ -5722,18 +5066,12 @@ class SearchService {
       matchField: row.match_field
     }));
   }
-  /**
-   * Legacy: knowledge search returning old SearchResult format.
-   */
   static async searchKnowledge(userId, query) {
     const like = `%${query}%`;
     const rows = await dbAll(
       `SELECT id, filename as title, file_type as match_field, content_text FROM knowledge_files
        WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?)
-       ORDER BY
-         CASE WHEN filename LIKE ? THEN 0 ELSE 1 END,
-         created_at DESC
-       LIMIT 20`,
+       ORDER BY CASE WHEN filename LIKE ? THEN 0 ELSE 1 END, created_at DESC LIMIT 20`,
       [userId, like, like, like]
     );
     return rows.map((row) => {
@@ -5746,133 +5084,13 @@ class SearchService {
           snippet = (start > 0 ? "..." : "") + row.content_text.substring(start, end) + (end < row.content_text.length ? "..." : "");
         }
       }
-      return {
-        scope: "knowledge",
-        id: row.id,
-        title: row.title,
-        snippet,
-        matchField: snippet.includes(query) ? "content" : row.match_field
-      };
+      return { scope: "knowledge", id: row.id, title: row.title, snippet, matchField: snippet.includes(query) ? "content" : row.match_field };
     });
   }
-  /**
-   * Search all content using MySQL FULLTEXT (MySQL mode) or
-   * return indexable documents for Worker-based search (sql.js mode).
-   *
-   * When MySQL: performs MATCH ... AGAINST queries on blogs and knowledge_files.
-   * When sql.js: returns all active blogs + knowledge files for the Worker to index.
-   */
-  static async searchAll(query, userId) {
-    if (isUsingMySQL()) {
-      return SearchService.mysqlFulltextSearch(query, userId);
-    }
+  /** Worker handles search in renderer; always returns null. */
+  static async searchAll(_query, _userId) {
     return null;
   }
-  /**
-   * MySQL FULLTEXT search using MATCH ... AGAINST in natural language mode.
-   */
-  static async mysqlFulltextSearch(query, userId) {
-    const escaped = query.replace(/[+\-<>()~*"@]/g, " ").trim();
-    if (!escaped) return [];
-    const [blogs, knowledge] = await Promise.all([
-      SearchService.mysqlSearchBlogs(escaped, userId),
-      SearchService.mysqlSearchKnowledge(escaped, userId)
-    ]);
-    const merged = [...blogs, ...knowledge].sort((a, b) => b.score - a.score);
-    return merged.slice(0, 20);
-  }
-  static async mysqlSearchBlogs(query, userId) {
-    try {
-      const rows = await dbAll(
-        `SELECT id, title, SUBSTRING(content, 1, 200) as content,
-                MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE) as score
-         FROM blogs
-         WHERE user_id = ? AND status = 'active'
-           AND MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)
-         ORDER BY score DESC
-         LIMIT 20`,
-        [query, userId, query]
-      );
-      if (rows.length === 0 && SearchService.hasCjk(query)) {
-        return SearchService.fallbackBlogSearch(query, userId);
-      }
-      return rows.map((row) => ({
-        id: row.id,
-        type: "blog",
-        title: row.title,
-        snippet: (row.content || "").slice(0, 200),
-        score: Math.round((row.score || 0) * 1e3) / 1e3
-      }));
-    } catch (err) {
-      console.warn("[SearchService] MySQL blog fulltext search failed, falling back to LIKE:", err.message);
-      return SearchService.fallbackBlogSearch(query, userId);
-    }
-  }
-  static async mysqlSearchKnowledge(query, userId) {
-    try {
-      const rows = await dbAll(
-        `SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text,
-                MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE) as score
-         FROM knowledge_files
-         WHERE user_id = ? AND status = 'active'
-           AND MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE)
-         ORDER BY score DESC
-         LIMIT 20`,
-        [query, userId, query]
-      );
-      if (rows.length === 0 && SearchService.hasCjk(query)) {
-        return SearchService.fallbackKnowledgeSearch(query, userId);
-      }
-      return rows.map((row) => ({
-        id: row.id,
-        type: "knowledge",
-        title: row.title,
-        snippet: (row.content_text || "").slice(0, 200),
-        score: Math.round((row.score || 0) * 1e3) / 1e3
-      }));
-    } catch (err) {
-      console.warn("[SearchService] MySQL knowledge fulltext search failed, falling back to LIKE:", err.message);
-      return SearchService.fallbackKnowledgeSearch(query, userId);
-    }
-  }
-  static fallbackBlogSearch(query, userId) {
-    const like = `%${query}%`;
-    return dbAll(
-      "SELECT id, title, SUBSTRING(content, 1, 200) as content FROM blogs WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?) LIMIT 20",
-      [userId, like, like]
-    ).then(
-      (rows) => rows.map((r) => ({
-        id: r.id,
-        type: "blog",
-        title: r.title,
-        snippet: (r.content || "").slice(0, 200),
-        score: 0
-      }))
-    );
-  }
-  static fallbackKnowledgeSearch(query, userId) {
-    const like = `%${query}%`;
-    return dbAll(
-      "SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?) LIMIT 20",
-      [userId, like, like]
-    ).then(
-      (rows) => rows.map((r) => ({
-        id: r.id,
-        type: "knowledge",
-        title: r.title,
-        snippet: (r.content_text || "").slice(0, 200),
-        score: 0
-      }))
-    );
-  }
-  /** Returns true if the string contains any CJK character */
-  static hasCjk(s) {
-    return /[一-鿿㐀-䶿豈-﫿]/.test(s);
-  }
-  /**
-   * Get all indexable documents for the Worker to build its inverted index.
-   * Used in sql.js mode.
-   */
   static async getIndexableDocuments(userId) {
     const [blogs, knowledge] = await Promise.all([
       dbAll(
@@ -5884,21 +5102,10 @@ class SearchService {
         [userId]
       )
     ]);
-    const docs = [
-      ...blogs.map((b) => ({
-        id: b.id,
-        docType: "blog",
-        title: b.title,
-        content: b.content || ""
-      })),
-      ...knowledge.map((k) => ({
-        id: k.id,
-        docType: "knowledge",
-        title: k.filename,
-        content: k.content_text || ""
-      }))
+    return [
+      ...blogs.map((b) => ({ id: b.id, docType: "blog", title: b.title, content: b.content || "" })),
+      ...knowledge.map((k) => ({ id: k.id, docType: "knowledge", title: k.filename, content: k.content_text || "" }))
     ];
-    return docs;
   }
 }
 function registerSearchHandlers() {
@@ -6107,7 +5314,7 @@ function registerWhiteboardHandlers() {
         [userId]
       );
       if (!wb) {
-        const now = nowMySQL();
+        const now = nowTimestamp();
         await dbRun(
           "INSERT INTO whiteboards (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
           [userId, "我的白板", now, now]
@@ -6136,7 +5343,7 @@ function registerWhiteboardHandlers() {
     try {
       const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
       if (!wb) return { success: false, error: "无权访问" };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun(
         "INSERT INTO whiteboard_nodes (whiteboard_id, user_id, node_type, title, x, y, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
         [data.whiteboardId, data.userId, data.nodeType, data.title, data.x, data.y, data.color || "blue", now, now]
@@ -6151,7 +5358,7 @@ function registerWhiteboardHandlers() {
     try {
       const node = await dbGet("SELECT id FROM whiteboard_nodes WHERE id = ? AND user_id = ?", [data.id, data.userId]);
       if (!node) return { success: false, error: "无权访问" };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       const sets = ["updated_at = ?"];
       const params = [now];
       if (data.title !== void 0) {
@@ -6209,7 +5416,7 @@ function registerWhiteboardHandlers() {
     try {
       const wb = await dbGet("SELECT id FROM whiteboards WHERE id = ? AND user_id = ?", [data.whiteboardId, data.userId]);
       if (!wb) return { success: false, error: "无权访问" };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun(
         "INSERT INTO whiteboard_edges (whiteboard_id, source_node_id, target_node_id, label, created_at) VALUES (?,?,?,?,?)",
         [data.whiteboardId, data.sourceNodeId, data.targetNodeId, data.label || "", now]
@@ -6402,7 +5609,6 @@ function registerAllIpcHandlers() {
   registerTagHandlers();
   registerNoteHandlers();
   registerContinueHandlers();
-  registerGraphHandlers();
   registerBookmarkHandlers();
   registerAiHandlers();
   registerWhiteboardHandlers();
@@ -6484,8 +5690,8 @@ function registerQuickNote() {
     try {
       if (!currentUserId) return;
       const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
-      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
-      const now = nowMySQL2();
+      const { nowTimestamp: nowTimestamp2 } = await Promise.resolve().then(() => datetime);
+      const now = nowTimestamp2();
       await dbRun2(
         "INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
         [currentUserId, content, "", "quick-note", "note", now, now]
@@ -6498,8 +5704,8 @@ function registerQuickNote() {
     try {
       if (!currentUserId || !content) return;
       const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
-      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
-      const now = nowMySQL2();
+      const { nowTimestamp: nowTimestamp2 } = await Promise.resolve().then(() => datetime);
+      const now = nowTimestamp2();
       await dbRun2(
         "INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
         [currentUserId, content, "", "quick-note", "pinned", now, now]
@@ -6512,8 +5718,8 @@ function registerQuickNote() {
     if (!currentUserId || !text) return;
     try {
       const { dbRun: dbRun2 } = await Promise.resolve().then(() => index);
-      const { nowMySQL: nowMySQL2 } = await Promise.resolve().then(() => datetime);
-      const now = nowMySQL2();
+      const { nowTimestamp: nowTimestamp2 } = await Promise.resolve().then(() => datetime);
+      const now = nowTimestamp2();
       await dbRun2(
         "INSERT OR REPLACE INTO settings (user_id, key, value, updated_at) VALUES (?,?,?,?)",
         [currentUserId, "quick_note_draft", text, now]

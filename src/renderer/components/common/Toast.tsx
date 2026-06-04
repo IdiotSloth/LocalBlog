@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 2000);
   }, []);
 
   return (
@@ -39,8 +39,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className="pointer-events-auto rounded-[6px] px-4 py-3 text-[13px] font-medium shadow-lg"
             style={{
-              background: t.type === 'success' ? '#1a3a2e' : t.type === 'error' ? '#3a1a1a' : 'var(--bg-secondary)',
-              color: t.type === 'success' ? '#3fb950' : t.type === 'error' ? '#f85149' : 'var(--text-primary)',
+              background: t.type === 'success' ? '#238636' : t.type === 'error' ? '#3a1a1a' : 'var(--bg-secondary)',
+              color: t.type === 'success' ? '#ffffff' : t.type === 'error' ? '#f85149' : 'var(--text-primary)',
               border:
                 t.type !== 'info'
                   ? `1px solid ${t.type === 'success' ? '#238636' : '#da3633'}`

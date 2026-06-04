@@ -1,4 +1,4 @@
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import type { FolderTreeNode } from '../../shared/types';
 import { buildFolderTreeQuery } from '../../shared/handlers/folder-crud';
 import { dbAll, dbGet, dbRun } from '../db';
@@ -25,7 +25,7 @@ export class FolderService {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('文件夹名不能为空');
 
-    // MySQL: IS only accepts literal NULL — split query by parentId presence
+    // Split query by parentId presence (NULL needs IS NULL, not = ?)
     const existing =
       parentId != null
         ? await dbGet<FolderRow>(
@@ -43,7 +43,7 @@ export class FolderService {
       trimmed,
       parentId ?? null,
       type,
-      nowMySQL(),
+      nowTimestamp(),
     ]);
 
     const row = await dbGet<FolderRow>(
@@ -76,7 +76,7 @@ export class FolderService {
     folderId: number | null,
   ): Promise<void> {
     const table = itemType === 'blog' ? 'blogs' : 'knowledge_files';
-    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowMySQL(), itemId, userId]);
+    await dbRun(`UPDATE ${table} SET folder_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [folderId, nowTimestamp(), itemId, userId]);
   }
 }
 

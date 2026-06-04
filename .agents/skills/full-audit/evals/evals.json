@@ -1,0 +1,145 @@
+{
+  "skill_name": "full-audit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我需要对整个项目做一次全面的代码审查，看看有没有安全漏洞、数据完整性问题或是架构违规的地方。项目是 Electron + React + TypeScript + MySQL 全栈的。",
+      "expected_output": "触发 full-audit 技能，按六维度（安全性/数据完整性/类型安全/冗余性/可维护性/健壮性）系统审查并输出报告到 redo.md",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Phase 11 刚完成，我想知道代码库现在的整体健康状态怎么样。帮我跑一次全量审计，聚焦在安全底线和架构收敛上。",
+      "expected_output": "触发 full-audit 技能，执行 Phase 2→3 全量审查流程，产出健康度评分和架构趋势",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "马上就要发布 v1.0 了，帮我做一次 pre-release 审计。我需要知道：有没有 P0 级别的运行时崩溃风险？数据库的方言隔离有没有破裂？IPC 的类型契约是否完整？前端的 dangerouslySetInnerHTML 都加了 DOMPurify 吗？",
+      "expected_output": "触发 full-audit 技能，按六维度逐层审查，重点关注安全、数据完整性、类型安全三个维度",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我怀疑 server routes 和 main services 之间有很多重复的业务逻辑。帮我检查一下哪些领域的逻辑是双写的，哪些已经通过 DI 模式去重了。",
+      "expected_output": "触发 full-audit 技能中的冗余性维度检查，识别 Server/Main 双写和映射函数重复",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "最近加了好几个新功能，担心代码质量在下降。帮我看看有没有死代码、组件过于复杂（useState 太多）、catch 块静默吞错这些问题。",
+      "expected_output": "触发 full-audit 技能，聚焦可维护性维度（组件复杂度/死代码/错误处理）",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Security audit needed — check for XSS vectors, SQL injection points, missing auth guards, path traversal in file operations, and Electron sandbox bypasses across the entire codebase.",
+      "expected_output": "触发 full-audit 技能的安全维度，检查所有 10 项安全模式",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "帮我做一次架构合规审查：目录约束有没有被违反？shared/ 里有没有混入运行时逻辑？renderer 有没有偷偷引用 electron？preload 有没有越权放业务逻辑？",
+      "expected_output": "触发 full-audit 技能中的可维护性维度（目录约束检查），同时覆盖类型安全维度（跨进程类型导入）",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "我们之前在 Phase 9 做过一次深度结构审计，现在已经过了 Phase 11。帮我再做一次同样的全维度审查，我想对比一下两次的指标变化——as any 数量、裸 catch 数量、类型错误数、重复逻辑域等等。",
+      "expected_output": "触发 full-audit 技能，执行完整的六维度审查 + 架构趋势对比（与 Phase 9 数据对比）",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "I need a comprehensive codebase health check. Please audit all 47 source files across the six dimensions: security, data integrity, type safety, redundancy, maintainability, and robustness. Write findings to redo.md.",
+      "expected_output": "触发 full-audit 技能，全量六维度审查并写入 redo.md",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "项目现在有 SQLite 和 MySQL 双后端，我担心 SQL 方言隔离有问题。帮我检查所有 datetime()、INSERT OR IGNORE、strftime() 这些 SQLite 特有语法是不是都经过了 toMySQL() 翻译。同时看看时间和时间戳是不是统一用 ISO 8601 了。",
+      "expected_output": "触发 full-audit 技能的数据完整性维度，检查方言隔离和时间戳标准化",
+      "should_trigger": true,
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "帮我在 BlogEditorPage.tsx 里加个自动保存功能，每 30 秒自动保存一次草稿。",
+      "expected_output": "不触发 full-audit，这是功能开发任务，应交给 Developer 角色处理",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "这个 README.md 文件有好多过时的内容，帮我更新一下，把 Phase 11 的完成状态同步进去。",
+      "expected_output": "不触发 full-audit，这是文档维护任务（sync-docs 技能或 Boss 职责）",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "npm run build 报错了，帮我看看是什么问题然后修掉。",
+      "expected_output": "不触发 full-audit，这是构建修复任务，Developer 职责",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "帮我写一个 blog.service.ts 的单元测试，覆盖 createBlog、updateBlog 和 deleteBlog。",
+      "expected_output": "不触发 full-audit，这是测试编写任务（Developer 职责）。虽然测试覆盖率是审计维度之一，但具体写测试是开发工作",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "帮我把 vite.config.ts 里的 build target 从 es2020 改成 es2022。",
+      "expected_output": "不触发 full-audit，这是配置修改任务",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 16,
+      "prompt": "review 一下我刚提交的这个 PR，看看有没有问题。",
+      "expected_output": "不触发 full-audit，这是 PR review 任务，应使用 agent-review 技能（更轻量，针对变更集）",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 17,
+      "prompt": "帮我分析一下为什么 BlogListPage 加载很慢，看看是不是 SQL 查询的问题。",
+      "expected_output": "不触发 full-audit，这是性能排查任务，Developer 职责。虽然是代码质量相关但并非全量审计的范围",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 18,
+      "prompt": "src/shared/types.ts 里加了一个新字段 publishedAt，帮我同步更新所有引用这个类型的地方。",
+      "expected_output": "不触发 full-audit，这是类型同步任务（Developer 职责）。虽然涉及类型安全但非审计工作",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 19,
+      "prompt": "帮我把回收站的自动清理从 30 天改成 7 天。",
+      "expected_output": "不触发 full-audit，简单常量修改（Developer 职责）",
+      "should_trigger": false,
+      "files": []
+    },
+    {
+      "id": 20,
+      "prompt": "检查一下 api-client.ts 里 webApi 的方法签名是不是和 preload/index.ts 的 WindowApi 接口对齐的，有没有方法名不一致或者参数类型对不上的地方。",
+      "expected_output": "不触发全量 full-audit（太窄），但如果涉及类型安全维度检查（WindowApi 契约闭环保真），可能边界触发。预期不触发因为范围太小——这是一个单文件比对任务，不需要六维度全量审查",
+      "should_trigger": false,
+      "files": []
+    }
+  ]
+}

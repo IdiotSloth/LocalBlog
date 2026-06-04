@@ -5,10 +5,8 @@ import { CardSkeleton } from './components/common/Skeleton';
 import { NotFoundPage } from './features/misc/NotFoundPage';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { MainLayout } from './components/layout/MainLayout';
-import { TabProvider } from './stores/tab-context';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
-import { FloatingBlogTabs } from './components/blog/FloatingBlogTabs';
 import { useAuthStore } from './stores/auth-store';
 import { useThemeStore } from './stores/theme-store';
 
@@ -143,6 +141,9 @@ export default function App() {
   useEffect(() => {
     initSession();
     initTheme();
+    // R351 one-time: purge abandoned localStorage keys (tab-context + floating-tabs dead code)
+    localStorage.removeItem('lbkb_open_tabs');
+    localStorage.removeItem('lbkb_minimized_blogs');
     // T2301: Restore background image on startup
     const img = localStorage.getItem('lbkb_bg_image');
     const opacity = localStorage.getItem('lbkb_bg_opacity') || '0.92';
@@ -188,8 +189,6 @@ export default function App() {
       <RouterProvider router={router} />
       {/* T1803: Error Toast */}
       <ErrorToastContent state={errorToast} onDismiss={() => setErrorToast((prev) => ({ ...prev, visible: false }))} />
-      {/* T1907: Floating minimized blog tabs */}
-      <FloatingBlogTabs />
     </>
   );
 }

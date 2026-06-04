@@ -20,13 +20,12 @@ import {
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useAuthStore } from '../../stores/auth-store';
 import { ShortcutHelpPanel } from '../common/ShortcutHelpPanel';
-import { ContextPanel, ContextPanelProvider } from './ContextPanel';
 import { GlobalSearch } from './GlobalSearch';
 import { QuickNote } from './QuickNote';
 import { QuickSwitcher } from './QuickSwitcher';
+import { QuickNav } from '../common/QuickNav';
 import { SplitPane, SplitProvider, useSplit } from './SplitPane';
-import { TabProvider } from '../../stores/tab-context';
-import { TabBar } from './TabBar';
+import { ContextPanelProvider, ContextPanel } from './ContextPanel';
 import { AiChatPanel } from '../ai/AiChatPanel';
 
 const navGroups = [
@@ -147,8 +146,7 @@ export function MainLayout() {
 
   return (
     <SplitProvider>
-      <ContextPanelProvider>
-        <div className="flex select-none" style={{ height: '100vh', overflow: 'hidden' }}>
+      <div className="flex select-none" style={{ height: '100vh', overflow: 'hidden' }}>
           {/* ===== Sidebar — fixed, manual toggle. Always 220px inner, transform for GPU animation (R218) ===== */}
           <aside
           className="flex shrink-0 flex-col border-r border-[var(--border-default)]"
@@ -170,7 +168,7 @@ export function MainLayout() {
               className="text-lg font-bold tracking-tight shrink-0"
               style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
             >
-              {sidebarCollapsed ? '~' : 'Idiot 精炼书房'}
+              {sidebarCollapsed ? '~' : 'Idiot'}
             </span>
           </div>
 
@@ -281,7 +279,7 @@ export function MainLayout() {
           </div>
 
           {/* User footer */}
-          <div className="border-t border-[var(--border-default)] p-2">
+          <div className="border-t border-[var(--border-default)] p-2" style={{ marginBottom: 24 }}>
             <div
               className="flex items-center justify-center gap-2.5 rounded-[4px] px-2 py-2"
               style={{ background: 'var(--bg-primary)' }}
@@ -316,15 +314,15 @@ export function MainLayout() {
           </div>
         </aside>
 
-        <MainContent />
-
-        {/* ===== Context Panel (right) ===== */}
-        <ContextPanel />
+        <ContextPanelProvider>
+          <MainContent />
+          <ContextPanel />
+        </ContextPanelProvider>
 
         {showShortcuts && <ShortcutHelpPanel onClose={() => setShowShortcuts(false)} />}
         <QuickSwitcher />
+        <QuickNav />
       </div>
-    </ContextPanelProvider>
     </SplitProvider>
   );
 }
@@ -341,7 +339,7 @@ function MainContent() {
   }, [location.pathname]);
 
   return (
-    <TabProvider>
+    <>
       <div className="flex flex-1 flex-col overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
         <header
           className="flex items-center border-b border-[var(--border-default)] px-6"
@@ -357,8 +355,6 @@ function MainContent() {
             <Bot size={18} />
           </button>
         </header>
-        {/* T2208: Tab bar below header */}
-        <TabBar />
         {isSplit ? (
           <SplitPane left={<Outlet />} right={rightContent} />
         ) : (
@@ -367,12 +363,11 @@ function MainContent() {
           </main>
         )}
       </div>
-      {/* T2204: AI Chat sliding panel */}
       {showChat && (
         <div className="fixed right-0 top-0 bottom-0 z-50 shadow-lg" style={{ width: 380, background: 'var(--bg-secondary)', borderLeft: '1px solid var(--border-default)' }}>
           <AiChatPanel onClose={() => setShowChat(false)} />
         </div>
       )}
-    </TabProvider>
+    </>
   );
 }

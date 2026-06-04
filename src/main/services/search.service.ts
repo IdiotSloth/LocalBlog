@@ -1,11 +1,7 @@
 import type { FtsSearchResult, IndexableDoc, SearchResult } from '../../shared/types';
 import { dbAll } from '../db';
-import { isUsingMySQL } from '../db';
 
 export class SearchService {
-  /**
-   * Legacy: global search returning old SearchResult format (used by existing GlobalSearch).
-   */
   static async globalSearch(userId: number, query: string): Promise<{ blogs: SearchResult[]; knowledge: SearchResult[] }> {
     const [blogs, knowledge] = await Promise.all([
       SearchService.searchBlogs(userId, query),
@@ -14,9 +10,6 @@ export class SearchService {
     return { blogs, knowledge };
   }
 
-  /**
-   * Legacy: blog search returning old SearchResult format.
-   */
   static async searchBlogs(userId: number, query: string): Promise<SearchResult[]> {
     const like = `%${query}%`;
     const rows = await dbAll<{ id: number; title: string; match_field: string }>(
@@ -25,39 +18,23 @@ export class SearchService {
        UNION
        SELECT id, title, 'content' as match_field FROM blogs
        WHERE user_id = ? AND status = 'active' AND content LIKE ?
-       UNION
-       SELECT id, title, 'content' as match_field FROM blogs
-       WHERE user_id = ? AND status = 'active' AND id IN (
-         SELECT blog_id FROM blog_drafts WHERE content LIKE ?
-       )
        LIMIT 20`,
-      [userId, like, userId, like, userId, like],
+      [userId, like, userId, like],
     );
-
     return rows.map((row) => ({
-      scope: 'blog' as const,
-      id: row.id,
-      title: row.title,
-      snippet: `匹配: ${row.match_field === 'title' ? '标题' : '正文'}`,
-      matchField: row.match_field,
+      scope: 'blog' as const, id: row.id, title: row.title,
+      snippet: `匹配: ${row.match_field === 'title' ? '标题' : '正文'}`, matchField: row.match_field,
     }));
   }
 
-  /**
-   * Legacy: knowledge search returning old SearchResult format.
-   */
   static async searchKnowledge(userId: number, query: string): Promise<SearchResult[]> {
     const like = `%${query}%`;
     const rows = await dbAll<{ id: number; title: string; match_field: string; content_text?: string }>(
       `SELECT id, filename as title, file_type as match_field, content_text FROM knowledge_files
        WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?)
-       ORDER BY
-         CASE WHEN filename LIKE ? THEN 0 ELSE 1 END,
-         created_at DESC
-       LIMIT 20`,
+       ORDER BY CASE WHEN filename LIKE ? THEN 0 ELSE 1 END, created_at DESC LIMIT 20`,
       [userId, like, like, like],
     );
-
     return rows.map((row) => {
       let snippet = `类型: ${row.match_field}`;
       if (row.content_text) {
@@ -65,195 +42,28 @@ export class SearchService {
         if (idx >= 0) {
           const start = Math.max(0, idx - 30);
           const end = Math.min(row.content_text.length, idx + query.length + 30);
-          snippet =
-            (start > 0 ? '...' : '') +
-            row.content_text.substring(start, end) +
-            (end < row.content_text.length ? '...' : '');
+          snippet = (start > 0 ? '...' : '') + row.content_text.substring(start, end) + (end < row.content_text.length ? '...' : '');
         }
       }
-      return {
-        scope: 'knowledge' as const,
-        id: row.id,
-        title: row.title,
-        snippet,
-        matchField: snippet.includes(query) ? 'content' : row.match_field,
-      };
+      return { scope: 'knowledge' as const, id: row.id, title: row.title, snippet, matchField: snippet.includes(query) ? 'content' : row.match_field };
     });
   }
 
-  /**
-   * Search all content using MySQL FULLTEXT (MySQL mode) or
-   * return indexable documents for Worker-based search (sql.js mode).
-   *
-   * When MySQL: performs MATCH ... AGAINST queries on blogs and knowledge_files.
-   * When sql.js: returns all active blogs + knowledge files for the Worker to index.
-   */
-  static async searchAll(query: string, userId: number): Promise<FtsSearchResult[] | null> {
-    if (isUsingMySQL()) {
-      return SearchService.mysqlFulltextSearch(query, userId);
-    }
-    // sql.js mode: Worker handles search in renderer. Return null so the
-    // renderer can distinguish "not MySQL" from "MySQL returned empty results".
+  /** Worker handles search in renderer; always returns null. */
+  static async searchAll(_query: string, _userId: number): Promise<FtsSearchResult[] | null> {
     return null;
   }
 
-  /**
-   * MySQL FULLTEXT search using MATCH ... AGAINST in natural language mode.
-   */
-  private static async mysqlFulltextSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
-    const escaped = query.replace(/[+\-<>()~*"@]/g, ' ').trim();
-    if (!escaped) return [];
-
-    const [blogs, knowledge] = await Promise.all([
-      SearchService.mysqlSearchBlogs(escaped, userId),
-      SearchService.mysqlSearchKnowledge(escaped, userId),
-    ]);
-
-    // Merge and sort by score descending
-    const merged = [...blogs, ...knowledge].sort((a, b) => b.score - a.score);
-    return merged.slice(0, 20);
-  }
-
-  private static async mysqlSearchBlogs(query: string, userId: number): Promise<FtsSearchResult[]> {
-    try {
-      const rows = await dbAll<{
-        id: number;
-        title: string;
-        content: string;
-        score: number;
-      }>(
-        `SELECT id, title, SUBSTRING(content, 1, 200) as content,
-                MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE) as score
-         FROM blogs
-         WHERE user_id = ? AND status = 'active'
-           AND MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)
-         ORDER BY score DESC
-         LIMIT 20`,
-        [query, userId, query],
-      );
-
-      // If FULLTEXT returned nothing and query has CJK chars, fall back to LIKE.
-      // ngram parser migration may not have run yet (pre-Phase-21 databases).
-      if (rows.length === 0 && SearchService.hasCjk(query)) {
-        return SearchService.fallbackBlogSearch(query, userId);
-      }
-
-      return rows.map((row) => ({
-        id: row.id,
-        type: 'blog' as const,
-        title: row.title,
-        snippet: (row.content || '').slice(0, 200),
-        score: Math.round((row.score || 0) * 1000) / 1000,
-      }));
-    } catch (err) {
-      console.warn('[SearchService] MySQL blog fulltext search failed, falling back to LIKE:', (err as Error).message);
-      return SearchService.fallbackBlogSearch(query, userId);
-    }
-  }
-
-  private static async mysqlSearchKnowledge(query: string, userId: number): Promise<FtsSearchResult[]> {
-    try {
-      const rows = await dbAll<{
-        id: number;
-        title: string;
-        content_text: string;
-        score: number;
-      }>(
-        `SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text,
-                MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE) as score
-         FROM knowledge_files
-         WHERE user_id = ? AND status = 'active'
-           AND MATCH(filename, content_text) AGAINST(? IN NATURAL LANGUAGE MODE)
-         ORDER BY score DESC
-         LIMIT 20`,
-        [query, userId, query],
-      );
-
-      if (rows.length === 0 && SearchService.hasCjk(query)) {
-        return SearchService.fallbackKnowledgeSearch(query, userId);
-      }
-
-      return rows.map((row) => ({
-        id: row.id,
-        type: 'knowledge' as const,
-        title: row.title,
-        snippet: (row.content_text || '').slice(0, 200),
-        score: Math.round((row.score || 0) * 1000) / 1000,
-      }));
-    } catch (err) {
-      console.warn('[SearchService] MySQL knowledge fulltext search failed, falling back to LIKE:', (err as Error).message);
-      return SearchService.fallbackKnowledgeSearch(query, userId);
-    }
-  }
-
-  private static fallbackBlogSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
-    const like = `%${query}%`;
-    return dbAll<{ id: number; title: string; content: string }>(
-      "SELECT id, title, SUBSTRING(content, 1, 200) as content FROM blogs WHERE user_id = ? AND status = 'active' AND (title LIKE ? OR content LIKE ?) LIMIT 20",
-      [userId, like, like],
-    ).then((rows) =>
-      rows.map((r) => ({
-        id: r.id,
-        type: 'blog' as const,
-        title: r.title,
-        snippet: (r.content || '').slice(0, 200),
-        score: 0,
-      })),
-    );
-  }
-
-  private static fallbackKnowledgeSearch(query: string, userId: number): Promise<FtsSearchResult[]> {
-    const like = `%${query}%`;
-    return dbAll<{ id: number; filename: string; content_text: string }>(
-      "SELECT id, filename as title, SUBSTRING(content_text, 1, 200) as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active' AND (filename LIKE ? OR content_text LIKE ?) LIMIT 20",
-      [userId, like, like],
-    ).then((rows) =>
-      rows.map((r) => ({
-        id: r.id,
-        type: 'knowledge' as const,
-        title: r.title,
-        snippet: (r.content_text || '').slice(0, 200),
-        score: 0,
-      })),
-    );
-  }
-
-  /** Returns true if the string contains any CJK character */
-  private static hasCjk(s: string): boolean {
-    return /[一-鿿㐀-䶿豈-﫿]/.test(s);
-  }
-
-  /**
-   * Get all indexable documents for the Worker to build its inverted index.
-   * Used in sql.js mode.
-   */
   static async getIndexableDocuments(userId: number): Promise<IndexableDoc[]> {
     const [blogs, knowledge] = await Promise.all([
       dbAll<{ id: number; title: string; content: string }>(
-        "SELECT id, title, COALESCE(content, '') as content FROM blogs WHERE user_id = ? AND status = 'active'",
-        [userId],
-      ),
+        "SELECT id, title, COALESCE(content, '') as content FROM blogs WHERE user_id = ? AND status = 'active'", [userId]),
       dbAll<{ id: number; filename: string; content_text: string }>(
-        "SELECT id, filename, COALESCE(content_text, '') as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active'",
-        [userId],
-      ),
+        "SELECT id, filename, COALESCE(content_text, '') as content_text FROM knowledge_files WHERE user_id = ? AND status = 'active'", [userId]),
     ]);
-
-    const docs: IndexableDoc[] = [
-      ...blogs.map((b) => ({
-        id: b.id,
-        docType: 'blog' as const,
-        title: b.title,
-        content: b.content || '',
-      })),
-      ...knowledge.map((k) => ({
-        id: k.id,
-        docType: 'knowledge' as const,
-        title: k.filename,
-        content: k.content_text || '',
-      })),
+    return [
+      ...blogs.map((b) => ({ id: b.id, docType: 'blog' as const, title: b.title, content: b.content || '' })),
+      ...knowledge.map((k) => ({ id: k.id, docType: 'knowledge' as const, title: k.filename, content: k.content_text || '' })),
     ];
-
-    return docs;
   }
 }

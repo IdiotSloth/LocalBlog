@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Search, StickyNote, PenLine, FolderOpen, Hash, Database, ArrowRight, CheckSquare, Plus, Layout, Clock, FileText } from 'lucide-react';
+import { Calendar, Search, StickyNote, PenLine, FolderOpen, Hash, ArrowRight, CheckSquare, Plus, Layout, Clock, FileText } from 'lucide-react';
 import type { DraftItem, LastBlog, Note, RecentFile, UserStats } from '../../../shared/types';
-import { MiniGraph } from '../../components/common/MiniGraph';
 import { getRecentBlogs, type RecentBlogEntry } from '../../hooks/useRecentHistory';
 import { useSavedQueries } from '../../hooks/useSavedQueries';
 import { useAuthStore } from '../../stores/auth-store';
@@ -267,62 +266,53 @@ export function HomePage() {
         ))}
       </div>
 
-      {/* ═══ Daily Note + Todos side-by-side ═══ */}
-      <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {/* Daily Note */}
+      {/* ═══ Calendar + Detail Panel (D136=A — permanent split) ═══ */}
+      <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: 'minmax(420px, 3fr) 2fr' }}>
+        {/* Calendar — large, dominant */}
         <section className="rounded-[14px] border p-6" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-          <div className="mb-4 flex items-center gap-3">
-            <StickyNote size={20} style={{ color: 'var(--accent-blue)' }} />
-            <div>
-              <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>今日便签</h2>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{todayStr()}</p>
+          <CalendarView onDateSelect={handleCalendarDateSelect} />
+          {dateSchedules.length > 0 && (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
+              <p className="text-[12px] font-medium mb-1" style={{ color: 'var(--accent-green)' }}>
+                {selectedDate} 行程 ({dateSchedules.length})
+              </p>
+              {dateSchedules.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-[13px] py-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)', display: 'inline-block', flexShrink: 0 }} />
+                  <span>{s.title || s.content?.slice(0, 60)}</span>
+                </div>
+              ))}
             </div>
-          </div>
-          {dailyLoading ? (
-            <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-          ) : (
-            <>
-              <textarea value={dailyInput} onChange={(e) => setDailyInput(e.target.value)}
-                placeholder="记录今天的想法..."
-                aria-label="今日便签内容"
-                className="w-full rounded-[8px] border p-4 text-[14px] leading-relaxed resize-none outline-none transition-all focus:border-[var(--accent-blue)]"
-                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', minHeight: 160 }} />
-              <button type="button" onClick={handleSaveDaily}
-                className="mt-3 rounded-[6px] px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-85"
-                style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
-                {dailyNote ? '更新今日便签' : '保存今日便签'}
-              </button>
-            </>
           )}
         </section>
 
-        {/* Todos */}
-        <section className="rounded-[14px] border p-6" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-          <div className="mb-4 flex items-center gap-3">
-            <CheckSquare size={20} style={{ color: 'var(--accent-green)' }} />
-            <div>
-              <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>待办</h2>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{todos.length > 0 ? `${todos.length} 项待完成` : '暂无待办事项'}</p>
+        {/* Right detail panel — todos + notes for selected date */}
+        <section className="rounded-[14px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+          <h3 className="text-[15px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+            {selectedDate === todayStr() ? '今日详情' : selectedDate}
+          </h3>
+
+          {/* Todos for selected date */}
+          <div className="flex items-center gap-2 mb-2">
+              <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: '#e08b4a' }} />
+              <span className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>待办</span>
             </div>
-          </div>
-          <div className="mb-3 flex gap-2">
-            <input type="text" value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()}
-              placeholder="添加待办事项..." aria-label="添加待办事项"
-              className="flex-1 rounded-[6px] border px-3 py-2 text-[13px] outline-none transition-all focus:border-[var(--accent-blue)]"
-              style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
-            <button type="button" onClick={handleAddTodo} disabled={!todoInput.trim() || todoSaving}
-              className="rounded-[6px] px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-85 disabled:opacity-40"
-              style={{ background: 'var(--accent-blue)', color: 'var(--text-on-accent)' }}>
-              {todoSaving ? '...' : '添加'}
-            </button>
-          </div>
-          {todosLoading ? (
-            <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
-          ) : todos.length === 0 ? (
-            <div className="rounded-[8px] border border-dashed p-6 text-center" style={{ borderColor: 'var(--border-default)' }}>
-              <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无待办事项 — 在上方输入框添加</p>
+            <div className="mb-2 flex gap-1.5">
+              <input type="text" value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()}
+                placeholder="添加待办..." aria-label="添加待办事项"
+                className="flex-1 rounded-[4px] border px-2.5 py-1.5 text-[12px] outline-none"
+                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
+              <button type="button" onClick={handleAddTodo} disabled={!todoInput.trim() || todoSaving}
+                className="rounded-[4px] px-3 py-1.5 text-[12px] font-medium hover:opacity-90 disabled:opacity-40"
+                style={{ background: 'var(--accent-blue)', color: '#fff' }}>
+                {todoSaving ? '...' : '+'}
+              </button>
             </div>
-          ) : (
+            {todosLoading ? (
+              <p className="text-[12px] py-2" style={{ color: 'var(--text-secondary)' }}>加载中...</p>
+            ) : todos.length === 0 ? (
+              <p className="text-[12px] py-2" style={{ color: 'var(--text-muted)' }}>暂无待办</p>
+            ) : (
             <div className="space-y-1 max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
               {todos.map((todo) => {
                 const isCompleted = completedTodoIds.has(todo.id);
@@ -475,45 +465,6 @@ export function HomePage() {
         </div>
       )}
 
-      {/* ═══ Calendar + MiniGraph ═══ */}
-      <div className="mb-8 grid gap-6" style={{ gridTemplateColumns: '2fr 1fr' }}>
-        {/* Calendar */}
-        <section className="rounded-[14px] border p-6 md:p-8" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-          <div className="mb-5 flex items-center gap-3">
-            <Calendar size={20} style={{ color: 'var(--text-secondary)' }} />
-            <div>
-              <h2 className="text-[18px] font-semibold" style={{ color: 'var(--text-primary)' }}>日历</h2>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>蓝点 = 每日便签 · 绿点 = 日程 · 蓝+绿 = 两者都有</p>
-            </div>
-          </div>
-          <CalendarView onDateSelect={handleCalendarDateSelect} />
-          {dateSchedules.length > 0 && (
-            <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
-              <p className="text-[12px] font-medium mb-1" style={{ color: 'var(--accent-green)' }}>
-                {selectedDate} 行程 ({dateSchedules.length})
-              </p>
-              {dateSchedules.map((s) => (
-                <div key={s.id} className="flex items-center gap-2 text-[13px] py-0.5" style={{ color: 'var(--text-secondary)' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)', display: 'inline-block', flexShrink: 0 }} />
-                  <span>{s.title || s.content?.slice(0, 60)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* MiniGraph */}
-        <section className="rounded-[14px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
-          <div className="mb-4 flex items-center gap-3">
-            <Database size={20} style={{ color: 'var(--text-secondary)' }} />
-            <div>
-              <h2 className="text-[16px] font-semibold" style={{ color: 'var(--text-primary)' }}>关系图谱</h2>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>知识连接概览</p>
-            </div>
-          </div>
-          {user && <MiniGraph userId={user.id} />}
-        </section>
-      </div>
     </div>
   );
 }

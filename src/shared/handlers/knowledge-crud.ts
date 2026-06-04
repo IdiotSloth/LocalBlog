@@ -1,7 +1,7 @@
 /** Shared knowledge CRUD SQL builders -- used by both Electron main IPC and Express server routes.
  *  Eliminates duplicate SQL strings between knowledge.service.ts and server/routes/knowledge.ts. */
 
-import { nowMySQL } from '../datetime';
+import { nowTimestamp } from '../datetime';
 import type { SqlParams } from './blog-crud';
 export type { SqlParams };
 
@@ -18,7 +18,7 @@ export function buildKnowledgeSelectByUser(id: number, userId: number): SqlParam
 /** INSERT INTO knowledge_files (...) VALUES (...)
  *  userId, filename, filePath, fileType, fileSize, contentText */
 export function buildKnowledgeCreate(userId: number, filename: string, filePath: string, fileType: string, fileSize: number, contentText: string): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'INSERT INTO knowledge_files (user_id, filename, file_path, file_type, file_size, content_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     params: [userId, filename, filePath, fileType, fileSize, contentText, now, now],
@@ -27,7 +27,7 @@ export function buildKnowledgeCreate(userId: number, filename: string, filePath:
 
 /** Soft-delete: UPDATE knowledge_files SET status='trash', updated_at=? WHERE id = ? AND user_id = ? */
 export function buildKnowledgeDelete(id: number, userId: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId],
@@ -36,7 +36,7 @@ export function buildKnowledgeDelete(id: number, userId: number): SqlParams {
 
 /** Soft-delete without userId guard: UPDATE knowledge_files SET status='trash', updated_at=? WHERE id = ? */
 export function buildKnowledgeDeleteById(id: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'trash', updated_at = ? WHERE id = ?",
     params: [now, id],
@@ -45,7 +45,7 @@ export function buildKnowledgeDeleteById(id: number): SqlParams {
 
 /** Restore: UPDATE knowledge_files SET status='active', updated_at=? WHERE id = ? AND user_id = ? */
 export function buildKnowledgeRestore(id: number, userId: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId],
@@ -54,7 +54,7 @@ export function buildKnowledgeRestore(id: number, userId: number): SqlParams {
 
 /** Restore without userId guard: UPDATE knowledge_files SET status='active', updated_at=? WHERE id = ? */
 export function buildKnowledgeRestoreById(id: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE knowledge_files SET status = 'active', updated_at = ? WHERE id = ?",
     params: [now, id],
@@ -63,7 +63,7 @@ export function buildKnowledgeRestoreById(id: number): SqlParams {
 
 /** Rename: UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ? AND user_id = ? */
 export function buildKnowledgeRename(id: number, userId: number, filename: string, filePath: string): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'UPDATE knowledge_files SET filename = ?, file_path = ?, updated_at = ? WHERE id = ? AND user_id = ?',
     params: [filename, filePath, now, id, userId],
@@ -72,7 +72,7 @@ export function buildKnowledgeRename(id: number, userId: number, filename: strin
 
 /** Rename filename only: UPDATE knowledge_files SET filename = ?, updated_at = ? WHERE id = ? AND user_id = ? */
 export function buildKnowledgeRenameFilename(id: number, userId: number, filename: string): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'UPDATE knowledge_files SET filename = ?, updated_at = ? WHERE id = ? AND user_id = ?',
     params: [filename, now, id, userId],

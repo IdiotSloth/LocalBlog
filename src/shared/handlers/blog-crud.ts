@@ -1,7 +1,7 @@
 /** Shared blog CRUD SQL builders -- used by both Electron main IPC and Express server routes.
  *  Eliminates duplicate SQL strings between blog.service.ts and server/routes/blog.ts. */
 
-import { nowMySQL } from '../datetime';
+import { nowTimestamp } from '../datetime';
 import type { Blog, BlogFormat, ItemStatus } from '../types';
 
 export interface SqlParams {
@@ -20,8 +20,14 @@ export function buildBlogSelectByUser(id: number, userId: number): SqlParams {
 }
 
 /** INSERT INTO blogs (...) VALUES (...) */
-export function buildBlogCreate(userId: number, title: string, format: string, content: string): SqlParams {
-  const now = nowMySQL();
+export function buildBlogCreate(userId: number, title: string, format: string, content: string, seriesId?: string, seriesName?: string): SqlParams {
+  const now = nowTimestamp();
+  if (seriesId) {
+    return {
+      sql: 'INSERT INTO blogs (user_id, title, format, content, series_id, series_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      params: [userId, title, format, content, seriesId, seriesName || '', now, now],
+    };
+  }
   return {
     sql: 'INSERT INTO blogs (user_id, title, format, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
     params: [userId, title, format, content, now, now],
@@ -31,7 +37,7 @@ export function buildBlogCreate(userId: number, title: string, format: string, c
 /** UPDATE blogs SET title = ?, content = ?, format = ?, updated_at = ? WHERE id = ? AND user_id = ?
  *  Full-field update; for partial updates callers should build inline. */
 export function buildBlogUpdate(id: number, userId: number, title: string, content: string, format: string): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'UPDATE blogs SET title = ?, content = ?, format = ?, updated_at = ? WHERE id = ? AND user_id = ?',
     params: [title, content, format, now, id, userId],
@@ -40,7 +46,7 @@ export function buildBlogUpdate(id: number, userId: number, title: string, conte
 
 /** Soft-delete: UPDATE blogs SET status='trash', updated_at=? WHERE id = ? AND user_id = ? */
 export function buildBlogDelete(id: number, userId: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId],
@@ -49,7 +55,7 @@ export function buildBlogDelete(id: number, userId: number): SqlParams {
 
 /** Soft-delete without userId guard (used after ownership check): UPDATE blogs SET status='trash', updated_at=? WHERE id = ? */
 export function buildBlogDeleteById(id: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'trash', updated_at = ? WHERE id = ?",
     params: [now, id],
@@ -58,7 +64,7 @@ export function buildBlogDeleteById(id: number): SqlParams {
 
 /** Restore: UPDATE blogs SET status='active', updated_at=? WHERE id = ? AND user_id = ? */
 export function buildBlogRestore(id: number, userId: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ? AND user_id = ?",
     params: [now, id, userId],
@@ -67,7 +73,7 @@ export function buildBlogRestore(id: number, userId: number): SqlParams {
 
 /** Restore without userId guard: UPDATE blogs SET status='active', updated_at=? WHERE id = ? */
 export function buildBlogRestoreById(id: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: "UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?",
     params: [now, id],
@@ -76,7 +82,7 @@ export function buildBlogRestoreById(id: number): SqlParams {
 
 /** INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?) */
 export function buildBlogDraftInsert(blogId: number, content: string): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'INSERT INTO blog_drafts (blog_id, content, saved_at) VALUES (?, ?, ?)',
     params: [blogId, content, now],
@@ -85,7 +91,7 @@ export function buildBlogDraftInsert(blogId: number, content: string): SqlParams
 
 /** INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?) */
 export function buildRecycleInsert(userId: number, itemType: string, itemId: number): SqlParams {
-  const now = nowMySQL();
+  const now = nowTimestamp();
   return {
     sql: 'INSERT INTO recycle_bin (user_id, item_type, item_id, deleted_at) VALUES (?, ?, ?, ?)',
     params: [userId, itemType, itemId, now],

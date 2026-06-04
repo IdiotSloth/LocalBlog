@@ -14,7 +14,7 @@ export class StatsService {
       [userId],
     );
 
-    // Hour-based stats calculated from raw data (portable across SQLite/MySQL)
+    // Hour-based stats calculated from raw data
     const timestamps = await dbAll<{ created_at: string }>(
       "SELECT created_at FROM blogs WHERE user_id = ? AND status = 'active'",
       [userId],

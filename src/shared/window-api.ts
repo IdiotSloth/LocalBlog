@@ -190,14 +190,12 @@ export interface WindowApi {
   noteDelete(data: { userId: number; noteId: number }): Promise<ApiResponse<void>>;
   notePin(data: { userId: number; noteId: number }): Promise<ApiResponse<Note>>;
   noteClipboard(): Promise<ApiResponse<string>>;
+  noteImageSave(data: { userId: number; base64: string }): Promise<ApiResponse<string>>;
 
   // Continue Writing
   continueGetDrafts(userId: number): Promise<ApiResponse<DraftItem[]>>;
   continueGetLastBlog(userId: number): Promise<ApiResponse<LastBlog | null>>;
   continueGetRecentFiles(userId: number): Promise<ApiResponse<RecentFile[]>>;
-
-  // Graph (Phase 20C)
-  graphGetData(userId: number, filter?: import('./types').GraphFilter): Promise<ApiResponse<import('./types').GraphData>>;
 
   // File System
   selectFiles(exts: string[]): Promise<string[] | undefined>;

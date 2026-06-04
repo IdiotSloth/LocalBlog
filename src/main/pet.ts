@@ -560,7 +560,6 @@ export function createPet(win: BrowserWindow): void {
   if (petWin && !petWin.isDestroyed()) petWin.close();
 
   const pos = loadPosition();
-  const images = ensurePetImages();
   const preloadPath = path.join(app.getPath('userData'), 'pet-preload.js');
 
   // Write pet HTML — always regenerate to pick up image path changes
@@ -568,33 +567,47 @@ export function createPet(win: BrowserWindow): void {
   try { fs.writeFileSync(
     petHtmlPath,
     `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{margin:0;overflow:hidden;background:transparent}
-#pet{width:128px;height:128px;background:url('${images.static}') center/contain no-repeat;transition:transform .08s linear;cursor:grab;user-select:none;-webkit-user-drag:none}
-#pet:active{cursor:grabbing}
-@keyframes idle-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-#pet.idle{animation:idle-breathe 2.5s ease-in-out infinite}
-#pet.dragging{background-image:url('${images.drug}');animation:none;transform:scale(1.08)}
-@keyframes click-pop{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
-#pet.clicked{animation:click-pop .2s ease}
-#pet:hover{transform:scale(1.05)}
-#pet.dragging:hover{transform:scale(1.08)}
-</style></head><body><div id="pet" class="idle"></div>
-<script>
-let mouseDownPos=null,hasMoved=false;
-const pet=document.getElementById('pet');
-pet.addEventListener('mousedown',e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;pet.classList.add('dragging');pet.classList.remove('idle','clicked');window.petApi?.startDrag()});
-window.addEventListener('mousemove',e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
-window.addEventListener('mouseup',()=>{if(!mouseDownPos)return;pet.classList.remove('dragging');window.petApi?.stopDrag();if(!hasMoved){pet.classList.add('clicked');setTimeout(()=>pet.classList.remove('clicked'),200);pet.classList.add('idle');window.petApi?.onClick()}else{pet.classList.add('idle');window.petApi?.savePosition()}mouseDownPos=null});
-</script></html>`,
+	*{margin:0;padding:0;box-sizing:border-box}
+	body{margin:0;overflow:hidden;background:transparent}
+	#orb{width:80px;height:80px;margin:24px;border-radius:50%;cursor:grab;user-select:none;-webkit-user-drag:none;transition:transform .15s ease,box-shadow .15s ease;
+	  background:radial-gradient(circle at 35% 35%,rgba(96,165,250,.9),rgba(59,130,246,.6) 40%,rgba(37,99,235,.4) 70%,rgba(29,78,216,.2));
+	  box-shadow:0 0 20px rgba(59,130,246,.4),0 0 60px rgba(59,130,246,.15),inset 0 -4px 12px rgba(0,0,0,.15)}
+	#orb:active{cursor:grabbing}
+	@keyframes breathe{0%,100%{transform:scale(1) translateY(0)}50%{transform:scale(1.04) translateY(-3px)}}
+	#orb.idle{animation:breathe 3s ease-in-out infinite}
+	@keyframes spin{0%{transform:rotate(0deg) scale(1.03)}100%{transform:rotate(360deg) scale(1.03)}}
+	#orb.thinking{animation:spin 1.5s linear infinite;box-shadow:0 0 30px rgba(59,130,246,.6),0 0 80px rgba(147,51,234,.3),inset 0 -4px 12px rgba(0,0,0,.15)}
+	#orb.dragging{animation:none;transform:scale(.9);box-shadow:0 0 8px rgba(59,130,246,.25),0 0 24px rgba(59,130,246,.08)}
+	@keyframes pop{0%{transform:scale(1)}40%{transform:scale(.88)}100%{transform:scale(1)}}
+	#orb.clicked{animation:pop .25s ease}
+	#orb:hover{transform:scale(1.06)}
+	#orb.dragging:hover{transform:scale(.9)}
+	@keyframes vortex{0%{transform:scale(1.1) rotate(0deg);box-shadow:0 0 40px rgba(59,130,246,.7),0 0 100px rgba(147,51,234,.4)}100%{transform:scale(1.15) rotate(360deg);box-shadow:0 0 60px rgba(59,130,246,.9),0 0 140px rgba(147,51,234,.6)}}
+	#orb.drop-active{animation:vortex .8s linear infinite;cursor:copy}
+	</style></head><body><div id="orb" class="idle"></div>
+	<script>
+	let mouseDownPos=null,hasMoved=false;
+	const orb=document.getElementById("orb");
+	orb.addEventListener("mousedown",e=>{mouseDownPos={x:e.screenX,y:e.screenY};hasMoved=false;orb.classList.add("dragging");orb.classList.remove("idle","clicked","drop-active");window.petApi?.startDrag()});
+	window.addEventListener("mousemove",e=>{if(!mouseDownPos)return;if(Math.abs(e.screenX-mouseDownPos.x)>5||Math.abs(e.screenY-mouseDownPos.y)>5)hasMoved=true});
+	window.addEventListener("mouseup",()=>{if(!mouseDownPos)return;orb.classList.remove("dragging");window.petApi?.stopDrag();if(!hasMoved){orb.classList.add("clicked");setTimeout(()=>orb.classList.remove("clicked"),250);orb.classList.add("idle");window.petApi?.onClick()}else{orb.classList.add("idle");window.petApi?.savePosition()}mouseDownPos=null});
+	orb.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();orb.classList.add("drop-active");orb.classList.remove("idle")});
+	orb.addEventListener("dragleave",()=>{orb.classList.remove("drop-active");orb.classList.add("idle")});
+	orb.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();orb.classList.remove("drop-active");orb.classList.add("idle");
+	  const files=Array.from(e.dataTransfer.files||[]).map(f=>({name:f.name,path:f.path||"",size:f.size}));
+	  const text=e.dataTransfer.getData("text/plain")||"";
+	  const html=e.dataTransfer.getData("text/html")||"";
+	  const url=e.dataTransfer.getData("text/uri-list")||"";
+	  if(files.length||text||url)window.petApi?.onDrop({files,text,html,url});
+	});
+	</script></html>`,
   ); } catch { /* best-effort */ }
-
   // Write preload if not built
   if (!fs.existsSync(preloadPath)) {
     fs.mkdirSync(path.dirname(preloadPath), { recursive: true });
     try { fs.writeFileSync(
       preloadPath,
-      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}')});`,
+      `const{contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('petApi',{startDrag:()=>ipcRenderer.send('${IPC.PET_START_DRAG}'),stopDrag:()=>ipcRenderer.send('${IPC.PET_STOP_DRAG}'),onClick:()=>ipcRenderer.send('${IPC.PET_CLICK}'),savePosition:()=>ipcRenderer.send('${IPC.PET_SAVE_POSITION}'),onDrop:(data)=>ipcRenderer.send('pet:drop',data)});`,
     ); } catch { /* best-effort */ }
   }
 
@@ -726,6 +739,46 @@ function registerPetIpc(): void {
     if (petWin && !petWin.isDestroyed()) {
       petMenu().popup({ window: petWin, x: 64, y: 64 });
     }
+  });
+
+  // D125: Drop Zone handler — auto-classify and store dropped content
+  ipcMain.on('pet:drop', async (_e, data: { files?: { name: string; path: string; size: number }[]; text?: string; url?: string }) => {
+    try {
+      const uid = await getUserId();
+      // File drop → KB import
+      if (data.files?.length) {
+        const KB_EXTENSIONS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'txt', 'md', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+        const validPaths = data.files.filter((f) => {
+          const ext = f.name.split('.').pop()?.toLowerCase() || '';
+          return KB_EXTENSIONS.includes(ext);
+        }).map((f) => f.path).filter(Boolean);
+        if (validPaths.length > 0) {
+          const { KnowledgeService } = await import('./services/knowledge.service');
+          await KnowledgeService.importFiles(uid, validPaths);
+          new Notification({ title: 'Orb Drop', body: `已导入 ${validPaths.length} 个文件到知识库` }).show();
+        }
+      }
+      // Text drop → save as note
+      if (data.text && data.text.trim().length <= 10000) {
+        const { NoteService } = await import('./services/note.service');
+        await NoteService.createNote(uid, data.text.trim().slice(0, 10000), 'orb-drop');
+        new Notification({ title: 'Orb Drop', body: '已保存为便签' }).show();
+      }
+      // URL drop → only allow http/https, reject dangerous protocols
+      if (data.url) {
+        const urlStr = data.url.trim();
+        let parsed: URL;
+        try { parsed = new URL(urlStr); } catch { return; }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+        const hostname = parsed.hostname;
+        if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|localhost$)/.test(hostname)) return;
+        // Dispatch to main window for web scraping
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC.EVT_NAVIGATE, `/blog?url=${encodeURIComponent(urlStr)}`);
+          new Notification({ title: 'Orb Drop', body: '已打开剪藏' }).show();
+        }
+      }
+    } catch (e) { console.error('[Orb Drop]', e); }
   });
 }
 

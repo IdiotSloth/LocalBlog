@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ipcMain, type WebContents } from 'electron';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import { IPC } from '../../shared/ipc-channels';
 import { dbGet, dbRun } from '../db';
 import { syncWikilinkRefs } from './blog';
@@ -167,7 +167,7 @@ export function registerKnowledgeHandlers(): void {
       await fs.promises.writeFile(resolved, data.content, 'utf-8');
 
       // 4. Update content_text in DB
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun('UPDATE knowledge_files SET content_text = ?, updated_at = ? WHERE id = ? AND user_id = ?', [
         data.content, now, data.fileId, data.userId,
       ]);

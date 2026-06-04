@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge, useNodesState, useEdgesState, addEdge, type Connection, Panel, BackgroundVariant, useReactFlow, ReactFlowProvider } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge, type NodeMouseHandler, useNodesState, useEdgesState, addEdge, type Connection, Panel, BackgroundVariant, useReactFlow, ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useNavigate } from 'react-router-dom';
 import { FileEdit, Library, Bookmark } from 'lucide-react';
@@ -71,7 +71,14 @@ function LinkNode({ data }: { data: { label: string; color: string; refType: str
   );
 }
 
+interface WbNodeData { label: string; color: string; status?: string; refType?: string; refId?: number }
+
 const nodeTypes = { idea: IdeaNode, task: TaskNode, text: TextNode, blogLink: LinkNode, kbLink: LinkNode, bookmarkLink: LinkNode };
+
+function getNodeData(n: { data: unknown }): WbNodeData {
+  const d = n.data as Record<string, unknown>;
+  return { label: String(d.label || ''), color: String(d.color || 'blue'), status: String(d.status || ''), refType: String(d.refType || ''), refId: Number(d.refId) || undefined };
+}
 
 export function WhiteboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -178,8 +185,8 @@ export function WhiteboardPage() {
   };
 
   // Double-click to edit node title
-  const handleNodeDoubleClick = useCallback((_event: any, node: Node) => {
-    const d = node.data as any;
+  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    const d = getNodeData(node);
     // T2307: Link nodes — navigate to source on single-click, edit with quickInput on double-click
     if (node.type === 'blogLink' || node.type === 'kbLink' || node.type === 'bookmarkLink') {
       if (d.refType === 'blog') navigate(`/blog/${d.refId}`);
@@ -189,7 +196,7 @@ export function WhiteboardPage() {
           if (v && v.trim() && d.refId && user) {
             setNodes((nds) => nds.map((n) => n.id === node.id ? { ...n, data: { ...n.data, label: v.trim() } } : n));
             window.api.whiteboardNodeUpdate({ id: Number(node.id), userId: user.id, title: v.trim() });
-            window.api.kbRename({ fileId: d.refId, userId: user.id, filename: v.trim() } as any).catch(() => {});
+            window.api.kbRename({ fileId: d.refId, userId: user.id, filename: v.trim() }).catch(() => {});
           }
           setQuickInput(null);
         }});
@@ -217,14 +224,14 @@ export function WhiteboardPage() {
     }, 50);
   }, [user, navigate]);
 
-  const handleNodeDragStop = useCallback((_event: any, node: Node) => {
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
     if (user) {
       window.api.whiteboardNodeUpdate({ id: Number(node.id), userId: user.id, x: node.position.x, y: node.position.y });
     }
   }, [user]);
 
   // T2307: Double-click on empty canvas to create idea
-  const handlePaneDoubleClick = useCallback((_event: any) => {
+  const handlePaneDoubleClick = useCallback((_event: React.MouseEvent) => {
     // React Flow handles pane clicks via onDoubleClick on the wrapper
   }, []);
 
@@ -237,7 +244,7 @@ export function WhiteboardPage() {
 
   const handleCtxConvert = async (newType: string) => {
     if (!ctxNode || !user) return;
-    const d = ctxNode.data as any;
+    const d = getNodeData(ctxNode);
     const id = Number(ctxNode.id);
     if (newType === 'blog' || newType === 'note' || newType === 'task') {
       // Create actual content from idea node
@@ -343,9 +350,9 @@ function WhiteboardCanvas({
         onNodeContextMenu={onNodeContextMenu}
         onDoubleClick={() => addNode('idea', '新想法', 'blue')}
         onDragOver={onDragOver} onDrop={onDrop}
-        onNodeClick={(_event: any, node: Node) => {
+        onNodeClick={(_event: React.MouseEvent, node: Node) => {
           if (node.type === 'task' && user) {
-            const cur = (node.data as any).status || 'todo';
+            const cur = getNodeData(node).status || 'todo';
             const next = cur === 'todo' ? 'in_progress' : cur === 'in_progress' ? 'done' : 'todo';
             setNodes((nds) => nds.map((n) => n.id === node.id ? { ...n, data: { ...n.data, status: next } } : n));
             window.api.whiteboardNodeUpdate({ id: Number(node.id), userId: user.id, taskStatus: next });
@@ -355,7 +362,7 @@ function WhiteboardCanvas({
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--border-default)" />
         <Controls style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: 8 }} />
         <MiniMap style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }} nodeColor={(n) => {
-          const c = nodeColor((n.data as any)?.color || 'blue');
+          const c = nodeColor(getNodeData(n).color || 'blue');
           const el = document.documentElement;
           const varName = c.replace('var(', '').replace(')', '').trim();
           return getComputedStyle(el).getPropertyValue(varName).trim() || '#58a6ff';
@@ -438,7 +445,7 @@ function WhiteboardCanvas({
         <div className="fixed z-50 rounded-[6px] border shadow-lg py-1 min-w-[140px]"
           style={{ left: ctxPos.x, top: ctxPos.y, background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
           <div className="px-3 py-1 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-            {(ctxNode.data as any).label?.slice(0, 20)}
+            {getNodeData(ctxNode).label?.slice(0, 20)}
           </div>
           <div className="my-0.5 border-t" style={{ borderColor: 'var(--border-default)' }} />
           {ctxNode.type !== 'task' && (

@@ -202,13 +202,12 @@ const api: WindowApi = {
   noteDelete: (data) => ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => ipcRenderer.invoke(IPC.NOTE_PIN, data),
   noteClipboard: () => ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
+  noteImageSave: (data: { userId: number; base64: string }) => ipcRenderer.invoke(IPC.NOTE_IMAGE_SAVE, data),
 
   // Continue Writing
   continueGetDrafts: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
   continueGetLastBlog: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
   continueGetRecentFiles: (userId) => ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
-  graphGetData: (userId, filter) => ipcRenderer.invoke(IPC.GRAPH_GET_DATA, userId, filter),
-
   // File System Dialogs
   selectFiles: (exts) => ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),

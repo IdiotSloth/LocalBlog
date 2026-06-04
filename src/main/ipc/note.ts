@@ -1,8 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { clipboard, ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import type { MemoType } from '../../shared/types';
 import { syncWikilinkRefs } from './blog';
 import { NoteService } from '../services/note.service';
+import { getWorkspacePath } from '../utils/paths';
 
 let noteRefreshTarget: Electron.WebContents | null = null;
 
@@ -56,9 +59,42 @@ export function registerNoteHandlers(): void {
 
   ipcMain.handle(IPC.NOTE_DELETE, async (_event, data: { userId: number; noteId: number }) => {
     try {
+      // D140 cascade: delete referenced images before deleting the note
+      const notes = await NoteService.listNotes(data.userId);
+      const note = notes.find((n) => n.id === data.noteId);
+      if (note?.content) {
+        const imgRe = /!\[.*?\]\(notes-images\/([^)]+)\)/g;
+        let m;
+        const workspace = await getWorkspacePath(data.userId);
+        const imgDir = path.join(workspace, 'notes-images');
+        while ((m = imgRe.exec(note.content)) !== null) {
+          const imgPath = path.join(imgDir, m[1]!);
+          if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+        }
+      }
       await NoteService.deleteNote(data.userId, data.noteId);
       broadcastRefresh();
       return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle(IPC.NOTE_IMAGE_SAVE, async (_event, data: { userId: number; base64: string }) => {
+    try {
+      const workspace = await getWorkspacePath(data.userId);
+      const imgDir = path.join(workspace, 'notes-images');
+      if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+      // Validate: only accept data:image/... base64
+      if (!data.base64.startsWith('data:image/')) return { success: false, error: '仅支持图片粘贴' };
+      const ext = data.base64.match(/^data:image\/(\w+);/)?.[1] || 'png';
+      const filename = `${crypto.randomUUID()}.${ext}`;
+      const filePath = path.join(imgDir, filename);
+      // Path traversal guard
+      if (!path.resolve(filePath).startsWith(path.resolve(workspace))) return { success: false, error: '路径无效' };
+      const buf = Buffer.from(data.base64.split(',')[1]!, 'base64');
+      fs.writeFileSync(filePath, buf);
+      return { success: true, data: `notes-images/${filename}` };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

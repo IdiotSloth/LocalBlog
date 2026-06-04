@@ -25,10 +25,25 @@ export async function getAssetsDir(userId: number): Promise<string> {
   return path.join(await getWorkspacePath(userId), DIR_ASSETS);
 }
 
+/** Sanitize a blog title into a safe filename */
+export function sanitizeFileName(title: string): string {
+  return title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim() || 'untitled';
+}
+
+/** Resolve file name conflict by appending -1, -2, etc. */
+export function resolveFileNameConflict(dir: string, baseName: string, ext: string): string {
+  if (!fs.existsSync(path.join(dir, baseName + ext))) return baseName + ext;
+  let counter = 1;
+  while (fs.existsSync(path.join(dir, `${baseName}-${counter}${ext}`))) counter++;
+  return `${baseName}-${counter}${ext}`;
+}
+
 /** Path to a specific blog file */
-export async function getBlogPath(userId: number, blogId: number, format: 'md' | 'html'): Promise<string> {
+export async function getBlogPath(userId: number, title: string, format: 'md' | 'html'): Promise<string> {
   const ext = format === 'html' ? '.html' : '.md';
-  return path.join(await getBlogsDir(userId), `${blogId}${ext}`);
+  const blogsDir = await getBlogsDir(userId);
+  const safeName = resolveFileNameConflict(blogsDir, sanitizeFileName(title), ext);
+  return path.join(blogsDir, safeName);
 }
 
 /** Path to assets for a specific blog */

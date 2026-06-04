@@ -1,24 +1,23 @@
 #!/usr/bin/env node
 /** MCP Server — stdio transport (D55).
  *  Standalone CLI: reads JSON-RPC from stdin, writes to stdout.
- *  No Electron dependency. Uses MySQL via db module.
- *  Run: npm run mcp  or  node --loader ts-node/esm src/mcp-server/index.ts
+ *  Uses sqlite-wasm for database access (Phase 24).
+ *  Run: npm run mcp
  */
 
 import { createInterface } from 'node:readline';
 
-// Late-init DB (MySQL only — sql.js requires Electron env)
+// Late-init DB
 let dbReady = false;
 
 async function initDb(): Promise<void> {
   try {
-    const { initMySQL } = await import('../server/db');
-    await initMySQL();
+    const { initDatabase } = await import('../main/db');
+    await initDatabase();
     dbReady = true;
-    process.stderr.write('[mcp] MySQL initialized\n');
+    process.stderr.write('[mcp] Database initialized\n');
   } catch (err) {
-    process.stderr.write(`[mcp] MySQL init failed: ${(err as Error).message}\n`);
-    process.stderr.write('[mcp] Server must be running with MySQL on port 3456\n');
+    process.stderr.write(`[mcp] DB init failed: ${(err as Error).message}\n`);
   }
 }
 
@@ -29,8 +28,7 @@ async function handleMessage(msg: string): Promise<string> {
       return JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Database not ready' } });
     }
 
-    // Delegate to shared handler (same as Express route)
-    const { dbAll } = await import('../server/db');
+    const { dbAll } = await import('../main/db');
 
     switch (method) {
       case 'tools/list': {

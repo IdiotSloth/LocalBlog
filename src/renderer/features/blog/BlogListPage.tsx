@@ -4,11 +4,9 @@ import type { BlogWithTags, FolderTreeNode, ScrapeResult, Tag } from '../../../s
 import { FolderTree } from '../../components/common/FolderTree';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
-import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { BlogCard } from '../../components/blog/BlogCard';
 import { ManualCollectTab } from './ManualCollectTab';
-import { TimelineView } from './TimelineView';
 
 export interface BlogListState {
   blogs: BlogWithTags[];
@@ -141,6 +139,20 @@ export function BlogListPage() {
   const batch = useBatchSelect(blogs as { id: number }[]);
   const pagination = usePagination(20, total);
   const [error, setError] = useState<string | null>(null);
+  const [popularTags, setPopularTags] = useState<Tag[]>([]);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchInput = (value: string) => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => dispatch({ type: 'SET_QUERY', payload: value }), 150);
+    setDebounceTimer(timer);
+  };
+  const [searchText, setSearchText] = useState('');
+  const loadTags = useCallback(async () => {
+    if (!user) return;
+    const r = await window.api.tagList(user.id);
+    if (r.success && r.data) setPopularTags((r.data as Tag[]).slice(0, 15));
+  }, [user]);
+  useEffect(() => { loadTags(); }, [loadTags]);
   const loadFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'blog' });
@@ -361,99 +373,68 @@ export function BlogListPage() {
           <ManualCollectTab />
         ) : (
         <div>
-        <div className="mb-3 flex items-center gap-4">
-          <div
-            className="inline-flex rounded-[4px] border p-0.5"
-            style={{ borderColor: 'var(--border-default)' }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                dispatch({ type: 'SET_EXCLUDE_SERIES', payload: true });
-                localStorage.setItem('blog-list-tab', 'independent');
-              }}
-              className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
-              style={{
-                background: excludeSeries ? 'var(--bg-tertiary)' : 'transparent',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              独立博客
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                dispatch({ type: 'SET_EXCLUDE_SERIES', payload: false });
-                localStorage.setItem('blog-list-tab', 'all');
-              }}
-              className="rounded-[3px] px-3 py-1 text-[12px] transition-colors"
-              style={{
-                background: !excludeSeries ? 'var(--bg-tertiary)' : 'transparent',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              全部博客
-            </button>
-          </div>
-        </div>
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[24px] font-semibold text-primary">
-              博客 <span className="text-[14px] font-normal text-secondary">{total} 篇</span>
-            </h2>
+        {/* Top toolbar: search + count + action buttons */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => { setSearchText(e.target.value); handleSearchInput(e.target.value); }}
+              placeholder="搜索博客标题..."
+              className="surface-input px-3 py-1.5 text-[13px]"
+              style={{ maxWidth: 280 }}
+            />
+            <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>总 {total} 篇</span>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => dispatch({ type: 'SET_SCRAPE_OPEN', payload: true })} className="btn-primary !text-[13px]">
+            <button type="button" onClick={() => dispatch({ type: 'SET_SCRAPE_OPEN', payload: true })} className="rounded-[4px] border px-3 py-1.5 text-[13px] hover:opacity-80" style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)', background: 'transparent' }}>
               收藏网页
             </button>
             <button
               type="button"
               onClick={handleImportMd}
               disabled={importing}
-              className="btn-primary !text-[13px]"
-              style={{ opacity: importing ? 0.4 : 1 }}
+              className="rounded-[4px] border px-3 py-1.5 text-[13px] hover:opacity-80"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)', background: 'transparent', opacity: importing ? 0.4 : 1 }}
             >
               导入 MD
             </button>
-            <Link to="/blog/new" className="btn-primary !text-[13px] no-underline inline-flex items-center">
+            <Link to="/blog/new" className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium no-underline inline-flex items-center hover:opacity-90" style={{ background: 'var(--accent-blue)', color: '#fff' }}>
               新建博客
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                batch.setIsBatchMode(!batch.isBatchMode);
-              }}
-              className="rounded-[4px] border px-2 py-1 text-[12px] hover:opacity-80 transition-opacity"
-              style={{
-                background: batch.isBatchMode ? 'var(--accent-blue)' : 'transparent',
-                color: batch.isBatchMode ? 'var(--text-on-accent)' : 'var(--text-secondary)',
-                borderColor: 'var(--border-default)',
-              }}
-            >
-              批量
-            </button>
           </div>
         </div>
 
-        <div className="mb-4 flex gap-3">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => dispatch({ type: 'SET_QUERY', payload: e.target.value })}
-            placeholder="搜索博客标题..."
-            className="max-w-xs surface-input px-3 py-1.5 text-[13px]"
-          />
-          <select
-            value={sortBy}
-            onChange={(e) => dispatch({ type: 'SET_SORT_BY', payload: e.target.value })}
-            title="排序方式"
-            className="max-w-[140px] surface-input px-3 py-1.5 text-[13px]"
-          >
-            <option value="updated_at">最近修改</option>
-            <option value="created_at">创建时间</option>
-            <option value="title">标题</option>
-          </select>
-        </div>
+        {/* Tag filter row */}
+        {popularTags.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'SET_TAG_FILTER', payload: { id: null, name: '' } })}
+              className="rounded-[3px] px-2 py-1 text-[12px] transition-colors"
+              style={{
+                background: filterTagId === null ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                color: filterTagId === null ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              全部
+            </button>
+            {popularTags.map((t: Tag) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => dispatch({ type: 'SET_TAG_FILTER', payload: { id: t.id, name: t.name } })}
+                className="rounded-[3px] px-2 py-1 text-[12px] transition-colors hover:opacity-80"
+                style={{
+                  background: filterTagId === t.id ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                  color: filterTagId === t.id ? '#fff' : 'var(--text-secondary)',
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="py-8 text-center">
@@ -461,9 +442,7 @@ export function BlogListPage() {
             <button onClick={() => { setError(null); loadBlogs(); }} className="mt-3 text-[13px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>重试</button>
           </div>
         )}
-        {!error && viewMode === 'timeline' && user ? (
-          <TimelineView userId={user.id} />
-        ) : !error && loading ? (
+        {!error && loading ? (
           <p className="py-12 text-center text-[14px] text-secondary">加载中...</p>
         ) : blogs.length === 0 ? (
           <div
@@ -475,134 +454,26 @@ export function BlogListPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Batch action bar */}
-            {batch.isBatchMode && (
-              <div
-                className="flex items-center gap-3 rounded-[6px] border p-2.5"
-                style={{ borderColor: 'var(--accent-blue)', background: 'var(--bg-secondary)' }}
-              >
-                <span className="text-[13px] text-primary">已选 {batch.selectedCount} 篇</span>
-                <button
-                  type="button"
-                  onClick={batch.selectAll}
-                  className="text-[12px] hover:underline"
-                  style={{ color: 'var(--accent-blue)' }}
-                >
-                  全选
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!confirm(`将 ${batch.selectedCount} 篇博客移至回收站？`)) return;
-                    try {
-                      await window.api.blogBatchDelete({ userId: user.id, blogIds: [...batch.selectedIds] });
-                      batch.clearSelection();
-                      loadBlogs();
-                    } catch (e) {
-                      console.error(e);
-                    }
-                  }}
-                  disabled={batch.selectedCount === 0}
-                  className="text-[12px] hover:underline disabled:opacity-40"
-                  style={{ color: 'var(--accent-red)' }}
-                >
-                  移至回收站
-                </button>
-                <button
-                  type="button"
-                  onClick={batch.clearSelection}
-                  className="ml-auto text-[12px] hover:underline text-secondary"
-                >
-                  取消
-                </button>
-              </div>
-            )}
-            {/* Tag filter indicator */}
-            {filterTagId && (
-              <div
-                className="flex items-center gap-2 rounded-[6px] border p-3"
-                style={{ borderColor: 'var(--accent-blue)', background: 'var(--bg-secondary)' }}
-              >
-                <span className="text-[13px] text-secondary">筛选标签:</span>
-                <span className="tag !text-[13px]" style={{ cursor: 'default' }}>
-                  {filterTagName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    dispatch({ type: 'SET_TAG_FILTER', payload: { id: null, name: '' } });
-                  }}
-                  className="ml-auto text-[12px] hover:underline"
-                  style={{ color: 'var(--accent-red)' }}
-                >
-                  清除筛选
-                </button>
-              </div>
-            )}
+          <div>
             {blogs.map((blog: BlogWithTags) => (
               <BlogCard
                 key={blog.id}
                 blog={blog}
-                showExcerpt={true}
-                isBatchSelected={batch.isBatchMode ? batch.selectedIds.has(blog.id) : undefined}
-                onBatchToggle={batch.isBatchMode ? () => batch.toggleSelect(blog.id) : undefined}
-                onClick={() => {
-                  if (batch.isBatchMode) {
-                    batch.toggleSelect(blog.id);
-                    return;
-                  }
-                  navigate(`/blog/${blog.id}`);
-                }}
-              >
-                {/* Footer: folder move + delete */}
-                <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity duration-[0.15s]" style={{ borderColor: 'var(--border-default)' }}>
-                  <select
-                    value=""
-                    onChange={async (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      const fid = e.target.value ? Number(e.target.value) : null;
-                      try {
-                        await window.api.folderMoveItem({ userId: user.id, itemType: 'blog', itemId: blog.id, folderId: fid });
-                        loadBlogs();
-                        loadFolders();
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                    className="text-[10px] rounded-[3px] border px-1 py-0.5 outline-none"
-                    style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', maxWidth: 60 }}
-                    title="移至文件夹"
-                  >
-                    <option value="">移至</option>
-                    <option value="0">根目录</option>
-                    {folderTree.map((f: FolderTreeNode) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDelete(blog.id); }}
-                    className="text-[12px] hover:underline"
-                    style={{ color: 'var(--accent-red)' }}
-                  >
-                    删除
-                  </button>
-                </div>
-              </BlogCard>
+                onEdit={(id) => navigate(`/blog/${id}/edit`)}
+                onDelete={(id) => handleDelete(id)}
+                onExportPdf={(id) => window.api.blogExportPdf({ userId: user.id, blogId: id })}
+                onAddToSeries={(id) => { /* TODO: series selection modal */ }}
+                onTagClick={(tagId, tagName) => dispatch({ type: 'SET_TAG_FILTER', payload: { id: tagId, name: tagName } })}
+              />
             ))}
           </div>
         )}
 
-        {/* T2302: Infinite scroll sentinel */}
+        {/* Infinite scroll sentinel */}
         {total > pagination.limit && pagination.page < Math.ceil(total / pagination.limit) && (
           <div ref={scrollSentinelRef} className="h-4" />
         )}
         {loading && <p className="text-center py-4 text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载更多...</p>}
-
-        {/* T2302: memos-style infinite scroll — no pagination buttons */}
 
         {/* Hidden file input for web import */}
         <input

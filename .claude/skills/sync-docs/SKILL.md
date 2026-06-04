@@ -1,117 +1,106 @@
 ---
 name: sync-docs
-description: Boss专属 — After any implementation task or document change, auto-sync README.md and todo.md to reflect the latest project state. Also detects documentation drift (stale claims vs actual code), prunes outdated content, and cross-references consistency across AGENTS.md, README.md, todo.md, redo.md, phase-archive.md, and history-audit.md. Invoke after each task completion, bug fix, or feature delivery.
+description: Boss专属 — Phase 结项或文档变更后同步所有项目文档。触发：验收通过后、文档变更后、Phase 状态更新时。这是 workflow.md Step 9，更新 todo/README/AGENTS/redo/phase-archive/history-audit 并交叉验证一致性。Developer 和 Auditor 不可调用。
 boss-only: true
 ---
 
-# Sync Docs Skill
+# Sync Docs — Boss 文档同步
 
-> **Boss 专属技能** — Developer 和 Auditor 不可调用此技能。仅 Boss 有权写入 AGENTS.md 和 README.md。
+> **Boss 专属 · workflow.md Step 9** — 触发：验收通过 (Step 8) → 输出：6 文档更新 + 跨文档交叉验证
 
 ## Role Constraint
 
-AGENTS.md and README.md are **Boss-owned**. Developer must NOT modify them. When invoked as Developer, only update todo.md (status + notes). When the skill detects AGENTS.md or README.md drift, report it — do not silently edit. Auditor has no write access to any of these files.
+AGENTS.md 和 README.md 是 **Boss-owned**。Developer 不可修改。Auditor 不可写任何文档。当非 Boss 角色调用时，仅报告漂移，不编辑。
 
-## 1. Sync todo.md
+## 同步流程
 
-### What to update
-- Refresh `最后更新` timestamp at top
-- Mark completed tasks ✅ (Developer can do this)
-- Update Phase table status when all tasks in a phase are done
-- Update code quality baseline (test count, P0/P1/P2 status, `: any` count)
+### 1. todo.md
 
-### What NOT to change
-- Task descriptions (Boss-owned)
-- Priority labels (Boss-owned)
-- "当前优先" markers (Boss-owned)
+- 刷新 `最后更新` 时间戳
+- 已完成任务标 ✅，更新 Phase 表状态
+- 更新代码质量基线 (test count, P0/P1/P2/`: any` 计数)
+- 更新工时（估算→实际）
 
-## 2. Detect Drift: AGENTS.md vs Code
+不修改：任务描述 (Boss-owned)、优先级标签、"当前优先" marker。
 
-Verify these claims with a quick check:
+### 2. README.md
 
-| Claim in AGENTS.md | Verify against |
-|---------------------|----------------|
-| IPC channel count | `grep -cE "'[a-z]+:[a-z]" src/shared/ipc-channels.ts` |
-| Service file count | `ls src/main/services/*.ts \| wc -l` |
-| IPC handler count | `ls src/main/ipc/*.ts \| wc -l` |
-| Server route count | `ls src/server/routes/*.ts \| wc -l` |
-| renderer `as any` count | `grep -r "as any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
-| renderer `: any` count | `grep -r ": any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
-| Unit test count | `npm run test -- --run 2>&1 \| grep -E "^Tests\|^ Files"` |
-| "当前状态" Phase list | `todo.md` Phase 完成状态 table |
-| redo.md P0/P1/P2/P3 counts | `redo.md` 当前待修复 section |
-| `docs/phase-archive.md` coverage | Check if latest phases are included |
-| `docs/history-audit.md` coverage | Check if latest audit reports are included |
-| `noUncheckedIndexedAccess` in tsconfig | `grep "noUncheckedIndexedAccess" tsconfig.node.json tsconfig.web.json` |
-| `suggest.md` existence | Should NOT exist after Boss processes proposals |
-| `.gitignore` covers dist2/ and .claude/worktrees/ | Check these entries exist |
-| `electron-builder.yml` config sanity | `buildResources` not overlapping with app resources; `files` includes `img/**/*`; `asarUnpack` includes `img/**`; `extraResources.to` path matches `scripts/installer.nsh` shortcut targets |
-| `scripts/installer.nsh` ↔ `electron-builder.yml` consistency | Shortcut path in `.nsh` (e.g. `$INSTDIR\resources\launcher.vbs`) must match where `extraResources.to` actually puts the file; shortcuts should target `wscript.exe` not `.vbs` directly |
-| `scripts/launcher.vbs` robustness | Should handle both "VBS next to exe" (portable) and "VBS in resources/ subdir" (NSIS) via FileExists fallback |
-| `build/icon.ico` size sanity | `ls -la build/icon.ico` — should be ≥30KB and 256×256. PNG→ICO 膨胀 >50KB 会导致标题栏图标裁切 |
-| README features table vs actual modules | New modules (AI Chat/Bookmarks/Timeline/Whiteboard/TabBar/Update/SavedQuery/Transclusion/Clipboard/QuickNote/Guide 13章) should appear in feature table |
-| embedding.worker existence | `ls src/renderer/workers/embedding.worker.ts` — Phase 21 semantic search, Phase 22 passive discovery |
-| chrome-extension/ existence | `ls chrome-extension/manifest.json` — Phase 21 browser clipper |
-| SplitPane existence | `ls src/renderer/components/layout/SplitPane.tsx` — Phase 21 split framework |
-| SlashCommand existence | `ls src/renderer/components/editor/SlashCommand.tsx` — Phase 21 slash commands |
-| UpdateSection existence | `ls src/renderer/features/settings/UpdateSection.tsx` — Phase 22 update management |
-| Themes system | `ls src/renderer/assets/themes.css` — Phase 23 五套国风主题。验证 5×14 token + rgba() 边框 |
-| BlogCard existence | `ls src/renderer/components/blog/BlogCard.tsx` — Phase 23 博客卡片 |
-| WhiteboardPage existence | `ls src/renderer/features/whiteboard/WhiteboardPage.tsx` — Phase 23 白板 |
-| QuickNoteWindow existence | `ls src/main/windows/quick-note.ts` — Phase 23 快捷便签 |
-| GuidePage 13章 | `ls docs/guide/*.md` — Phase 23 交互式手册 |
-| `app.isPackaged` guard in runtime shortcut | `grep "app.isPackaged" src/main/index.ts` — prevents duplicate shortcut in NSIS installs |
-| todo.md line count sanity | `wc -l todo.md` — should be <1000 after Phase 22+ 文档瘦身 |
+- 构建状态行：版本号、Phase 完成状态、IPC/Service 计数
+- Phase 表：与 todo.md 同步完成状态
+- 功能表：新增模块是否已列入
 
-If drift > 2 items or a stale claim exists, flag it for Boss review.
+### 3. AGENTS.md
 
-Also check for **遗留跟踪**: if any todo.md tasks are marked ⏭, verify they have a stated target Phase.
+- "当前状态"段：Phase 列表、工单统计、构建基线、IPC/Service/Route/`: any` 计数
+- 如架构变更：更新约束列表、常见陷阱
+- 新交付物存在性：grep 验证关键文件存在
 
-## 3. Detect Drift: README.md vs Code
+### 4. redo.md
 
-| Claim in README.md | Verify against |
-|---------------------|----------------|
-| Version number | `package.json` `version` field |
-| Phase completion list | `todo.md` Phase table |
-| Features table completeness | Check for new modules not listed (e.g. FTS5, NSIS installer) |
-| Tech stack versions | `package.json` dependencies |
-| `npm run test` count | actual test output |
-| Links to `docs/` files | Check files exist at those paths (phase-archive, history-audit, development-guide) |
-| Architecture diagram counts | IPC count, service count vs actual |
+- "当前开放项"状态更新
+- 关闭已修复项
 
-## 4. Cross-Reference Consistency
+### 5. docs/phase-archive.md
 
-Quick consistency checks across all docs:
+- 已完成 Phase 归档：任务摘要 + Boss 裁决 + 关键指标
+- 验证覆盖率：最新 Phase 是否已归档
 
-- AGENTS.md "当前状态" ↔ todo.md Phase table ↔ README.md Phase table (same completion status)
-- IPC count: AGENTS.md architecture diagram ↔ README.md architecture diagram ↔ `grep` result
-- Service count: AGENTS.md mentions ↔ README.md mentions ↔ `ls` count
-- Test count: AGENTS.md / README.md / todo.md code-quality baseline ↔ actual test output
-- P0/P1/P2/P3 status: AGENTS.md / README.md / todo.md ↔ redo.md "当前待修复"
-- All cross-document relative links point to existing files
-- Phase-archive description matches actual archive coverage
-- History-audit description matches actual archive coverage
-- todo.md "输入格式规范" rules being followed by all roles
+### 6. docs/history-audit.md
 
-## 5. Output Format
+- 审计趋势 + R/D 编号统计更新
+- 安全里程碑记录
+
+## 跨文档交叉验证
+
+关键数字必须在四处文档一致：
+
+| 指标 | 验证方法 |
+|------|---------|
+| IPC 通道数 | AGENTS.md ↔ README.md ↔ `grep -cE "'[a-z]+:[a-z]" src/shared/ipc-channels.ts` |
+| Service 数 | AGENTS.md ↔ README.md ↔ `ls src/main/services/*.ts \| wc -l` |
+| Test 数 | AGENTS.md ↔ README.md ↔ todo.md ↔ `npm run test -- --run` |
+| P0/P1/P2/P3 | AGENTS.md ↔ README.md ↔ todo.md ↔ redo.md "当前开放" |
+| Phase 状态 | AGENTS.md ↔ README.md ↔ todo.md Phase 表 |
+| `: any`/`as any` | AGENTS.md ↔ `grep -r ": any\|as any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
+
+此外验证：
+- 所有跨文档相对链接指向存在的文件
+- `suggest.md` 不存在 (存在 = 未处理提案)
+- `noUncheckedIndexedAccess` 仍启用 (`grep "noUncheckedIndexedAccess" tsconfig.*.json`)
+- todo.md 中 ⏭ 任务有目标 Phase
+- 各文档遵守自身格式规范 (todo.md §6, redo.md §1)
+
+**Phase 24+ Complexity Budget 验证**:
+
+| 不可见复杂度 | 验证方法 |
+|------------|---------|
+| Hidden state machine | grep 已删除的 store/context → 确认零消费者且文件已物理删除 |
+| Persistence leakage | grep 废弃 localStorage key → 确认已清理 |
+| Ghost infrastructure | grep 已删除组件的文件名 → 确认物理文件不存在 |
+| Ghost component | grep 新建但未接入的组件 → 确认已标记 DEPRECATED 或已删除 |
+| **pre-audit.sh §17 Defense** (T2406 R352) | `grep "persist\|PersistStorage\|localStorage\|sessionStorage" src/renderer/stores/quick-nav-store.ts` → 0。单行 import 即可突破 memory-only 保证 |
+| **Unilateral persistence** (T2406 R352) | grep 新增 storage key → 确认每个 key 有对应的读路径。只写不读 = 单向积累 |
+
+## 输出
 
 ```
 Sync-Docs Report:
 - Documents touched: [list]
-- Drift detected: [list of "doc claims X, code has Y"]
-- Cross-reference fixes: [N items aligned]
-- Items flagged for Boss: [list]
+- Metrics: IPC=N Service=N Test=N/N :any=N as=N
+- Drift fixed: [list of "doc claimed X, code has Y → fixed"]
+- Cross-reference: N/N consistent
+- Flagged for Boss: [items requiring decision]
 ```
 
-Keep it brief. Don't write a paragraph when a table row works.
+## 常见漂移速查
 
-## Key Rules
-
-- **Replace, never append** status lines — the build-status line and timestamp are single-line replacements
-- **Verify before writing** a number — if you claim "49 tests", run the test command or check recent output
-- **Don't invent counts** — if you can't verify a number, don't include it
-- **Boss-only edits** for AGENTS.md and README.md — when not Boss, report drift as a finding
-- **Check redo.md too** — if redo.md has pending P0/P1 items, flag in report. Do not sync-docs over unrepaired bugs.
-- **Check suggest.md is gone** — suggest.md should not exist after Boss processes it. If it does, flag as unprocessed proposals.
-- **Verify legacy tracking** — any ⏭ tasks should have a target Phase stated
-- **Respect file format rules** — todo.md and redo.md have input format specs (§6/§1). Don't violate them when syncing.
+| 文档声称 | 实际验证 |
+|---------|---------|
+| IPC N 通道 | `grep -cE "'[a-z]+:[a-z]" src/shared/ipc-channels.ts` |
+| Service N 个 | `ls src/main/services/*.ts \| wc -l` |
+| renderer `: any` = 0 | `grep -r ": any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
+| renderer `as any` = 0 | `grep -r "as any" src/renderer --include="*.tsx" --include="*.ts" \| wc -l` |
+| Test N/N pass | `npm run test -- --run 2>&1` |
+| `noUncheckedIndexedAccess` | `grep "noUncheckedIndexedAccess" tsconfig.*.json` |
+| suggest.md 不存在 | `ls suggest.md` → 不存在 |
+| README 功能表完整 | 对照 `ls src/renderer/features/*/` 和 components 新增模块 |

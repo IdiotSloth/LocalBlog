@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import type { BlogWithTags, KnowledgeFileWithTags } from '../../../shared/types';
 import { useAuthStore } from '../../stores/auth-store';
 import { BlogCard } from '../../components/blog/BlogCard';
-import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 
 // T2306: Discrete weighted font sizes based on absolute count
 function tagCloudFontSize(count: number): string {
@@ -204,43 +203,49 @@ export function TagManagePage() {
       ) : filteredTags.length === 0 ? (
         <p className="py-8 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>没有匹配的标签</p>
       ) : (
-        <div className="flex flex-wrap gap-3">
-          {filteredTags.map((tag) => (
-            <div key={tag.id} className="group flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-card)] px-4 py-2 shadow-sm transition-colors duration-[0.15s] hover:border-[var(--color-primary-light)]">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+          {filteredTags.map((tag) => {
+            const tagColor = (tag as any).color || 'var(--accent-blue)';
+            return (
+            <div key={tag.id} className="group rounded-[8px] border p-4 cursor-pointer transition-all duration-[0.15s] hover:scale-[1.02]" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)', borderLeft: `4px solid ${tagColor}` }}
+              onClick={async () => {
+                const isSelected = state.selectedTag?.id === tag.id;
+                dispatch({ type: 'SELECT_TAG', tag: isSelected ? null : tag });
+                if (!isSelected) {
+                  dispatch({ type: 'SET_RESULTS_LOADING', v: true });
+                  try {
+                    const [blogsRes, kbRes] = await Promise.all([
+                      window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
+                      user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null),
+                    ]);
+                    const items: ResultItem[] = [];
+                    if (blogsRes?.success && blogsRes.data?.blogs) items.push(...blogsRes.data.blogs.map((b: BlogWithTags) => ({ id: b.id, title: b.title, type: 'blog' as const, updatedAt: b.updatedAt })));
+                    if (kbRes?.success && kbRes.data?.files) items.push(...kbRes.data.files.map((f: KnowledgeFileWithTags) => ({ id: f.id, title: f.filename, type: 'knowledge' as const })));
+                    dispatch({ type: 'SET_RESULTS', results: items });
+                  } catch { dispatch({ type: 'SET_RESULTS', results: [] }); }
+                } else { dispatch({ type: 'SET_RESULTS', results: [] }); }
+              }}>
               {state.editingId === tag.id ? (
-                <>
-                  <input type="text" value={state.editingName} onChange={(e) => dispatch({ type: 'START_EDIT', id: tag.id, name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(tag.id); if (e.key === 'Escape') dispatch({ type: 'CANCEL_EDIT' }); }} placeholder={tag.name} title="编辑标签名称" aria-label="编辑标签名称" className="w-28 rounded border border-[var(--color-primary-light)] bg-[var(--color-bg-base)] px-2 py-0.5 text-sm outline-none" />
-                  <button type="button" onClick={() => handleSaveEdit(tag.id)} className="text-xs text-green-600 hover:underline">保存</button>
-                  <button type="button" onClick={() => dispatch({ type: 'CANCEL_EDIT' })} className="text-xs text-[var(--color-text-muted)] hover:underline">取消</button>
-                </>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <input type="text" value={state.editingName} onChange={(e) => dispatch({ type: 'START_EDIT', id: tag.id, name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(tag.id); if (e.key === 'Escape') dispatch({ type: 'CANCEL_EDIT' }); }} placeholder={tag.name} aria-label="编辑标签名称" className="w-full rounded border px-2 py-1 text-[13px] outline-none" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                  <button type="button" onClick={() => handleSaveEdit(tag.id)} className="text-[11px] hover:underline" style={{ color: 'var(--accent-green)' }}>保存</button>
+                </div>
               ) : (
                 <>
-                  <span className="text-sm font-medium text-[var(--color-text-primary)] cursor-pointer hover:text-[var(--color-primary)] transition-colors" onClick={async () => {
-                    const isSelected = state.selectedTag?.id === tag.id;
-                    dispatch({ type: 'SELECT_TAG', tag: isSelected ? null : tag });
-                    if (!isSelected) {
-                      dispatch({ type: 'SET_RESULTS_LOADING', v: true });
-                      try {
-                        const [blogsRes, kbRes] = await Promise.all([
-                          window.api.blogList({ userId: user?.id, tagId: tag.id, limit: 20 }),
-                          user ? window.api.kbList({ userId: user.id, tagId: tag.id, limit: 20 }) : Promise.resolve(null),
-                        ]);
-                        const items: ResultItem[] = [];
-                        if (blogsRes?.success && blogsRes.data?.blogs) items.push(...blogsRes.data.blogs.map((b: BlogWithTags) => ({ id: b.id, title: b.title, type: 'blog' as const, updatedAt: b.updatedAt })));
-                        if (kbRes?.success && kbRes.data?.files) items.push(...kbRes.data.files.map((f: KnowledgeFileWithTags) => ({ id: f.id, title: f.filename, type: 'knowledge' as const })));
-                        dispatch({ type: 'SET_RESULTS', results: items });
-                      } catch { dispatch({ type: 'SET_RESULTS', results: [] }); }
-                    } else { dispatch({ type: 'SET_RESULTS', results: [] }); }
-                  }} title={tag.description || `查看标签"${tag.name}"关联的内容`} style={{ fontSize: tagCloudFontSize(tag.blogCount + tag.kbCount) }}>{tag.name}</span>
-                  <Link to={`/blog?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 hover:bg-blue-100 transition-colors" title={`${tag.blogCount ?? 0} 篇博客`} onClick={(e) => e.stopPropagation()}>📝 {tag.blogCount ?? 0}</Link>
-                  <Link to={`/knowledge?tagId=${tag.id}&tagName=${encodeURIComponent(tag.name)}`} className="no-underline rounded-full bg-green-50 px-2 py-0.5 text-[11px] text-green-600 hover:bg-green-100 transition-colors" title={`${tag.kbCount ?? 0} 个知识库文件`} onClick={(e) => e.stopPropagation()}>📁 {tag.kbCount ?? 0}</Link>
-                  {(tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>⚠️ 未使用</span>}
-                  <button type="button" onClick={() => startEdit(tag)} className="ml-1 text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-primary)] transition-all">编辑</button>
-                  <button type="button" onClick={() => handleDelete(tag.id)} className="text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all">删除</button>
+                  <div className="text-[16px] font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{tag.name}</div>
+                  <div className="text-[12px] space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    <div>{(tag.blogCount ?? 0)} 篇博客</div>
+                    <div>{(tag.kbCount ?? 0)} 个素材</div>
+                  </div>
+                  {(tag.blogCount ?? 0) === 0 && (tag.kbCount ?? 0) === 0 && <div className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>未使用</div>}
+                  <div className="mt-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" onClick={() => startEdit(tag)} className="text-[11px] rounded-[3px] px-2 py-0.5 hover:opacity-80" style={{ color: 'var(--accent-blue)' }}>重命名</button>
+                    <button type="button" onClick={() => handleDelete(tag.id)} className="text-[11px] rounded-[3px] px-2 py-0.5 hover:opacity-80" style={{ color: 'var(--accent-red)' }}>删除</button>
+                  </div>
                 </>
               )}
             </div>
-          ))}
+          );})}
         </div>
       )}
 
@@ -261,27 +266,6 @@ function TagResultsSection({ tag, loading, results, user, onClose }: {
   const [activeTab, setActiveTab] = useState<'blog' | 'knowledge'>('blog');
   const blogs = results.filter(r => r.type === 'blog');
   const kbItems = results.filter(r => r.type === 'knowledge');
-  const contextPanel = useContextPanel();
-
-  // T2306: ContextPanel tabs for tag context
-  useEffect(() => {
-    if (!tag) return;
-    const tabs: TabDef[] = [
-      {
-        id: 'tag-info',
-        label: '标签信息',
-        content: (
-          <div className="p-2 text-[13px] space-y-1" style={{ color: 'var(--text-secondary)' }}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{tag.name}</p>
-            <p>博客: {tag.blogCount ?? 0} 篇</p>
-            <p>知识库: {tag.kbCount ?? 0} 个</p>
-            {tag.description && <p className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>{tag.description}</p>}
-          </div>
-        ),
-      },
-    ];
-    return contextPanel.registerTabs(tabs);
-  }, [tag, contextPanel]);
 
   return (
     <div className="mt-6 rounded-[8px] border p-5" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>

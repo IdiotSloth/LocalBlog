@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/main/db', () => ({
   dbAll: vi.fn(),
-  isUsingMySQL: vi.fn().mockReturnValue(false),
 }));
 
 import { dbAll } from '../../../src/main/db';

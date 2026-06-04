@@ -1,5 +1,5 @@
-/** Shared knowledge file list logic — used by both Electron main IPC and Express server routes.
- *  DI pattern: caller injects dbAll/dbGet adapters for their backend (MySQL pool or db wrapper).
+/** Shared knowledge file list logic.
+ *  DI pattern: caller injects dbAll/dbGet adapters for their backend.
  */
 
 import { sanitizePagination } from '../pagination';

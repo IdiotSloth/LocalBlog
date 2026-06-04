@@ -115,8 +115,7 @@ const IPC = {
   NOTE_DELETE: "note:delete",
   NOTE_PIN: "note:pin",
   NOTE_CLIPBOARD: "note:clipboard",
-  // Graph (Phase 20C)
-  GRAPH_GET_DATA: "graph:getData",
+  NOTE_IMAGE_SAVE: "note:image-save",
   // Shortcuts
   SHORTCUT_GET_ALL: "shortcut:get-all",
   SHORTCUT_UPDATE: "shortcut:update",
@@ -351,11 +350,11 @@ const api = {
   noteDelete: (data) => electron.ipcRenderer.invoke(IPC.NOTE_DELETE, data),
   notePin: (data) => electron.ipcRenderer.invoke(IPC.NOTE_PIN, data),
   noteClipboard: () => electron.ipcRenderer.invoke(IPC.NOTE_CLIPBOARD),
+  noteImageSave: (data) => electron.ipcRenderer.invoke(IPC.NOTE_IMAGE_SAVE, data),
   // Continue Writing
   continueGetDrafts: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_DRAFTS, userId),
   continueGetLastBlog: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_LAST_BLOG, userId),
   continueGetRecentFiles: (userId) => electron.ipcRenderer.invoke(IPC.CONTINUE_GET_RECENT_FILES, userId),
-  graphGetData: (userId, filter) => electron.ipcRenderer.invoke(IPC.GRAPH_GET_DATA, userId, filter),
   // File System Dialogs
   selectFiles: (exts) => electron.ipcRenderer.invoke(IPC.FS_SELECT_FILES, { extensions: exts }),
   selectDir: () => electron.ipcRenderer.invoke(IPC.FS_SELECT_DIR),

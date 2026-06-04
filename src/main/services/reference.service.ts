@@ -1,4 +1,4 @@
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import type { RefType, Reference } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 
@@ -36,7 +36,7 @@ export class ReferenceService {
     if (!VALID_REF_TYPES.includes(sourceType) || !VALID_REF_TYPES.includes(targetType)) {
       throw new Error(`Invalid ref type: source=${sourceType}, target=${targetType}`);
     }
-    const now = nowMySQL();
+    const now = nowTimestamp();
     await dbRun('INSERT OR IGNORE INTO refs (source_type, source_id, target_type, target_id, created_at) VALUES (?,?,?,?,?)', [
       sourceType, sourceId, targetType, targetId, now,
     ]);

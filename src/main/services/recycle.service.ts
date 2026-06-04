@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import type { RecycleBinItem } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 import { getBlogAssetsDir, getBlogPath, getWorkspacePath } from '../utils/paths';
@@ -38,7 +38,7 @@ export class RecycleService {
       [userId, itemId, itemType],
     );
     if (!item) throw new Error('回收站中未找到该项目');
-    const now = nowMySQL();
+    const now = nowTimestamp();
     if (itemType === 'blog')
       await dbRun("UPDATE blogs SET status = 'active', updated_at = ? WHERE id = ?", [now, itemId]);
     else if (itemType === 'knowledge_file')
@@ -53,7 +53,7 @@ export class RecycleService {
   }
 
   static async autoClean(userId: number, days: number): Promise<number> {
-    // Inline days to avoid SQLite datetime('now', ?) which MySQL can't translate
+    // Inline days because datetime('now', '-N days') can't be parameterized
     const rows = await dbAll<RecycleRow>(
       `SELECT * FROM recycle_bin WHERE user_id = ? AND deleted_at < datetime('now', '-${days} days')`,
       [userId],
@@ -69,12 +69,12 @@ export class RecycleService {
 
     if (item.item_type === 'blog') {
       // Look up blog metadata needed for path resolution
-      const blog = await dbGet<{ user_id: number; format: string }>('SELECT user_id, format FROM blogs WHERE id = ?', [
+      const blog = await dbGet<{ user_id: number; title: string; format: string }>('SELECT user_id, title, format FROM blogs WHERE id = ?', [
         item.item_id,
       ]);
       if (blog) {
         try {
-          toDelete.push(await getBlogPath(blog.user_id, item.item_id, blog.format as 'md' | 'html'));
+          toDelete.push(await getBlogPath(blog.user_id, blog.title, blog.format as 'md' | 'html'));
         } catch {
           /* path resolution failed, skip file cleanup */
         }

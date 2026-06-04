@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const LS_KEY = 'lbkb_open_tabs';
 const MAX_TABS = 8;
 
 export interface TabItem {
@@ -48,18 +47,11 @@ function getLabel(path: string): string {
 let idCounter = Date.now();
 function nextId() { return `tab-${++idCounter}`; }
 
-function loadTabs(): TabItem[] { try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
-function saveTabs(tabs: TabItem[]) { localStorage.setItem(LS_KEY, JSON.stringify(tabs)); }
+// R344: localStorage write path removed. Tabs run in-memory only (TabProvider is unmounted per T2406).
+// R346: File preserved for Stage B physical deletion.
 
 export function TabProvider({ children }: { children: React.ReactNode }) {
-  const [tabs, setTabs] = useState<TabItem[]>(() => {
-    const stored = loadTabs();
-    // Ensure home tab always exists
-    if (stored.length === 0 || !stored.find((t) => t.path === '/')) {
-      return [{ id: nextId(), path: '/', label: '今日' }, ...stored.filter((t) => t.path !== '/')];
-    }
-    return stored;
-  });
+  const [tabs, setTabs] = useState<TabItem[]>([{ id: nextId(), path: '/', label: '今日' }]);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -78,9 +70,6 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       return [...prev, item];
     });
   }, [location.pathname]);
-
-  // Persist
-  useEffect(() => { saveTabs(tabs); }, [tabs]);
 
   const closeTab = useCallback((tabId: string) => {
     const prev = tabs;

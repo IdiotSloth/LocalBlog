@@ -4,10 +4,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BookmarkButton } from '../../components/common/BookmarkButton';
 import { ReadingTime } from '../../components/blog/ReadingTime';
 import { SeriesNav } from '../../components/blog/SeriesNav';
-import { addTab } from '../../components/blog/floating-tabs-state';
-import { LocalGraph } from '../../components/common/LocalGraph';
-import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
+import { FloatingMenu } from '../../components/blog/FloatingMenu';
 import { recordRecentBlog } from '../../hooks/useRecentHistory';
+import { useQuickNavStore } from '../../stores/quick-nav-store';
+import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
 import { formatDate } from '../../lib/utils';
 import { searchSimilarDocs } from '../../lib/use-search';
@@ -124,34 +124,6 @@ function ContextLinksTab({ blogId }: { blogId: number }) {
   );
 }
 
-function OutlineTab({ headings, activeId }: { headings: Array<{ level: number; text: string; id: string }>; activeId?: string }) {
-  return (
-    <div className="space-y-0.5">
-      {headings.map((h, i) => {
-        const isActive = activeId === h.id;
-        return (
-          <a
-            key={i}
-            href={`#${h.id}`}
-            className="block rounded-[3px] px-2 py-1 text-[12px] no-underline hover:bg-[var(--bg-tertiary)] transition-colors truncate"
-            style={{
-              color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
-              fontWeight: isActive ? 600 : 400,
-              paddingLeft: 8 + (h.level - 2) * 12,
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              const el = document.getElementById(h.id);
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            {h.text}
-          </a>
-        );
-      })}
-    </div>
-  );
-}
 
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
@@ -196,24 +168,80 @@ export function BlogPreviewPage() {
   const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
   const [aiCtxMenu, setAiCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null);
   const articleElRef = useRef<HTMLElement | null>(null);
+
+  // T2406: HoverPreview — transient wikilink context, 200ms delay, no interaction
+  interface HoverData { title: string; excerpt: string; updatedAt: string; tags: string[]; refCount: number; backlinkCount: number; }
+  const [hoverPrev, setHoverPrev] = useState<{ x: number; y: number; data: HoverData } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const el = articleElRef.current;
+    if (!el) return;
+    const onEnter = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest('a.wiki-link') as HTMLAnchorElement | null;
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      const mBlog = href.match(/^#\/blog\/(\d+)/);
+      const mKb = href.match(/select=(\d+)/);
+      const tid = mBlog ? { type: 'blog', id: Number(mBlog[1]) } : mKb ? { type: 'knowledge', id: Number(mKb[1]) } : null;
+      if (!tid) return;
+      const rect = link.getBoundingClientRect();
+      hoverTimerRef.current = setTimeout(async () => {
+        try {
+          let data: HoverData | null = null;
+          const userId = user?.id;
+          if (!userId) return;
+          if (tid.type === 'blog') {
+            const r = await window.api.blogGet(tid.id);
+            if (r.success && r.data) {
+              const [refsR, backR] = await Promise.all([
+                window.api.refGetFrom({ sourceType: 'blog', sourceId: tid.id }),
+                window.api.refGetTo({ targetType: 'blog', targetId: tid.id }),
+              ]);
+              const tags = (r.data as any).tags?.map?.((t: any) => t.name) || [];
+              data = {
+                title: r.data.title || '无标题',
+                excerpt: (r.data.content || '').replace(/<[^>]*>/g, '').slice(0, 120),
+                updatedAt: r.data.updatedAt || '',
+                tags: tags.slice(0, 5),
+                refCount: refsR.success && refsR.data ? refsR.data.length : 0,
+                backlinkCount: backR.success && backR.data ? backR.data.length : 0,
+              };
+            }
+          } else {
+            const r = await window.api.kbGet({ fileId: tid.id, userId });
+            if (r.success && r.data) {
+              const backR = await window.api.refGetTo({ targetType: 'knowledge', targetId: tid.id });
+              data = {
+                title: r.data.filename || '未知文件',
+                excerpt: (r.data.description || '').slice(0, 120),
+                updatedAt: r.data.updatedAt || r.data.createdAt || '',
+                tags: [],
+                refCount: 0,
+                backlinkCount: backR.success && backR.data ? backR.data.length : 0,
+              };
+            }
+          }
+          if (data) setHoverPrev({ x: rect.left, y: rect.bottom + 4, data });
+        } catch { /* best-effort preview */ }
+      }, 200);
+    };
+    const onLeave = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest('a.wiki-link');
+      if (!link) return;
+      if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
+      setHoverPrev(null);
+    };
+    el.addEventListener('mouseover', onEnter as EventListener, true);
+    el.addEventListener('mouseout', onLeave as EventListener, true);
+    return () => {
+      el.removeEventListener('mouseover', onEnter as EventListener, true);
+      el.removeEventListener('mouseout', onLeave as EventListener, true);
+    };
+  }, [user?.id]);
   const isEditMode = searchParams.get('mode') === 'edit';
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useCallback((el: HTMLDivElement | null) => {
-    if (!el || !id) return;
-    const savedPct = sessionStorage.getItem(`blog-scroll-ratio-${id}`);
-    if (savedPct) {
-      const pct = Number(savedPct);
-      if (pct > 0) el.scrollTop = pct * el.scrollHeight;
-      sessionStorage.removeItem(`blog-scroll-ratio-${id}`);
-    }
-  }, [id]);
-
-  // T1705: Scroll to top on blog navigation
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    const mainEl = document.querySelector('main');
-    if (mainEl) mainEl.scrollTop = 0;
-  }, [id]);
+  const contextPanel = useContextPanel();
 
   useEffect(() => {
     if (id && user)
@@ -222,17 +250,9 @@ export function BlogPreviewPage() {
           setBlog(r.data);
           // T1917: Record recent blog visit
           recordRecentBlog(r.data.id, r.data.title);
-          // Restore saved scroll position
-          const saved = localStorage.getItem(`blog-progress-${id}`);
-          if (saved) {
-            const pct = Number(saved);
-            if (pct > 0) {
-              requestAnimationFrame(() => {
-                const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                window.scrollTo(0, (total * pct) / 100);
-              });
-            }
-          }
+          // T2406 QuickNav: push to in-memory traversal ring (pure memory, no persistence, max 5, FIFO)
+          useQuickNavStore.getState().push(r.data.id, r.data.title);
+          window.scrollTo(0, 0);
         }
         setLoading(false);
       }).catch(() => setLoading(false));
@@ -256,41 +276,18 @@ export function BlogPreviewPage() {
     return () => observer.disconnect();
   }, [blog?.content]); // Re-run when article content changes
 
-  // ---- T2007+T2008: ContextPanel tabs (links + outline) ----
-  const contextPanel = useContextPanel();
+  // T2007/T2008/T2203: ContextPanel tabs (links + outline + recommend)
   useEffect(() => {
     if (!blog) return;
     const tabs: TabDef[] = [];
 
-    // Links tab — load refs asynchronously
-    const linksContent = (
-      <ContextLinksTab blogId={blog.id} />
-    );
-    tabs.push({ id: 'links', label: '链接', content: linksContent });
+    tabs.push({
+      id: 'links',
+      label: '链接',
+      content: <ContextLinksTab blogId={blog.id} />,
+    });
 
-    // Outline tab — from headings
-    if (blog.content) {
-      const headings = parseTocHeadings(blog.content, blog.format);
-      if (headings.length > 0) {
-        tabs.push({
-          id: 'outline',
-          label: '大纲',
-          content: <OutlineTab headings={headings} activeId={activeHeadingId} />,
-        });
-      }
-    }
-
-    // T2111: Local graph tab — 1-degree neighborhood
     if (user) {
-      tabs.push({
-        id: 'graph',
-        label: '图谱',
-        content: <LocalGraph centerId={`blog-${blog.id}`} userId={user.id} />,
-      });
-    }
-
-    // T2203: Passive discovery — similar content recommendations
-    if (user && blog.title) {
       tabs.push({
         id: 'recommend',
         label: '推荐',
@@ -302,14 +299,35 @@ export function BlogPreviewPage() {
     return contextPanel.registerTabs(tabs);
   }, [blog, contextPanel, activeHeadingId, user]);
 
-  // Save progress on unmount via localStorage
+  // §3.2 reading progress: save percent on unmount, restore on mount
+  useEffect(() => {
+    if (!id) return;
+    const key = `blog-progress-${id}`;
+    const saved = sessionStorage.getItem(key);
+    if (saved) {
+      const percent = Number(saved);
+      if (percent > 5 && percent < 95) {
+        requestAnimationFrame(() => {
+          const h = document.documentElement;
+          const total = h.scrollHeight - h.clientHeight;
+          if (total > 0) h.scrollTop = (percent / 100) * total;
+        });
+      }
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [id]);
   useEffect(() => {
     return () => {
-      if (id && progress > 0) {
-        localStorage.setItem(`blog-progress-${id}`, String(Math.round(progress)));
+      if (!id) return;
+      const h = document.documentElement;
+      const total = h.scrollHeight - h.clientHeight;
+      const percent = total > 0 ? Math.round((h.scrollTop / total) * 100) : 0;
+      if (percent > 5 && percent < 95) {
+        sessionStorage.setItem(`blog-progress-${id}`, String(percent));
       }
     };
-  }, [id, progress]);
+  }, [id]);
   const handleScroll = useCallback(() => {
     const h = document.documentElement;
     const total = h.scrollHeight - h.clientHeight;
@@ -505,41 +523,8 @@ export function BlogPreviewPage() {
       />
 
       <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto', position: 'relative' }}>
-        <div className="mb-4 flex items-center justify-between">
-          <Link
-            to="/blog"
-            className="mb-0 inline-flex items-center gap-1 text-[14px] no-underline hover:underline transition-colors duration-[0.15s]"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            ← 返回列表
-          </Link>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                addTab({ id: blog.id, title: blog.title || '无标题', format: blog.format || 'md' });
-              }}
-              title="缩小为标签条，稍后快速切换"
-              className="rounded-[4px] border px-2 py-1 text-[12px] transition-opacity hover:opacity-80"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'transparent' }}
-            >
-              最小化
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.querySelector('main');
-                if (el) {
-                  const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
-                  sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
-                }
-                setSearchParams({ mode: 'edit' }, { replace: true });
-              }}
-              className="btn-primary !text-[13px] !px-3 !py-1"
-            >
-              编辑
-            </button>
-            <div className="flex gap-1">
+        <div className="mb-4 flex items-center justify-end">
+          <div className="flex gap-1">
             {Object.entries(READING_THEMES).map(([key, t]) => (
               <button
                 key={key}
@@ -557,7 +542,6 @@ export function BlogPreviewPage() {
               </button>
             ))}
             </div>
-          </div>
         </div>
 
         <article
@@ -659,34 +643,15 @@ export function BlogPreviewPage() {
 
         {user && <RelatedResources blogId={blog.id} />}
 
-        <div className="mt-12 border-t pt-6 flex gap-3" style={{ borderColor: 'var(--border-default)' }}>
-          <button
-            type="button"
-            onClick={() => {
-              // Save scroll ratio before switching to edit mode
-              const el = document.querySelector('main');
-              if (el) {
-                const ratio = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
-                sessionStorage.setItem(`blog-scroll-ratio-${id}`, String(Math.min(1, Math.max(0, ratio))));
-              }
-              setSearchParams({ mode: 'edit' }, { replace: true });
-            }}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            编辑此文章
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              const r = await window.api.blogExportPdf(Number(id));
-              if (!r.success && r.error !== '已取消') alert(r.error || '导出失败');
-            }}
-            className="btn-primary inline-flex items-center gap-2"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
-          >
-            导出 PDF
-          </button>
-        </div>
+        {/* Floating side menu */}
+        {blog.content && (
+          <FloatingMenu
+            blogId={blog.id}
+            headings={parseTocHeadings(blog.content, blog.format)}
+            onEdit={() => setSearchParams({ mode: 'edit' }, { replace: true })}
+            onBack={() => navigate('/blog')}
+          />
+        )}
 
         {/* Right-click AI context menu */}
         {aiCtxMenu && (
@@ -718,6 +683,32 @@ export function BlogPreviewPage() {
                 {item.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* T2406: HoverPreview — transient wikilink context (200ms delay, no interaction) */}
+        {hoverPrev && (
+          <div className="fixed z-[9998] rounded-[6px] border p-3 shadow-lg max-w-[300px] pointer-events-none"
+            style={{
+              left: hoverPrev.x, top: hoverPrev.y,
+              background: 'var(--bg-secondary)', borderColor: 'var(--border-default)',
+            }}>
+            <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{hoverPrev.data.title}</div>
+            {hoverPrev.data.excerpt && (
+              <div className="mt-1 text-[11px] line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{hoverPrev.data.excerpt}</div>
+            )}
+            <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              {hoverPrev.data.updatedAt && <span>{formatDate(hoverPrev.data.updatedAt)}</span>}
+              {hoverPrev.data.refCount > 0 && <span>引用 {hoverPrev.data.refCount}</span>}
+              {hoverPrev.data.backlinkCount > 0 && <span>被引 {hoverPrev.data.backlinkCount}</span>}
+            </div>
+            {hoverPrev.data.tags.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {hoverPrev.data.tags.map((t) => (
+                  <span key={t} className="text-[10px] rounded-[3px] px-1.5 py-0.5" style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}>{t}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

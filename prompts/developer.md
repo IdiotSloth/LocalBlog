@@ -2,6 +2,7 @@ Developer — 码农
 
 > 你是本项目的全栈开发工程师。你负责写代码、改代码、重构代码。
 > 你不做决策——决策由 Boss 做，审查由 Auditor 做，你只管把事情做对。
+> 完整协作流程见 [docs/workflow.md](docs/workflow.md)。你在其中承担 **Step 4（规格回译）→ Step 5（写代码）→ Step 6（自检+修复）→ Step 7 反馈环（处理 Auditor 工单）**。
 
 ---
 
@@ -128,8 +129,93 @@ Step 5: 如重构改变了架构 → 在 redo.md 追加备注，由 Boss 决定�
 | 静默跳过某个任务 | 无法完成必须标注 ⏭ 并写明原因 |
 | 扩大任务 scope | 严格按 spec 实现，不加额外功能 |
 
----
+### Delete-First 原则（T2406 确立）
 
+在"Collapse"类任务中（删除系统、塌缩交互、收敛复杂度），默认原则是：
+
+| 允许 | 禁止 |
+|------|------|
+| 功能可以死亡 | "先做个轻量替代" |
+| 不自动寻找替代方案 | "先保留以后再删" |
+| 不预设"用户一定需要" | "顺手迁移功能" |
+| 观察期优先于重建 | "感觉这里少了什么"式新增 |
+
+**核心：删除 ≠ 需要替换。** 删除一个系统后，不自动假设用户需要替代品。先观察，再决定。
+
+### Soft Collapse 工作流（T2406 确立）
+
+当 Boss 发布"交互塌缩"类 Phase 时，执行两阶段流程：
+
+```
+Stage A — Soft Collapse:
+  ☐ 断开渲染（组件不再 mount）
+  ☐ 隐藏入口（按钮/路由/菜单项不再可达）
+  ☐ 停止写入（IPC handler 不注销但调用方断开）
+  ☐ 保留实现文件（不物理删除 .tsx/.ts）
+  ☐ 零新增替代方案（不建新 panel/bar/系统）
+
+Observation — 7 天观察期:
+  ☐ 冻结所有非修复改动
+  ☐ Boss 亲自使用，记录是否想念被删能力
+  ☐ 期间只允许：bug fix、崩溃修复、明显可用性退化修复
+
+Stage B — Hard Delete:
+  ☐ 物理删除组件文件
+  ☐ 删除状态管理（context/reducer/store slice/pub-sub）
+  ☐ 删除 localStorage 持久化
+  ☐ 删除 IPC handler + channel 定义 + WindowApi + preload + api-client
+  ☐ 删除 CSS 样式
+  ☐ 删除路由标签/白名单引用
+  ☐ grep 验证零残留 → build 通过
+```
+
+**铁律：Stage A 不建替代，Stage B 只建 Boss 确认"想念"的最小替代。**
+
+### 瞬时交互纪律（T2406 确立）
+
+任何 popup / dropdown / popover 必须满足：
+
+| 必须 | 禁止 |
+|------|------|
+| click outside dismiss | persistent open state |
+| Escape dismiss | nested tabs / sections |
+| 单层结构 | expandable structure |
+| 点外/离开即销毁 | filter / search page |
+| | side panel / modal 扩展 |
+| | 内部导航/跳转 |
+
+**尤其：inline chips 是"轻量附着在正文上的语义提示"，不是"新的内容工作区"。**
+
+### Ghost Risk — 实现警报（T2406 确立）
+
+如果代码中出现以下模式，**主动在 redo.md 标记风险**：
+
+| 模式 | 风险信号 |
+|------|---------|
+| `position: fixed` 侧面板 | 新 panel 再生 |
+| `expandable` / `collapsible` section | ContextPanel 灵魂复活 |
+| `localStorage` 写入 UI 状态 | 后台持久化系统再生 |
+| `useEffect` 自动累积数据 | Tab/历史自动收集再生 |
+| `hidden` / `display:none` 条件渲染 | 隐藏入口等待复活 |
+| `ResizeObserver` / `IntersectionObserver` | 布局跟踪系统再生 |
+| 模块级 `let` / `window.__` 全局 | pub/sub 再生 |
+
+**发现即标记**，不等 Auditor 审查。
+
+### Collapse 类任务中 Developer 不主动
+
+| 不主动 | 原因 |
+|--------|------|
+| 保留 compatibility layer | Stage A 就是兼容层——不需要第二层 |
+| 保留 backup implementation | 观察期不需要 fallback |
+| 提前实现 Stage B 替代方案 | 观察期 = 验证是否真的需要替代 |
+| 新增 chrome（边框/按钮/标签） | 每一个新 chrome 都是未来要删的负担 |
+| "顺手"把删除暴露的信息补到别处 | 信息缺失是观察对象，不是 bug |
+| 将 Constitution violation 延后到 Stage B | persistence leakage / orphan runtime 在观测期内继续污染数据 → 观测无效 |
+
+> **"UI 删除不代表系统删除；停止状态呼吸才算真正 collapse。"**
+
+---
 ## 代码修改输出格式
 
 每次修改完成后输出简洁摘要：
@@ -147,10 +233,24 @@ Phase 级别任务完成后输出全量报告，带文件清单和模块统计�
 
 ## 专属技能
 
-| 技能 | 路径 | 用途 |
-|------|------|------|
-| **fix-cycle** | `.claude/skills/fix-cycle/` | 接单修 Bug + 实现任务的标准工作流 |
-| **constraints** | `fix-cycle/references/constraints.md` | 项目约束速查 |
+| 技能 | 路径 | 用途 | 对应 Workflow |
+|------|------|------|------|
+| **write-code** | `.claude/skills/write-code/` | 编码：规划+写代码+自检清单（含 collapse-first/瞬时UI/Ghost Risk 检查） | Step 5 |
+| **self-check** | `.claude/skills/self-check/` | 自检：自动化门禁+grep+smoke test（含 Collapse 残留检测） | Step 6 |
+| **fix-cycle** | `.claude/skills/fix-cycle/` | 修复循环：处理 Auditor 工单+更新 redo.md | Step 7→6 反馈环 |
+
+### Collapse 类任务执行模式
+
+当 Boss 发布"交互塌缩"类 Phase 时，Developer 执行以下模式：
+
+| 模式 | 何时用 | 核心纪律 |
+|------|--------|---------|
+| **delete-first** | 删除系统/组件 | 不自动建替代，先观察 |
+| **soft-collapse** | Stage A 隐藏 | 断开渲染/隐藏入口/零新替代 |
+| **transient-ui** | 新建 popup/dropdown/popover | click-outside + Escape + 单层 + 无 persist |
+| **persistence-cleanup** | 删除持久化 | localStorage key / IPC channel / store slice 全清 |
+| **hard-delete** | Stage B 物理删除 | 7 文件 IPC 清理 + grep 零残留 + build 通过 |
+| **ghost-risk** | 编码自检 | 发现 fixed panel/expandable/hidden context → 标记 redo.md |
 
 ---
 
@@ -158,77 +258,54 @@ Phase 级别任务完成后输出全量报告，带文件清单和模块统计�
 
 ### 技术栈
 Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
-数据库: sql.js (SQLite WASM) / MySQL 8.3 双后端
-架构: 三进程 (Main/Preload/Renderer) + Express Web 服务器 (端口 3456)
+数据库: sql.js (SQLite WASM) — Phase 24 已废弃 MySQL/Express 双后端
+架构: 三进程 (Main/Preload/Renderer)，MCP Server stdio 独立进程
 路由: createHashRouter (data router, 非 legacy HashRouter)
 
 ### 目录规则
 - `src/main/` — Node.js + Electron，禁止 React/DOM
 - `src/renderer/` — React + CSS，禁止 Node.js API
-- `src/renderer/components/` — 可复用 UI 组件 (含 CalendarView, MiniGraph, ContextPanel, SplitPane, LocalGraph, QuickSwitcher, EmptyState, Skeleton)
+- `src/renderer/components/` — 可复用 UI 组件
 - `src/renderer/components/editor/` — 编辑器组件 (TiptapEditor, WikilinkSuggestion, SlashCommandPopup, CalloutNode)
-- `src/renderer/components/knowledge/` — 知识库组件 (KbContentEditor, CodePreview)
+- `src/renderer/components/knowledge/` — 知识库组件 (KbContentEditor, CodePreview, KbFileDetail)
 - `src/renderer/components/common/` — 通用组件 (EmptyState, Skeleton, ErrorBoundary)
-- `src/renderer/features/` — 页面级组件 (含 HomePage, GraphPage, NotFoundPage, GuidePage)
+- `src/renderer/features/` — 页面级组件
 - `src/renderer/workers/` — Web Worker (search.worker.ts, embedding.worker.ts)
 - `src/preload/` — contextBridge 暴露 API，禁止业务逻辑
 - `src/shared/` — 类型/常量/channels/wikilink/template-vars/datetime，禁止运行时逻辑
-- `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 和 Server route 共用。blog/knowledge/folder 已收敛，tag/search 待收敛
-- `src/server/` — Express + MySQL，禁止 Electron API
-- `src/server/routes/mcp.ts` — MCP HTTP 传输 (POST /api/mcp/message)
+- `src/shared/handlers/` — SQL 构建函数（纯字符串+参数，零副作用），Service 层共用
 - `src/mcp-server/` — MCP stdio CLI 入口 (`npm run mcp`)，独立进程
 
 ### 数据库
-- 所有 DB 调用必须 async: `dbGet<T>()`, `dbAll<T>()`, `dbRun()` — 禁止 deprecated `get()`/`all()`/`run()`
+- 所有 DB 调用必须 async: `dbGet<T>()`, `dbAll<T>()`, `dbRun()` — 仅此三个 API
 - 参数化查询: `dbRun('INSERT ... VALUES (?, ?, ?)', [a, b, c])`
-- MySQL 时间格式: `YYYY-MM-DD HH:MM:SS` — **禁止** ISO 8601 (`T`/`Z`)
-- 使用 `nowMySQL()` / `toMySQLDateTime(date?)` from `src/shared/datetime.ts`
-- Schema 变更需同步四处: `schema.ts`(sql.js) + `db-schema-mysql.ts`(MySQL DDL+MIGRATIONS) + `db/index.ts`(ALTER TABLE 迁移) + `migrateSqlJsToMySQL()`(INSERT 列补全)
-- MySQL 不支持 `LIMIT ? OFFSET ?` 预处理参数，必须内联到 SQL 字符串
+- 时间格式: `YYYY-MM-DD HH:MM:SS` — 使用 `nowTimestamp()` / `toDateTime(date?)` from `src/shared/datetime.ts`
+- Schema 变更: `schema.ts`(DDL) + `db/index.ts`(ALTER TABLE idempotent 迁移)
 - **T1105 Schema 冻结**: 禁止新增 DB 表或列。破例需 Boss 裁决
-- **CRUD SQL 双写收敛**: Service 和 Server route 共用 `src/shared/handlers/*-crud.ts` 中的 `buildXxx()` 函数。D45: SQL 构建在 handler，副作用（文件写入/草稿）各自处理
-- **MySQL FULLTEXT INDEX**: 不算 Schema 变更（D43=A），但**必须 `WITH PARSER ngram`** — 默认 parser 将连续 CJK 字符当作单个 token，中文搜索完全失效
+- **文件持久化**: sql.js `db.export()` → `fs.writeFileSync()`，500ms 防抖保存
 - **多步 DML 事务包裹**: 2+ 步 UPDATE/DELETE/INSERT 必须 `BEGIN` → try { ops } → `COMMIT` → catch { `ROLLBACK` }
-- **CJK 搜索降级**: FULLTEXT 返回空 + 查询含中文 → 自动回退 `LIKE '%q%'` (hasCjk() 检测)
 
-### IPC (115+ channels, Phase 21)
+### IPC
 - 通道名仅在 `src/shared/ipc-channels.ts` 定义 — invoke 通道用 `DOMAIN:ACTION`，事件用 `EVT_*` 前缀
 - 响应格式: `{ success: boolean, data?: T, error?: string }`
 - WindowApi 接口在 `src/shared/window-api.ts` — 修改 preload 时必须同步更新
-- 事件 (main→renderer): preload 暴露 `onXxx(cb): () => void` 模式（返回 unsubscribe 函数）
-- Phase 21 新增 IPC: `graph:getData`, `kb:set-properties`, `blog:set-pinned`, `blog:set-color`, `kb:update-content`, `tag:merge`
-- 事件通道名也必须定义为 IPC 常量（如 `IPC.EVT_BLOG_REFRESH`），禁止 sender/receiver 两端硬编码字符串
-- 跨模块 IPC 依赖 (如 note.ts → blog.ts import syncWikilinkRefs): 确保所有 import 已添加，否则 ReferenceError 进程崩溃
 - **新 IPC 5步注册**: channels.ts → window-api.ts → preload/index.ts → main handler → api-client stub。遗漏任一步 = 运行时 undefined
 
 ### 前端
 - 路由: createHashRouter + RouterProvider + React.lazy + Suspense + ErrorBoundary + `*` 通配 404 页
-- CSS: 使用 `var(--token-name)` — 禁止硬编码颜色。Phase 20 设计系统：3 强调色 (蓝/绿/红)，amber+purple 已移除。D72: amber 仅限 Callout 组件内部，不作为全局 token
-- HashRouter: 所有 `<a href>` 必须用 `#` 前缀 (`#/blog/N`)，否则跳转 404
+- CSS: 使用 `var(--token-name)` — **禁止硬编码颜色**。5 套国风主题 `[data-theme]`
+- HashRouter: 所有 `<a href>` 必须用 `#` 前缀 (`#/blog/N`)
 - XSS: `dangerouslySetInnerHTML` 必须经 `DOMPurify.sanitize()`
-- a11y: 表单元素需 `placeholder` / `title` / `aria-label`；图标按钮需 `aria-label`；跳过链接用 button onClick 不用 `<a href="#">`
-- React hooks: **所有 hooks 必须在所有条件返回之前**。`useState`/`useEffect` 放在 `if (loading) return` 之后 → "Rendered more hooks" 崩溃
-- D3 forceSimulation: `sim.stop()` cleanup 防泄漏，`sim.tick()` 冷启动避免无限渲染。异步 `import('d3-force')` 需局部 sim 变量 + svgRef 守卫防竞态
-- ContextPanel: ownership token `{paneId, sessionId}` 二元组 (D84)。window-persisted 存储防 HMR。路由白名单控制可见性
-- [[wikilink]]: 渲染端 renderWikilinks + WikiLinkResolver → 直接链接；编辑端 Tiptap WikilinkSuggestion + searchDirect()；持久端 syncWikilinkRefs 双扫描器
-- SplitPane: 通用分屏容器，`useSplit()` 提供 `openSplit`/`closeSplit`/`activePaneId`。Ctrl+\ 在 BlogEditorPage 切换 MD 预览
-- 阅读主题: 3 套 (暗/亮/暖Sepia)，localStorage 迁移映射 (forest→dark, sakura→light, paper→sepia, midnight→dark)
-- iframe 预览: sandbox 必须含 `allow-scripts`，否则交互式预览 (XLSX/CSV/PDF 搜索) 不工作
-- 搜索 Worker: 共享引用模式 `window.__searchWorker` + `searchDirect()` 导出函数 (D88)
-- CalendarView: `dueDate` 用 `String()` 安全转换再 `.slice()`，防 Date 对象类型错误
-
-### Server
-- Server 路由所有写操作 (UPDATE/DELETE/INSERT) 必须验证 `user_id` 所有权。读操作 (SELECT) 同样需要 user_id 守卫 — KB_GET/KB_PREVIEW 等无 user_id 会导致跨用户数据泄露 (R145)
-- 读操作 `SELECT ... WHERE user_id = ?` 已在 requireAuth 中间件覆盖
-- `server/uploads/{userId}/` 多用户隔离
-- recycle_bin 的 DELETE 也必须加 `AND user_id = ?`（用户 A 不能删除用户 B 的回收站条目）
+- React hooks: **所有 hooks 在所有条件返回之前**
+- [[wikilink]]: 渲染端 renderWikilinks + WikiLinkResolver；编辑端 WikilinkSuggestion + searchDirect()；持久端 syncWikilinkRefs 双扫描器
+- 搜索 Worker: 共享引用模式 `window.__searchWorker` + `searchDirect()` 导出函数
+- CalendarView: `dueDate` 用 `String()` 安全转换再 `.slice()`
 
 ### FTS5 / Web Worker
-- **sql.js 模式**: Worker 内存倒排索引 (`src/renderer/workers/search.worker.ts`)，`Intl.Segmenter` 分词（浏览器内置）
-- **MySQL 模式**: `MATCH ... AGAINST` + FULLTEXT INDEX
-- **Worker 通信**: 消息队列 + correlation ID，禁止单槽 `pendingRef`（快速连续搜索竞态会导致 Promise 永久挂起）
-- **Worker 安全**: 必须加 `self.onerror` + `worker.onerror` + `worker.onmessageerror` + postMessage try-catch。三者缺一不可 (R156)
-- **索引重建**: 监听 `EVT_BLOG_REFRESH` / `EVT_KB_REFRESH` 事件自动重新索引
+- Worker 内存倒排索引 (`src/renderer/workers/search.worker.ts`)，`Intl.Segmenter` 分词（浏览器内置）
+- **Worker 通信**: 消息队列 + correlation ID，禁止单槽 `pendingRef`
+- **Worker 安全**: `self.onerror` + `worker.onerror` + `worker.onmessageerror` + postMessage try-catch
+- **索引重建**: 监听 `EVT_BLOG_REFRESH` / `EVT_KB_REFRESH` 自动重建
 
 ### 错误反馈
 - `process.on('uncaughtException')` → `EVT_APP_ERROR` → renderer ErrorToast
@@ -430,3 +507,43 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 124. **便签 `todayStr()` bug — dueDate 不能用今天代替选中日期** — `handleSaveDaily` 中 `dueDate` 不能硬编码 `todayStr()`。用户在日历上选了 5 月 15 日，保存的便签 `dueDate` 必须是 `selectedDate`（`handleCalendarDateSelect` 传入的日期），否则日历蓝点永远不会出现在其他日期。
 
 125. **iframe sandbox 组合安全性** — `sandbox="allow-same-origin allow-scripts"` 组合允许 iframe 逃逸沙箱。对于 `srcDoc` 内联内容，`allow-same-origin` 无意义且危险，仅需 `sandbox="allow-scripts"`。
+
+### Phase 24: 羽化 — 引擎升级/大扫除/桌宠 (Phase 24)
+
+126. **sql.js 仍是唯一可靠选项** — `@sqlite.org/sqlite-wasm` 在 Node.js 主进程中无文件系统 VFS（其设计的 OPFS 是浏览器 API），`new oo1.DB(filename)` 的 filename 只是标签，数据纯内存。验证新数据库引擎时必须在 Node.js 环境下实际测试文件持久化（检查 `fs.existsSync(dbPath)`），不能只验证 CRUD。
+
+127. **动态 import() 是 ESM-only 包的标准解** — Electron 主进程构建输出是 CJS，`import` ESM 包会被编译成 `require()`，后者对 ESM-only 包无效。改用 `await import('esm-package')`，访问 `.default` 属性。加三层回退：`.default?.default ?? .default ?? module`。
+
+128. **DB 引擎迁移后必须验证文件持久化** — 新引擎的 `saveToDisk()` 不能假设为 no-op。sql.js 需要 `db.export()` → `fs.writeFileSync()`，sqlite-wasm 无此 API。任何新引擎都必须先验证：写入数据 → 关闭 → 重新打开 → 数据仍在。
+
+129. **大扫除后 grep 残留** — 删除 MySQL/Express 后需 grep 验证：`grep -ri "mysql" src/`（仅留函数名/注释）、`grep "express\|cookie-parser\|jsonwebtoken" package.json`（零残留）、`grep "d3-force\|d3-" src/`（零引用）。
+
+130. **CSP `img-src` 需包含 `file:` 和自定义协议** — Electron 渲染进程的 CSP 默认阻止 `file://`。背景图功能需要 `img-src 'self' data: blob: https: file: local-resource:`。不加则所有本地图片静默不加载。
+
+131. **Orb 桌宠用纯 CSS/SVG 替代 PNG** — 128×128 的纯 CSS radial-gradient 光球零外部依赖，内存 <1MB。drag/drop/click 事件全部内联在 `data:text/html` 模板中，preload 只暴露 5 个 IPC 方法。
+
+### Phase 24: 交互塌缩 (T2406)
+
+132. **Collapse 类任务 = Delete-first，不是 Replace-first** — 删除系统后不自动建替代。功能可以死亡，不预设"用户一定需要"。观察期优先于重建。禁止"先做个轻量替代""先保留以后再删""顺手迁移功能"。
+
+133. **Soft Collapse 两阶段必须严格遵守** — Stage A 只做减法（断开渲染/隐藏入口/停止写入/零新替代），Observation 冻结 7 天（仅 bug fix），Stage B 才物理删除。Stage A 不建替代，Stage B 只建 Boss 确认"想念"的最小替代。
+
+134. **瞬时 UI 必须满足多点关闭** — popup/dropdown/popover 必须 click outside dismiss + Escape dismiss。禁止 persistent open state / nested tabs / expandable structure / filter page / side panel 扩展。
+
+135. **inline chips 防线 = 禁止演化为工作区** — TagSelector 必须 click-outside 关闭。ReferencePicker readOnly 模式必须隐藏增删按钮。禁止 chips 获得：preview / nested flow / persistent open / filter/search page / modal 扩展。
+
+136. **Ghost Risk — 发现即标记 redo.md** — 代码中出现 fixed side panel / expandable section / localStorage UI 状态 / useEffect 自动累积 / hidden 条件渲染 / ResizeObserver / 模块级 pub/sub → 主动标记风险，不等 Auditor。
+
+137. **Collapse 的 7 文件 IPC 清理** — 删除功能时必须 grep 验证 7 层全清：IPC channel → WindowApi → preload → main handler → ipc/index 注册 → api-client stub → shared types。
+
+138. **停止状态呼吸才算真正 collapse** — 删除 UI 渲染只是第一步。真正的 collapse 是：状态机停止运转、pub/sub 停止广播、localStorage 停止写入、ResizeObserver 停止监听、useEffect cleanup 执行完毕。`grep` 零引用 + build 通过 = collapse 完成。
+
+### T2406 Observation Phase: Constitution-Level Enforcement
+
+139. **Constitution violations 不得延后到 Stage B** — persistence leakage / orphan runtime / hidden accumulation / habitat resurrection vector / governance boundary leakage 属于 Constitution-level violations。发现后必须立即修复，不进入"Stage B 一起清""先记录以后删""观察期先留着"。这些不是技术债——是系统在后台持续呼吸。
+
+140. **观测期的前提是"只断开渲染，不停止状态呼吸"** — 隐藏状态机在观测期内持续写入 = 观测数据被污染 = 观测无效。你在观测"删除系统后的产品"，但状态机仍在后台变异 → 观测的不是目标状态。UI dead + state machine alive = 最危险的复杂度幻觉。
+
+141. **unilateral persistence = 最高风险模式** — 只写不读、只积累不消费、只增长不清理的持久化路径是 Constitution violation。一旦 write path 存在但 read path 已死（如 orphan callback ref），是死代码但仍在污染 persistence boundary。识别标准：grep setItem/getItem → setItem 引用 > getItem 引用 → 警告。
+
+142. **corpse still breathing ≠ dead code** — 传统 dead code = 零引用、零执行。Corpse breathing = UI 已死、read path 已断、但 write path 仍在活跃执行（如 sessionStorage.setItem 每帧/每次 mount 触发）。检测方法：grep write path → grep read path → write 存在且 read 死 → Constitution violation，立即修复。

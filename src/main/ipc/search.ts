@@ -30,7 +30,7 @@ export function registerSearchHandlers(): void {
     return { success: true };
   });
 
-  // T1801: FTS5 full-text search (MySQL FULLTEXT + sql.js Worker modes)
+  // T1801: FTS5 full-text search (Worker-based inverted index)
   ipcMain.handle(IPC.SEARCH_QUERY, async (_event, data: { query: string; userId: number }) => {
     try {
       const results: FtsSearchResult[] = await SearchService.searchAll(data.query, data.userId);

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { MAX_TITLE_LENGTH } from '../../shared/constants';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import {
   buildBlogCreate,
@@ -43,14 +43,14 @@ interface DraftRow {
 }
 
 export class BlogService {
-  static async createBlog(userId: number, title: string, format: BlogFormat, content: string): Promise<Blog> {
+  static async createBlog(userId: number, title: string, format: BlogFormat, content: string, seriesId?: string, seriesName?: string): Promise<Blog> {
     if (!title || title.length > MAX_TITLE_LENGTH) throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
     if (!['md', 'html'].includes(format)) throw new Error('格式必须是 md 或 html');
 
     const blogsDir = await getBlogsDir(userId);
     if (!fs.existsSync(blogsDir)) initWorkspaceDirectories(blogsDir.replace(/Blogs$/, ''));
 
-    const { sql, params } = buildBlogCreate(userId, title, format, content);
+    const { sql, params } = buildBlogCreate(userId, title, format, content, seriesId, seriesName);
     await dbRun(sql, params);
     const row = await dbGet<BlogRow>(
       'SELECT * FROM blogs WHERE user_id = ? AND title = ? AND format = ? ORDER BY id DESC LIMIT 1',
@@ -58,7 +58,7 @@ export class BlogService {
     );
     if (!row) throw new Error('创建博客失败');
 
-    const filePath = await getBlogPath(userId, row.id, format);
+    const filePath = await getBlogPath(userId, title, format);
     fs.writeFileSync(filePath, content, 'utf-8');
     return mapBlogRow(row);
   }
@@ -67,7 +67,7 @@ export class BlogService {
     const { sql, params } = buildBlogSelect(blogId);
     const row = await dbGet<BlogRow>(sql, params);
     if (!row) return null;
-    const filePath = await getBlogPath(row.user_id, row.id, row.format as BlogFormat);
+    const filePath = await getBlogPath(row.user_id, row.title, row.format as BlogFormat);
     let content = '';
     try {
       content = fs.readFileSync(filePath, 'utf-8');
@@ -82,17 +82,23 @@ export class BlogService {
     const { sql, params } = buildBlogSelect(blogId);
     const blog = await dbGet<BlogRow>(sql, params);
     if (!blog) throw new Error('博客不存在');
+    const oldPath = await getBlogPath(blog.user_id, blog.title, blog.format as BlogFormat);
     if (update.title !== undefined) {
       if (!update.title || update.title.length > MAX_TITLE_LENGTH)
         throw new Error(`标题长度必须在 1-${MAX_TITLE_LENGTH} 字符之间`);
-      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?', [update.title, nowMySQL(), blogId, userId]);
+      await dbRun('UPDATE blogs SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?', [update.title, nowTimestamp(), blogId, userId]);
     }
     if (update.content !== undefined) {
-      const filePath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
-      const tmpPath = filePath + '.tmp.' + Date.now();
+      const tmpPath = oldPath + '.tmp.' + Date.now();
       fs.writeFileSync(tmpPath, update.content, 'utf-8');
-      fs.renameSync(tmpPath, filePath);
-      await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?', [update.content, nowMySQL(), blogId, userId]);
+      fs.renameSync(tmpPath, oldPath);
+      await dbRun('UPDATE blogs SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?', [update.content, nowTimestamp(), blogId, userId]);
+    }
+    if (update.title !== undefined && update.title !== blog.title) {
+      const newPath = await getBlogPath(blog.user_id, update.title, blog.format as BlogFormat);
+      if (fs.existsSync(oldPath)) {
+        fs.renameSync(oldPath, newPath);
+      }
     }
   }
 
@@ -141,7 +147,7 @@ export class BlogService {
       const { sql, params } = buildBlogSelect(blogId);
       const blog = await dbGet<BlogRow>(sql, params);
       if (!blog) continue;
-      const srcPath = await getBlogPath(blog.user_id, blogId, blog.format as BlogFormat);
+      const srcPath = await getBlogPath(blog.user_id, blog.title, blog.format as BlogFormat);
       const ext = blog.format === 'html' ? '.html' : '.md';
       try {
         fs.copyFileSync(
@@ -294,7 +300,7 @@ export class BlogService {
 
   private static async getBlogContent(blog: BlogRow): Promise<string> {
     try {
-      return fs.readFileSync(await getBlogPath(blog.user_id, blog.id, blog.format as BlogFormat), 'utf-8');
+      return fs.readFileSync(await getBlogPath(blog.user_id, blog.title, blog.format as BlogFormat), 'utf-8');
     } catch {
       return blog.content || '';
     }

@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { formatDate } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { BlogCard } from '../../components/blog/BlogCard';
-import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 
 const CIRCLE_NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
   '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
@@ -29,7 +28,6 @@ export function SeriesDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const contextPanel = useContextPanel();
   const [readIds, setReadIds] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(`series_read_${seriesId}`) || '[]')); }
     catch { return new Set<number>(); }
@@ -92,41 +90,6 @@ export function SeriesDetailPage() {
     loadBlogs();
   }, [loadBlogs]);
 
-  // T2306: ContextPanel with reading progress
-  useEffect(() => {
-    if (!seriesId) return;
-    const tabs: TabDef[] = [
-      {
-        id: 'progress',
-        label: '阅读进度',
-        content: (
-          <div className="p-2 text-[13px] space-y-2" style={{ color: 'var(--text-secondary)' }}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{seriesName || decodeURIComponent(seriesId)}</p>
-            <p>{readIds.size} / {blogs.length} 篇已读</p>
-            {blogs.length > 0 && (
-              <div className="h-1 rounded-full" style={{ background: 'var(--bg-tertiary)' }}>
-                <div className="h-1 rounded-full transition-all" style={{
-                  width: `${blogs.length > 0 ? (readIds.size / blogs.length) * 100 : 0}%`,
-                  background: 'var(--accent-blue)',
-                }} />
-              </div>
-            )}
-            {readIds.size < blogs.length && (
-              <button type="button" onClick={() => {
-                const all = new Set(blogs.map(b => b.id));
-                setReadIds(all);
-                localStorage.setItem(`series_read_${seriesId}`, JSON.stringify([...all]));
-              }}
-                className="text-[12px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                标记全部已读
-              </button>
-            )}
-          </div>
-        ),
-      },
-    ];
-    return contextPanel.registerTabs(tabs);
-  }, [seriesId, contextPanel, seriesName, readIds, blogs]);
 
   // Mark blog as read on click
   const markRead = (blogId: number) => {
@@ -212,6 +175,10 @@ export function SeriesDetailPage() {
                     showExcerpt={false}
                   />
                 </div>
+                <label className="shrink-0 pt-3 flex items-center gap-1 cursor-pointer text-[12px]" style={{ color: readIds.has(blog.id) ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+                  <input type="checkbox" checked={readIds.has(blog.id)} onChange={() => markRead(blog.id)} className="cursor-pointer" style={{ width: 14, height: 14 }} />
+                  <span>已读</span>
+                </label>
               </div>
             ))}
           </div>

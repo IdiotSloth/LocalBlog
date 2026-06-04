@@ -253,17 +253,26 @@ export function registerAppHandlers(): void {
   // Background image: read file and return base64 data URL (avoids file:// block in renderer)
   ipcMain.handle(IPC.BG_IMAGE_READ, async (_event, data: { filePath: string; userId: number }) => {
     try {
-      // R338: Path traversal protection — only block '../' escapes. Background images
-      // can come from anywhere on disk (Pictures, Downloads, etc.), not just workspace.
-      const resolved = path.resolve(data.filePath);
-      if (path.normalize(data.filePath).includes('..')) {
+      // R338: Path traversal + symlink protection
+      const normalized = path.normalize(data.filePath);
+      if (normalized.includes('..')) {
         return { success: false, error: '路径包含非法字符' };
       }
-      const ext = path.extname(resolved).replace('.', '') || 'png';
+      const resolved = path.resolve(normalized);
+      // Resolve symlinks to prevent symlink-based traversal
+      let realPath: string;
+      try { realPath = fs.realpathSync(resolved); }
+      catch { return { success: false, error: '文件不存在或无法访问' }; }
+      const ext = path.extname(realPath).replace('.', '') || 'png';
       if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
         return { success: false, error: '不支持的文件类型' };
       }
-      const buf = fs.readFileSync(resolved);
+      // Refuse files larger than 50MB
+      const stat = fs.statSync(realPath);
+      if (stat.size > 50 * 1024 * 1024) {
+        return { success: false, error: '图片文件过大 (最大 50MB)' };
+      }
+      const buf = fs.readFileSync(realPath);
       const mime = ext === 'jpg' ? 'jpeg' : ext;
       const b64 = buf.toString('base64');
       return { success: true, data: `data:image/${mime};base64,${b64}` };

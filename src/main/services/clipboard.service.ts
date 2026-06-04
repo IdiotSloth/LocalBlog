@@ -84,10 +84,10 @@ function poll() {
 async function autoSaveAsNote(content: string) {
   try {
     const { dbRun } = await import('../db');
-    const { nowMySQL } = await import('../../shared/datetime');
+    const { nowTimestamp } = await import('../../shared/datetime');
     await dbRun(
       "INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-      [autoSaveUserId, content, content.slice(0, 50), 'clipboard', 'note', nowMySQL(), nowMySQL()],
+      [autoSaveUserId, content, content.slice(0, 50), 'clipboard', 'note', nowTimestamp(), nowTimestamp()],
     );
   } catch { /* best-effort */ }
 }

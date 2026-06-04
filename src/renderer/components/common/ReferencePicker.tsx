@@ -95,14 +95,16 @@ export function ReferencePicker({ userId, sourceType, sourceId, readOnly }: Prop
               <span className="truncate flex-1" style={{ color: 'var(--text-primary)' }}>
                 {ref.title}
               </span>
-              <button
-                type="button"
-                onClick={() => handleRemove(ref.refId)}
-                className="text-[11px] shrink-0 hover:underline"
-                style={{ color: 'var(--accent-red)' }}
-              >
-                ✕
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(ref.refId)}
+                  className="text-[11px] shrink-0 hover:underline"
+                  style={{ color: 'var(--accent-red)' }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

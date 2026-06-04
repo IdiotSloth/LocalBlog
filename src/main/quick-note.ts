@@ -79,8 +79,8 @@ export function registerQuickNote(): void {
     try {
       if (!currentUserId) return;
       const { dbRun } = await import('./db');
-      const { nowMySQL } = await import('../shared/datetime');
-      const now = nowMySQL();
+      const { nowTimestamp } = await import('../shared/datetime');
+      const now = nowTimestamp();
       await dbRun(
         'INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
         [currentUserId, content, '', 'quick-note', 'note', now, now],
@@ -93,8 +93,8 @@ export function registerQuickNote(): void {
     try {
       if (!currentUserId || !content) return;
       const { dbRun } = await import('./db');
-      const { nowMySQL } = await import('../shared/datetime');
-      const now = nowMySQL();
+      const { nowTimestamp } = await import('../shared/datetime');
+      const now = nowTimestamp();
       await dbRun(
         'INSERT INTO notes (user_id, content, title, source, memo_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
         [currentUserId, content, '', 'quick-note', 'pinned', now, now],
@@ -107,8 +107,8 @@ export function registerQuickNote(): void {
     if (!currentUserId || !text) return;
     try {
       const { dbRun } = await import('./db');
-      const { nowMySQL } = await import('../shared/datetime');
-      const now = nowMySQL();
+      const { nowTimestamp } = await import('../shared/datetime');
+      const now = nowTimestamp();
       await dbRun(
         'INSERT OR REPLACE INTO settings (user_id, key, value, updated_at) VALUES (?,?,?,?)',
         [currentUserId, 'quick_note_draft', text, now],

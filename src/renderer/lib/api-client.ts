@@ -198,7 +198,6 @@ const webApi = {
   continueGetDrafts: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   continueGetLastBlog: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
   continueGetRecentFiles: () => Promise.resolve({ success: false, error: '续写视图为桌面专属功能' }),
-  graphGetData: () => Promise.resolve({ success: false, error: '知识图谱为桌面专属功能' }),
 
   // Quick Note (T2304)
   quickNoteShow: () => Promise.resolve(),

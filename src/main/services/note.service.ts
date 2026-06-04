@@ -1,4 +1,4 @@
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import type { MemoType, Note } from '../../shared/types';
 import { dbAll, dbGet, dbRun } from '../db';
 
@@ -67,7 +67,7 @@ export class NoteService {
       );
       if (existing) return rowToNote(existing);
     }
-    const now = nowMySQL();
+    const now = nowTimestamp();
     await dbRun(
       'INSERT INTO notes (user_id, content, source, title, memo_type, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [userId, content, source, title, memoType, dueDate || null, now, now],
@@ -84,7 +84,7 @@ export class NoteService {
     userId: number,
     data: { title?: string; content?: string; memoType?: MemoType; dueDate?: string | null },
   ): Promise<Note> {
-    const now = nowMySQL();
+    const now = nowTimestamp();
     const sets: string[] = [];
     const params: unknown[] = [];
     if (data.title !== undefined) { sets.push('title = ?'); params.push(data.title); }
@@ -108,7 +108,7 @@ export class NoteService {
   static async togglePin(userId: number, noteId: number): Promise<Note | null> {
     const row = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
     if (!row) return null;
-    await dbRun('UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [row.pinned ? 0 : 1, nowMySQL(), noteId, userId]);
+    await dbRun('UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [row.pinned ? 0 : 1, nowTimestamp(), noteId, userId]);
     const updated = await dbGet<NoteRow>('SELECT * FROM notes WHERE id = ? AND user_id = ?', [noteId, userId]);
     return updated ? rowToNote(updated) : null;
   }

@@ -413,7 +413,7 @@ export function SettingsPage() {
               ['版本', 'v0.3.0'],
               ['框架', 'Electron 41 + React 19'],
               ['构建', 'Vite 7 + electron-vite 5'],
-              ['数据库', 'MySQL 8.3 (sql.js 备选)'],
+              ['数据库', 'sqlite-wasm (SQLite 3.53)'],
               ['设计', 'STYLE.md · terminal-aesthetic'],
               ['字体', 'Inter + JetBrains Mono'],
             ].map(([k, v]) => (

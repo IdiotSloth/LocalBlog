@@ -137,9 +137,7 @@ export const IPC = {
   NOTE_DELETE: 'note:delete',
   NOTE_PIN: 'note:pin',
   NOTE_CLIPBOARD: 'note:clipboard',
-
-  // Graph (Phase 20C)
-  GRAPH_GET_DATA: 'graph:getData',
+  NOTE_IMAGE_SAVE: 'note:image-save',
 
   // Shortcuts
   SHORTCUT_GET_ALL: 'shortcut:get-all',

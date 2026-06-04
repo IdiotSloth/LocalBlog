@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import DOMPurify from 'dompurify';
+import { useSearchParams } from 'react-router-dom';
 import { FolderTree } from '../../components/common/FolderTree';
 import { TagSelector } from '../../components/common/TagSelector';
 import { useBatchSelect } from '../../hooks/useBatchSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { KbContentEditor } from '../../components/knowledge/KbContentEditor';
 import { KbFileDetail } from '../../components/knowledge/KbFileDetail';
-import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
-import { formatDate, formatFileSize } from '../../lib/utils';
+import { KBCard } from '../../components/knowledge/KBCard';
 import { useAuthStore } from '../../stores/auth-store';
-import { searchSimilarDocs } from '../../lib/use-search';
 import type { FolderTreeNode, KnowledgeFileWithTags, Reference, Tag } from '../../../shared/types';
 import { File, FileCode, FileImage, FileSpreadsheet, FileText, Presentation } from 'lucide-react';
 
@@ -61,6 +58,7 @@ export type KnowledgeListAction =
   | { type: 'SET_LOADING'; v: boolean }
   | { type: 'SET_QUERY'; v: string }
   | { type: 'SET_FILE_TYPE'; v: string }
+  | { type: 'SET_SORT_BY'; v: string }
   | { type: 'SET_TAG_FILTER'; id: number | null; name: string }
   | { type: 'SET_FOLDER_FILTER'; v: number | null }
   | { type: 'TOGGLE_SIDEBAR'; v: boolean }
@@ -81,6 +79,7 @@ export function knowledgeListReducer(state: KnowledgeListState, action: Knowledg
     case 'SET_LOADING': return { ...state, loading: action.v };
     case 'SET_QUERY': return { ...state, query: action.v };
     case 'SET_FILE_TYPE': return { ...state, fileType: action.v };
+    case 'SET_SORT_BY': return { ...state, sortBy: action.v };
     case 'SET_TAG_FILTER': return { ...state, filterTagId: action.id, filterTagName: action.name };
     case 'SET_FOLDER_FILTER': return { ...state, filterFolderId: action.v };
     case 'TOGGLE_SIDEBAR': return { ...state, showFolderSidebar: action.v };
@@ -140,7 +139,6 @@ export function KnowledgeListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batch = useBatchSelect(state.files as { id: number }[]);
   const pagination = usePagination(20, state.total);
-  const contextPanel = useContextPanel();
   const [searchParams] = useSearchParams();
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<{ names: string; paths: string[]; dupes: string[]; dupeIds: number[] } | null>(null);
@@ -181,29 +179,6 @@ export function KnowledgeListPage() {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
-
-  // T2305: ContextPanel tabs when file is selected
-  useEffect(() => {
-    if (!previewFileId || !user) return;
-    const file = files.find((f: { id: number; filename?: string }) => f.id === previewFileId);
-    const tabs: TabDef[] = [];
-    if (file) {
-      tabs.push({
-        id: 'info', label: '信息',
-        content: (<div className="p-2 text-[13px] space-y-1" style={{ color: 'var(--text-secondary)' }}><p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{(file as any).filename || previewTitle}</p><p>类型: {previewFileType.toUpperCase()}</p></div>),
-      });
-    }
-    tabs.push({
-      id: 'preview', label: '预览',
-      content: previewHtml ? (<div className="p-2 text-[13px] kb-pop-in" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }} />) : (<p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>加载中...</p>),
-    });
-    tabs.push({
-      id: 'backrefs', label: `引用 (${backRefs.length})`,
-      content: backRefs.length > 0 ? (<div className="space-y-1 p-2">{backRefs.map((ref, i) => (<Link key={i} to={`/blog/${ref.sourceId}`} className="block truncate text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>{ref.sourceTitle || `博客 #${ref.sourceId}`}</Link>))}</div>) : (<p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无引用</p>),
-    });
-    tabs.push({ id: 'similar', label: '相似文件', content: <SimilarKbTab fileId={previewFileId} /> });
-    return contextPanel.registerTabs(tabs);
-  }, [previewFileId, previewHtml, previewTitle, previewFileType, backRefs, files, user, contextPanel]);
 
   // T2305: ?select=<id> route param
   useEffect(() => {
@@ -459,6 +434,24 @@ export function KnowledgeListPage() {
             <option value="txt">文本</option>
             <option value="image">图片</option>
           </select>
+          <select
+            value={sortBy}
+            onChange={(e) => dispatch({ type: 'SET_SORT_BY', v: e.target.value })}
+            aria-label="排序方式"
+            title="排序方式"
+            className="max-w-[120px] rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
+            style={{
+              background: 'var(--bg-primary)',
+              borderColor: 'var(--border-default)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <option value="updated_at">按日期</option>
+            <option value="filename">按名称</option>
+            <option value="file_size">按大小</option>
+            <option value="file_type">按类型</option>
+          </select>
+          <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>共 {total} 个文件</span>
         </div>
         {error && (
           <div className="py-8 text-center">
@@ -524,91 +517,27 @@ export function KnowledgeListPage() {
                     <button type="button" onClick={batch.clearSelection} className="ml-auto text-[12px] hover:underline" style={{ color: 'var(--text-secondary)' }}>取消</button>
                   </div>
                 )}
-                {files.map((f: KnowledgeFileWithTags) => {
-                  const ft = f.fileType || 'other';
-                  const Icon = TYPE_ICONS[ft] || File;
-                  const color = TYPE_COLORS[ft] || TYPE_COLORS.other;
-                  const label = TYPE_LABELS[ft] || TYPE_LABELS.other;
-                  const isEditing = editingTagsFileId === f.id;
-                  return (
-                    <div key={f.id}
-                      className="rounded-[8px] border p-4 transition-all duration-[0.15s] hover:border-[var(--accent-blue)] flex flex-col"
-                      style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)', borderLeft: `3px solid ${color}` }}>
-                      {/* Top row: icon + filename + checkbox */}
-                      <div className="flex items-start gap-3">
-                        <Icon size={20} style={{ color, flexShrink: 0 }} />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{f.filename}</div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color }}>{label}</span>
-                            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatFileSize(f.fileSize)}</span>
-                            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(f.createdAt)}</span>
-                          </div>
-                        </div>
-                        {batch.isBatchMode && (
-                          <input type="checkbox" checked={batch.selectedIds.has(f.id)} onChange={() => batch.toggleSelect(f.id)} aria-label={`选择 ${f.filename}`} className="shrink-0 mt-1" />
-                        )}
-                      </div>
-                      {/* Tags row */}
-                      {f.tags?.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {f.tags.map((tg: Tag) => (
-                            <button key={tg.id} type="button" className="tag text-[11px] cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_TAG_FILTER', id: tg.id, name: tg.name }); }}
-                              title={`筛选标签: ${tg.name}`}>{tg.name}</button>
-                          ))}
-                        </div>
-                      )}
-                      {/* Tag editor */}
-                      {isEditing && user && (
-                        <div className="mt-2">
-                          <TagSelector userId={user.id} selectedTagIds={editingTagIds} openUp
-                            onChange={async (tagIds) => {
-                              dispatch({ type: 'SET_EDIT_TAG_IDS', ids: tagIds });
-                              try { await window.api.tagSetFile({ fileId: f.id, tagIds }); loadFiles(); }
-                              catch (e) { console.error(e); }
-                            }} />
-                        </div>
-                      )}
-                      {/* Action buttons */}
-                      <div className="mt-3 pt-3 border-t flex items-center gap-2" style={{ borderColor: 'var(--border-default)' }}>
-                        <button type="button"
-                          onClick={() => window.api.kbOpenExternal({ fileId: f.id, userId: user.id })}
-                          className="text-[12px] hover:underline font-medium" style={{ color: 'var(--accent-blue)' }}>
-                          打开
-                        </button>
-                        <button type="button"
-                          onClick={() => {
-                            if (isEditing) dispatch({ type: 'STOP_EDIT_TAGS' });
-                            else dispatch({ type: 'START_EDIT_TAGS', fileId: f.id, tagIds: (f.tags || []).map((tg: Tag) => tg.id) });
-                          }}
-                          className="text-[12px] hover:underline" style={{ color: isEditing ? 'var(--text-secondary)' : 'var(--accent-blue)' }}>
-                          {isEditing ? '完成' : '标签'}
-                        </button>
-                        <select value="" onChange={async (e) => {
-                          const fid = e.target.value ? Number(e.target.value) : null;
-                          try { await window.api.folderMoveItem({ userId: user.id, itemType: 'knowledge_file', itemId: f.id, folderId: fid }); loadFiles(); loadKbFolders(); }
-                          catch (e) { console.error(e); }
-                        }}
-                          className="text-[11px] rounded-[3px] border px-1 py-0.5 outline-none"
-                          style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', maxWidth: 60 }}
-                          title="移至文件夹">
-                          <option value="">移至</option>
-                          <option value="0">根目录</option>
-                          {kbFolders.map((fd: FolderTreeNode) => (<option key={fd.id} value={fd.id}>{fd.name}</option>))}
-                        </select>
-                        <button type="button" onClick={async () => {
-                          if (!confirm('移至回收站？')) return;
-                          try { await window.api.kbDelete({ userId: user.id, fileId: f.id, deletePhysicalFile: false }); loadFiles(); }
-                          catch (e) { console.error(e); }
-                        }}
-                          className="ml-auto text-[12px] hover:underline" style={{ color: 'var(--accent-red)' }}>
-                          删除
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {files.map((f: KnowledgeFileWithTags) => (
+                  <KBCard
+                    key={f.id}
+                    file={f}
+                    onOpen={(file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id })}
+                    onRename={async (file) => {
+                      const name = prompt('新文件名:', file.filename);
+                      if (name?.trim()) {
+                        await window.api.kbRename({ userId: user.id, fileId: file.id, newFilename: name.trim() });
+                        loadFiles();
+                      }
+                    }}
+                    onDelete={async (file) => {
+                      if (!confirm('移至回收站？')) return;
+                      await window.api.kbDelete({ userId: user.id, fileId: file.id, deletePhysicalFile: false });
+                      loadFiles();
+                    }}
+                    onShowInFolder={(file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id, showInFolder: true })}
+                    onTagClick={(tagId) => dispatch({ type: 'SET_TAG_FILTER', id: tagId, name: '' })}
+                  />
+                ))}
                 {files.length === 0 && !loading && (
                   <div className="col-span-full text-center py-12 rounded-[8px] border border-dashed" style={{ borderColor: 'var(--border-default)' }}>
                     <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>暂无文件</p>
@@ -719,12 +648,4 @@ export function KnowledgeListPage() {
   );
 }
 
-// T2305: Embedding similarity
-function SimilarKbTab({ fileId }: { fileId: number }) {
-  const [items, setItems] = useState<{ id: number; score: number }[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { setLoading(true); searchSimilarDocs(fileId, 'knowledge', 5, 0.72).then(r => { setItems(r.filter(x => x.type === 'knowledge' && (x as any).id !== fileId) as any); }).catch(() => {}).finally(() => setLoading(false)); }, [fileId]);
-  if (loading) return <p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>搜索中...</p>;
-  if (items.length === 0) return <p className="p-2 text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无相似文件</p>;
-  return <div className="space-y-1 p-2">{items.map(item => <Link key={item.id} to={`/knowledge?select=${item.id}`} className="block truncate text-[13px] hover:underline" style={{ color: 'var(--accent-blue)' }}>文件 #{item.id} ({Math.round(item.score * 100)}%)</Link>)}</div>;
-}
+// NOTE: SimilarKbTab removed per T2406 Part 1 — similar/recommendation system deleted

@@ -241,40 +241,4 @@ export interface WikiLinkSearchResult {
   title: string;
 }
 
-// ==================== Knowledge Graph ====================
-export type GraphNodeType = 'blog' | 'knowledge' | 'tag' | 'note';
-
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: GraphNodeType;
-  // D3 SimulationNodeDatum compatible — position & velocity for force simulation
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-  fx?: number | null;
-  fy?: number | null;
-}
-
-export interface GraphEdge {
-  source: string;
-  target: string;
-  type: 'ref' | 'tag';
-}
-
-export interface GraphData {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}
-
-export interface GraphFilter {
-  types?: GraphNodeType[];
-  dateRange?: { from?: string; to?: string };
-  tagIds?: number[];
-  maxNodes?: number;
-  /** T2111: Local graph mode — return 1-degree neighborhood around centerId */
-  scope?: 'global' | 'local';
-  centerId?: string; // e.g. "blog-123", "knowledge-456"
-  depth?: number; // default 1
-}
+// NOTE: GraphNode/GraphEdge/GraphData/GraphFilter types removed per T2406 Part 4

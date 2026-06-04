@@ -3,14 +3,14 @@ import MarkdownIt from 'markdown-it';
 import { renderWikilinks } from '../../../shared/wikilink';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
-import { AtSign } from 'lucide-react';
+import { AtSign, List } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { DraftItem, Tag } from '../../../shared/types';
 import type { BlogTemplate } from '../../../shared/templates';
 import { expandTemplateVars } from '../../../shared/template-vars';
+import { parseToc, type TocItem } from '../../lib/toc-parser';
 import { ReferencePicker } from '../../components/common/ReferencePicker';
 import { TagSelector } from '../../components/common/TagSelector';
-import { useContextPanel, type TabDef } from '../../components/layout/ContextPanel';
 import { useSplit } from '../../components/layout/SplitPane';
 import { useToast } from '../../components/common/Toast';
 import { searchDirect, searchSimilarDocs } from '../../lib/use-search';
@@ -19,7 +19,6 @@ import { FocusMode } from '../../components/editor/FocusMode';
 import { TiptapEditor } from '../../components/editor/TiptapEditor';
 import { countChars, estimateReadingTime } from '../../lib/toc-parser';
 import { useAuthStore } from '../../stores/auth-store';
-import { AttachmentPanel } from './AttachmentPanel';
 import { TemplateSelector } from './TemplateSelector';
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
@@ -155,7 +154,6 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
   const { openSplit, closeSplit, isSplit } = useSplit();
   const isNew = !id;
   const [state, dispatch] = useReducer(editorReducer, initialState);
-  const [bottomTab, setBottomTab] = useState<string>('tags');
 
   const blogIdRef = useRef<number | null>(id ? Number(id) : null);
   const contentRef = useRef(state.content);
@@ -173,9 +171,15 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
   const COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'gray'] as const;
   const COLOR_MAP_EDITOR: Record<string, string> = { blue: '#3b82f6', green: '#22c55e', amber: '#f59e0b', red: '#ef4444', purple: '#a855f7', gray: '#6b7280' };
 
-  // T2202: ContextPanel integration + [@] reference picker
-  const contextPanel = useContextPanel();
+  // T2202: [@] reference picker
   const [showAtPicker, setShowAtPicker] = useState(false);
+
+  // T2406: TOC toolbar dropdown
+  const [showToc, setShowToc] = useState(false);
+  // §3.3: Series inline input
+  const [showNewSeriesInput, setShowNewSeriesInput] = useState(false);
+  const tocHeadings = (state.format === 'md' || state.format === 'html')
+    ? parseToc(state.content, state.format) : [];
 
   // T2204: Editor AI
   const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
@@ -232,51 +236,6 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
     dispatch({ type: 'SET_FORMAT', payload: tpl.format });
     if (tpl.tags.length > 0) dispatch({ type: 'SET_PENDING_TAGS', payload: null });
   }, [state.title]);
-
-  // T2202 + T2303: Register ContextPanel tabs (preview default + KB)
-  const [debouncedContent, setDebouncedContent] = useState(state.content);
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedContent(state.content), 500);
-    return () => clearTimeout(t);
-  }, [state.content]);
-
-  useEffect(() => {
-    if (!user || !blogIdRef.current) return;
-    const blogId = blogIdRef.current;
-    const title = state.title;
-    // T2303: Full preview pipeline — md → wikilink → DOMPurify
-    let html = '';
-    if (debouncedContent) {
-      const rawHtml = md.render(debouncedContent);
-      const withLinks = renderWikilinks(rawHtml);
-      html = DOMPurify.sanitize(withLinks);
-    }
-
-    const tabs: TabDef[] = [
-      {
-        id: 'preview',
-        label: '预览',
-        content: (
-          <div className="prose prose-sm max-w-none p-2 text-[13px]" style={{ color: 'var(--text-primary)' }}>
-            {html ? (
-              <div dangerouslySetInnerHTML={{ __html: html }} />
-            ) : (
-              <p style={{ color: 'var(--text-muted)' }}>暂无内容</p>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: 'kb-related',
-        label: '知识库',
-        content: (
-          <KbRelatedTab userId={user.id} blogTitle={title} blogId={blogId} />
-        ),
-      },
-    ];
-
-    return contextPanel.registerTabs(tabs);
-  }, [user, contextPanel, state.title, debouncedContent, blogIdRef.current]);
 
   // T2204: Editor AI action handler
   const handleAiAction = async (action: string) => {
@@ -426,6 +385,8 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
           title: state.title.trim(),
           format: state.format,
           content: contentToSave,
+          seriesId: state.seriesId || undefined,
+          seriesName: state.seriesName || undefined,
         });
 
         if (r.success && r.data) {
@@ -454,12 +415,14 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
           toast(r.error || '创建失败', 'error');
         }
       } else {
-        toast('已保存', 'success');
+        toast(`✓ 已保存 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`, 'success');
         const r = await window.api.blogUpdate({
           userId: user.id,
           blogId: Number(id),
           title: state.title.trim(),
           content: contentToSave,
+          seriesId: state.seriesId || undefined,
+          seriesName: state.seriesName || undefined,
         });
 
         if (!r.success) {
@@ -674,6 +637,79 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
         {/* T2108: Pin + Color metadata bar */}
         {!isNew && user && (
           <div className="flex items-center gap-4 py-2 px-1">
+            {/* §3.3 Series selector */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>系列:</label>
+              <select
+                value={state.seriesId || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const selected = state.seriesList.find((s: any) => s.seriesId === val);
+                  dispatch({ type: 'SET_SERIES_ID', payload: val || null });
+                  dispatch({ type: 'SET_SERIES_NAME', payload: selected?.seriesName || '' });
+                  if (blogIdRef.current) {
+                    window.api.blogSeriesSet({
+                      userId: user.id,
+                      blogId: blogIdRef.current,
+                      seriesId: val || null,
+                      seriesName: selected?.seriesName || null,
+                    });
+                  }
+                }}
+                className="rounded-[4px] border px-2 py-1 text-[12px]"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                title="选择系列"
+                aria-label="选择系列"
+              >
+                <option value="">无系列</option>
+                {state.seriesList.map((s: any) => (
+                  <option key={s.seriesId} value={s.seriesId}>
+                    {s.seriesName} ({s.count} 篇)
+                  </option>
+                ))}
+              </select>
+              {!showNewSeriesInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowNewSeriesInput(true)}
+                  className="text-[12px] rounded-[3px] px-1.5 py-0.5 hover:opacity-80"
+                  style={{ color: 'var(--accent-blue)' }}
+                >
+                  + 新建
+                </button>
+              ) : (
+                <input
+                  type="text"
+                  value={state.newSeries}
+                  onChange={(e) => dispatch({ type: 'SET_NEW_SERIES', payload: e.target.value })}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && state.newSeries.trim()) {
+                      const newId = crypto.randomUUID();
+                      await window.api.blogSeriesSet({
+                        userId: user.id,
+                        blogId: blogIdRef.current,
+                        seriesId: newId,
+                        seriesName: state.newSeries.trim(),
+                      });
+                      const r = await window.api.blogSeriesList(user.id);
+                      if (r.success && r.data) dispatch({ type: 'SET_SERIES_LIST', payload: r.data });
+                      dispatch({ type: 'SET_SERIES_ID', payload: newId });
+                      dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
+                      dispatch({ type: 'SET_NEW_SERIES', payload: '' });
+                      setShowNewSeriesInput(false);
+                    } else if (e.key === 'Escape') {
+                      dispatch({ type: 'SET_NEW_SERIES', payload: '' });
+                      setShowNewSeriesInput(false);
+                    }
+                  }}
+                  placeholder="新系列名"
+                  className="rounded-[4px] border px-2 py-1 text-[12px] w-[100px]"
+                  style={{ borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                  autoFocus
+                />
+              )}
+            </div>
+
             {/* T2202: [@] quick reference button */}
             <button
               type="button"
@@ -716,6 +752,40 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
             </div>
             {aiError && (
               <span className="text-[11px]" style={{ color: 'var(--accent-red)' }}>{aiError}</span>
+            )}
+            {/* T2406: TOC toolbar button — instant dropdown, no persistent state */}
+            {tocHeadings.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowToc((v) => !v)}
+                  className="text-[12px] rounded-[4px] px-2 py-1 transition-colors"
+                  style={{ color: showToc ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+                  title="大纲 (目录)">
+                  <List size={14} /> 大纲
+                </button>
+                {showToc && (
+                  <div className="absolute top-full left-0 mt-1 z-50 rounded-[6px] border py-1 shadow-lg min-w-[200px] max-h-[320px] overflow-y-auto"
+                    style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+                    {tocHeadings.map((h, i) => (
+                      <button key={i} type="button"
+                        onClick={() => {
+                          const el = document.getElementById(h.id);
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          setShowToc(false);
+                        }}
+                        className="w-full text-left px-3 py-1 text-[12px] transition-colors hover:bg-[var(--bg-primary)]"
+                        style={{
+                          color: 'var(--text-primary)',
+                          paddingLeft: `${8 + h.level * 12}px`,
+                          background: 'transparent', border: 'none', cursor: 'pointer'
+                        }}>
+                        {h.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <button
               type="button"
@@ -771,99 +841,15 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
         }}>
           <TiptapEditor content={state.content} onChange={handleContentChange} variant={variant} />
         </div>
-        {/* T2010: Bottom panel — horizontal tab switcher (was vertical stack) */}
-        {user && blogIdRef.current && (
-          <div className="mt-3 border-t" style={{ borderColor: 'var(--border-default)' }}>
-            <div className="flex gap-0 border-b" style={{ borderColor: 'var(--border-default)' }}>
-              {[
-                { id: 'tags', label: '标签' },
-                { id: 'attachments', label: '附件' },
-                { id: 'refs', label: '引用' },
-                ...(!isNew ? [{ id: 'series' as const, label: '系列' }] : []),
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setBottomTab(tab.id)}
-                  className="px-3 py-2 text-[12px] font-medium transition-colors duration-[0.15s] border-b-2"
-                  style={{
-                    color: bottomTab === tab.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                    borderColor: bottomTab === tab.id ? 'var(--accent-blue)' : 'transparent',
-                    background: 'transparent',
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="pt-3">
-              {bottomTab === 'tags' && (
-                <TagSelector userId={user.id} selectedTagIds={state.selectedTagIds} onChange={handleTagChange} />
-              )}
-              {bottomTab === 'attachments' && (
-                <AttachmentPanel blogId={blogIdRef.current} />
-              )}
-              {bottomTab === 'refs' && (
-                <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} readOnly />
-              )}
-              {bottomTab === 'series' && (
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] shrink-0" style={{ color: 'var(--text-secondary)' }}>系列:</span>
-                  <select
-                    value={state.seriesId || ''}
-                    aria-label="选择系列"
-                    onChange={async (e) => {
-                      const val = e.target.value;
-                      if (!val) {
-                        dispatch({ type: 'SET_SERIES_ID', payload: null });
-                        dispatch({ type: 'SET_SERIES_NAME', payload: '' });
-                        if (blogIdRef.current)
-                          await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: null, seriesName: null });
-                        return;
-                      }
-                      const item = state.seriesList.find((s) => s.seriesId === val);
-                      if (item) {
-                        dispatch({ type: 'SET_SERIES_ID', payload: item.seriesId });
-                        dispatch({ type: 'SET_SERIES_NAME', payload: item.seriesName });
-                        if (blogIdRef.current)
-                          await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: item.seriesId, seriesName: item.seriesName });
-                      }
-                    }}
-                    className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
-                    style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-                  >
-                    <option value="">(无)</option>
-                    {state.seriesList.map((s) => (
-                      <option key={s.seriesId} value={s.seriesId}>{s.seriesName}</option>
-                    ))}
-                  </select>
-                  <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>或</span>
-                  <input
-                    type="text" value={state.newSeries}
-                    onChange={(e) => dispatch({ type: 'SET_NEW_SERIES', payload: e.target.value })}
-                    placeholder="新建系列名..."
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter' && state.newSeries.trim() && blogIdRef.current) {
-                        const uuid = crypto.randomUUID();
-                        dispatch({ type: 'SET_SERIES_ID', payload: uuid });
-                        dispatch({ type: 'SET_SERIES_NAME', payload: state.newSeries.trim() });
-                        await window.api.blogSeriesSet({ userId: user.id, blogId: blogIdRef.current, seriesId: uuid, seriesName: state.newSeries.trim() });
-                        dispatch({ type: 'SET_NEW_SERIES', payload: '' });
-                        dispatch({ type: 'SET_SERIES_LIST', payload: [...state.seriesList, { seriesId: uuid, seriesName: state.newSeries.trim() }] });
-                      }
-                    }}
-                    className="rounded-[4px] border px-2 py-1 text-[13px] outline-none"
-                    style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', width: 160 }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        {/* For new blogs without blogId yet, still show tags */}
-        {user && !blogIdRef.current && (
-          <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border-default)' }}>
+        {/* T2406: Inline chips — tags + related links only (attachments pending-ruling, series moved out of editor) */}
+        {user && (
+          <div className="mt-3 border-t pt-2" style={{ borderColor: 'var(--border-default)' }}>
             <TagSelector userId={user.id} selectedTagIds={state.selectedTagIds} onChange={handleTagChange} />
+            {blogIdRef.current && (
+              <div className="mt-1">
+                <ReferencePicker userId={user.id} sourceType="blog" sourceId={blogIdRef.current} readOnly />
+              </div>
+            )}
           </div>
         )}
         <div className="mt-2 flex justify-between text-[12px]" style={{ color: 'var(--text-secondary)' }}>
@@ -877,6 +863,30 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
             <span>Ctrl+S 保存 · Ctrl+J AI</span>
           </span>
         </div>
+        {/* §3.3: Frameless variant — exit/cancel buttons */}
+        {variant === 'frameless' && (
+          <div className="mt-3 pt-3 border-t flex gap-2" style={{ borderColor: 'var(--border-default)' }}>
+            <button
+              type="button"
+              onClick={async () => {
+                await handleSave();
+                navigate(`/blog/${id}`, { replace: true });
+              }}
+              className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium hover:opacity-90"
+              style={{ background: 'var(--accent-blue)', color: '#fff' }}
+            >
+              退出编辑
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/blog/${id}`, { replace: true })}
+              className="rounded-[4px] px-3 py-1.5 text-[13px] hover:opacity-80"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+            >
+              取消
+            </button>
+          </div>
+        )}
       </div>
       {state.focusMode && (
         <FocusMode
@@ -948,106 +958,6 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── T2202: KbRelatedTab — shows KB files related to current blog ──
-
-function KbRelatedTab({ userId, blogTitle, blogId }: { userId: number; blogTitle: string; blogId: number }) {
-  const [results, setResults] = useState<Array<{ id: number; title: string; type: string; excerpt: string }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    // R290: Try embedding similarity first, fall back to text search
-    (async () => {
-      try {
-        if (blogId > 0) {
-          const similar = await searchSimilarDocs(blogId, 'blog', 5);
-          if (!cancelled && similar.length > 0) {
-            const kbItems = similar.filter((s) => s.type === 'knowledge').slice(0, 3);
-            if (kbItems.length > 0) {
-              const withTitles = await Promise.all(kbItems.map(async (item) => {
-                try {
-                  const r = await window.api.kbGet({ fileId: item.id, userId });
-                  return { id: item.id, title: r.success && r.data ? r.data.filename : `知识文件 #${item.id}`, type: 'knowledge', excerpt: `${Math.round(item.score * 100)}% 相似` };
-                } catch { return { id: item.id, title: `知识文件 #${item.id}`, type: 'knowledge', excerpt: '' }; }
-              }));
-              if (!cancelled) { setResults(withTitles); setLoading(false); return; }
-            }
-          }
-        }
-      } catch { /* embedding not available, fall through */ }
-
-      // Fallback: text search
-      try {
-        const r = await searchDirect(blogTitle || ' ', userId);
-        if (cancelled) return;
-        const kb = r.filter((item) => item.type === 'knowledge').slice(0, 3);
-        setResults(kb.map((item) => ({ id: item.id, title: item.title, type: item.type, excerpt: item.snippet || '' })));
-      } catch (e) {
-        if (!cancelled) { console.error('[KbRelatedTab]', e); setError('加载失败'); }
-      }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [blogTitle, userId, blogId]);
-
-  const doRetry = () => {
-    setLoading(true); setError(null);
-    (async () => {
-      try {
-        if (blogId > 0) {
-          const similar = await searchSimilarDocs(blogId, 'blog', 5);
-          const kbItems = similar.filter((s) => s.type === 'knowledge').slice(0, 3);
-          if (kbItems.length > 0) {
-            const withTitles = await Promise.all(kbItems.map(async (item) => {
-              const r = await window.api.kbGet({ fileId: item.id, userId });
-              return { id: item.id, title: r.success && r.data ? r.data.filename : `KB #${item.id}`, type: 'knowledge', excerpt: `${Math.round(item.score * 100)}% 相似` };
-            }));
-            setResults(withTitles); setLoading(false); return;
-          }
-        }
-      } catch { /* fall through */ }
-      const r = await searchDirect(blogTitle, userId);
-      const kb = r.filter((item) => item.type === 'knowledge').slice(0, 3);
-      setResults(kb.map((item) => ({ id: item.id, title: item.title, type: item.type, excerpt: item.snippet || '' })));
-      setLoading(false);
-    })().catch(() => { setError('加载失败'); setLoading(false); });
-  };
-
-  if (loading) {
-    return <p className="text-[13px] py-4" style={{ color: 'var(--text-secondary)' }}>分析语义相似度...</p>;
-  }
-  if (error) {
-    return (
-      <div className="text-center py-4">
-        <p className="text-[13px]" style={{ color: 'var(--accent-red)' }}>{error}</p>
-        <button onClick={doRetry} className="mt-2 text-[12px] hover:underline" style={{ color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer' }}>重试</button>
-      </div>
-    );
-  }
-  if (results.length === 0) {
-    return <p className="text-[13px] py-4" style={{ color: 'var(--text-muted)' }}>未找到相关知识库文件。尝试给博客添加标题后再搜索。</p>;
-  }
-  return (
-    <div className="space-y-1">
-      {results.map((item) => (
-        <button key={`${item.type}-${item.id}`} type="button"
-          onClick={async () => {
-            await window.api.refAdd({ sourceType: 'blog', sourceId: blogId, targetType: 'knowledge', targetId: item.id, userId });
-          }}
-          className="w-full text-left rounded-[6px] px-3 py-2 transition-colors hover:bg-[var(--bg-primary)]"
-          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-          <div className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.title}</div>
-          {item.excerpt && <div className="mt-0.5 text-[11px] line-clamp-1" style={{ color: 'var(--text-muted)' }}>{item.excerpt}</div>}
-        </button>
-      ))}
     </div>
   );
 }

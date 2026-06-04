@@ -1,24 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import DOMPurify from 'dompurify';
-import MarkdownIt from 'markdown-it';
+import Draggable, { type DraggableData, type DraggableEvent } from 'react-draggable';
 import type { Note } from '../../../shared/types';
 import { useToast } from '../../components/common/Toast';
-import { formatDate } from '../../lib/utils';
+import { NoteCard, randomNoteColor } from '../../components/notes/NoteCard';
 import { useAuthStore } from '../../stores/auth-store';
+import { Clipboard, Trash2 } from 'lucide-react';
 
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+interface ClipItem { text: string; time: number; hash?: string }
+interface NotePositions { [id: number]: { x: number; y: number } }
+
+const POS_KEY = 'lbkb_note_positions';
+
+function loadPositions(): NotePositions {
+  try { return JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch { return {}; }
+}
+function savePositions(p: NotePositions) {
+  localStorage.setItem(POS_KEY, JSON.stringify(p));
+}
 
 export function NoteListPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const { toast } = useToast();
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<(Note & { color?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortedRef = useRef(false);
   const [input, setInput] = useState('');
-  const [viewModeIds, setViewModeIds] = useState<Set<number>>(new Set());
+  const [positions, setPositions] = useState<NotePositions>(loadPositions);
+  const [viewModal, setViewModal] = useState<Note | null>(null);
+  const [clipItems, setClipItems] = useState<ClipItem[]>([]);
+  const [clipRunning, setClipRunning] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
@@ -26,9 +40,11 @@ export function NoteListPage() {
     setLoading(true);
     try {
       const r = await window.api.noteList(user.id);
-      if (r.success && r.data && !abortedRef.current) setNotes(r.data);
+      if (r.success && r.data && !abortedRef.current) {
+        setNotes(r.data.filter((n: Note) => n.memoType !== 'todo' && n.memoType !== 'schedule'));
+      }
     } catch (e) {
-      console.error('[NoteList] Failed to load:', e);
+      console.error('[NoteList] Failed:', e);
       setError('加载失败');
     } finally {
       if (!abortedRef.current) setLoading(false);
@@ -45,12 +61,39 @@ export function NoteListPage() {
     return unsub;
   }, [loadNotes]);
 
-  const handleCreate = async () => {
-    if (!user || !input.trim()) return;
-    await window.api.noteCreate({ userId: user.id, content: input.trim() });
-    setInput('');
+  // Clipboard monitoring
+  useEffect(() => {
+    window.api.clipboardStatus().then((r: any) => { if (r.success) setClipRunning(r.data); });
+    const loadClip = () => {
+      window.api.clipboardHistory().then((r: any) => {
+        if (r.success && r.data) setClipItems(r.data.slice(0, 20));
+      });
+    };
+    loadClip();
+    const iv = setInterval(loadClip, 2000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const toggleClipboard = async () => {
+    if (clipRunning) {
+      await window.api.clipboardToggle({});
+      setClipRunning(false);
+    } else {
+      await window.api.clipboardToggle({ userId: user?.id });
+      setClipRunning(true);
+    }
+  };
+
+  const handleCreate = async (content: string, x?: number, y?: number) => {
+    if (!user || !content.trim()) return;
+    const r: any = await window.api.noteCreate({ userId: user.id, content: content.trim() });
+    if (r.success && r.data) {
+      const newId = r.data.id;
+      if (x !== undefined && y !== undefined) {
+        setPositions((prev) => { const n = { ...prev, [newId]: { x, y } }; savePositions(n); return n; });
+      }
+    }
     loadNotes();
-    toast('便签已保存', 'success');
   };
 
   const handleTogglePin = async (noteId: number) => {
@@ -60,195 +103,237 @@ export function NoteListPage() {
 
   const handleDelete = async (noteId: number) => {
     await window.api.noteDelete({ userId: user.id, noteId });
+    setPositions((prev) => { const n = { ...prev }; delete n[noteId]; savePositions(n); return n; });
     loadNotes();
   };
 
-  const handleClipboard = async () => {
-    const r = await window.api.noteClipboard();
-    if (r.success && r.data) {
-      setInput((prev) => prev + r.data);
+  const handleEdit = async (noteId: number, content: string) => {
+    if (!user) return;
+    await window.api.noteCreate({ userId: user.id, noteId, content });
+    loadNotes();
+    toast('已保存', 'success');
+  };
+
+  const handleCopy = async (note: Note) => {
+    await navigator.clipboard.writeText(note.content);
+    toast('已复制', 'success');
+  };
+
+  const handleDragStop = (noteId: number, _e: DraggableEvent, data: DraggableData) => {
+    setPositions((prev) => {
+      const n = { ...prev, [noteId]: { x: data.x, y: data.y } };
+      savePositions(n);
+      return n;
+    });
+  };
+
+  const [createInput, setCreateInput] = useState('');
+  const [showCreateInput, setShowCreateInput] = useState(false);
+  const [createPos, setCreatePos] = useState<{ x: number; y: number } | null>(null);
+
+  const getNotePosition = (noteId: number): { x: number; y: number } => {
+    if (positions[noteId]) return positions[noteId];
+    const cx = 100 + Math.round(Math.random() * 120);
+    const cy = 20 + Math.round(Math.random() * 80);
+    return { x: cx, y: cy };
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('note-canvas')) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCreatePos({ x: Math.max(0, e.clientX - rect.left - 90), y: Math.max(0, e.clientY - rect.top - 90) });
+        setCreateInput('');
+        setShowCreateInput(true);
+      }
     }
   };
 
-  // Show notes + simple quick notes, exclude todo/schedule (shown in Dashboard)
-  const displayed = notes.filter((n) => n.memoType !== 'todo' && n.memoType !== 'schedule');
-  const sorted = [...displayed].sort((a, b) => {
-    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
-  });
+  const submitCreate = () => {
+    if (createInput.trim()) handleCreate(createInput.trim(), createPos?.x, createPos?.y);
+    setShowCreateInput(false);
+    setCreateInput('');
+    setCreatePos(null);
+  };
+
+  // Image paste/drop helpers
+  const savePastedImage = async (file: File): Promise<string | null> => {
+    if (!user || !file.type.startsWith('image/')) return null;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        window.api.noteImageSave({ userId: user.id, base64: reader.result as string }).then((r: any) => {
+          resolve(r.success && r.data ? `![](${r.data})` : null);
+        }).catch(() => resolve(null));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImagePaste = async (e: React.ClipboardEvent, appendToContent: (md: string) => void) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item?.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const md = await savePastedImage(file);
+          if (md) appendToContent(md);
+        }
+        return;
+      }
+    }
+  };
+
+  const handleCanvasDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files?.length || !user) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const x = rect ? e.clientX - rect.left - 90 : undefined;
+    const y = rect ? e.clientY - rect.top - 90 : undefined;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file?.type.startsWith('image/')) {
+        const md = await savePastedImage(file);
+        if (md) handleCreate(md, x, y);
+      } else if (file) {
+        const text = await file.text();
+        if (text) handleCreate(text.slice(0, 500), x, y);
+      }
+    }
+  };
 
   return (
-    <div className="mx-auto max-w-[780px]">
-      <h2 className="mb-6 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-        便签
-      </h2>
-
-      {/* Input */}
-      <div
-        className="mb-6 flex gap-2 rounded-[8px] border p-3"
-        style={{ borderColor: 'var(--border-default)', background: 'var(--color-bg-card)' }}
-      >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleCreate();
-          }}
-          placeholder="新便签... Enter 保存"
-          className="flex-1 rounded-[4px] border px-3 py-1.5 text-[13px] outline-none"
-          style={{
-            background: 'var(--color-bg-base)',
-            borderColor: 'var(--border-default)',
-            color: 'var(--text-primary)',
-          }}
-        />
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={!input.trim()}
-          className="rounded-[4px] px-4 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40"
-          style={{ background: 'var(--color-primary)' }}
-        >
-          保存
-        </button>
-        <button
-          type="button"
-          onClick={handleClipboard}
-          title="从剪贴板粘贴"
-          className="rounded-[4px] px-3 py-1.5 text-[13px] transition-opacity hover:opacity-80"
-          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
-        >
-          📋
-        </button>
+    <div className="flex flex-col h-full" style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}>
+      {/* Clipboard area */}
+      <div className="mb-4 rounded-[8px] border p-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            <Clipboard size={14} />
+            剪贴板 ({clipItems.length})
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={toggleClipboard} className="text-[12px] rounded-[3px] px-2 py-0.5 hover:opacity-80" style={{ background: clipRunning ? 'var(--accent-green)' : 'var(--bg-tertiary)', color: clipRunning ? '#fff' : 'var(--text-secondary)' }}>
+              {clipRunning ? '收集中' : '开始收集'}
+            </button>
+            <button type="button" onClick={() => { window.api.clipboardClear(); setClipItems([]); }} className="text-[12px] rounded-[3px] px-2 py-0.5 hover:opacity-80" style={{ color: 'var(--accent-red)' }} aria-label="清空剪贴板">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {clipItems.length === 0 ? (
+            <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>暂无剪贴记录</span>
+          ) : (
+            clipItems.map((item, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleCreate(item.text)}
+                className="shrink-0 rounded-[4px] border p-2 text-left text-[11px] hover:opacity-80"
+                style={{ width: 120, height: 80, borderColor: 'var(--border-default)', background: 'var(--bg-primary)', color: 'var(--text-primary)', overflow: 'hidden' }}
+              >
+                {item.text.slice(0, 80)}
+              </button>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Error state */}
+      {/* Create bar */}
+      <div className="mb-4 flex gap-2">
+        {!showCreateInput ? (
+          <button
+            type="button"
+            onClick={() => { setCreatePos(null); setCreateInput(''); setShowCreateInput(true); }}
+            className="rounded-[4px] px-4 py-1.5 text-[14px] font-medium hover:opacity-90"
+            style={{ background: 'var(--accent-blue)', color: '#fff' }}
+          >
+            + 新建便签
+          </button>
+        ) : (
+          <div className="flex gap-2 items-center">
+            <textarea
+              value={createInput}
+              onChange={(e) => setCreateInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitCreate(); }
+                if (e.key === 'Escape') { setShowCreateInput(false); setCreateInput(''); }
+              }}
+              placeholder="输入便签内容... Enter 保存, Esc 取消"
+              className="rounded-[4px] border px-3 py-1.5 text-[13px] outline-none resize-none"
+              style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', width: 300, minHeight: 80 }}
+              autoFocus
+            />
+            <button type="button" onClick={submitCreate} className="rounded-[4px] px-3 py-2 text-[13px] font-medium hover:opacity-90" style={{ background: 'var(--accent-blue)', color: '#fff' }}>保存</button>
+            <button type="button" onClick={() => { setShowCreateInput(false); setCreateInput(''); }} className="text-[13px] hover:underline" style={{ color: 'var(--text-secondary)' }}>取消</button>
+          </div>
+        )}
+      </div>
+
+      {/* Error / Loading / Empty */}
       {error && (
         <div style={{ color: 'var(--accent-red)', textAlign: 'center', padding: '3rem' }}>
           <p>{error}</p>
-          <button
-            onClick={() => { setError(null); loadNotes(); }}
-            style={{ color: 'var(--accent-blue)', marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
-          >
-            重试
-          </button>
+          <button onClick={() => { setError(null); loadNotes(); }} style={{ color: 'var(--accent-blue)', marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>重试</button>
         </div>
       )}
-
-      {/* Note list */}
       {loading ? (
         <p className="py-12 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>加载中...</p>
-      ) : sorted.length === 0 ? (
-        <div
-          className="rounded-[8px] border border-dashed p-12 text-center"
-          style={{ borderColor: 'var(--border-default)', background: 'var(--color-bg-card)' }}
-        >
-          <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-            暂无便签。输入内容后按 Enter 保存，或按 📋 从剪贴板粘贴。
-          </p>
-          <p className="mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-            非置顶便签 24 小时后自动清理
-          </p>
+      ) : notes.length === 0 ? (
+        <div className="rounded-[8px] border border-dashed p-12 text-center" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+          <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>暂无便签。点击"新建便签"或双击空白区域创建。</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {sorted.map((note) => (
-            <div
-              key={note.id}
-              className="group flex items-start gap-3 rounded-[8px] border p-4 transition-colors duration-[0.15s] hover:border-[var(--accent-blue)]"
-              style={{
-                borderColor: note.pinned ? 'var(--text-secondary)' : 'var(--border-default)',
-                background: note.pinned ? 'var(--bg-secondary)' : 'var(--color-bg-card)',
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                {/* Title — for memo-imported notes that have titles */}
-                {note.title && (
-                  <h4 className="mb-1 truncate text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {note.title}
-                  </h4>
-                )}
-                {/* Content */}
-                {viewModeIds.has(note.id) ? (
-                  <div
-                    className="select-text text-[14px] leading-relaxed break-words prose prose-sm max-w-none"
-                    style={{ color: 'var(--text-primary)' }}
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(md.render(note.content)),
-                    }}
+        <div
+          ref={canvasRef}
+          className="note-canvas flex-1 relative"
+          style={{ minHeight: 600 }}
+          onDoubleClick={handleDoubleClick}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleCanvasDrop}
+        >
+          {notes.map((note) => {
+            const pos = getNotePosition(note.id);
+            return (
+              <Draggable
+                key={note.id}
+                defaultPosition={pos}
+                onStop={(e, data) => handleDragStop(note.id, e, data)}
+                bounds="parent"
+                handle=".drag-handle"
+              >
+                <div className="absolute drag-handle" style={{ cursor: 'grab' }}>
+                  <NoteCard
+                    note={note}
+                    onCopy={handleCopy}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onView={(n) => setViewModal(n)}
+                    onImagePaste={handleImagePaste}
                   />
-                ) : (
-                  <p
-                    className="select-text text-[14px] leading-relaxed whitespace-pre-wrap break-words"
-                    style={{ color: note.title ? 'var(--text-secondary)' : 'var(--text-primary)' }}
-                  >
-                    {note.content}
-                  </p>
-                )}
-                <div className="mt-1.5 flex items-center gap-2">
-                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    {formatDate(note.createdAt)}
-                  </p>
-                  {note.memoType === 'note' && (
-                    <span className="rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                      笔记
-                    </span>
-                  )}
                 </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewModeIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(note.id)) next.delete(note.id);
-                      else next.add(note.id);
-                      return next;
-                    });
-                  }}
-                  title={viewModeIds.has(note.id) ? '显示纯文本' : '预览渲染'}
-                  aria-label={viewModeIds.has(note.id) ? '显示纯文本' : '预览渲染'}
-                  className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
-                  style={{
-                    background: viewModeIds.has(note.id) ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-                    color: viewModeIds.has(note.id) ? '#fff' : 'var(--text-secondary)',
-                  }}
-                >
-                  {viewModeIds.has(note.id) ? '✎' : '👁'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTogglePin(note.id)}
-                  title={note.pinned ? '取消置顶' : '置顶'}
-                  aria-label={note.pinned ? '取消置顶' : '置顶'}
-                  className="rounded-[4px] px-2 py-0.5 text-[12px] transition-colors hover:opacity-80"
-                  style={{
-                    background: note.pinned ? 'var(--text-secondary)' : 'var(--bg-tertiary)',
-                    color: note.pinned ? 'var(--text-on-accent)' : 'var(--text-secondary)',
-                  }}
-                >
-                  📌
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(note.id)}
-                  title="删除"
-                  aria-label="删除便签"
-                  className="rounded-[4px] px-2 py-0.5 text-[12px] text-red-400 transition-colors hover:text-red-600"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
+              </Draggable>
+            );
+          })}
         </div>
       )}
 
-      <p className="mt-6 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
-        便签是临时记录工具 · 非置顶便签 24 小时后自动清理 · 剪贴板内容可一键填入
-      </p>
+      {/* Full-note modal */}
+      {viewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setViewModal(null)}>
+          <div className="rounded-[8px] border p-6 max-w-[500px] max-h-[80vh] overflow-y-auto w-full mx-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>便签全文</h3>
+              <button type="button" onClick={() => setViewModal(null)} className="text-[14px]" style={{ color: 'var(--text-secondary)' }}>✕</button>
+            </div>
+            <pre className="text-[14px] whitespace-pre-wrap" style={{ color: 'var(--text-primary)', fontFamily: 'inherit' }}>{viewModal.content}</pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

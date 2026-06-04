@@ -6,11 +6,6 @@ import { dbAll } from '../db';
 export function registerGraphHandlers(): void {
   ipcMain.handle(IPC.GRAPH_GET_DATA, async (_event, userId: number, filter?: GraphFilter) => {
     try {
-      // T2111: Local graph mode — 1-degree neighborhood
-      if (filter?.scope === 'local' && filter?.centerId) {
-        return await getLocalGraph(userId, filter.centerId);
-      }
-
       const maxNodes = filter?.maxNodes ?? 100;
       const types = filter?.types ?? ['blog', 'knowledge', 'tag', 'note'];
 
@@ -105,73 +100,6 @@ export function registerGraphHandlers(): void {
       return { success: false, error: (err as Error).message };
     }
   });
-}
-
-/** T2111: Return 1-degree neighborhood around a center node */
-async function getLocalGraph(userId: number, centerId: string): Promise<{ success: boolean; data?: GraphData; error?: string }> {
-  const parts = centerId.split('-');
-  const srcType = parts[0];
-  const srcId = Number(parts[1]);
-  if (!srcType || !srcId || Number.isNaN(srcId)) {
-    return { success: false, error: 'Invalid centerId format. Expected "type-id"' };
-  }
-
-  const nodes: GraphNode[] = [];
-  const edges: GraphEdge[] = [];
-  const nodeIds = new Set<string>();
-  nodeIds.add(centerId);
-
-  // Find center node title
-  let centerLabel = '';
-  if (srcType === 'blog') {
-    const row = await dbAll<{ id: number; title: string }>('SELECT id, title FROM blogs WHERE id = ? AND user_id = ?', [srcId, userId]);
-    if (row[0]) { nodes.push({ id: centerId, label: row[0].title, type: 'blog' }); centerLabel = row[0].title; }
-  } else if (srcType === 'knowledge') {
-    const row = await dbAll<{ id: number; filename: string }>('SELECT id, filename FROM knowledge_files WHERE id = ? AND user_id = ?', [srcId, userId]);
-    if (row[0]) { nodes.push({ id: centerId, label: row[0].filename, type: 'knowledge' }); centerLabel = row[0].filename; }
-  } else if (srcType === 'note') {
-    const row = await dbAll<{ id: number; title: string }>('SELECT id, title FROM notes WHERE id = ? AND user_id = ?', [srcId, userId]);
-    if (row[0]) { nodes.push({ id: centerId, label: row[0].title || '(便签)', type: 'note' }); centerLabel = row[0].title || ''; }
-  }
-
-  if (nodes.length === 0) return { success: true, data: { nodes: [], edges: [] } };
-
-  // Find 1-degree refs (forward + back)
-  const refs = await dbAll<{ source_type: string; source_id: number; target_type: string; target_id: number }>(
-    `SELECT source_type, source_id, target_type, target_id FROM refs
-     WHERE (source_type = ? AND source_id = ?) OR (target_type = ? AND target_id = ?)
-     LIMIT 50`,
-    [srcType, srcId, srcType, srcId],
-  );
-
-  for (const r of refs) {
-    const srcNodeId = `${r.source_type}-${r.source_id}`;
-    const tgtNodeId = `${r.target_type}-${r.target_id}`;
-    edges.push({ source: srcNodeId, target: tgtNodeId, type: 'ref' });
-    if (!nodeIds.has(srcNodeId)) {
-      nodeIds.add(srcNodeId);
-      const label = await resolveNodeLabel(r.source_type, r.source_id, userId);
-      nodes.push({ id: srcNodeId, label, type: r.source_type as GraphNode['type'] });
-    }
-    if (!nodeIds.has(tgtNodeId)) {
-      nodeIds.add(tgtNodeId);
-      const label = await resolveNodeLabel(r.target_type, r.target_id, userId);
-      nodes.push({ id: tgtNodeId, label, type: r.target_type as GraphNode['type'] });
-    }
-  }
-
-  // Add tag edges for center node
-  const tagEdges = await getTagEdgesForNode(srcType, srcId, userId);
-  for (const te of tagEdges) {
-    const tagNodeId = `tag-${te.tagId}`;
-    edges.push({ source: centerId, target: tagNodeId, type: 'tag' });
-    if (!nodeIds.has(tagNodeId)) {
-      nodeIds.add(tagNodeId);
-      nodes.push({ id: tagNodeId, label: `#${te.name}`, type: 'tag' });
-    }
-  }
-
-  return { success: true, data: { nodes, edges } };
 }
 
 async function resolveNodeLabel(type: string, id: number, userId: number): Promise<string> {

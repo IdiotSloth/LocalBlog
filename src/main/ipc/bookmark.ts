@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { dbAll, dbGet, dbRun } from '../db';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 
 export function registerBookmarkHandlers(): void {
   ipcMain.handle(IPC.BOOKMARK_ADD, async (_event, data: { userId: number; targetType: string; targetId: number; title: string }) => {
@@ -13,7 +13,7 @@ export function registerBookmarkHandlers(): void {
       if (existing) {
         return { success: true, data: { id: existing.id } };
       }
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun(
         'INSERT INTO bookmarks (user_id, target_type, target_id, title, created_at) VALUES (?, ?, ?, ?, ?)',
         [data.userId, data.targetType, data.targetId, data.title, now],

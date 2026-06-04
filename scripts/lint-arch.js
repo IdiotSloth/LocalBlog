@@ -76,40 +76,6 @@ r03.forEach(r => {
   log('error', r.file, r.line, `server 导入 main/db/ 必须用 server/db.ts: ${r.content}`);
 });
 
-// R04: 禁止服务层直接调用同步 db get/all/run（无 isUsingMySQL 守卫）
-const mainDir = path.join(SRC, 'main');
-function walkMain(dir) {
-  if (!fs.existsSync(dir)) return [];
-  const results = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (['node_modules', '.git', 'db'].includes(entry.name)) continue;
-      results.push(...walkMain(full));
-    } else if (/\.ts$/.test(entry.name)) {
-      const content = readFile(full);
-      const lines = content.split('\n');
-      const importsFromDb = lines.some(l => /from\s+['"]\.\.\/db['"]/.test(l) || /from\s+['"]\.\.\/\.\.\/db['"]/.test(l));
-      const hasAsyncWrappers = lines.some(l => /(async function db(Get|All|Run)|isUsingMySQL\(\))/.test(l));
-      if (importsFromDb && !hasAsyncWrappers) {
-        // Flag direct sync calls only if no isUsingMySQL guard
-        lines.forEach((l, i) => {
-          if (/^import/.test(l.trim())) return;
-          if (/dbGet|dbAll|dbRun|getAsync|allAsync|runAsync/.test(l)) return;
-          if (/\bget\s*</.test(l) || /\ball\s*</.test(l) || /\brun\s*\(/.test(l)) {
-            results.push({ file: path.relative(ROOT, full), line: i + 1, content: l.trim() });
-          }
-        });
-      }
-    }
-  }
-  return results;
-}
-const r04 = walkMain(path.join(SRC, 'main'));
-r04.forEach(r => {
-  log('error', r.file, r.line, `服务层直接调用同步 DB（缺少 isUsingMySQL 守卫）: ${r.content}`);
-});
-
 // R05: 禁止 renderer/ 中硬编码颜色值（不含 var(--）的十六进制颜色）
 const r05 = grepFiles(path.join(SRC, 'renderer'), /color:\s*['"]#[0-9a-fA-F]{3,8}['"]/);
 r05.forEach(r => {

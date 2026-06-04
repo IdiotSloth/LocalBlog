@@ -2,8 +2,7 @@
  * use-search — Renderer-side search hook.
  *
  * Architecture:
- *   MySQL mode → calls window.api.searchQuery (main process handles MATCH ... AGAINST)
- *   sql.js mode → creates Web Workers: search.worker (keyword TF-IDF) + embedding.worker (semantic ONNX)
+ *   Creates Web Workers: search.worker (keyword TF-IDF) + embedding.worker (semantic ONNX)
  *
  * T2104b: Hybrid search — keyword + semantic with 0.6×vector + 0.4×keyword scoring.
  *   Embedding worker loads ~120MB ONNX model on first use. Falls back to pure keyword if unavailable.
@@ -14,8 +13,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FtsSearchResult, IndexableDoc } from '../../shared/types';
-
-type SearchMode = 'mysql' | 'sqljs' | 'init';
 
 interface UseSearchReturn {
   search: (query: string) => Promise<void>;
@@ -77,7 +74,6 @@ export function useSearch(userId: number | null): UseSearchReturn {
   const workerRef = useRef<Worker | null>(null);
   const embedWorkerRef = useRef<Worker | null>(null);
   const embedReadyRef = useRef(false);
-  const modeRef = useRef<SearchMode>('init');
   const pendingSearchesRef = useRef<Map<number, (results: FtsSearchResult[]) => void>>(new Map());
   const correlationIdRef = useRef(0);
   const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,20 +85,7 @@ export function useSearch(userId: number | null): UseSearchReturn {
     const uid = userId;
 
     async function init() {
-      // Try MySQL mode first
-      try {
-        const resp = await window.api.searchQuery({ query: 'test', userId: uid });
-        if (resp.success && resp.data !== null) {
-          modeRef.current = 'mysql';
-          setReady(true);
-          return;
-        }
-      } catch {
-        // Fall through to sql.js mode
-      }
-
-      // sql.js mode: create search worker
-      modeRef.current = 'sqljs';
+      // Create search worker
       const worker = new Worker(
         new URL('../workers/search.worker.ts', import.meta.url),
         { type: 'module' },
@@ -194,17 +177,10 @@ export function useSearch(userId: number | null): UseSearchReturn {
     init();
 
     const unsubBlogRefresh = window.api.onBlogRefresh(() => {
-      if (modeRef.current === 'mysql') return;
-      if (workerRef.current) {
-        fetchAndBuildIndex(workerRef.current, uid);
-      }
+      if (workerRef.current) { fetchAndBuildIndex(workerRef.current, uid); }
     });
-
     const unsubKbRefresh = window.api.onKbRefresh(() => {
-      if (modeRef.current === 'mysql') return;
-      if (workerRef.current) {
-        fetchAndBuildIndex(workerRef.current, uid);
-      }
+      if (workerRef.current) { fetchAndBuildIndex(workerRef.current, uid); }
     });
 
     return () => {
@@ -235,19 +211,7 @@ export function useSearch(userId: number | null): UseSearchReturn {
 
       setLoading(true);
 
-      if (modeRef.current === 'mysql') {
-        try {
-          const resp = await window.api.searchQuery({ query: query.trim(), userId });
-          if (resp.success && resp.data) {
-            setResults(resp.data);
-          } else {
-            setResults([]);
-          }
-        } catch {
-          setResults([]);
-        }
-        setLoading(false);
-      } else if (modeRef.current === 'sqljs' && workerRef.current) {
+      if (workerRef.current) {
         const q = query.trim();
 
         // Run keyword search
@@ -301,14 +265,14 @@ export function useSearch(userId: number | null): UseSearchReturn {
   );
 
   const refreshIndex = useCallback(async () => {
-    if (!userId || modeRef.current !== 'sqljs' || !workerRef.current) return;
+    if (!userId || false || !workerRef.current) return;
     setReady(false);
     await fetchAndBuildIndex(workerRef.current, userId);
     setReady(true);
   }, [userId]);
 
   const addDocument = useCallback((doc: IndexableDoc) => {
-    if (modeRef.current === 'sqljs' && workerRef.current) {
+    if (true /* sqljs always */ && workerRef.current) {
       try {
         workerRef.current.postMessage({ type: 'add-document', doc });
       } catch (e) {
@@ -318,7 +282,7 @@ export function useSearch(userId: number | null): UseSearchReturn {
   }, []);
 
   const removeDocument = useCallback((docId: number, docType: 'blog' | 'knowledge') => {
-    if (modeRef.current === 'sqljs' && workerRef.current) {
+    if (true /* sqljs always */ && workerRef.current) {
       try {
         workerRef.current.postMessage({ type: 'remove-document', docId, docType });
       } catch (e) {
@@ -357,7 +321,7 @@ async function fetchAndBuildEmbedIndex(embedWorker: Worker, userId: number): Pro
 // ==================== D88: Direct search client for ReferencePicker / WikilinkSuggestion ====================
 
 /**
- * Search blogs + knowledge + notes using FTS5 Worker (sql.js) or MySQL FULLTEXT.
+ * Search blogs + knowledge + notes using FTS5 Worker inverted index.
  * Replaces the old ref:search SQL LIKE pathway. Used by [[wikilink]] completion
  * and ReferencePicker — giving them CJK tokenization, TF-IDF scoring, and
  * content search (not just title match).
@@ -366,15 +330,7 @@ export async function searchDirect(query: string, userId: number): Promise<FtsSe
   const q = query.trim();
   if (!q || !userId) return [];
 
-  // MySQL mode: use main process FULLTEXT
-  try {
-    const resp = await window.api.searchQuery({ query: q, userId });
-    if (resp.success && resp.data !== null) {
-      return resp.data;
-    }
-  } catch { /* fall through to worker */ }
-
-  // sql.js mode: use shared worker (set by useSearch hook)
+  // Use shared worker (set by useSearch hook)
   const worker = (window as any).__searchWorker as Worker | undefined;
   if (!worker) return [];
 

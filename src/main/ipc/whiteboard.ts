@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { dbAll, dbGet, dbRun } from '../db';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 
 export function registerWhiteboardHandlers(): void {
   ipcMain.handle(IPC.WHITEBOARD_GET, async (_event, userId: number) => {
@@ -10,7 +10,7 @@ export function registerWhiteboardHandlers(): void {
         'SELECT * FROM whiteboards WHERE user_id = ? LIMIT 1', [userId],
       );
       if (!wb) {
-        const now = nowMySQL();
+        const now = nowTimestamp();
         await dbRun('INSERT INTO whiteboards (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
           [userId, '我的白板', now, now]);
         wb = await dbGet<{ id: number; title: string; description: string; created_at: string; updated_at: string }>(
@@ -35,7 +35,7 @@ export function registerWhiteboardHandlers(): void {
     try {
       const wb = await dbGet<{ id: number }>('SELECT id FROM whiteboards WHERE id = ? AND user_id = ?', [data.whiteboardId, data.userId]);
       if (!wb) return { success: false, error: '无权访问' };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun('INSERT INTO whiteboard_nodes (whiteboard_id, user_id, node_type, title, x, y, color, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
         [data.whiteboardId, data.userId, data.nodeType, data.title, data.x, data.y, data.color || 'blue', now, now]);
       const row = await dbGet<any>('SELECT last_insert_rowid() as id');
@@ -47,7 +47,7 @@ export function registerWhiteboardHandlers(): void {
     try {
       const node = await dbGet<{ id: number }>('SELECT id FROM whiteboard_nodes WHERE id = ? AND user_id = ?', [data.id, data.userId]);
       if (!node) return { success: false, error: '无权访问' };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       const sets: string[] = ['updated_at = ?'];
       const params: unknown[] = [now];
       if (data.title !== undefined) { sets.push('title = ?'); params.push(data.title); }
@@ -85,7 +85,7 @@ export function registerWhiteboardHandlers(): void {
     try {
       const wb = await dbGet<{ id: number }>('SELECT id FROM whiteboards WHERE id = ? AND user_id = ?', [data.whiteboardId, data.userId]);
       if (!wb) return { success: false, error: '无权访问' };
-      const now = nowMySQL();
+      const now = nowTimestamp();
       await dbRun('INSERT INTO whiteboard_edges (whiteboard_id, source_node_id, target_node_id, label, created_at) VALUES (?,?,?,?,?)',
         [data.whiteboardId, data.sourceNodeId, data.targetNodeId, data.label || '', now]);
       const row = await dbGet<any>('SELECT last_insert_rowid() as id');

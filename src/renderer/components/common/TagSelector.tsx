@@ -22,6 +22,20 @@ export function TagSelector({ userId, selectedTagIds, onChange }: Props) {
   const [error, setError] = useState('');
   const [panelPos, setPanelPos] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // T2406: Click-outside dismiss — transient, no persistent open state
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (panelRef.current && !panelRef.current.contains(t) && triggerRef.current && !triggerRef.current.contains(t)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
 
   const loadTags = useCallback(async () => {
     try {
@@ -128,6 +142,7 @@ export function TagSelector({ userId, selectedTagIds, onChange }: Props) {
 
       {open && (
         <div
+          ref={panelRef}
           className="z-50 w-72 rounded-[6px] border p-3 shadow-lg"
           style={{
             ...panelPos,

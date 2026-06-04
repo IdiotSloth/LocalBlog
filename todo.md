@@ -1,6 +1,6 @@
 # 本地博客与知识库存储系统 — 待办事项
 
-> 最后更新: 2026-05-21 10:40 | Boss 核查同步
+> 最后更新: 2026-06-04 04:10:35 | 自动同步
 
 ---
 
@@ -33,8 +33,9 @@
 | Phase 21 | 编辑器进化 + 信息流动 + 知识连接 + 内容中枢 — 分屏框架/搜索/语义搜索/剪藏/KB编辑/局部图谱 | ~67.3h | 2026-05-19 | ✅ |
 | Phase 22 | "知识活化" — 被动发现/Transclusion/AI集成/标签页/Blog↔KB打通/Obsidian日历/Bookmarks | ~65h | 2026-05-20 | ✅ |
 | Phase 23 | "精炼书房" — 设计语言统一 + 知识中枢激活: 国风主题/去硬核化/原地编辑/便签改造/KB重塑/导航重塑/白板 | ~48h | — | 📋 |
+| Phase 24 | "羽化" (Feathering) — 从功能系统收敛为思考空间: Runtime Collapse/Visualization Purge/Interaction Collapse/The Orb/遗留修复 | ~60h | — | 📋 |
 
-**总计**: ~714.8h (Phase 1-23 计划)
+**总计**: ~774.8h (Phase 1-24 计划)
 
 > 已完成 Phase 的详细任务规格见 [docs/phase-archive.md](docs/phase-archive.md)。
 > 关联: [redo.md](redo.md) (修复清单) | [docs/development-guide.md](docs/development-guide.md) (开发参考)
@@ -814,30 +815,189 @@ IPC 新增 (~20 通道):
 
 ---
 
-## 5. 后续改进方向 (Phase 24+)
+## 5. Phase 24 — "羽化" (Feathering) 📋
+
+> 副标题: **从功能系统收敛为思考空间**
+> 来源: Boss suggest.md + 战略裁决 + Auditor Shift-Left 审查 (D120-D126) + Boss 交互哲学讨论
+> 核心命题: 不是"删代码"，是重新定义产品重心。从功能控制台收敛为思考空间——信息只在需要时出现，不永远挂着第二个 App。
+> 设计原则: (1) 信息提示 ≠ 第二工作区 (2) 删入口再删代码, 先软后硬 (3) 永久可见 panel ≤ 1
+> 目标: 包体积 -30%, 运行时内存 -20%, 首屏系统模块 ≤3, 正文宽度 +20%
+
+**Boss 裁决记录**:
+| 决策 | 议题 | 裁决 |
+|------|------|------|
+| D117 | T2403 引擎选择 | `@sqlite.org/sqlite-wasm` — 官方 WASM, 免编译 |
+| D118 | T2404 范围 | 全量纳入, 不拆分 |
+| D119 | D3 处置 | 全量删除含 GraphPage |
+| D120 | LocalGraph 去留 | 删 — 纪律性 > 30KB |
+| D121 | sqlite-wasm 验证 | T2403 前先跑独立验证脚本，失败则回退 sql.js |
+| D122 | MySQL 反向迁移 | 提供 `npm run migrate:mysql-to-sqlite` (+2h) |
+| D123 | MCP HTTP 清理 | 纳入 T2401 — 删 SettingsPage HTTP 文档 |
+| D124 | mammoth/exceljs 动态导入 | 纳入 T2402 — 按 pdfjs-dist 模式改造 |
+| D125 | Orb Drop Zone 安全 | 纳入 T2404 — URL/文件/文本 三层校验 |
+| D126 | as any 清零 | 0 处（D3 删 + WhiteboardPage 接口 + Worker 封装） |
+
+### T2401 — 废弃 MySQL 双后端与 Express Web Server (14h, 🔴 P0)
+
+- 物理删除 `mysql2` 依赖、`src/server/` 整个目录 (Express/JWT/REST 路由, 19 files)
+- 物理删除 `db-schema-mysql.ts`、所有 `toMySQL()`、`isUsingMySQL()` 分支
+- MCP Server 仅保留 `stdio` 模式, 移除 HTTP 传输层
+- Schema 同步从三处 DDL 简化为单处
+- **D122**: 提供 `npm run migrate:mysql-to-sqlite` 一次性迁移脚本 (检测 MySQL 配置 → 全 12 表导出 → sqlite 写入)
+- **D123**: SettingsPage 移除 HTTP MCP 模式文档, 仅保留 stdio。同步检查 README/AGENTS
+- 验收: `grep -ri "mysql" src/` 零残留, `npm run server` 命令移除
+
+### T2402 — 依赖瘦身: 清除 D3 + 重型库懒加载 + 死代码 (8h, 🟠 P1)
+
+- **D120**: 物理删除 D3 全部: `GraphPage.tsx`, `MiniGraph.tsx`, **`LocalGraph.tsx`**, `d3`/`d3-force` 依赖
+- ContextPanel "图谱" Tab 移除 (延 Phase 25+ React Flow 替代)
+- 路由 `/graph` → 302 → `/whiteboards`
+- **D124**: `mammoth`/`exceljs` → 动态 `import()` (按 pdfjs-dist 已有模式), `preview.service.ts` 对应函数改 async
+- `knip` / `ts-prune` 死代码检测, 清理未使用 IPC 通道和组件
+
+### T2403 — SQLite 引擎升级: sql.js → @sqlite.org/sqlite-wasm (10h, 🟠 P1)
+
+- **D121 前置**: 先写独立验证脚本 (1-2h) — 验证 Node.js 环境下文件数据库/CRUD/FTS5/持久化。若 OPFS 不可用 → **回退方案 B1 (保持 sql.js)**, T2403 取消
+- 替换 `sql.js` 为 `@sqlite.org/sqlite-wasm` (官方 WASM, 免编译, 性能更优)
+- 重写 `src/main/db/index.ts`, 保持 `dbGet`/`dbAll`/`dbRun` 签名不变
+- 验证 FTS5 全文搜索 + 87 单元测试全绿
+
+### T2404 — The Orb 流体桌宠与全局收集器 (12h, 🟠 P1)
+
+- 废弃现有 `pet.png` 独立窗口 (30MB+)
+- 与快捷便签共用透明 BrowserWindow, 原生 HTML+CSS 绘制 SVG 流体光球, 内存 < 5MB
+- IPC 状态感知: AI 思考→旋转, 拖入文件→漩涡
+- 全局 Drop Zone: 接收文件/文本/URL, IPC 自动分类入库 (文本→便签/URL→剪藏/文件→KB)
+- 点击 Orb → CSS transition 平滑放大为 420×320 快捷便签
+- **D125**: 主进程 handler 安全校验 — URL 仅 http/https, 拒绝 file:///javascript:/内网IP; 文件扩展名+MIME 白名单; 文本 ≤10KB 截断
+
+### T2405 — Phase 23 遗留修复 (8h, 🟡 P2)
+
+- R338 (P1): bgImage:read IPC 路径穿越防护 — path.resolve + workspaceDir startsWith + 扩展名白名单
+- R339 (P2): KB 冲突 "替换"/"保留两者" 行为分流 — 后端 kbImport 加 onConflict 参数
+- **D126**: renderer `: any` / `as any` 清零 → 目标 0 处（D3 删除 ~10 处自动消失 / WhiteboardPage 定义 data 接口 / Worker hack 封装模块 / 保底 ≤5 处仅 Worker 豁免）
+- Auditor 标记的其他体验断点
+
+### T2406 — Interaction Collapse: 交互塌缩 (8h, 🟠 P1)
+
+> **核心哲学**: 「信息只在需要时出现」— Inline Context 是信息提示，不是第二工作区。
+> **执行策略**: 两阶段 — Stage A Soft Collapse (隐藏入口 → inline 化 → command 化 → 观察 7 天) → Stage B Hard Delete (删组件/Store/IPC/路由)。
+> **为什么现在做**: 信息分裂式 UI 已在产生 bug/状态同步/认知负担——不是未来问题，是正在发生的问题。
+
+**Part 1 — 删除 ContextPanel, 替代为 Inline Hover Preview**
+- 删除 `ContextPanel` 组件 + route whitelist 逻辑 + `registerTabs`/`ownerSid` 竞态机制 + SplitPane 分屏状态
+- Wikilink hover → inline popover preview (200ms delay, 复用已有 wikilink 解析管线)
+- **信息边界** (防微型 ContextPanel 再生):
+  | 允许 | 禁止 |
+  |------|------|
+  | title, excerpt, updatedAt, tags, related count, backlinks count | full editor, tab system, AI actions, graph preview, nested navigation, resize |
+- 验收: `grep -r "ContextPanel" src/renderer/` → 0; `grep -r "registerTabs" src/renderer/` → 0
+
+**Part 2 — 删除 Bottom Tabs, 替代为 Inline Chips**
+- 删除标签/附件/引用/系列的底部 tab 栏组件
+- 替代: 正文下方 inline chips — **严格限制 2 类**: (A) tags `#docker #k8s` (B) related links `Related: - xxx - xxx`
+- **禁止清单** (防底部重长成 tabs): attachment manager, nested tabs, pagination, filter, expandable sections
+- chips 不是 tabs — 不维护选中态/展开态/滚动位置
+- 验收: 底部 tab 组件文件删除; `grep "BottomTab" src/renderer/` → 0
+
+**Part 3 — Floating Tabs 改为 Continue Flow (思考流)**
+- 保留 floating tabs 机制, 语义重定义: "打开的标签" → "思考流" (cognitive continuity)
+- **数据来源 = 未完成思考**: [最近编辑] + [停留 >3min] + [未关闭/标记完成] + [7 天内] → continuation candidates
+- 不是 open tabs, 不是 browser history, 不是 embedding relation
+- UI: tab label 改为 continue context; 文案从"标签页"改为"继续"
+- 验收: `grep "FloatingTab\|floatingTab"` 逻辑保留但 label 文案变更; 候选列表数据源可追溯
+
+**Part 4 — 删除 Mini Graph + Full Graph Page**
+- 删除 HomePage 迷你图谱组件 (MiniGraph) + LocalGraph 组件
+- `/graph` → 302 `/whiteboards` (T2402 已处理路由, 本任务清理残余)
+- 替代: related content list (纯文本链接列表, 不渲染 canvas/SVG)
+- 验收: `grep "MiniGraph\|LocalGraph" src/renderer/` → 0
+
+**Part 5 — State Collapse (工程收益)**
+- 删除上述 panel 对应的 Zustand store slice (contextPanel, bottomTabs, graph, splitPane 等)
+- 删除 resize observer / scroll sync / conditional rendering 对应的 useEffect
+- 验收 (工程): renderer `useEffect` 调用减少 ≥5; `ResizeObserver` 引用减少 ≥3
+- 验收 (产品, Boss 亲自验证):
+  | 指标 | 目标 | 验证方法 |
+  |------|------|----------|
+  | 永久可见 panel ≤ 1 | 仅 sidebar 可永久存在 | 打开应用, 目视检查: 右侧/底部无永久系统 panel |
+  | 正文宽度 ≥+20% | ContextPanel 删除后阅读区恢复 | 对比 T2406 前后博客预览页正文列宽度 |
+  | 首屏系统模块 ≤3 | HomePage 同时竞争注意力的系统 ≤3 | 目视计数: sidebar + 主内容 + ? (不能更多) |
+
+**两阶段执行**:
+```
+Stage A — Soft Collapse (~5h):
+  隐藏入口 (ContextPanel 折叠按钮/底部 tab 栏/图谱入口)
+  → Inline hover preview 实现
+  → Command palette 集成 (search/recent/backlinks/related → Ctrl+K)
+  → 观察 7 天: Boss 自己使用, 记录是否还想打开已隐藏的 panel
+
+Stage B — Hard Delete (~3h, Stage A 观察期后):
+  确认 ≥7 天未使用 + 替代方案稳定
+  → 物理删除组件/Store/IPC/路由
+  → 运行 grep 验收 + build 通过
+```
+
+### 任务总览
+
+| 任务 | 名称 | 估算 | 优先级 |
+|------|------|------|--------|
+| T2401 | Runtime Collapse — 废弃 MySQL 与 Web Server (含 D122 迁移 + D123 文档) | 14h | 🔴 P0 |
+| T2402 | Visualization Purge — D3/懒加载/死代码 (含 D120 LocalGraph + D124) | 8h | 🟠 P1 |
+| T2403 | SQLite 升级 — sqlite-wasm (D121 先验证) | 10h | 🟠 P1 |
+| T2404 | The Orb 桌宠重构 (含 D125 安全) | 12h | 🟠 P1 |
+| T2405 | 遗留修复 — P2/P3 + any 清零 (含 D126) | 8h | 🟡 P2 |
+| T2406 | Interaction Collapse — 交互塌缩 (两阶段: Soft Collapse → Hard Delete) | 8h | 🟠 P1 |
+
+🔴 P0 (1): ~14h | 🟠 P1 (4): ~38h | 🟡 P2 (1): ~8h | **总计: 6 项, ~60h**
+
+### 实施顺序 (Boss 最终裁定)
+
+```
+Phase 24A — 验证 + 破旧 (~32h):
+  Step 0: T2403 验证脚本（D121 — 先跑 sqlite-wasm 可行性, 1-2h）
+     ↓ 若通过 ↓                    ↓ 若失败 ↓
+  T2403 完整迁移 (10h)          回退 B1 (保持 sql.js)
+     ↓                             ↓
+  T2401 Runtime Collapse (14h, 含 D122 迁移 + D123 文档)
+  T2402 Visualization Purge (8h, 含 D3 + LocalGraph + D124)
+  T2406 Stage A — Soft Collapse (5h, 隐藏入口 + inline hover + command palette)
+
+Phase 24B — 立新 + 观察 (~20h):
+  T2404 The Orb 桌宠 (12h, 含 D125 安全校验)
+  T2406 观察期 (7 天, Boss 使用 → 记录 → 决定哪些 Hard Delete)
+
+Phase 24C — 收尾 + 硬删 (~8h + 3h):
+  T2405 遗留修复 (8h, 含 D126 as any 清零)
+  T2406 Stage B — Hard Delete (3h, 确认 ≥7 天未使用 → 物理删除组件/Store/IPC/路由)
+     ↓
+  P0+P1+P2+P3 全零 🎉
+```
+
+---
+
+## 6. 后续改进方向 (Phase 25+)
 
 | # | 方向 | 优先级 | 说明 |
 |---|------|--------|------|
 | 1 | PDF 批注 + 批注→wikilink (Scenario 1/5) | 🟡 P2 | pdfjs-dist v4+ annotation layer |
 | 2 | E2E 加密 + 加密导出 (Scenario 7) | 🟡 P2 | node:crypto AES-256-GCM |
 | 3 | 内容克隆/同步嵌入 (Scenario 6) | 🟢 P3 | 一段内容多处嵌入, 改一处全更新 |
-| 4 | 画布视图 | 🟢 P3 | 需评估与图谱重叠度 |
-| 5 | 闪卡系统 (SM-2) | 🟢 P3 | 独立功能模块 |
-| 6 | DOCX 编辑 (MD 往返) | 🟢 P3 | mammoth→MD→编辑→docx |
-| 7 | XLSX 单元格编辑 | 🟢 P3 | 完整 spreadsheet |
-| 8 | 国际化 i18n | ❌ 否决 | D18=C |
+| 4 | 闪卡系统 (SM-2) | 🟢 P3 | 独立功能模块 |
+| 5 | DOCX 编辑 (MD 往返) | 🟢 P3 | mammoth→MD→编辑→docx |
+| 6 | XLSX 单元格编辑 | 🟢 P3 | 完整 spreadsheet |
+| 7 | 国际化 i18n | ❌ 否决 | D18=C |
 
 ---
 
-## 6. 代码质量基线
+## 7. 代码质量基线
 
 | 指标 | Phase 22 基线 | Phase 23 目标 |
 |------|-------------|------|
 | `strict` + `noUncheckedIndexedAccess` | ✅ | 维持 |
-| `as any` (renderer) | 0 | 维持 |
-| `: any` 类型标注 (renderer) | 0 | 维持 |
+| `as any` (renderer) | 15 | 0 (T2405) |
+| `: any` 类型标注 (renderer) | 15 | 0 (T2405) |
 | 单元测试 | 87/87 pass (12 files) | 87+ pass (保持) |
-| E2E 测试 | 11/11 pass | 维持 |
 | 🔴🟠🟡🔵 P0-P3 | **0/0/0/0** Phase 22 全零 | Phase 23 全零 |
 | IPC 通道 | 114 (+3 bookmark +2 AI +3 update +1 export) ~123 | ~143 (+20 Phase 23) |
 | 设计Token | Lucide SVG + 3色 + 无阴影动效 | 5 套国风主题 + [data-theme] 体系 |
@@ -849,7 +1009,7 @@ IPC 新增 (~20 通道):
 
 ---
 
-## 7. 输入格式规范
+## 8. 输入格式规范
 
 > **目的**: 保持文件精简。所有角色必须遵守。
 
@@ -881,7 +1041,7 @@ IPC 新增 (~20 通道):
 
 ---
 
-## 8. 文件职责边界
+## 9. 文件职责边界
 
 | | todo.md | redo.md |
 |------|---------|---------|
@@ -892,11 +1052,10 @@ IPC 新增 (~20 通道):
 
 ---
 
-## 9. 当前优先
+## 10. 当前优先
 
 | 优先级 | 事项 | 负责 |
 |--------|------|------|
-| 🟠 P1 | **Phase 23 立案前审查** — Auditor Shift-Left 审查 Phase 23 规格 + D 编号 | Auditor |
-| 🟠 P1 | **Phase 23A 视觉基础** — T2301 国风主题 + T2302 去硬核化 + MD 柔化 | Developer |
-| 🟠 P1 | **Phase 23B 模块升级** — T2306 导航重塑 → T2303 原地编辑 → T2305 KB → T2304 便签 | Developer |
-| 🟠 P1 | **Phase 23C 白板** — T2307 知识中枢中央桌面 | Developer |
+| 🔴 P0 | **Phase 24A 破旧** — T2403 sqlite-wasm 验证 → T2401 Runtime Collapse → T2402 Visualization Purge → T2406 Stage A Soft Collapse | Developer |
+| 🟠 P1 | **Phase 24B 立新** — T2404 The Orb 桌宠 → T2406 观察期 (Boss 使用 7 天) | Developer + Boss |
+| 🟡 P2 | **Phase 24C 收尾** — T2405 遗留修复 → T2406 Stage B Hard Delete | Developer |

@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { nowMySQL, toMySQLDateTime } from '../../shared/datetime';
+import { nowTimestamp, toDateTime } from '../../shared/datetime';
 import type { AuthResponse, User } from '../../shared/types';
 import { dbGet, dbRun } from '../db';
 import { generateToken, hashPassword, verifyPassword } from '../utils/crypto';
@@ -40,7 +40,7 @@ export class AuthService {
         username,
         passwordHash,
         workspacePath,
-        nowMySQL(),
+        nowTimestamp(),
       ]);
       const newUser = await dbGet<{ id: number }>('SELECT id FROM users WHERE username = ?', [username]);
       if (!newUser?.id) return { success: false, error: '创建用户失败: 数据库写入异常' };
@@ -55,15 +55,15 @@ export class AuthService {
     }
 
     const token = generateToken();
-    const expiresAt = toMySQLDateTime(new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
+    const expiresAt = toDateTime(new Date(Date.now() + TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
     await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [
       userId,
       token,
       expiresAt,
-      nowMySQL(),
+      nowTimestamp(),
     ]);
 
-    return { success: true, user: { id: userId, username, workspacePath, createdAt: nowMySQL() }, token };
+    return { success: true, user: { id: userId, username, workspacePath, createdAt: nowTimestamp() }, token };
   }
 
   static async login(username: string, password: string, rememberMe: boolean): Promise<AuthResponse> {
@@ -83,14 +83,14 @@ export class AuthService {
 
     const token = generateToken();
     const expiryDays = rememberMe ? TOKEN_EXPIRY_DAYS : 1;
-    const expiresAt = toMySQLDateTime(new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000));
+    const expiresAt = toDateTime(new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000));
 
     await dbRun('DELETE FROM sessions WHERE user_id = ?', [row.id]);
     await dbRun('INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)', [
       row.id,
       token,
       expiresAt,
-      nowMySQL(),
+      nowTimestamp(),
     ]);
 
     return {

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron';
 import { getSharedBlogList } from '../../shared/handlers/blog-list';
 import { IPC } from '../../shared/ipc-channels';
-import { nowMySQL } from '../../shared/datetime';
+import { nowTimestamp } from '../../shared/datetime';
 import { extractWikilinkRefs, extractWikilinkTitles } from '../../shared/wikilink';
 import { dbAll, dbGet, dbRun } from '../db';
 import { BlogService } from '../services/blog.service';
@@ -134,9 +134,9 @@ export function registerBlogHandlers(): void {
 
   ipcMain.handle(
     IPC.BLOG_CREATE,
-    async (_event, data: { userId: number; title: string; format: 'md' | 'html'; content: string }) => {
+    async (_event, data: { userId: number; title: string; format: 'md' | 'html'; content: string; seriesId?: string; seriesName?: string }) => {
       try {
-        const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content);
+        const blog = await BlogService.createBlog(data.userId, data.title, data.format, data.content, data.seriesId, data.seriesName);
         if (data.content) await syncWikilinkRefs('blog', blog.id, data.content, data.userId);
         blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
         return { success: true, data: blog };
@@ -146,7 +146,7 @@ export function registerBlogHandlers(): void {
     },
   );
 
-  ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data: { userId: number; blogId: number; title?: string; content?: string }) => {
+  ipcMain.handle(IPC.BLOG_UPDATE, async (_event, data: { userId: number; blogId: number; title?: string; content?: string; seriesId?: string; seriesName?: string }) => {
     try {
       // R206: Read old content BEFORE update for safe wikilink diff
       let oldContent: string | undefined;
@@ -155,6 +155,10 @@ export function registerBlogHandlers(): void {
         oldContent = old?.content;
       }
       await BlogService.updateBlog(data.userId, data.blogId, { title: data.title, content: data.content });
+      // R356: Set series if provided
+      if (data.seriesId !== undefined) {
+        await BlogService.setBlogSeries(data.userId, data.blogId, data.seriesId || null, data.seriesName || null);
+      }
       // R206: Pass both old and new content — only diffs wikilink-originated refs
       if (data.content) await syncWikilinkRefs('blog', data.blogId, data.content, data.userId, oldContent);
       blogRefreshTarget?.send(IPC.EVT_BLOG_REFRESH);
@@ -239,7 +243,7 @@ export function registerBlogHandlers(): void {
   // T2108: Set blog pinned state
   ipcMain.handle(IPC.BLOG_SET_PINNED, async (_event, data: { id: number; userId: number; isPinned: number }) => {
     try {
-      await dbRun('UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.isPinned, nowMySQL(), data.id, data.userId]);
+      await dbRun('UPDATE blogs SET is_pinned = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.isPinned, nowTimestamp(), data.id, data.userId]);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -249,7 +253,7 @@ export function registerBlogHandlers(): void {
   // T2108: Set blog color label
   ipcMain.handle(IPC.BLOG_SET_COLOR, async (_event, data: { id: number; userId: number; color: string | null }) => {
     try {
-      await dbRun('UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.color, nowMySQL(), data.id, data.userId]);
+      await dbRun('UPDATE blogs SET color = ?, updated_at = ? WHERE id = ? AND user_id = ?', [data.color, nowTimestamp(), data.id, data.userId]);
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

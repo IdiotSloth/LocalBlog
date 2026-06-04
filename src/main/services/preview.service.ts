@@ -1,8 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { shell } from 'electron';
-import ExcelJS from 'exceljs';
-import mammoth from 'mammoth';
 import { dbGet } from '../db';
 
 /** Wrap a promise with a timeout; on timeout return partial result with note */
@@ -120,6 +118,7 @@ export class PreviewService {
 
   private static async previewDocx(filePath: string): Promise<{ html?: string; error?: string }> {
     const buffer = fs.readFileSync(filePath);
+    const mammoth = await import('mammoth');
     const result = await mammoth.convertToHtml({
       buffer,
       styleMap: [
@@ -155,6 +154,7 @@ export class PreviewService {
   }
 
   private static async previewXlsx(filePath: string): Promise<{ html?: string; error?: string }> {
+    const ExcelJS = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
 

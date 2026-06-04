@@ -1,25 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useTabs } from '../../stores/tab-context';
 
 // ==================== Split Context (D84 foundation) ====================
 
 export interface SplitContextValue {
   isSplit: boolean;
   rightContent: React.ReactNode;
+  activePaneId: string;
   openSplit: (rightContent: React.ReactNode) => void;
   closeSplit: () => void;
-  /** Which pane currently has focus — drives ContextPanel ownership (D84) */
-  activePaneId: 'left' | 'right' | null;
-  focusPane: (paneId: 'left' | 'right') => void;
 }
 
 const SplitCtx = createContext<SplitContextValue>({
   isSplit: false,
   rightContent: null,
+  activePaneId: '',
   openSplit: () => {},
   closeSplit: () => {},
-  activePaneId: null,
-  focusPane: () => {},
 });
 
 export function useSplit(): SplitContextValue {
@@ -31,30 +27,24 @@ export function useSplit(): SplitContextValue {
 export function SplitProvider({ children }: { children: React.ReactNode }) {
   const [isSplit, setIsSplit] = useState(false);
   const [rightContent, setRightContent] = useState<React.ReactNode>(null);
-  const [activePaneId, setActivePaneId] = useState<'left' | 'right' | null>(null);
+  const [activePaneId, setActivePaneId] = useState('');
 
   const openSplit = useCallback((content: React.ReactNode) => {
     setRightContent(content);
     setIsSplit(true);
-    setActivePaneId('right');
   }, []);
 
   const closeSplit = useCallback(() => {
     setIsSplit(false);
     setRightContent(null);
-    setActivePaneId(null);
-  }, []);
-
-  const focusPane = useCallback((paneId: 'left' | 'right') => {
-    setActivePaneId(paneId);
   }, []);
 
   // Ctrl+\ toggles split — pages use openSplit to set content
   // This handler only deals with closing; opening is done by page components
 
   const value = useMemo<SplitContextValue>(
-    () => ({ isSplit, rightContent, openSplit, closeSplit, activePaneId, focusPane }),
-    [isSplit, rightContent, openSplit, closeSplit, activePaneId, focusPane],
+    () => ({ isSplit, rightContent, activePaneId, openSplit, closeSplit }),
+    [isSplit, rightContent, activePaneId, openSplit, closeSplit],
   );
 
   return <SplitCtx.Provider value={value}>{children}</SplitCtx.Provider>;
@@ -72,7 +62,6 @@ const MIN_RATIO = 25;
 const MAX_RATIO = 75;
 
 export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
-  const { activePaneId, focusPane } = useSplit();
   const [ratio, setRatio] = useState(() => {
     const saved = localStorage.getItem('lbkb_split_ratio');
     const n = saved ? Number(saved) : defaultRatio;
@@ -114,50 +103,24 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
   if (isNarrow) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div
-          className="flex-1 overflow-y-auto"
-          onClick={() => focusPane('left')}
-          style={{ minHeight: 0 }}
-        >
+        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
           {left}
         </div>
         <div
           className="border-t border-[var(--border-default)]"
           style={{ height: 4, background: 'var(--bg-tertiary)' }}
         />
-        <div
-          className="flex-1 overflow-y-auto"
-          onClick={() => focusPane('right')}
-          style={{ minHeight: 0 }}
-        >
+        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
           {right}
         </div>
       </div>
     );
   }
 
-  const { tabs, activeTabId } = useTabs();
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-
   return (
     <div ref={containerRef} className="flex flex-1 overflow-hidden" style={{ minWidth: 0 }}>
       {/* Left pane */}
-      <div
-        className="flex flex-col overflow-hidden"
-        style={{
-          width: `${ratio}%`,
-          minWidth: 0,
-          outline: activePaneId === 'left' ? '1px solid var(--accent-blue)' : 'none',
-          outlineOffset: -1,
-        }}
-        onClick={() => focusPane('left')}
-      >
-        {/* R293: Mini tab bar for left pane */}
-        <div className="flex items-center shrink-0 px-3 border-b" style={{ height: 28, borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
-          <span className="text-[11px] font-medium truncate" style={{ color: activePaneId === 'left' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
-            {activeTab?.label || '主视图'}
-          </span>
-        </div>
+      <div className="flex flex-col overflow-hidden" style={{ width: `${ratio}%`, minWidth: 0 }}>
         <div className="flex-1 overflow-y-auto">{left}</div>
       </div>
 
@@ -191,22 +154,7 @@ export function SplitPane({ left, right, defaultRatio = 50 }: SplitPaneProps) {
       />
 
       {/* Right pane */}
-      <div
-        className="flex flex-col overflow-hidden"
-        style={{
-          width: `${100 - ratio}%`,
-          minWidth: 0,
-          outline: activePaneId === 'right' ? '1px solid var(--accent-blue)' : 'none',
-          outlineOffset: -1,
-        }}
-        onClick={() => focusPane('right')}
-      >
-        {/* R293: Mini tab bar for right pane */}
-        <div className="flex items-center shrink-0 px-3 border-b" style={{ height: 28, borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
-          <span className="text-[11px] font-medium truncate" style={{ color: activePaneId === 'right' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
-            分屏视图
-          </span>
-        </div>
+      <div className="flex flex-col overflow-hidden" style={{ width: `${100 - ratio}%`, minWidth: 0 }}>
         <div className="flex-1 overflow-y-auto">{right}</div>
       </div>
     </div>
