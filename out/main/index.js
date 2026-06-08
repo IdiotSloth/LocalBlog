@@ -4206,7 +4206,8 @@ function registerKnowledgeHandlers() {
     try {
       const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: "文件不存在" };
-      await PreviewService.openExternal(f.filePath);
+      const errMsg = await electron.shell.openPath(f.filePath);
+      if (errMsg) return { success: false, error: errMsg };
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };

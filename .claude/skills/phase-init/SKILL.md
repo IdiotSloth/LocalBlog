@@ -54,6 +54,7 @@ Txxxx — 任务名 (估算, 优先级)
 | □ | 跨任务术语一致 | T2302/T2305 都写"卡片"但间距不同 |
 | □ | 涉及新 UI 系统已检查复杂度预算 (Phase 24+) | 新 popup/dropdown/panel → 确认不超过宪法上限，确认无 hidden state machine / persistence leakage 风险 |
 | □ | 涉及 UI 删除已标注是 Soft Collapse 还是 Hard Delete | 大规模 UI 删除没写"先隐藏入口 → 观察 ≥7 天 → 物理删除" → 打回 |
+| □ | 推翻重建级: 写 rebuild.md 而非 todo.md | 全应用大改 → 创建 `rebuild.md` 作为工作文件。格式同 todo.md 但无需受 Phase 表约束 |
 
 ### 4. 写入 todo.md
 

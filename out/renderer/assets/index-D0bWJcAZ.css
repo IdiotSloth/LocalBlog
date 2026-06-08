@@ -1098,6 +1098,10 @@
     min-width: 300px;
   }
 
+  .min-w-\[320px\] {
+    min-width: 320px;
+  }
+
   .min-w-\[360px\] {
     min-width: 360px;
   }
@@ -1572,6 +1576,10 @@
     padding-block: calc(var(--spacing) * 1) !important;
   }
 
+  .py-0 {
+    padding-block: calc(var(--spacing) * 0);
+  }
+
   .py-0\.5 {
     padding-block: calc(var(--spacing) * .5);
   }
@@ -2041,7 +2049,7 @@
       color: var(--accent-blue);
     }
 
-    .group-hover\:opacity-100:is(:where(.group):hover *) {
+    .group-hover\:opacity-100:is(:where(.group):hover *), .group-hover\/kbtag\:opacity-100:is(:where(.group\/kbtag):hover *), .group-hover\/tag\:opacity-100:is(:where(.group\/tag):hover *) {
       opacity: 1;
     }
 
@@ -2090,6 +2098,10 @@
       .hover\:bg-black\/5:hover {
         background-color: color-mix(in oklab, var(--color-black) 5%, transparent);
       }
+    }
+
+    .hover\:text-\[var\(--accent-red\)\]:hover {
+      color: var(--accent-red);
     }
 
     .hover\:text-\[var\(--color-text-secondary\)\]:hover {

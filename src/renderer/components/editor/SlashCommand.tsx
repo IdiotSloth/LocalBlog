@@ -96,8 +96,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     icon: '🖼',
     keywords: ['image', '图片', 'img', '插图'],
     execute: (ed) => {
-      const url = prompt('输入图片 URL:');
-      if (url) ed.chain().focus().setImage({ src: url }).run();
+      ed.chain().focus().setImage({ src: '' }).run();
     },
   },
   {

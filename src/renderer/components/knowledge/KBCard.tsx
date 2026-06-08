@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Paperclip, Pencil, Trash2, FolderOpen } from 'lucide-react';
+import { Paperclip, Pencil, Trash2, FolderOpen, Plus, X } from 'lucide-react';
 
 const TYPE_LABELS: Record<string, string> = {
   docx: 'Word 文档', xlsx: 'Excel 表格', pptx: 'PPT 演示',
@@ -39,9 +39,11 @@ interface Props {
   onDelete: (file: KbFile) => void;
   onShowInFolder: (file: KbFile) => void;
   onTagClick?: (tagId: number) => void;
+  onEditTags?: (file: KbFile) => void;
+  onRemoveTag?: (fileId: number, tagId: number) => void;
 }
 
-export function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTagClick }: Props) {
+export function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTagClick, onEditTags, onRemoveTag }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const ext = (file.filename || '').split('.').pop()?.toLowerCase() || '';
@@ -91,20 +93,29 @@ export function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTag
       </div>
 
       {/* Tags */}
-      {file.tags && file.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {file.tags.map((t) => (
-            <span
-              key={t.id}
-              className="inline-block rounded-[3px] px-1.5 py-0.5 text-[11px] cursor-pointer hover:opacity-80"
-              style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}
-              onClick={(e) => { e.stopPropagation(); onTagClick?.(t.id); }}
-            >
-              {t.name}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1 items-center">
+        {file.tags && file.tags.length > 0 && file.tags.map((t) => (
+          <span
+            key={t.id}
+            className="note-actions inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[11px] cursor-pointer hover:opacity-80 group/kbtag"
+            style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}
+            onClick={(e) => { e.stopPropagation(); onTagClick?.(t.id); }}
+          >
+            {t.name}
+            <X size={10} className="note-actions ml-0.5 opacity-0 group-hover/kbtag:opacity-100 hover:text-[var(--accent-red)]"
+              onClick={async (e) => {
+                e.stopPropagation();
+                onRemoveTag?.(file.id, t.id);
+              }} />
+          </span>
+        ))}
+        <button type="button" aria-label="添加标签"
+          className="note-actions inline-flex items-center rounded-[3px] px-1 py-0 text-[11px] cursor-pointer hover:opacity-80 opacity-0 group-hover:opacity-100"
+          style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}
+          onClick={(e) => { e.stopPropagation(); onEditTags?.(file); }}>
+          <Plus size={12} />
+        </button>
+      </div>
     </div>
   );
 }

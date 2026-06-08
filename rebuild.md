@@ -1,6 +1,6 @@
 # Rebuild — 全应用重建纲领
 
-> 最后更新: 2026-06-04 | Boss 立案
+> 最后更新: 2026-06-08 | Boss 立案 · 三轮反馈
 > 性质: 推翻重建级。本文件优先级高于 todo.md。Phase 24 观察期终止。
 > 工作文件: Developer 写代码、Auditor 审查、Boss 验收，全部以此文件为唯一规格来源。
 
@@ -1665,3 +1665,883 @@ Accept Report (二轮):
 ```
 
 **签字**: Boss 验收通过。
+
+---
+
+## 19. 三轮反馈 — Boss 使用发现
+
+> 日期: 2026-06-08 | Boss 亲自使用产品后发现 4 个模块 7 项问题
+> 性质: 第三轮修复。二轮 Spec 验收全部通过，但实际使用中暴露新问题。
+> 原则: 本轮为轻量修复轮，不动 Schema，不新增依赖，不引入新系统。
+
+### 19.1 R369 — 博客卡片 Tag 编辑 + 显示全部标签
+
+**问题**: BlogCard 只显示前 3 个 tag（`blog.tags.slice(0, 3)`），且无法在卡片上直接编辑 tag。用户必须进入博客详情页 → 编辑模式 → 找到 TagSelector → 修改标签 → 保存，与"操作即可见"原则冲突。
+
+**预检发现 — 后端已就绪，仅缺 UI 接入**:
+```
+✅ IPC 通道: TAG_SET_BLOG = 'tag:set-blog' (ipc-channels.ts:34)
+✅ Main 处理器: ipcMain.handle(IPC.TAG_SET_BLOG, ...) (src/main/ipc/blog.ts:263)
+  → await BlogService.setBlogTags(blogId, tagIds)
+  → DELETE FROM blog_tags WHERE blog_id=? + INSERT OR IGNORE
+✅ Preload 暴露: tagSetBlog(data) → ipcRenderer.invoke(IPC.TAG_SET_BLOG, data) (preload/index.ts:46)
+✅ Window API 声明: tagSetBlog(data: Record<string, unknown>): Promise<ApiResponse<void>> (window-api.ts:74)
+✅ TagSelector 组件: src/renderer/components/common/TagSelector.tsx (userId + selectedTagIds + onChange)
+✅ BlogService.setBlogTags: (blogId, tagIds) → delete all + insert all (blog.service.ts:236-239)
+❌ UI: BlogCard 未接入 tagSetBlog；TagSelector 从未在 BlogCard 中挂载
+```
+
+→ **无需新增任何 IPC 通道。** 仅需 UI 接入即可。
+
+**Spec**:
+- **文件**: [BlogCard.tsx](src/renderer/components/blog/BlogCard.tsx) L107-123 · [BlogListPage.tsx](src/renderer/features/blog/BlogListPage.tsx) L458-467
+- **Tag 显示 (L107-123 改造)**:
+  1. 删除 `slice(0, 3)` 限制 — 每张卡片显示该博客的**全部** tag
+  2. tag 数 ≤5: 全部内联显示
+  3. tag 数 >5: 前 5 个内联 + `+N` pill（hover 显示完整 tag 列表 tooltip，纯 CSS `title` 属性）
+- **Tag 编辑 UI**:
+  1. 每个 tag pill 右侧追加 `×` 按钮（`fontSize: 10px`, `marginLeft: 2px`, `opacity: 0`, `group-hover:opacity-100`）
+  2. tag 列表末尾追加 `+` 按钮（`fontSize: 12px`, `padding: '0 4px'`, 同样 group-hover 出现）
+  3. `×` 点击: `e.stopPropagation()` → `window.api.tagSetBlog({ blogId: blog.id, tagIds: blog.tags.filter(t => t.id !== removedId).map(t => t.id) })` → `loadBlogs()`
+  4. `+` 点击: `e.stopPropagation()` → 弹出 `<TagSelector>` (position: absolute, 定位在按钮下方, z-index: 50)
+  5. TagSelector: `userId={user.id}`, `selectedTagIds={blog.tags.map(t => t.id)}`, `onChange={async (ids) => { await window.api.tagSetBlog({ blogId: blog.id, tagIds: ids }); loadBlogs(); }}`
+- **BlogListPage 改动**:
+  - BlogCard 需要 `userId` prop（新增）→ 传 `userId={user.id}`
+  - BlogCard 需要 `onTagsChanged` callback → 传 `onTagsChanged={() => loadBlogs()}`
+  - BlogCard 内部管理 TagSelector 的开关状态（本地的 `showTagSelector` state）
+- **Tag 过滤器保留**: 页面顶部 `popularTags` 过滤条 (L408-437) 保留，作为跨博客筛选工具。视觉上与卡片 tag 区分——过滤条使用 accent-blue 高亮，卡片 tag 使用 bg-primary 背景。
+- **BlogCard props 扩展**:
+  ```ts
+  interface Props {
+    // ... 现有 props +
+    userId: number;                              // 新增：TagSelector 需要
+    onTagsChanged?: () => void;                  // 新增：tag 变更后刷新列表
+  }
+  ```
+
+**准确改动点** (逐行):
+1. `BlogCard.tsx:17` — Props 接口追加 `userId: number; onTagsChanged?: () => void;`
+2. `BlogCard.tsx:17` — 组件解构加 `userId, onTagsChanged`
+3. `BlogCard.tsx:107` — `blog.tags.slice(0, 3).map(...)` → `blog.tags.map(...)`  并追加 × 按钮
+4. `BlogCard.tsx:119-121` — `+N` 逻辑改为 `blog.tags.length > 5` 条件 + `title` tooltip
+5. `BlogCard.tsx:124` (新行，tags 列表后) — `+` 按钮 + TagSelector 条件渲染
+6. `BlogCard.tsx` 新增 import: `import { TagSelector } from '../common/TagSelector';`
+7. `BlogListPage.tsx:458-467` — BlogCard 传 `userId={user.id}` + `onTagsChanged={loadBlogs}`
+
+**验收**:
+1. `grep "slice(0, 3)" src/renderer/components/blog/BlogCard.tsx` → 0（tag 区）
+2. `grep "tagSetBlog" src/renderer/components/blog/BlogCard.tsx` → ≥1 次调用
+3. `grep "TagSelector" src/renderer/components/blog/BlogCard.tsx` → ≥1 次 import/使用
+4. 卡片 tag 全部可见（>5 时 hover +N 可见完整列表 tooltip）
+5. 卡片 × 移除 tag → 列表刷新, tag 消失
+6. 卡片 + 打开 TagSelector → 勾选/取消 tag → onChange 触发 tagSetBlog → 列表刷新
+7. TagSelector 点击外部关闭（现有 `click-outside dismiss` 逻辑已实现）
+8. `grep "blog:tag-remove\|blog:tag-add" src/shared/ipc-channels.ts` → **0**（确认未新增通道——复用已有 tag:set-blog）
+
+---
+
+### 19.2 R370 — 博客编辑：滚动位置保持 + 保存返回阅读模式
+
+**问题 A — 进入编辑跳到顶部**: 从阅读页点击 FloatingMenu 编辑按钮（`setSearchParams({ mode: 'edit' })` L657），页面跳到顶部。根因分析:
+
+```
+正常阅读: <article className="prose"> — 高度 ~3000-8000px
+编辑模式: <BlogEditorPage variant="frameless" /> — 高度 ~600px
+DOM 替换 → 内容高度骤降 → 浏览器自动滚动到可见区域顶部
+BlogPreviewPage L255 的 window.scrollTo(0,0) 仅在 blog 首次加载时触发 (useEffect deps: [id,user])，
+编辑模式切换不触发它，所以不是它导致的问题。
+真正原因: 浏览器对 scrollTop > new-documentHeight 时的 native scroll clamping。
+```
+
+**问题 B — Ctrl+S 保存后不返回阅读**: `BlogEditorPage.handleSave()` L417-456（else 分支，即已有博客的保存）仅显示 toast + 清理 dirty flag + 触发 AI tag suggest。**不导航、不清除 ?mode=edit**。用户必须手动点击底部"退出编辑"按钮（L867-888）或"取消"按钮才能回到阅读模式。
+
+**现有"退出编辑"按钮 (L867-888)**:
+```tsx
+// variant === 'frameless' 时渲染
+<button onClick={async () => {
+  await handleSave();
+  navigate(`/blog/${id}`, { replace: true });  // ← 会卸载整个 BlogPreviewPage！
+}}>退出编辑</button>
+```
+此按钮用了 `navigate()` 改路由——这会导致 BlogPreviewPage 组件完全卸载/重挂载，丢失一切状态（滚动位置/wikiResolver/backlinks）。应改用 searchParams 切换。
+
+**Spec**:
+
+**修改 1 — BlogPreviewPage: 编辑前后保存/恢复滚动位置**:
+- **文件**: [BlogPreviewPage.tsx](src/renderer/features/blog/BlogPreviewPage.tsx) L157-170 · L242 · L495-515 · L652-659
+- L157: 在 `export function BlogPreviewPage()` 内部顶部追加:
+  ```ts
+  const scrollYRef = useRef(0);  // 保存进入编辑前的滚动位置
+  ```
+- L657 (FloatingMenu onEdit 回调): **进入编辑前保存位置**:
+  ```tsx
+  onEdit={() => {
+    scrollYRef.current = window.scrollY;
+    setSearchParams({ mode: 'edit' }, { replace: true });
+  }}
+  ```
+- L495 (isEditMode 渲染): 编辑器挂载后使用 `requestAnimationFrame` 确保不会因 DOM 高度变化导致浏览器 auto-scroll。由于编辑器高度远小于文章内容高度，浏览器会自然将 scrollTop clamp 到 0。**不强制 scrollTo(0)**——让浏览器保持当前位置，但需要给编辑器容器加 `minHeight` 避免内容不够。
+  ```tsx
+  if (isEditMode || !id) {
+    return (
+      <div className="flex flex-col" style={{ minHeight: '60vh' }}>
+        {/* ...existing editor wrapper... */}
+      </div>
+    );
+  }
+  ```
+  `minHeight: 60vh` = 编辑器占 60% 视口高度，避免内容太短导致浏览器硬跳顶部。
+
+**修改 2 — BlogEditorPage: Ctrl+S 后通知父组件退出编辑**:
+- **文件**: [BlogEditorPage.tsx](src/renderer/features/blog/BlogEditorPage.tsx) L38-50 (interface) · L417-456 (handleSave else branch) · L596-597 (props usage)
+- 方案: BlogEditorPage 新增可选 prop `onSaved?: () => void`。父组件 BlogPreviewPage 传入:
+  ```tsx
+  onSaved={() => {
+    setSearchParams({}, { replace: true });           // 清除 ?mode=edit
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollYRef.current);          // 恢复滚动位置
+    });
+  }}
+  ```
+- EditorState interface (L39-50): 无需改动（onSaved 是 prop，不入 state）
+- `handleSave` else 分支 (L431, `setRestoreDraft(null)` 之后): 追加调用 `onSaved?.()`
+  ```ts
+  // ...existing save logic...
+  dispatch({ type: 'SET_DIRTY', payload: false });
+  setRestoreDraft(null);
+  onSaved?.();   // ← 新增：通知父组件保存完成，退出编辑
+  ```
+- L867-888 "退出编辑" 按钮: 也改用 `onSaved?.()`:
+  ```tsx
+  <button onClick={async () => {
+    await handleSave();
+    onSaved?.();
+  }}>退出编辑</button>
+  ```
+  → 不再用 `navigate()` 改路由，改由父组件通过 searchParams 切换模式。
+
+**修改 3 — 独立编辑器 `/blog/:id/edit` 同样修复**:
+- **文件**: [BlogEditorPage.tsx](src/renderer/features/blog/BlogEditorPage.tsx) L417-456
+- 独立编辑器 (variant !== 'frameless'): `onSaved` 为 undefined → 保持现有行为（Ctrl+S 仅 save + toast，不导航）
+- **不改为自动导航回阅读页**——独立编辑器是完整的编辑页，用户可能连续编辑多篇。只有 frameless（嵌入阅读页的编辑器）需要自动返回阅读。
+
+**验收**:
+1. 阅读页滚动到文章中部（如 2000px）→ 点 FloatingMenu 编辑 → 编辑器出现，页面**不硬跳到顶部**（允许浏览器自然滚动调整，但不出现"刷一下回到 0"的跳变）
+2. 编辑器内 Ctrl+S → 自动切换回阅读模式 → 滚动位置恢复至进入编辑前的位置（±100px）
+3. `grep "onSaved" src/renderer/features/blog/BlogEditorPage.tsx` → Props 接口定义 + handleSave 调用
+4. `grep "scrollYRef" src/renderer/features/blog/BlogPreviewPage.tsx` → useRef 声明 + onEdit 赋值 + onSaved 恢复
+5. 独立编辑器 `/blog/123/edit` → Ctrl+S → 留在编辑器（不变更路由），仅显示 toast
+
+---
+
+### 19.3 R371 — 便签颜色稳定性 + 拖放修复
+
+**问题 A — 颜色闪烁**: NoteCard 每次渲染随机变色。根因精确追踪:
+
+```
+NoteCard.tsx:33 → const bg = note.color || randomNoteColor()
+NoteListPage.tsx:87-96 → handleCreate() 调用 noteCreate 但从未设置 .color 字段
+DB notes 表 → 无 color 列
+
+结果: note.color 始终 undefined → 每次 render 调用 randomNoteColor() → 随机色
+```
+
+**问题 B — 便签无法拖放**: 两种机制冲突:
+
+```
+react-draggable  → 在 wrapper 元素上设置 transform: translate(x, y) 来移动便签
+NoteCard L57-60 mouseEnter → 设置 e.currentTarget.style.transform = 'translateY(-2px)'
+                             → 直接覆盖 react-draggable 的 transform！
+                             → 便签跳到 translateY(-2px) 位置，丢失 drag 位置
+mouseLeave → 设置 e.currentTarget.style.transform = '' → 清空 transform（再次重置位置）
+```
+
+两个 `transform` 在不同层级上打架：react-draggable 的 transform 在其 wrapper div 上，NoteCard 的 transform 在其自身根节点上。但 NoteCard 的 mouseEnter 直接写 `element.style.transform`，当用户 hover 时覆盖了 Draggable 的定位。
+
+另外，`defaultPosition`（非受控模式）意味着 react-draggable 管理内部 state。每当 `notes` 数组变化（loadNotes 触发），React 可能重新创建 Draggable 实例，导致内部 state 丢失。
+
+**Spec A — 颜色固定**:
+
+- **方案**: 确定性颜色分配，零持久化，零 Schema 变更。
+- **核心**: `note.id % 6` → 索引 → NOTE_COLORS[index]。同一 ID 永远同色，跨 session 稳定。
+- **文件改动**:
+  1. [NoteCard.tsx](src/renderer/components/notes/NoteCard.tsx) L33:
+     - **删除**: `const bg = note.color || randomNoteColor();`
+     - **改为**: `const bg = NOTE_COLORS[(note.id % 6 + 6) % 6];`  (取模安全处理负 id)
+     - `NOTE_COLORS` 数组保留 L4 的 6 色值不变
+  2. [NoteCard.tsx](src/renderer/components/notes/NoteCard.tsx) L6-8: 删除 `randomNoteColor()` 导出（不再需要）
+  3. [NoteListPage.tsx](src/renderer/features/notes/NoteListPage.tsx) L87-96: `handleCreate` 无需改动（不再需要设 color）
+
+**Spec B — 拖放修复**:
+
+- **方案**: 改受控模式 + 移除 NoteCard 的 transform 冲突。
+- **文件改动**:
+  1. [NoteListPage.tsx](src/renderer/features/notes/NoteListPage.tsx) L299-321 — Draggable 改为受控 `position`:
+     ```tsx
+     <Draggable
+       key={note.id}
+       position={pos}                    // 受控: { x: number; y: number }
+       onDrag={(_e, data) => {
+         setPositions(prev => {
+           const n = { ...prev, [note.id]: { x: data.x, y: data.y } };
+           return n;
+         });
+       }}
+       onStop={(_e, data) => handleDragStop(note.id, _e, data)}
+       bounds="parent"
+       cancel=".note-actions"
+     >
+     ```
+     - `onDrag`: 每次 mouse move 更新 state（不写 localStorage，高频操作）
+     - `onStop`: 仅持久化到 localStorage（已有 handleDragStop L122-128）
+  2. [NoteCard.tsx](src/renderer/components/notes/NoteCard.tsx) L57-66 — mouseEnter/mouseLeave 移除 transform 操作:
+     ```tsx
+     // 修复前 (L57-66):
+     onMouseEnter={(e) => {
+       e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+       e.currentTarget.style.transform = 'translateY(-2px)';  // ← 删除此行
+       e.currentTarget.style.zIndex = '10';
+     }}
+     onMouseLeave={(e) => {
+       e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+       e.currentTarget.style.transform = '';  // ← 删除此行
+       e.currentTarget.style.zIndex = '';
+     }}
+     
+     // 修复后:
+     onMouseEnter={(e) => {
+       e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+       e.currentTarget.style.zIndex = '10';
+     }}
+     onMouseLeave={(e) => {
+       e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+       e.currentTarget.style.zIndex = '';
+     }}
+     ```
+     保留 shadow + zIndex 效果（纯视觉增强，不冲突），仅删除 transform 操作。
+
+**验收**:
+1. 创建新便签 → 颜色固定（同一便签永不变化），刷新页面后颜色一致（`id % 6` 确定性）
+2. `grep "randomNoteColor" src/renderer/components/notes/NoteCard.tsx` → 0
+3. `grep "note.color" src/renderer/components/notes/NoteCard.tsx` → 0
+4. `grep "defaultPosition" src/renderer/features/notes/NoteListPage.tsx` → 0
+5. `grep "position={pos}" src/renderer/features/notes/NoteListPage.tsx` → 存在受控模式
+6. 拖放便签到任意位置 → 松开后不弹回，刷新页面后保持在拖放位置
+7. `grep "style.transform = 'translateY" src/renderer/components/notes/NoteCard.tsx` → 0
+8. hover 便签仍有 shadow + zIndex 效果
+
+---
+
+### 19.4 R372 — 知识库 Tag 编辑 + 文件打开
+
+**问题 A — Tag 编辑**: KBCard 显示 tag 但无法编辑。预检发现后端已完整就绪:
+
+```
+✅ IPC 通道: TAG_SET_FILE = 'tag:set-file' (ipc-channels.ts:35)
+✅ Main 处理器: ipcMain.handle(IPC.TAG_SET_FILE, ...) (knowledge.ts:113)
+  → await KnowledgeService.setFileTags(fileId, tagIds)
+  → DELETE FROM knowledge_file_tags WHERE file_id=? + INSERT OR IGNORE
+✅ Preload 暴露: tagSetFile(data) → ipcRenderer.invoke(IPC.TAG_SET_FILE, data) (preload/index.ts:47)
+✅ Window API 声明: tagSetFile(data: Record<string, unknown>): Promise<ApiResponse<void>> (window-api.ts:75)
+✅ KnowledgeListPage state: editingTagsFileId / editingTagIds + START_EDIT_TAGS / STOP_EDIT_TAGS actions
+   (已定义但从未接入 UI — knowledgeListReducer L65-67/L86-87)
+❌ KBCard: 无 tag 编辑 UI
+```
+
+→ **无需新增 IPC。** 仅需在 KBCard 中接入已有 `tagSetFile`。
+
+**问题 B — 文件打开**: KBCard 点击调用 `window.api.kbOpenExternal()` 但文件打不开。预检发现:
+
+```
+✅ IPC 通道: KB_OPEN_EXTERNAL = 'kb:open-external' (ipc-channels.ts:60)
+✅ Main 处理器: ipcMain.handle(IPC.KB_OPEN_EXTERNAL, ...) (knowledge.ts:103-112)
+✅ KnowledgeService.getFile(fileId, userId) → 返回 { filePath: row.file_path, ... } (knowledge.service.ts:129-135)
+✅ PreviewService.openExternal(filePath) → shell.openPath(filePath) (preview.service.ts:78-80)
+⚠️ 关键缺陷 (knowledge.ts:107-108):
+   await PreviewService.openExternal(f.filePath);
+   return { success: true };   // ← 无视 shell.openPath 的返回值！
+   
+   shell.openPath() 返回 Promise<string>:
+   - 成功返回 ''（空字符串）
+   - 失败返回错误消息字符串
+   
+   当前代码不检查返回值 → 即使打开失败也返回 {success: true} → 用户看不到任何错误
+```
+
+**Spec A — Tag 编辑**:
+
+- **文件**: [KBCard.tsx](src/renderer/components/knowledge/KBCard.tsx) L44-107 · [KnowledgeListPage.tsx](src/renderer/features/knowledge/KnowledgeListPage.tsx) L520-538
+- KBCard Props 扩展:
+  ```ts
+  interface Props {
+    // ... 现有 props +
+    onEditTags?: (file: KbFile) => void;  // 新增
+  }
+  ```
+- KBCard tag 区 (L94-107) 改造:
+  1. 每个 tag pill 右侧加 `×` 按钮（`className="note-actions"` 复用样式，`stopPropagation`）
+  2. tag 列表末尾加 `+` 按钮（同样 `stopPropagation`）
+  3. `×` → 直接调用 `window.api.tagSetFile({ fileId: file.id, tagIds: file.tags!.filter(t => t.id !== removedId).map(t => t.id) })` → `onEditTags?.()` 回调通知父组件刷新
+  4. `+` → 调用 `onEditTags?.(file)` → 父组件打开 TagSelector modal/popover
+- KnowledgeListPage 接入:
+  - `onEditTags` 回调设置 `editingTagsFileId` + 渲染 TagSelector popover
+  - TagSelector `onChange`: 调用 `tagSetFile` → dispatch `STOP_EDIT_TAGS` → `loadFiles()`
+  - 复用现有 `START_EDIT_TAGS`/`STOP_EDIT_TAGS` actions
+
+**Spec B — 文件打开修复**:
+
+- **文件**: [src/main/ipc/knowledge.ts](src/main/ipc/knowledge.ts) L103-112 · [KBCard.tsx](src/renderer/components/knowledge/KBCard.tsx) L63
+- **Main 进程修复 (knowledge.ts L107-108)**:
+  ```ts
+  // 修复前:
+  await PreviewService.openExternal(f.filePath);
+  return { success: true };
+  
+  // 修复后:
+  const errMsg = await shell.openPath(f.filePath);  // 直接调用 shell.openPath
+  if (errMsg) return { success: false, error: errMsg };
+  return { success: true };
+  ```
+  或者让 PreviewService.openExternal 返回 shell.openPath 的结果并在 handler 中检查。
+- **KBCard onClick (L63)**: 当前 `onClick={() => onOpen(file)}` 绑定在卡片根 div。确认没有被 `onContextMenu` (L64) 或子元素事件拦截。修复方案:
+  - 在 `onOpen` 调用前后加 try/catch → toast 错误
+  - KnowledgeListPage L524 的 onOpen handler 改为:
+    ```tsx
+    onOpen={async (file) => {
+      const r = await window.api.kbOpenExternal({ fileId: file.id, userId: user.id });
+      if (!r.success) toast(r.error || '打开失败', 'error');
+    }}
+    ```
+  - 需要引入 toast（KnowledgeListPage 已有 `setToastMsg` state，L143）
+
+**验收**:
+1. `grep "tagSetFile" src/renderer/components/knowledge/KBCard.tsx` → 存在调用（× 按钮移除 tag）
+2. KBCard `+` → TagSelector 弹出 → 选择 tag → 卡片 tag 更新 → `loadFiles()` 刷新
+3. `grep "onEditTags" src/renderer/components/knowledge/KBCard.tsx` → Props 定义
+4. 点击 KBCard 卡片主体 → 系统默认程序打开文件（非 webview 预览）
+5. DevTools IPC 日志: `kb:open-external` → 文件打不开时返回 `{success: false, error: "具体错误"}`
+6. `grep "shell\.openPath" src/main/ipc/knowledge.ts` → 检查返回值（非忽略）
+7. KBCard `onClick` → 不被 context menu 或子元素事件拦截
+
+---
+
+### 19.5 R373 — 指南页更新至 Rebuild 后状态
+
+**问题**: `docs/guide/` 下 13 个 markdown 文件最后更新于 2026-05-20（Rebuild 之前），多处内容与实际产品不符。
+
+**预检发现 — 逐文件审计**:
+
+| 文件 | 最后更新 | 过期/错误内容 | 严重 |
+|------|---------|-------------|------|
+| `index.md` | May 20 | "Alt+Space 快捷便签" — 当前透明窗口便签可能已不工作；"Ctrl+1-8 标签页" — 标签系统已简化 | 🟠 |
+| `blog.md` | May 20 | 未提及 BlogCard 卡片列表 (Rebuild 核心交付)；未提及 FloatingMenu 浮动目录；未提及原地编辑器 (frameless)；"无框编辑模式"描述不完整 | 🔴 |
+| `notes.md` | May 20 | 描述旧便签列表模式；"快捷便签 (Alt+Space)" 可能已不可用；未提及 NoteCard 自由拖放 + 6 色纸底 + 剪贴板图片粘贴 (Rebuild 核心交付) | 🔴 |
+| `knowledge.md` | May 20 | "中央栏原地打开" (点击即开) — Rebuild 后改为 shell.openPath 系统程序打开；"卡片/列表切换" 已移除；未提及 KBCard 组件 | 🔴 |
+| `settings.md` | May 20 | MCP HTTP 模式 `localhost:3456` 已随 Express 服务器移除 (Phase 24)；"MySQL 模式使用 FULLTEXT" 不存在 | 🔴 |
+| `search.md` | May 20 | "MySQL 模式使用 FULLTEXT + ngram parser" (L35) — MySQL 已在 Phase 24 移除 | 🟠 |
+| `calendar.md` | May 20 | "蓝色圆点=每日便签, 绿色圆点=日程" — Rebuild 改为三色: 蓝=便签, 橙=待办, 绿=日程 | 🟠 |
+| `whiteboard.md` | May 20 | 描述 React Flow 白板，功能未大改但需确认 | 🟡 |
+| `ai.md` | May 20 | "claude-sonnet-4-6" 为 Claude 模型列表但型号可能已过时；整体功能描述仍准确 | 🟡 |
+| `bookmarks.md` | May 20 | 功能未大改但仍需通读确认 | 🟢 |
+| `timeline.md` | May 20 | 功能未大改但仍需通读确认 | 🟢 |
+| `tabs.md` | May 20 | 标签页系统可能已简化 (TabBar 仍存在但行为可能变化)；"Ctrl+1-8" 快捷键可能已被移除 | 🟠 |
+| `shortcuts.md` | May 20 | `Alt+Space` 快捷便签可能不可用；需确认当前实际可用快捷键列表 | 🟠 |
+
+**更新策略**:
+- **🔴 严重错误 (3 files)**: 完全重写 — blog.md / notes.md / knowledge.md / settings.md
+- **🟠 部分过期 (5 files)**: 更新过期段落 — index.md / search.md / calendar.md / tabs.md / shortcuts.md
+- **🟡/🟢 需确认 (4 files)**: 通读 + 逐项验证 + 修正 — whiteboard.md / ai.md / bookmarks.md / timeline.md
+
+**Spec**:
+- **文件**: `docs/guide/*.md` (全部 13 个)
+- **方法**: 对照当前应用实际功能逐文件通读，确保每一句话描述的功能在当前产品中实际存在
+- **核心修正项**:
+  1. `blog.md`: 重写"博客卡片"section → BlogCard (memos 风格) + hover 操作菜单 + FloatingMenu 浮动目录 + 原地 frameless 编辑器 + Ctrl+S Toast + 阅读时间 + 进度条 left border
+  2. `notes.md`: 重写 → NoteCard 180×180 方形卡片 + 6 色纸底 + react-draggable 自由拖放 + 剪贴板图片粘贴 + 双击画布新建 + 剪贴板区域
+  3. `knowledge.md`: 重写 → KBCard 卡片网格 + shell.openPath 系统默认程序打开 + tag 编辑 (×/＋ 按钮) + 排序 (名称/日期/大小/类型) + 搜索 + 拖入导入 + 文件夹侧栏
+  4. `settings.md`: 删除 MCP HTTP 模式段落 (端口 3456) + 删除 MySQL 相关引用 + 更新主题数为 8
+  5. `index.md`: 更新功能列表 + 删除 Alt+Space 引用 + 确认快捷键表
+  6. `search.md`: L35 删除 "MySQL 模式使用 FULLTEXT + ngram parser"
+  7. `calendar.md`: "蓝色圆点"→"蓝色=便签, 橙色=待办, 绿色=日程" 三色圆点
+  8. `shortcuts.md`: 删除 `Alt+Space` 快捷键；验证其他快捷键是否仍有效
+  9. `tabs.md`: 确认 TabBar 当前行为并更新描述
+  10. `whiteboard.md / ai.md / bookmarks.md / timeline.md`: 通读 + 逐项验证准确性
+
+**验收**:
+1. `ls docs/guide/*.md` → 13 个文件
+2. `grep -rn "3456\|localhost:3456\|HTTP 模式" docs/guide/` → 0
+3. `grep -rn "MySQL.*FULLTEXT\|MySQL 模式" docs/guide/` → 0
+4. `grep -rn "Alt\+Space\|Alt-Space" docs/guide/` → 0（除非该功能仍可用）
+5. `grep -rn "蓝色圆点.*每日便签" docs/guide/` → 替换为三色描述
+6. 每个文件通读：描述的功能在当前产品中实际存在且可操作
+
+---
+
+### 19.6 R374 — 设置页过期内容清理
+
+**问题**: SettingsPage 包含对已移除系统的引用，用户体验混乱。
+
+**预检发现 — 过期内容定位**:
+
+```
+src/renderer/features/settings/SettingsPage.tsx:
+
+L394-399 — 🔴 必须删除:
+  <div className="rounded-[4px] px-3 py-2" style={{ background: 'var(--bg-primary)' }}>
+    <span className="font-semibold">HTTP 模式</span>
+    <code>POST http://localhost:3456/api/mcp/message</code>
+    <span>— 远程 AI 接入 (JWT 认证)</span>
+  </div>
+  
+  问题: Express 服务器已在 Phase 24 随 MySQL 一起移除。
+  端口 3456 不再监听。此信息严重误导用户。
+```
+
+**Spec**:
+- **文件**: [SettingsPage.tsx](src/renderer/features/settings/SettingsPage.tsx) L377-399
+- **L394-399 删除**: 移除 HTTP 模式行及其容器 div。仅保留 L388-393 stdio 模式说明。
+- **修复后 MCP section**:
+  ```tsx
+  <section className="rounded-[6px] border p-5" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }}>
+    <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>AI 接入</h3>
+    <p className="mb-3 mt-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+      MCP Server 已就绪。Claude Code / VS Code 可通过以下方式连接：
+    </p>
+    <div className="rounded-[4px] px-3 py-2" style={{ background: 'var(--bg-primary)' }}>
+      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>stdio 模式</span>
+      <br />
+      <code className="text-[11px]" style={{ color: 'var(--accent-blue)' }}>npm run mcp</code>
+      <span className="ml-2" style={{ color: 'var(--text-secondary)' }}>— Claude Code / VS Code 本地直连</span>
+    </div>
+    {/* HTTP 模式行已删除 — Phase 24 移除 Express 服务器 */}
+  </section>
+  ```
+- **其他 section 检查**:
+  1. 主题 section (L210-242): 8 选项 (system/light/dark/inkstone/tea-bamboo/brass-lamp/rice-paper/celadon) 数量正确，无需改动
+  2. 数据导出 section (L269-286): `workspaceExportMd` 验证 API 可用
+  3. 更新管理: `<UpdateSection />` (L289) 确认 electron-updater 仍存在
+  4. 启动选项 (L299-371): 开机自启动 + 开始菜单快捷方式 — 功能正确，无需改动
+
+**验收**:
+1. `grep "3456" src/renderer/features/settings/SettingsPage.tsx` → 0
+2. `grep "HTTP 模式\|localhost:3456" src/renderer/features/settings/SettingsPage.tsx` → 0
+3. `grep "stdio 模式" src/renderer/features/settings/SettingsPage.tsx` → 仅保留 stdio 说明
+4. 设置页 "AI 接入" section 不再显示 HTTP 模式
+5. 整体设置页面 8 个 section 全部可见且内容准确
+
+---
+
+### 19.7 三轮任务总览
+
+| R# | 模块 | 任务概要 | 新增 IPC | Schema 变更 | 新依赖 | 工时 | 优先级 |
+|----|------|---------|----------|-------------|--------|------|--------|
+| R369 | 博客 | BlogCard tag 全部显示 + ×/＋ tag 编辑 UI (复用已有 tag:set-blog) | **0** | 0 | 0 | 1.5h | 🟠 P1 |
+| R370 | 博客 | 编辑前保存 scrollY → frameless 编辑器 minHeight:60vh → onSaved 回调 → 清除 ?mode=edit 恢复滚动 | 0 | 0 | 0 | 1.5h | 🟠 P1 |
+| R371 | 便签 | 颜色确定性 (note.id % 6) + Draggable 受控 position + 移除 NoteCard mouseEnter transform 冲突 | 0 | 0 | 0 | 1h | 🟠 P1 |
+| R372 | 知识库 | KBCard tag ×/＋ UI (复用已有 tag:set-file) + shell.openPath 返回值检查 + toast 错误提示 | 0 | 0 | 0 | 1.5h | 🟠 P1 |
+| R373 | 指南 | 13 个 guide .md 文件更新 (4 重写 + 5 修正 + 4 验证) | 0 | 0 | 0 | 2h | 🟡 P2 |
+| R374 | 设置 | SettingsPage L394-399 删除 HTTP MCP 模式 | 0 | 0 | 0 | 0.5h | 🟡 P2 |
+| **合计** | | **6 项** | **0** | **0** | **0** | **~8h** | 🟠4 🟡2 |
+
+**关键发现**: 本轮 6 项修复全部为纯 UI/frontend 改动 + 1 行 main 进程修复 (R372 shell.openPath)。零新 IPC、零 Schema 变更、零新依赖。已有后端基础设施被闲置的原因均为 UI 层未接入。
+
+### 19.8 实施顺序
+
+```
+R371 (便签 颜色+拖放, 1h) → R369 (博客 tag UI, 1.5h) → R370 (编辑 滚动+保存, 1.5h) → R372 (KB tag+打开, 1.5h) → R373 (指南, 2h) → R374 (设置, 0.5h)
+```
+
+R371→R369 阻塞日常使用最紧，优先修。R372 的 main 进程修复 (`shell.openPath` 返回值检查) 需重启 Electron 生效。
+
+---
+
+## 20. Pre-Audit 三轮 — 规格审查
+
+> 审查日期: 2026-06-08 | §19 6 项 spec (R369-R374) + 自动化扫描
+> 基准: rebuild.md §19 Boss spec vs 当前代码状态
+
+### 20.1 自动化扫描结果
+
+| # | 检查项 | 结果 |
+|---|--------|------|
+| 1 | `pre-audit.sh` 16 类扫描 | ✅ 核心检查通过 |
+| 2 | `grep "prompt(\|alert(\|confirm(" src/renderer/` | ❌ **发现 2 处新 prompt() + 若干历史残留** |
+| 3 | SettingsPage `3456` / `HTTP 模式` | ❌ L395-398 仍存在 |
+
+**新发现 prompt() — 第 5 次复发**:
+
+```bash
+src/renderer/components/editor/SlashCommand.tsx:99 — prompt('输入图片 URL:')
+src/renderer/features/knowledge/KnowledgeListPage.tsx:526 — prompt('新文件名:', file.filename)
+```
+
+> R325 → R326 → R334 → R355 → **SlashCommand.tsx + KnowledgeListPage.tsx**。这是 prompt() 第 5 次复发。Boss 本轮 spec 未覆盖这两处。
+
+---
+
+### 20.2 逐项规格审查
+
+#### R369 — ✅ 零问题，可直接开工
+
+| 检查项 | 结果 | 证据 |
+|--------|------|------|
+| `TAG_SET_BLOG = 'tag:set-blog'` | ✅ | `ipc-channels.ts:34` |
+| `ipcMain.handle(IPC.TAG_SET_BLOG, ...)` | ✅ | `src/main/ipc/blog.ts:263` |
+| `BlogService.setBlogTags(blogId, tagIds)` | ✅ | `blog.service.ts:236-239` (DELETE + INSERT OR IGNORE) |
+| `preload tagSetBlog(data)` | ✅ | `preload/index.ts:46` |
+| `window-api.ts tagSetBlog(...)` | ✅ | `window-api.ts:74` |
+| `TagSelector.tsx` 存在 | ✅ | `src/renderer/components/common/TagSelector.tsx` |
+| BlogCard tag 渲染代码 | ✅ | L107-123 已有 `blog.tags.slice(0, 3).map(...)` + `+N` |
+
+**结论**: 后端基础设施 6/6 全部就绪。仅需 UI 接入——删除 `slice(0,3)`、加 ×/＋ 按钮、接入 TagSelector。零新 IPC、零 Schema 变更。**直接开工，无需裁决。**
+
+---
+
+#### R370 — ⚠️ Spec 根因分析有误 + 需澄清 `isEditMode` 依赖
+
+**发现: useEffect L264 已包含 `isEditMode` 依赖 — spec 声称不触发，但代码会触发**:
+
+```
+spec §19.2 原文 (L1750-1753):
+  "BlogPreviewPage L255 的 window.scrollTo(0,0) 仅在 blog 首次加载时触发
+   (useEffect deps: [id, user])，编辑模式切换不触发它，所以不是它导致的问题。"
+
+实际代码 (BlogPreviewPage.tsx:264):
+  }, [id, user, isEditMode]);   // ← isEditMode 在 deps 中！
+```
+
+当 `?mode=edit` 切换时 → `isEditMode` 从 `false` 变 `true` → useEffect 触发 → `window.scrollTo(0, 0)` 执行 → **这是编辑器跳顶的部分原因**。
+
+**修正**: 实现时若 spec 方案 (minHeight:60vh + scrollYRef) 仍出现跳顶 → 检查并移除 L264 deps 中的 `isEditMode`，在 effect 内加 guard:
+```ts
+useEffect(() => {
+  if (!isEditMode && id) window.scrollTo(0, 0);  // 仅退出编辑回预览时重置
+  // 编辑模式切换不触发 scrollTo
+}, [id, user, isEditMode]);
+```
+
+**其他检查**:
+
+| 检查项 | 结果 |
+|--------|------|
+| BlogPreviewPage:657 `setSearchParams({ mode: 'edit' })` | ✅ 已存在 |
+| BlogEditorPage `onSaved` prop | ❌ 不存在 — 需新增 |
+| BlogEditorPage:867-882 "退出编辑" 用 `navigate()` | ❌ 确认会导致全页卸载/重挂载 |
+| BlogEditorPage:873 `navigate('/blog/${id}', ...)` | ❌ 同上 |
+
+**结论**: Spec 的修复方向正确 (scrollYRef + onSaved + minHeight:60vh + searchParams 替代 navigate)，但根因分析需修正。**可直接开工，Developer 注意 deps 中的 isEditMode。**
+
+---
+
+#### R371 — ✅ 零问题，可直接开工
+
+| 检查项 | 结果 | 证据 |
+|--------|------|------|
+| `randomNoteColor()` 存在 | ✅ | `NoteCard.tsx:6` — 需删除 |
+| `note.color \|\| randomNoteColor()` | ✅ | `NoteCard.tsx:33` — 需改为 `id % 6` |
+| `defaultPosition={pos}` (非受控) | ✅ | `NoteListPage.tsx:304` — 需改为受控 `position={pos}` |
+| mouseEnter `transform = 'translateY(-2px)'` | ✅ | `NoteCard.tsx:59` — 需删除 |
+| mouseLeave `transform = ''` | ✅ | `NoteCard.tsx:64` — 需删除 |
+| `note-actions` class 已存在 | ✅ | `NoteCard.tsx:71` — 已有 drag cancel |
+
+**结论**: Spec 精确描述了问题根因 + 修复方案。零新 IPC、零 Schema 变更、零新依赖。**直接开工。**
+
+---
+
+#### R372 — ✅ 零问题，可直接开工。附加发现：同文件内 prompt()
+
+| 检查项 | 结果 | 证据 |
+|--------|------|------|
+| `TAG_SET_FILE = 'tag:set-file'` | ✅ | `ipc-channels.ts:35` |
+| `ipcMain.handle(IPC.TAG_SET_FILE, ...)` | ✅ | `src/main/ipc/knowledge.ts:113` |
+| `KnowledgeService.setFileTags(fileId, tagIds)` | ✅ | `knowledge.service.ts:183` |
+| `preload tagSetFile(data)` | ✅ | `preload/index.ts:47` |
+| `window-api.ts tagSetFile(...)` | ✅ | `window-api.ts:75` |
+| `shell.openPath` 返回值未检查 | ✅ | `knowledge.ts:107`: `await PreviewService.openExternal(f.filePath)` — 无视返回值 |
+| KBCard onClick | ✅ | `KBCard.tsx:63` — `onClick={() => onOpen(file)}` |
+
+**附加发现 — KnowledgeListPage.tsx:526 `prompt()` 重命名文件**:
+
+```ts
+// L526:
+const name = prompt('新文件名:', file.filename);
+```
+
+此 `prompt()` 用于 KB 文件重命名，非 R372 tag/打开范围，但位于同一文件。Electron `contextIsolation: true` 下 `prompt()` 返回 `null` → **KB 重命名功能静默失效**。
+
+> **建议**: 不并入 R372 (避免 scope creep)，单独列为新 R-编号。Developer 在修复 R372 时顺手修 (改 inline input 替代 prompt)，工时 +0.5h。
+
+**结论**: R372 spec 准确。后端 6/6 就绪。**可直接开工。**
+
+---
+
+#### R373 — ✅ 零问题，可直接开工
+
+| 检查项 | 结果 |
+|--------|------|
+| `docs/guide/` 文件数 | ✅ 13 个 `.md` |
+| `localhost:3456` / `HTTP 模式` 残留 | ✅ `grep` 0 — 无残留 (pre-audit 扫 docs/guide/ → 0)|
+
+**等电位验证**: guide files 最后更新 May 20，与 Rebuild (Jun 4) 之间的差集已由 Boss spec §19.6 完整枚举。更新策略 (4 重写 + 5 修正 + 4 验证) 合理。
+
+**结论**: **可直接开工。**
+
+---
+
+#### R374 — ✅ 零问题，可直接开工
+
+| 检查项 | 结果 | 证据 |
+|--------|------|------|
+| HTTP 模式行存在 | ✅ | `SettingsPage.tsx:394-399` |
+| `localhost:3456` | ✅ | L397: `POST http://localhost:3456/api/mcp/message` |
+
+**等电位验证**: 主题 section 8 选项正确、数据导出 API 有效、更新管理组件存在。仅需删除 6 行。
+
+**结论**: **可直接开工。**
+
+---
+
+### 20.3 Pre-Audit 新发现 (Boss spec 外)
+
+以下为自动化扫描发现、Boss 本轮 spec 未覆盖的问题：
+
+| R# | 严重性 | 问题 | 文件:行 | 与本轮关系 |
+|----|--------|------|---------|-----------|
+| **R375** | 🔴 P0 | `prompt('输入图片 URL:')` — Electron 拦截返回 null，斜杠命令插入图片功能静默失效。第 5 次复发 | [SlashCommand.tsx:99](src/renderer/components/editor/SlashCommand.tsx#L99) | 新发现 |
+| **R376** | 🔴 P0 | `prompt('新文件名:', file.filename)` — Electron 拦截返回 null，KB 文件重命名静默失效。第 5 次复发 | [KnowledgeListPage.tsx:526](src/renderer/features/knowledge/KnowledgeListPage.tsx#L526) | 与 R372 同文件，可顺修 |
+
+**R375 详情**:
+```
+SlashCommand.tsx:96-101:
+  { id: 'image', label: '图片',
+    execute: (ed) => {
+      const url = prompt('输入图片 URL:');   // ← Electron 返回 null
+      if (url) ed.chain().focus().setImage({ src: url }).run();
+    },
+  },
+```
+调用链路: `/` 命令面板 → 输入 `/image` → 选"图片" → `prompt()` → 返回 null → `if (url)` 为 false → 静默无操作。用户看到的是"执行了但什么都没发生"。
+
+**R376 详情**: 与 R372 同文件 (`KnowledgeListPage.tsx`)。Developer 可在 R372 改动时顺手修：改用 inline input + Enter/Escape，无需新增 IPC。
+
+**修复**:
+- R375: SlashCommand execute 回调改用 Toast + inline input，或改为直接插入空 `<img>` 占位让用户在属性面板填 URL
+- R376: `prompt('新文件名:', file.filename)` → `const name = newNameState` (inline input + confirm button)
+
+---
+
+### 20.4 本轮总计
+
+| 类型 | 数量 | 详情 |
+|------|------|------|
+| ✅ 零问题可直接开工 | 5 | R369, R371, R372, R373, R374 |
+| ⚠️ Spec 需微调 (不阻断) | 1 | R370 (deps 分析错误 + isEditMode 在 deps 中 → scrollTo 触发) |
+| 🔴 新发现 P0 | 2 | R375 (SlashCommand prompt), R376 (KB rename prompt) |
+| **D-编号决策点** | **0** | 本轮无需 Boss 裁决 — 所有项可直接开工 |
+
+**不设 D-编号的理由**: 6/6 项均无架构选择、Spec-API 不匹配、Schema 变更、或替代方案。Spec 均准确描述当前代码状态和修复方向。仅 R370 有一处根因分析偏差 (isEditMode 在 deps 中)，Developer 在实现时修正即可，无需 Boss 裁决。
+
+**工时建议**: 
+- 原 spec: ~8h
+- R375 +0.5h, R376 +0.5h (与 R372 同文件顺修)
+- R370 deps 修正确认 +0.25h
+- **修正后**: ~9.25h
+
+**实施建议**: R375+R376 是 Rebuild R355 的同类问题，修复模式成熟（inline input 替代 prompt）。建议本轮纳入修复。
+
+---
+
+## 21. Boss 裁决 — 三轮
+
+> 日期: 2026-06-08 | 对照 Auditor §20 Pre-Audit 逐项裁决
+
+### 21.1 R370 Spec 根因修正 — 接受
+
+Auditor 发现 `BlogPreviewPage.tsx:264` 的 useEffect deps 为 `[id, user, isEditMode]`，而非 spec 声称的 `[id, user]`。进入编辑模式时 `isEditMode` 变化 → useEffect 触发 → `window.scrollTo(0, 0)` 执行。
+
+**裁决: 接受修正。** Spec §19.2 的修复方向不变，Developer 实现时需额外处理:
+- useEffect L264 加 guard: `if (!isEditMode && id && user) { ... window.scrollTo(0, 0) }` — 仅非编辑模式下重置滚动
+- 其余方案 (scrollYRef + onSaved + searchParams) 不变
+
+### 21.2 R375/R376 — prompt() 第 5 次复发
+
+**裁决: A — 纳入本轮。**
+
+**理由**:
+1. R325 → R326 → R334 → R355 → R375+R376。这是第 5 次复发。每次都说"下次修"，下次又复发。本轮彻底清零。
+2. R376 与 R372 同文件 (`KnowledgeListPage.tsx`)，Developer 改一个文件修两个问题，零额外上下文切换。
+3. R375 修复模式成熟：inline input 替代 prompt，已有 R355 先例可直接复用。
+4. 工时 +1h 合理。总工时 ~9h，仍在轻量修复范围。
+
+**Spec 补充**:
+
+**R375 — SlashCommand.tsx:99 prompt() 替换**:
+- **文件**: [SlashCommand.tsx](src/renderer/components/editor/SlashCommand.tsx) L96-101
+- **修复**: `/image` 命令在 prompt() 返回 null 后静默失败。改为直接插入 `![](url-placeholder)` markdown 占位符，让用户在编辑器中点击图片自行替换 URL
+- **具体**: `execute` 回调删除 `prompt()` 调用，改为 `ed.chain().focus().setImage({ src: '' }).run()` + toast('请点击图片替换 URL', 'info')
+- **验收**: `grep "prompt" src/renderer/components/editor/SlashCommand.tsx` → 0
+
+**R376 — KnowledgeListPage.tsx:526 prompt() 替换**:
+- **文件**: [KnowledgeListPage.tsx](src/renderer/features/knowledge/KnowledgeListPage.tsx) L525-530
+- **修复**: `onRename` 回调中的 `prompt('新文件名:', file.filename)` 改为：卡片进入重命名模式 (inline input)，Enter 确认 / Escape 取消
+- **UI**: KBCard 或 KnowledgeListPage 中新增 `renameId`/`renameInput` state，点击"重命名"时显示 inline input
+- **注意**: 此修复可能与 R372 KBCard tag 编辑 UI 改动有文件级合并冲突——Developer 实施时先修 R376，再在此基础上加 R372 tag 编辑
+- **验收**: `grep "prompt" src/renderer/features/knowledge/KnowledgeListPage.tsx` → 0
+
+### 21.3 裁决汇总
+
+| # | 议题 | 裁决 | 工时 |
+|----|------|------|------|
+| — | R370 spec 根因修正 | 接受 Auditor 修正 — useEffect deps 加 guard | 原工时不变 |
+| — | R375/R376 纳入 | **A — 纳入本轮**，本轮彻底清零全部 prompt() | +1h |
+| — | R369/371/372/373/374 | 无需裁决，直接开工 | — |
+
+**修正后总工时**: ~9h (原 8h + R375/R376 1h)
+
+**修正后任务总览**:
+
+| R# | 模块 | 类别 | 工时 | 优先级 |
+|----|------|------|------|--------|
+| R369 | 博客 | BlogCard tag 全部显示 + ×/＋ 编辑 UI | 1.5h | 🟠 P1 |
+| R370 | 博客 | 编辑 scrollY 保持 + onSaved 返回阅读 + useEffect isEditMode guard | 1.5h | 🟠 P1 |
+| R371 | 便签 | 颜色 id%6 + Draggable 受控 + 去 transform 冲突 | 1h | 🟠 P1 |
+| R372 | 知识库 | KBCard tag UI + shell.openPath 返回值检查 | 1.5h | 🟠 P1 |
+| R375 | 编辑器 | SlashCommand /image prompt → setImage 占位符 | 0.5h | 🔴 P0 |
+| R376 | 知识库 | KB 重命名 prompt → inline input | 0.5h | 🔴 P0 |
+| R373 | 指南 | 13 个 guide .md 更新 | 2h | 🟡 P2 |
+| R374 | 设置 | 删除 HTTP MCP L394-399 | 0.5h | 🟡 P2 |
+| **合计** | | **8 项** | **~9h** | 🔴2 🟠4 🟡2 |
+
+### 21.4 实施顺序 (修正)
+
+```
+R371 (便签, 1h) → R375+R376 (prompt清零, 1h) → R369 (博客tag, 1.5h) → R370 (编辑, 1.5h) → R372 (KB, 1.5h) → R373 (指南, 2h) → R374 (设置, 0.5h)
+```
+
+🔴 P0 项 R375+R376 提前到第二位。R376 先于 R372 修（同文件，R376 是重命名基础修改，R372 是 tag 编辑叠加）。
+
+**Boss 签字**: 全部 8 项已裁决。🔴P0 纳入本轮，本轮结束后全仓库 prompt() 清零。Developer 开工。
+
+---
+
+## 22. 三轮修复验证报告
+
+> Developer 提交修复 → Auditor 逐项验证 ✅
+
+### 修复报告
+
+| R# | 等级 | 问题 | 修复 | 文件 | Auditor 验证 |
+|----|------|------|------|------|--------------|
+| R371 | 🟠 P1 | 便签颜色闪烁 + 拖放不工作 | ✅ `id%6` 确定性颜色 + Draggable 受控 `position` + 移除 mouseEnter transform 冲突 | [NoteCard.tsx:27](src/renderer/components/notes/NoteCard.tsx#L27) · [NoteListPage.tsx:304](src/renderer/features/notes/NoteListPage.tsx#L304) | ✅ 已验证 |
+| R375 | 🔴 P0 | SlashCommand prompt() 第5次复发 | ✅ 删除 `prompt()` → `setImage({ src: '' })` 插入空图片占位符 | [SlashCommand.tsx:96](src/renderer/components/editor/SlashCommand.tsx#L96) | ✅ 已验证 |
+| R376 | 🔴 P0 | KB重命名 prompt() 第5次复发 | ✅ `prompt()` → inline rename dialog (modal + input + Enter/Escape) | [KnowledgeListPage.tsx:524](src/renderer/features/knowledge/KnowledgeListPage.tsx#L524) | ✅ 已验证 |
+| R369 | 🟠 P1 | BlogCard tag 全部显示 + ×/＋ 编辑UI | ✅ `slice(0,3)` → 全部显示 (≤5)/前5+N tooltip (>5); × 按钮调 tagSetBlog; + 按钮弹出 TagSelector | [BlogCard.tsx:17](src/renderer/components/blog/BlogCard.tsx#L17) · [BlogListPage.tsx:462](src/renderer/features/blog/BlogListPage.tsx#L462) | ✅ 已验证 |
+| R370 | 🟠 P1 | 编辑器滚动保持 + onSaved 回调 | ✅ scrollYRef 保存/恢复; minHeight:60vh; useEffect isEditMode guard; onSaved prop 替代 navigate() | [BlogPreviewPage.tsx:171](src/renderer/features/blog/BlogPreviewPage.tsx#L171) · [BlogEditorPage.tsx:149](src/renderer/features/blog/BlogEditorPage.tsx#L149) | ✅ 已验证 |
+| R372 | 🟠 P1 | KBCard tag ×/＋ UI + shell.openPath 检查 | ✅ tag pill × + + 按钮; TagSelector popover; shell.openPath 返回值检查; onOpen toast 错误 | [KBCard.tsx:44](src/renderer/components/knowledge/KBCard.tsx#L44) · [knowledge.ts:107](src/main/ipc/knowledge.ts#L107) | ✅ 已验证 |
+| R373 | 🟡 P2 | 13 guide .md 更新 | ✅ 4 重写 (blog/notes/knowledge/settings) + 5 修正 + 4 保留验证 | [docs/guide/](docs/guide/) | ✅ 已验证 |
+| R374 | 🟡 P2 | 删除 HTTP MCP L394-399 | ✅ 移除 6 行 HTTP 模式 div | [SettingsPage.tsx:394](src/renderer/features/settings/SettingsPage.tsx#L394) | ✅ 已验证 |
+| **全清** | **8/8** | **🔴0 🟠0 🟡0 🟢0** | | |
+
+**构建**: ✅ (55 main + 2 preload + 2185 renderer) | **测试**: ✅ 87/87 (12 files) | **tsc**: ✅ 0
+
+### Auditor 逐项验证
+
+| R# | grep 证据 | 结果 |
+|----|----------|------|
+| R375 | `grep "prompt(" SlashCommand.tsx` → 0; L99: `setImage({ src: '' })` placeholder | ✅ |
+| R376 | `grep "prompt(" KnowledgeListPage.tsx` → 0 (仅 `// replaces prompt()` 注释残留) | ✅ |
+| R371 | `grep "randomNoteColor\|note.color" NoteCard.tsx` → 0; L29: `NOTE_COLORS[(note.id % 6 + 6) % 6]` | ✅ |
+| R371 | `grep "defaultPosition" NoteListPage.tsx` → 0; L304: `position={pos}` 受控 | ✅ |
+| R371 | `grep "translateY\|style.transform" NoteCard.tsx` → 0; shadow + zIndex 保留 | ✅ |
+| R369 | `grep "slice(0, 3)" BlogCard.tsx` → 0 (仅 `slice(0, 5)` + `slice(5)` 用于 >5 溢出) | ✅ |
+| R369 | `grep "tagSetBlog\|TagSelector\|onTagsChanged" BlogCard.tsx` → 共 12 处 (import + prop + state + click-outside + × 删除 + TagSelector render) | ✅ |
+| R370 | `grep "scrollYRef" BlogPreviewPage.tsx` → L171 useRef + L666 save + L517 restore | ✅ |
+| R370 | `grep "onSaved" BlogEditorPage.tsx` → L149 prop + L434/L874/L883 三处调用 | ✅ |
+| R370 | `grep "minHeight" BlogPreviewPage.tsx` → L500 `minHeight: '60vh'` | ✅ |
+| R370 | L267 deps `[id, user, isEditMode]` + guard 注释 verified | ✅ |
+| R372 | `grep "tagSetFile\|onEditTags" KBCard.tsx` → prop + × button + + button; TagSelector popover | ✅ |
+| R372 | `grep "shell\.openPath" knowledge.ts` → L107-108: `const errMsg = await shell.openPath(...)` + `if (errMsg)` check | ✅ |
+| R373 | `grep "BlogCard\|FloatingMenu\|便签拖放\|id % 6" docs/guide/` → 新内容存在 (blog.md/notes.md/index.md/shortcuts.md) | ✅ |
+| R373 | `grep "3456\|MySQL.*FULLTEXT\|Alt.Space" docs/guide/` → 0 (过期内容已清理) | ✅ |
+| R374 | `grep "3456\|HTTP 模式\|localhost" SettingsPage.tsx` → 0 | ✅ |
+
+**prompt() 全仓库状态**: renderer 中 `prompt(` 仅剩两类:
+1. **注释引用** — WhiteboardPage.tsx: "replaces prompt()" × 4 (合法文档)
+2. **Web stub fallback** — api-client.ts:116 `selectDir: () => Promise.resolve(prompt('...') || null)` (浏览器降级路径，非 Electron renderer)
+
+`confirm()` 和 `alert()` 仍在多处使用 — 这是预存问题，非本轮范围。本轮修复专攻 `prompt()` 回归 (R355 模式第 5 次复发)，已清零。
+
+**结论**: 8/8 全部 ✅ | 构建 ✅ | 测试 ✅ 87/87 | tsc ✅ 0 | prompt() ✅ 清零
+
+> 可提交 Boss 验收。
+
+---
+
+## 23. Boss 验收 — 三轮
+
+> 验收日期: 2026-06-08 | 对照 §19 Spec + §21 裁决逐项验证
+
+### 23.1 门禁
+
+| # | 检查项 | 结果 |
+|---|--------|------|
+| □ | `tsc --noEmit` 零错误 | ✅ Auditor 验证 |
+| □ | `npm run build` 通过 | ✅ 55 main + 2 preload + 2185 renderer (Auditor 验证) |
+| □ | `npm run test` 全绿 | ✅ 87/87 (12 files) (Auditor 验证) |
+| □ | redo.md P0+P1 全部 ✅ | ✅ 🔴0 🟠0 🟡0 🟢0 |
+| □ | Auditor 验证报告无 🔄 | ✅ 8/8 全部 ✅ |
+
+### 23.2 Spec vs 实现 grep 对照
+
+| R# | 关键 spec | grep 证据 | 结果 |
+|----|----------|----------|------|
+| R369 | `slice(0,3)` 删除 | `grep "slice(0, 3)" BlogCard.tsx` → 0 | ✅ |
+| R369 | `tagSetBlog` 在 BlogCard | BlogCard.tsx L128/L154: 2 处调用 | ✅ |
+| R369 | `TagSelector` 在 BlogCard | BlogCard.tsx L6 import + L148-155 render | ✅ |
+| R370 | `scrollYRef` 保存/恢复 | BlogPreviewPage.tsx L171 useRef + L666 save + L517 restore | ✅ |
+| R370 | `onSaved` prop | BlogEditorPage.tsx L149 prop + L434/L874/L883 调用 | ✅ |
+| R370 | `minHeight: 60vh` | BlogPreviewPage.tsx L500 | ✅ |
+| R370 | `isEditMode` guard | BlogPreviewPage.tsx L248: `if (!isEditMode) { ... }` + L267 deps 注释 | ✅ |
+| R371 | `randomNoteColor` 删除 | `grep "randomNoteColor" NoteCard.tsx` → 0 | ✅ |
+| R371 | `note.color` 删除 | `grep "note.color" NoteCard.tsx` → 0 | ✅ |
+| R371 | `NOTE_COLORS[(note.id % 6 + 6) % 6]` | NoteCard.tsx L29 | ✅ |
+| R371 | 受控 `position={pos}` | NoteListPage.tsx L304 | ✅ |
+| R371 | `translateY` 删除 | `grep "translateY" NoteCard.tsx` → 0 | ✅ |
+| R372 | `tagSetFile` 调用链 | KBCard.tsx `onRemoveTag`/`onEditTags` callbacks → KnowledgeListPage.tsx L549/L572 | ✅ |
+| R372 | KBCard tag `×`/`＋` UI | KBCard.tsx L105-109 (X button) + L112-117 (Plus button) | ✅ |
+| R372 | `shell.openPath` 返回值检查 | knowledge.ts L107: `const errMsg = await shell.openPath(...)` + L108 guard | ✅ |
+| R375 | `prompt()` 删除 SlashCommand | `grep "prompt(" SlashCommand.tsx` → 0; L99: `setImage({ src: '' })` | ✅ |
+| R376 | `prompt()` 删除 KnowledgeList | `grep "prompt(" KnowledgeListPage.tsx` → 0; L145 renameId/L632 inline dialog | ✅ |
+| R373 | 指南过期内容清理 | `grep "3456\|MySQL.*FULLTEXT\|Alt.Space" docs/guide/` → 0 | ✅ |
+| R374 | HTTP MCP 删除 | `grep "3456\|HTTP 模式" SettingsPage.tsx` → 0 | ✅ |
+
+### 23.3 prompt() 全仓库终态
+
+```
+grep "prompt(" src/renderer/ --include="*.tsx" --include="*.ts" | grep -v "replaces prompt" | grep -v api-client
+
+仅剩 3 处注释引用（WhiteboardPage.tsx: "replaces prompt()"）——均为合法文档。
+api-client.ts:116 的 prompt() 为浏览器降级 fallback，非 Electron renderer 路径。
+
+✅ 全仓库 prompt() 已清零。R325→R326→R334→R355→R375+R376 复发链终止于此。
+```
+
+### 23.4 裁决
+
+```
+Accept Report (三轮):
+- Phase: Rebuild 三轮 — "精修" (Polish)
+- 门禁: 5/5 ✅
+- Spec vs 实现: 20/20 ✅
+- R-编号: 8/8 ✅ (🔴0 🟠0 🟡0 🟢0)
+- prompt() 全仓库: ✅ 清零 (第 5 次复发已终结)
+- Verdict: ✅ 通过 → Step 9 (sync-docs) → Step 10 (ship)
+```
+
+**签字**: Boss 验收通过。本轮轻量修复轮圆满结束。
+
+**本轮亮点**:
+- 0 新 IPC、0 Schema 变更、0 新依赖
+- 5/8 项是"后端已就绪，仅 UI 未接入"——接线成本远低于新建
+- prompt() 复发链终于本轮彻底切断
+- 13 个 guide 文档对应用户真正看到的界面

@@ -8,7 +8,6 @@
 | `Ctrl+O` | 快速切换 (标题搜索) |
 | `Ctrl+K` | 全局搜索 |
 | `Ctrl+B` | 折叠/展开侧边栏 |
-| `Alt+Space` | 快捷便签 |
 
 ## 编辑器
 
@@ -18,12 +17,6 @@
 | `Ctrl+J` | AI 指令面板 |
 | `Ctrl+Shift+1~4` | 插入 Callout (info/success/warning/danger) |
 | `Ctrl+\\` | 分屏 MD 预览 |
-
-## 标签页
-
-| 快捷键 | 功能 |
-|--------|------|
-| `Ctrl+1-8` | 切换到第 N 个标签页 |
 
 ## 搜索
 

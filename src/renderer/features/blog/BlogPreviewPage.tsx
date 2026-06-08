@@ -168,6 +168,7 @@ export function BlogPreviewPage() {
   const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
   const [aiCtxMenu, setAiCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null);
   const articleElRef = useRef<HTMLElement | null>(null);
+  const scrollYRef = useRef(0);
 
   // T2406: HoverPreview — transient wikilink context, 200ms delay, no interaction
   interface HoverData { title: string; excerpt: string; updatedAt: string; tags: string[]; refCount: number; backlinkCount: number; }
@@ -244,24 +245,26 @@ export function BlogPreviewPage() {
   const contextPanel = useContextPanel();
 
   useEffect(() => {
-    if (id && user)
-      window.api.blogGet(Number(id)).then((r) => {
-        if (r.success && r.data) {
-          setBlog(r.data);
-          // T1917: Record recent blog visit
-          recordRecentBlog(r.data.id, r.data.title);
-          // T2406 QuickNav: push to in-memory traversal ring (pure memory, no persistence, max 5, FIFO)
-          useQuickNavStore.getState().push(r.data.id, r.data.title);
-          window.scrollTo(0, 0);
-        }
+    if (!isEditMode) {
+      if (id && user) {
+        window.api.blogGet(Number(id)).then((r) => {
+          if (r.success && r.data) {
+            setBlog(r.data);
+            // T1917: Record recent blog visit
+            recordRecentBlog(r.data.id, r.data.title);
+            // T2406 QuickNav: push to in-memory traversal ring (pure memory, no persistence, max 5, FIFO)
+            useQuickNavStore.getState().push(r.data.id, r.data.title);
+            window.scrollTo(0, 0);
+          }
+          setLoading(false);
+        }).catch(() => setLoading(false));
+      } else if (!id && user) {
+        // R365: /blog/new route — create new blog in-place
+        setBlog(null);
         setLoading(false);
-      }).catch(() => setLoading(false));
-    else if (!id && user) {
-      // R365: /blog/new route — create new blog in-place
-      setBlog(null);
-      setLoading(false);
+      }
     }
-  }, [id, user, isEditMode]); // R210: re-fetch when exiting inline edit mode
+  }, [id, user, isEditMode]); // R210: re-fetch when exiting inline edit mode. isEditMode guard prevents scrollTo(0,0) on edit toggle.
 
   // R201: IntersectionObserver for outline heading highlight
   useEffect(() => {
@@ -494,7 +497,7 @@ export function BlogPreviewPage() {
   // R365: /blog/new → new blog inline editor (blog=null, id=undefined)
   if (isEditMode || !id) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col" style={{ minHeight: '60vh' }}>
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
@@ -508,7 +511,12 @@ export function BlogPreviewPage() {
         </div>
         <div className="flex-1" style={{ animation: 'fadeIn 0.3s ease' }}>
           <Suspense fallback={<p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>加载编辑器...</p>}>
-            <BlogEditorPage variant="frameless" />
+            <BlogEditorPage variant="frameless" onSaved={() => {
+              setSearchParams({}, { replace: true });
+              requestAnimationFrame(() => {
+                window.scrollTo(0, scrollYRef.current);
+              });
+            }} />
           </Suspense>
         </div>
       </div>
@@ -654,7 +662,10 @@ export function BlogPreviewPage() {
           <FloatingMenu
             blogId={blog.id}
             headings={parseTocHeadings(blog.content, blog.format)}
-            onEdit={() => setSearchParams({ mode: 'edit' }, { replace: true })}
+            onEdit={() => {
+              scrollYRef.current = window.scrollY;
+              setSearchParams({ mode: 'edit' }, { replace: true });
+            }}
             onBack={() => navigate('/blog')}
           />
         )}

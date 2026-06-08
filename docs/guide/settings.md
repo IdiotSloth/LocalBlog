@@ -28,6 +28,7 @@
 - `#root::before` 伪元素实现
 - 加载失败自动回退纯色 + toast
 - 仅本地存储，不上传
+- 文件路径穿越防护（realpath + symlink 检测 + 50MB 上限）
 
 ## 剪贴板监听
 
@@ -36,7 +37,7 @@
 - 开启后每 500ms 轮询系统剪贴板
 - 自动记录文本和 HTML 内容
 - 手机号/身份证/邮箱自动打码
-- 快捷便签底部 📋 按钮查看历史
+- 便签页顶部剪贴板区查看历史
 
 ## AI 对话
 
@@ -47,6 +48,12 @@
 - 可选自定义模型和 API 地址
 
 [→ AI 使用指南](/guide) 然后点击「AI 助手」
+
+## MCP Server
+
+MCP Server 通过 stdio 模式连接 Claude Code / VS Code：
+
+- **stdio 模式**: `npm run mcp` — Claude Code / VS Code 本地直连
 
 ## 数据导出
 

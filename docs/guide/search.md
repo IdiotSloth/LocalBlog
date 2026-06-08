@@ -32,4 +32,4 @@ Local Blog KB 提供全文搜索和语义搜索两种引擎。
 - **Bigram** (双字, 权重 0.5)
 - **Word** (整词, 权重 1.0)
 
-单字搜索也能找到多字词结果。MySQL 模式使用 FULLTEXT + ngram parser。
+单字搜索也能找到多字词结果。

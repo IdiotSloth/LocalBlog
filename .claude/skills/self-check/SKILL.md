@@ -83,6 +83,8 @@ grep "fs\.readFile\|fs\.writeFile\|fs\.unlink" src/main/ -r | grep -v "try {\|ca
 | console.log | 0 |
 | hardcoded color | 0 |
 | prompt/alert/confirm | 0 |
+| reducer 解构完整性 | 0 遗漏 |
+| mapXxxRow 覆盖度 | N/N |
 | Ghost Risk | 0 fixed panel / 0 expandable / 0 hidden context |
 | IPC 7 层残留 | 0 孤立 channel/handler/preload |
 | smoke test | 15/15 ✅ |
@@ -108,3 +110,32 @@ grep "window\.__" src/renderer/ -r                                              
 ```
 
 **Ghost Risk 基线**: 每次 Collapse Phase 结项时更新允许列表，防止基线漂移。
+
+## Part E: Rebuild 时代检测（Rebuild 追加）
+
+无论改动类型，每次自检必跑：
+
+```bash
+# prompt()/alert()/confirm() — Electron renderer 静默拦截 (R355)
+grep "prompt(\|alert(\|confirm(" src/renderer/ -r              # → 0
+
+# reducer 解构完整性 — JSX 引用必须在解构中 (R367)
+# 目视: 每个使用 useReducer 的组件，const { ... } = state 包含所有 JSX {value} 引用
+
+# mapXxxRow 覆盖度 — mapper 字段数 ≥ DB 列数 (R362)
+# 对照 schema.ts 数 DB 列 → 对照 mapXxxRow 数映射字段 → 差值 = 0
+
+# 新路由 null 安全 — 路由变更后检查组件 (R365)
+# grep 组件中 obj.prop → 确认对 null/undefined 有 ?. 或条件守卫
+
+# 数据链完整性 — 新增字段 5 层验证 (R356)
+# TypeScript interface → mapper → SQL → IPC handler → UI 调用
+# 每层 grep 字段名 → 确认存在
+```
+
+**Rebuild 基线**: 每次自检报告增加以下行：
+
+```
+| prompt/alert/confirm | 0 (含 KnowledgeListPage/SlashCommand 预存已知项) |
+| mapXxxRow 覆盖度 | N/N (schema.ts DB 列 / mapper 字段) |
+```

@@ -428,6 +428,19 @@ Phase 24 引入**系统坍缩（System Collapse）**后，审计职责升级：
 | **Transient Overlay Constitution (QuickNav, 2026-05-28)** | QuickNav 是 22 行 Zustand store (memory-only) + 90 行 overlay (Ctrl+Shift+K)。七维宪章审查全部通过——但 `persist` middleware 是最近的复活路径（单行 import 即可突破 memory-only 保证） | 审计瞬时 overlay 组件时：七维检查——persistence surface / hidden accumulation / ring eviction / overlay lifecycle / keyboard shortcut / click outside dismiss / memory-only guarantee。最关键：grep store 文件中是否有 `persist|localStorage|sessionStorage` |
 | **Governance Boundary Leakage (2026-05-28)** | Boss 直接实现 usability fix (QuickNav)、Auditor 直接 patch audit issue (R352 blog-scroll-ratio)——角色边界在执行中被突破。虽然产出正确，但三层独立性 (Boss/Developer/Auditor) 被绕过 | Constitution 不只约束代码，也约束角色边界。Boss 不直接实现 → Developer 保持 execution ownership。Auditor 不直接修改代码 → 只写 redo.md → Developer 修复 → Auditor 验证 |
 
+## Rebuild 新 bug 模式 (2026-06-04)
+
+> 全应用推翻重建（§1-§7, 22 files, ~60h）暴露的反复出现模式。
+
+| 模式 | 特征 | 排查方向 |
+|------|------|----------|
+| **prompt() 在 Electron 中被拦截 (第四次复发)** | NoteListPage 两处 `prompt('输入便签内容:')` → Electron contextIsolation 静默拦截返回 null → 新建便签不可用。R325/R326/R334 均为此模式，本次第四次复发 (R355) | pre-audit.sh 加 `grep "prompt(" src/renderer/` 检测规则。任何新组件中 `prompt()`/`alert()`/`confirm()` = 立即 R-编号 |
+| **IPC 全链路数据传递断裂** | `seriesId` 在 UI state (useReducer) 中有正确值 → 下拉 selector 显示正确 → 但 `blogCreate()`/`blogUpdate()` 调用点忘了传参 → 数据在最后一步丢失 → 系列功能全链路就绪但数据层断裂 (R356) | 审计数据流: UI state → API 调用参数 → IPC handler 解构 → service 方法签名 → SQL 列清单。五步中任一步 missing = 全链断裂。grep 每个环节的参数名是否一致 |
+| **Spec "最高优先级" 标记 ≠ 实际实现** | §4.3 标注"便签页最高优先级功能"（图片粘贴/drop），但 NoteListPage 中 paste/drop handler **零实现** (R357)。Spec 中的优先级强调不能替代代码验证 | 审计 spec 中标记"最高优先级"/"不可妥协"/"P0"的项时，逐项 grep 确认实现存在。优先级标记越高 → 越容易被假阳性通过（"这么重要肯定做了"的思维陷阱） |
+| **Spec 引用不存在的 API** | Boss spec 写 `window.api.noteUpdate({ status: 'done' })` — 但 WindowApi 无 `noteUpdate` 方法、DB `notes` 表无 `status` 列 (R361/D145)。Boss 基于期望 API 写 spec，不是基于实际 API | 审计 spec 时：每个 `window.api.xxx()` 调用 → grep WindowApi 确认方法存在。每个对象字段 → grep types.ts 确认属性存在。不假设 spec 中的 API 引用已实现 |
+| **UI 正确但数据管道空载** | BlogCard 渲染逻辑完全正确（tags map ✅ / content 截取 ✅ / 阅读时间计算 ✅），但 `blog:list` IPC 返回数据中 `content` 和 `tags` 为空 → 所有卡片阅读时间=1 分钟、标签=0 (R362+R363) | 审计 UI bug 时：先 grep 确认 UI 代码逻辑 → 再 grep 数据来源（IPC handler → service → SQL）→ 在数据管道中定位断裂点。不假设"UI 不对"= UI 代码错 |
+| **useState/useReducer destructure 遗漏** | `sortBy` 在 reducer initialState 中定义 (`sortBy: 'created_at'`) → JSX 中 `value={sortBy}` 引用 → 但 state destructure 行缺 `sortBy` → ReferenceError (R367)。TypeScript 无法捕获——`state.sortBy` 类型上合法，但变量未声明 | 审计所有 `useReducer` destructure 行: 交叉对照 initialState 所有 key vs destructure 变量列表。任一 key 缺失 → flag。同时检查所有 `useState` 是否在 JSX 中被引用 |
+
 ---
 
 ## 四种新型审计 — 审计技能体系扩展
@@ -633,22 +646,19 @@ React Router 使用 data router (`createHashRouter` + `<RouterProvider>`)，非 
 已知已修复的问题: 见 redo.md "修复记录"（避免重复报告）
 已知待修复的问题: 见 redo.md "当前待修复"（避免重复报告）
 
-**当前质量基线** (2026-05-28, Phase 24 T2406 Stage A Observation — R344/R345/R351/R352 修复完成):
+**当前质量基线** (2026-06-04, Rebuild 全 4 阶段 + 二轮修复完成):
 
-- P0+P1: ✅ **清零** (R344+R345 修复通过)
-- P2: 🟡 6 | P3: 🟢 8
-- 构建: ✅ 55 main + 2 preload + 2173 renderer
+- P0+P1+P2+P3: ✅ **全清** (R355-R360 一轮 + R361-R368 二轮，14 项全部修复)
+- 构建: ✅ 55 main + 2 preload + 2185 renderer
 - 测试: ✅ **87/87** (12 files)
 - tsc --noEmit: ✅ 零错误
-- IPC 通道: 130 (handle 121 + EVT 9)
-- `as any`: renderer ~25 | shared 0 | preload 0
+- IPC 通道: 49 handle + 9 event (新增 NOTE_IMAGE_SAVE)
+- `as any`: renderer ~20 | shared 0 | preload 0
 - `noUncheckedIndexedAccess`: ✅ 永久启用
-- 系统坍缩状态:
-  - ContextPanel: 文件保留(217L), 零 import, Stage B 待删
-  - TabBar/tab-context: TabProvider 零挂载, localStorage 已清理, 物理文件 Stage B 待删
-  - SplitPane: ✅ 纯左右分屏, activePaneId/focusPane 已删除
-  - FloatingBlogTabs: 文件保留(71+50L), 零 import, Stage B 待删
-  - 阅读位置记忆: ✅ sessionStorage 仅 2 key, 零 per-article accumulation
-  - QuickNav: ✅ Constitution Audit 通过, transient traversal (非 latent workspace)
-- R352 Closure: Unilateral persistence 发现并修复。三项诊断术语 (Unilateral persistence / Orphan runtime / Conceptual similarity trap) 写入 AGENTS.md §第五层
-- Collapse Constitution 工程本能: 已建立。UI 删除 ≠ 系统坍缩 checklist 可机械验证
+- 系统坍缩状态: T2406 已终止。ContextPanel 重新激活。Stage B 死文件全清 (TableOfContents/FloatingBlogTabs/floating-tabs-state/.bak)
+- rebuild.md: 替代 todo.md 作为当前唯一规格来源
+- 新增模块: BlogCard / FloatingMenu / NoteCard (6色+拖放) / KBCard / ToastProvider / migrate-md-filenames
+- 新依赖: react-draggable 4.6.0
+- MD 文件命名: uid.md → sanitizedTitle.md，迁移脚本就位
+- 图片粘贴: NOTE_IMAGE_SAVE 全链路 + 级联删除
+- Auditor 工作文件: redo.md (常规) / rebuild.md (Rebuild 期间 — Boss 明确指定时)

@@ -459,11 +459,13 @@ export function BlogListPage() {
               <BlogCard
                 key={blog.id}
                 blog={blog}
+                userId={user.id}
                 onEdit={(id) => navigate(`/blog/${id}/edit`)}
                 onDelete={(id) => handleDelete(id)}
                 onExportPdf={(id) => window.api.blogExportPdf({ userId: user.id, blogId: id })}
                 onAddToSeries={(id) => { /* TODO: series selection modal */ }}
                 onTagClick={(tagId, tagName) => dispatch({ type: 'SET_TAG_FILTER', payload: { id: tagId, name: tagName } })}
+                onTagsChanged={() => loadBlogs()}
               />
             ))}
           </div>

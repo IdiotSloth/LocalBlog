@@ -49,6 +49,11 @@ description: Developer (码农) writes code for the Local Blog KB project. Use w
 | □ | 新文件无 `file://` 硬编码路径 | Electron CSP 拦截 | grep `file://` |
 | □ | 新 UI 为瞬时交互: click-outside + Escape dismiss + 单层 + 无 persist | 防 panel 再生 | 检查 popup/dropdown/popover |
 | □ | 无 Ghost Risk: `fixed` panel / expandable section / localStorage UI 状态 / hidden context / 模块级 pub/sub / **unilateral persistence** | 防复杂度反弹 | grep `position:\s*fixed\|expandable\|localStorage\.setItem\|display:\s*none\|window\.__`；**unilateral = write path 存在且 read path 死 → Constitution violation** |
+| □ | **无 `prompt()` / `alert()` / `confirm()`** — Electron renderer 静默拦截 | 功能不可用且无报错 | grep `prompt(\|alert(\|confirm(` src/renderer/ → 0 |
+| □ | **数据链完整** — 新增字段逐层验证: TypeScript type → mapper → SQL → IPC handler → UI 调用 | R356/R362: UI 正确但数据层断链 | 每层 grep 确认字段存在 |
+| □ | **新路由 null 安全** — 路由变更后检查组件中 `obj.prop` 对 `null`/`undefined` 安全 | R365: `/blog/new` → `blog.title` 崩溃 | 检查 `?.` 可选链或条件守卫 |
+| □ | **fixed 定位 overflow 分区** — 固定元素含动态内容时，固定区 `flex-shrink:0`，动态区 `overflow-y:auto` | R364: 长目录推出按钮 | 目视: 按钮始终可见 |
+| □ | **reducer 解构完整** — `const { ... } = state` 包含 JSX 中所有 `{xyz}` 引用 | R367: `sortBy is not defined` | grep `value={[a-z]` → 确认变量已声明 |
 
 ## Step 5: 清理引用
 

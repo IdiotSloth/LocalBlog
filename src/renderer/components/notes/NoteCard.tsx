@@ -3,16 +3,11 @@ import { Copy, Pencil, Eye } from 'lucide-react';
 
 const NOTE_COLORS = ['#f5f0e8', '#f7efc7', '#dce6f0', '#dce8da', '#f5dfe5', '#e8dff2'];
 
-export function randomNoteColor(): string {
-  return NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)]!;
-}
-
 interface Note {
   id: number;
   title?: string;
   content: string;
   createdAt: string;
-  color?: string;
 }
 
 interface Props {
@@ -30,7 +25,7 @@ interface Props {
 export function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style, onDragStart, onDragEnd }: Props) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(note.content);
-  const bg = note.color || randomNoteColor();
+  const bg = NOTE_COLORS[(note.id % 6 + 6) % 6];
 
   useEffect(() => {
     if (editing) setEditText(note.content);
@@ -56,12 +51,10 @@ export function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-        e.currentTarget.style.transform = 'translateY(-2px)';
         e.currentTarget.style.zIndex = '10';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-        e.currentTarget.style.transform = '';
         e.currentTarget.style.zIndex = '';
       }}
     >

@@ -1,30 +1,45 @@
 # 博客
 
-博客是 Local Blog KB 的核心写作模块。支持 Markdown 和 HTML 两种格式。博客列表为卡片 Feed（memos 风格）：不等高卡片、空白分隔、纯无限滚动（无分页器）。
+博客是 Local Blog KB 的核心写作模块。支持 Markdown 和 HTML 两种格式。
 
 [→ 浏览博客](/blog)  [→ 新建博客](/blog/new)
 
-## 博客卡片
+## BlogCard 卡片列表
 
-每篇博客在列表中显示为一张卡片：
+每篇博客在列表中显示为一张卡片 (memos 风格)：
 
-- **标题**: 视觉锚点 (text-lg font-semibold)
-- **元信息**: 日期 + 阅读时间 + 格式标签（退后，小字号 muted）
-- **摘要**: 行内截断 3 行预览 (line-clamp-3)
-- **标签 + 引用数**: 底部 footer，hover 显示操作按钮
-- **无限滚动**: 滚动到底自动加载下一页（无分页器）
+- **卡片容器**: rounded-[8px] border，hover 时边框变 accent-blue
+- **左侧进度条**: 有阅读进度 (>5% 且 <95%) 时，卡片左边缘 3px accent-blue 标记
+- **标题**: 14px font-medium，点击进入阅读页
+- **元信息行**: 日期 · 标签 (可点击筛选) · 阅读 N 分钟
+- **内容截取**: stripMarkdown 去除所有格式标记，前 200 字符，line-clamp-3
+- **hover 操作菜单**: 右上角 [···] → 编辑/删除/导出 PDF/添加到系列
+- **tag 编辑**: 每个 tag pill 有 × 移除按钮，末尾 + 按钮弹出 TagSelector
+- **无限滚动**: IntersectionObserver 自动加载下一页
 
-## 博客编辑器
+## 浮动目录 FloatingMenu
 
-点击「写博客」进入编辑器。编辑器提供：
+进入博客阅读页后，右侧显示半透明浮动菜单：
 
-- **无框编辑模式**: border:none / bg:transparent / padding:0（300ms fadeIn 过渡）
-- **Markdown 渲染**: 实时预览，支持 markdown-it 完整语法
-- **Wikilink**: 输入 `[[` 触发建议，链接到其他博客或知识库文件
-- **Transclusion**: 使用 `![[标题]]` 嵌入其他内容
-- **Callout 块**: 使用 `/` 斜杠命令插入 info/success/warning/danger 提示块
-- **AI 辅助**: 选中文本右键 → AI 续写/摘要/润色/翻译，或按 `Ctrl+J`
-- **右侧预览 Tab**: ContextPanel 编辑态自动注入「预览」Tab，500ms 防抖 + 完整管道（md → wikilink → transclusion → DOMPurify）
+- **定位**: position: fixed 在正文右侧，默认 opacity:0.25，hover 完全可见
+- **回到顶部** (↑): 平滑滚动
+- **到底部** (↓): 平滑滚动
+- **编辑** (✎): 进入 frameless 原地编辑器，光标定位到当前可见段落
+- **返回列表** (←): 保存阅读进度到 sessionStorage，返回博客列表
+- **目录**: 解析 h2/h3/h4，IntersectionObserver 高亮当前可见标题
+- **视口 < 900px**: 自动隐藏
+
+## 原地编辑器 (Frameless)
+
+从 FloatingMenu 或阅读页底部进入原地编辑模式：
+
+- **minHeight: 60vh**: 编辑器占 60% 视口高度，避免页面跳变
+- **进入编辑前保存滚动位置**: 退出编辑后恢复
+- **Ctrl+S 保存**: 右上角 Toast "✓ 已保存 HH:MM:SS"，绿底白字，2s 自动消失
+- **Ctrl+J**: AI 指令面板
+- **系列选择器**: inline select + "+ 新建" 输入框（非 prompt()）
+- **退出编辑**: 自动保存 → 返回阅读模式 → 恢复滚动位置
+- **取消**: 放弃未保存更改 → 返回阅读模式
 
 [→ 试试: 新建一篇博客，输入 [[ 体验 wikilink](/blog/new)
 
@@ -50,13 +65,27 @@
 
 [→ 试试: 在博客中写 ![[你的另一篇博客标题]]](/blog/new)
 
+## 斜杠命令 / Slash Command
+
+编辑器中输入 `/` 触发命令面板：
+
+- **标题 1-4**: h1/h2/h3/h4
+- **列表**: 无序/有序/任务列表
+- **引用块/代码块/分隔线**
+- **图片**: 插入空图片占位符（点击图片替换 URL）
+- **表格**: 3×3 表格
+- **Callout 块**: info/success/warning/danger 提示框
+
 ## 代码块
 
-代码块自动 highlight.js 语法高亮 + 语言标签 (左上角) + 复制按钮 (hover 右上角)。
+代码块自动语法高亮 + 语言标签 (左上角) + 复制按钮 (hover 右上角)。
 
 ## 系列
 
-将相关博客组织为系列，形成有序阅读列表。系列卡片显示前 4 篇标题预览。系列详情使用 BlogCard + ①②③ 序号 + 底部导航条 + 阅读进度跟踪。
+将相关博客组织为系列，形成有序阅读列表。系列详情使用 BlogCard + ①②③ 序号 + 底部导航条 + 阅读进度跟踪。
 
 [→ 查看系列](/series)
 
+## MD 文件命名
+
+新建/导入的博客文件以博客标题命名（如 `测试文章.md`），替代不可辨识的 uid 文件。标题变更时自动重命名。特殊字符净化 (`< > : " / \ | ? *` → `_`)，冲突自动追加 -1/-2。

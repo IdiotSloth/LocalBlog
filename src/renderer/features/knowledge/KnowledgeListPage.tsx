@@ -142,6 +142,8 @@ export function KnowledgeListPage() {
   const [searchParams] = useSearchParams();
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<{ names: string; paths: string[]; dupes: string[]; dupeIds: number[] } | null>(null);
+  const [renameId, setRenameId] = useState<number | null>(null);
+  const [renameInput, setRenameInput] = useState('');
   const loadKbFolders = useCallback(async () => {
     if (!user) return;
     const r = await window.api.folderTree({ userId: user.id, type: 'knowledge' });
@@ -521,13 +523,14 @@ export function KnowledgeListPage() {
                   <KBCard
                     key={f.id}
                     file={f}
-                    onOpen={(file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id })}
-                    onRename={async (file) => {
-                      const name = prompt('新文件名:', file.filename);
-                      if (name?.trim()) {
-                        await window.api.kbRename({ userId: user.id, fileId: file.id, newFilename: name.trim() });
-                        loadFiles();
-                      }
+                    onOpen={async (file) => {
+                      const r = await window.api.kbOpenExternal({ fileId: file.id, userId: user.id });
+                      if (!r.success) setToastMsg(r.error || '打开失败');
+                      if (r.success) setToastMsg(null);
+                    }}
+                    onRename={(file) => {
+                      setRenameId(file.id);
+                      setRenameInput(file.filename);
                     }}
                     onDelete={async (file) => {
                       if (!confirm('移至回收站？')) return;
@@ -536,6 +539,16 @@ export function KnowledgeListPage() {
                     }}
                     onShowInFolder={(file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id, showInFolder: true })}
                     onTagClick={(tagId) => dispatch({ type: 'SET_TAG_FILTER', id: tagId, name: '' })}
+                    onEditTags={(file) => {
+                      dispatch({ type: 'START_EDIT_TAGS', fileId: file.id, tagIds: file.tags?.map(t => t.id) || [] });
+                    }}
+                    onRemoveTag={async (fileId, tagId) => {
+                      const file = files.find((f: KnowledgeFileWithTags) => f.id === fileId);
+                      if (!file?.tags) return;
+                      const newTagIds = file.tags.filter((t: any) => t.id !== tagId).map((t: any) => t.id);
+                      await window.api.tagSetFile({ fileId, tagIds: newTagIds });
+                      loadFiles();
+                    }}
                   />
                 ))}
                 {files.length === 0 && !loading && (
@@ -544,6 +557,24 @@ export function KnowledgeListPage() {
                   </div>
                 )}
               </div>
+          </div>
+        )}
+
+        {/* Tag editor popover */}
+        {editingTagsFileId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={() => dispatch({ type: 'STOP_EDIT_TAGS' })}>
+            <div className="rounded-[8px] border p-4 shadow-xl" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }} onClick={(e) => e.stopPropagation()}>
+              <p className="text-[13px] font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>编辑标签</p>
+              <TagSelector
+                userId={user.id}
+                selectedTagIds={editingTagIds}
+                onChange={async (ids) => {
+                  await window.api.tagSetFile({ fileId: editingTagsFileId, tagIds: ids });
+                  dispatch({ type: 'STOP_EDIT_TAGS' });
+                  loadFiles();
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -595,6 +626,41 @@ export function KnowledgeListPage() {
             >
               →
             </button>
+          </div>
+        )}
+        {/* Rename dialog (replaces prompt()) */}
+        {renameId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={() => setRenameId(null)}>
+            <div className="rounded-[8px] border p-5 shadow-xl min-w-[320px]" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-default)' }} onClick={(e) => e.stopPropagation()}>
+              <p className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>重命名文件</p>
+              <input
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && renameInput.trim()) {
+                    await window.api.kbRename({ userId: user.id, fileId: renameId, newFilename: renameInput.trim() });
+                    setRenameId(null); setRenameInput('');
+                    loadFiles();
+                  }
+                  if (e.key === 'Escape') { setRenameId(null); setRenameInput(''); }
+                }}
+                className="w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none mb-3"
+                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                placeholder="输入新文件名..."
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setRenameId(null); setRenameInput(''); }} className="rounded-[4px] px-3 py-1.5 text-[13px] hover:opacity-80" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>取消</button>
+                <button type="button" onClick={async () => {
+                  if (renameInput.trim()) {
+                    await window.api.kbRename({ userId: user.id, fileId: renameId, newFilename: renameInput.trim() });
+                    setRenameId(null); setRenameInput('');
+                    loadFiles();
+                  }
+                }} className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium hover:opacity-90" style={{ background: 'var(--accent-blue)', color: '#fff' }}>确定</button>
+              </div>
+            </div>
           </div>
         )}
         {/* Conflict dialog (replaces prompt()) */}

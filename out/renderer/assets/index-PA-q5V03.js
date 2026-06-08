@@ -17304,32 +17304,32 @@ const createLucideIcon = (iconName, iconNode) => {
   Component.displayName = `${iconName}`;
   return Component;
 };
-const __iconNode$F = [
+const __iconNode$G = [
   ["path", { d: "M12 5v14", key: "s699le" }],
   ["path", { d: "m19 12-7 7-7-7", key: "1idqje" }]
 ];
-const ArrowDown = createLucideIcon("ArrowDown", __iconNode$F);
-const __iconNode$E = [
+const ArrowDown = createLucideIcon("ArrowDown", __iconNode$G);
+const __iconNode$F = [
   ["path", { d: "m12 19-7-7 7-7", key: "1l729n" }],
   ["path", { d: "M19 12H5", key: "x3x0zl" }]
 ];
-const ArrowLeft = createLucideIcon("ArrowLeft", __iconNode$E);
-const __iconNode$D = [
+const ArrowLeft = createLucideIcon("ArrowLeft", __iconNode$F);
+const __iconNode$E = [
   ["path", { d: "M5 12h14", key: "1ays0h" }],
   ["path", { d: "m12 5 7 7-7 7", key: "xquz4c" }]
 ];
-const ArrowRight = createLucideIcon("ArrowRight", __iconNode$D);
-const __iconNode$C = [
+const ArrowRight = createLucideIcon("ArrowRight", __iconNode$E);
+const __iconNode$D = [
   ["path", { d: "m5 12 7-7 7 7", key: "hav0vg" }],
   ["path", { d: "M12 19V5", key: "x0mq9r" }]
 ];
-const ArrowUp = createLucideIcon("ArrowUp", __iconNode$C);
-const __iconNode$B = [
+const ArrowUp = createLucideIcon("ArrowUp", __iconNode$D);
+const __iconNode$C = [
   ["circle", { cx: "12", cy: "12", r: "4", key: "4exip2" }],
   ["path", { d: "M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8", key: "7n84p3" }]
 ];
-const AtSign = createLucideIcon("AtSign", __iconNode$B);
-const __iconNode$A = [
+const AtSign = createLucideIcon("AtSign", __iconNode$C);
+const __iconNode$B = [
   ["path", { d: "M12 7v14", key: "1akyts" }],
   [
     "path",
@@ -17339,12 +17339,12 @@ const __iconNode$A = [
     }
   ]
 ];
-const BookOpen = createLucideIcon("BookOpen", __iconNode$A);
-const __iconNode$z = [
+const BookOpen = createLucideIcon("BookOpen", __iconNode$B);
+const __iconNode$A = [
   ["path", { d: "m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z", key: "1fy3hk" }]
 ];
-const Bookmark = createLucideIcon("Bookmark", __iconNode$z);
-const __iconNode$y = [
+const Bookmark = createLucideIcon("Bookmark", __iconNode$A);
+const __iconNode$z = [
   ["path", { d: "M12 8V4H8", key: "hb8ula" }],
   ["rect", { width: "16", height: "12", x: "4", y: "8", rx: "2", key: "enze0r" }],
   ["path", { d: "M2 14h2", key: "vft8re" }],
@@ -17352,21 +17352,21 @@ const __iconNode$y = [
   ["path", { d: "M15 13v2", key: "1xurst" }],
   ["path", { d: "M9 13v2", key: "rq6x2g" }]
 ];
-const Bot = createLucideIcon("Bot", __iconNode$y);
-const __iconNode$x = [
+const Bot = createLucideIcon("Bot", __iconNode$z);
+const __iconNode$y = [
   ["path", { d: "M8 2v4", key: "1cmpym" }],
   ["path", { d: "M16 2v4", key: "4m81vk" }],
   ["rect", { width: "18", height: "18", x: "3", y: "4", rx: "2", key: "1hopcy" }],
   ["path", { d: "M3 10h18", key: "8toen8" }]
 ];
-const Calendar = createLucideIcon("Calendar", __iconNode$x);
-const __iconNode$w = [
+const Calendar = createLucideIcon("Calendar", __iconNode$y);
+const __iconNode$x = [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", key: "1u773s" }],
   ["path", { d: "M12 17h.01", key: "p32p05" }]
 ];
-const CircleHelp = createLucideIcon("CircleHelp", __iconNode$w);
-const __iconNode$v = [
+const CircleHelp = createLucideIcon("CircleHelp", __iconNode$x);
+const __iconNode$w = [
   ["rect", { width: "8", height: "4", x: "8", y: "2", rx: "1", ry: "1", key: "tgr4d6" }],
   [
     "path",
@@ -17376,24 +17376,24 @@ const __iconNode$v = [
     }
   ]
 ];
-const Clipboard = createLucideIcon("Clipboard", __iconNode$v);
-const __iconNode$u = [
+const Clipboard = createLucideIcon("Clipboard", __iconNode$w);
+const __iconNode$v = [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["polyline", { points: "12 6 12 12 16 14", key: "68esgv" }]
 ];
-const Clock = createLucideIcon("Clock", __iconNode$u);
-const __iconNode$t = [
+const Clock = createLucideIcon("Clock", __iconNode$v);
+const __iconNode$u = [
   ["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2", key: "17jyea" }],
   ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2", key: "zix9uf" }]
 ];
-const Copy = createLucideIcon("Copy", __iconNode$t);
-const __iconNode$s = [
+const Copy = createLucideIcon("Copy", __iconNode$u);
+const __iconNode$t = [
   ["circle", { cx: "12", cy: "12", r: "1", key: "41hilf" }],
   ["circle", { cx: "19", cy: "12", r: "1", key: "1wjl8i" }],
   ["circle", { cx: "5", cy: "12", r: "1", key: "1pcz8c" }]
 ];
-const Ellipsis = createLucideIcon("Ellipsis", __iconNode$s);
-const __iconNode$r = [
+const Ellipsis = createLucideIcon("Ellipsis", __iconNode$t);
+const __iconNode$s = [
   [
     "path",
     {
@@ -17403,22 +17403,22 @@ const __iconNode$r = [
   ],
   ["circle", { cx: "12", cy: "12", r: "3", key: "1v7zrd" }]
 ];
-const Eye = createLucideIcon("Eye", __iconNode$r);
-const __iconNode$q = [
+const Eye = createLucideIcon("Eye", __iconNode$s);
+const __iconNode$r = [
   ["path", { d: "M10 12.5 8 15l2 2.5", key: "1tg20x" }],
   ["path", { d: "m14 12.5 2 2.5-2 2.5", key: "yinavb" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }],
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z", key: "1mlx9k" }]
 ];
-createLucideIcon("FileCode", __iconNode$q);
-const __iconNode$p = [
+createLucideIcon("FileCode", __iconNode$r);
+const __iconNode$q = [
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", key: "1rqfz7" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }],
   ["circle", { cx: "10", cy: "12", r: "2", key: "737tya" }],
   ["path", { d: "m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22", key: "wt3hpn" }]
 ];
-createLucideIcon("FileImage", __iconNode$p);
-const __iconNode$o = [
+createLucideIcon("FileImage", __iconNode$q);
+const __iconNode$p = [
   ["path", { d: "M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5", key: "1couwa" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }],
   [
@@ -17429,8 +17429,8 @@ const __iconNode$o = [
     }
   ]
 ];
-const FilePen = createLucideIcon("FilePen", __iconNode$o);
-const __iconNode$n = [
+const FilePen = createLucideIcon("FilePen", __iconNode$p);
+const __iconNode$o = [
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", key: "1rqfz7" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }],
   ["path", { d: "M8 13h2", key: "yr2amv" }],
@@ -17438,21 +17438,21 @@ const __iconNode$n = [
   ["path", { d: "M8 17h2", key: "2yhykz" }],
   ["path", { d: "M14 17h2", key: "10kma7" }]
 ];
-createLucideIcon("FileSpreadsheet", __iconNode$n);
-const __iconNode$m = [
+createLucideIcon("FileSpreadsheet", __iconNode$o);
+const __iconNode$n = [
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", key: "1rqfz7" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }],
   ["path", { d: "M10 9H8", key: "b1mrlr" }],
   ["path", { d: "M16 13H8", key: "t4e002" }],
   ["path", { d: "M16 17H8", key: "z1uh3a" }]
 ];
-const FileText = createLucideIcon("FileText", __iconNode$m);
-const __iconNode$l = [
+const FileText = createLucideIcon("FileText", __iconNode$n);
+const __iconNode$m = [
   ["path", { d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", key: "1rqfz7" }],
   ["path", { d: "M14 2v4a2 2 0 0 0 2 2h4", key: "tnqrlb" }]
 ];
-createLucideIcon("File", __iconNode$l);
-const __iconNode$k = [
+createLucideIcon("File", __iconNode$m);
+const __iconNode$l = [
   [
     "path",
     {
@@ -17461,23 +17461,23 @@ const __iconNode$k = [
     }
   ]
 ];
-const FolderOpen = createLucideIcon("FolderOpen", __iconNode$k);
-const __iconNode$j = [
+const FolderOpen = createLucideIcon("FolderOpen", __iconNode$l);
+const __iconNode$k = [
   ["circle", { cx: "12", cy: "18", r: "3", key: "1mpf1b" }],
   ["circle", { cx: "6", cy: "6", r: "3", key: "1lh9wr" }],
   ["circle", { cx: "18", cy: "6", r: "3", key: "1h7g24" }],
   ["path", { d: "M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9", key: "1uq4wg" }],
   ["path", { d: "M12 12v3", key: "158kv8" }]
 ];
-const GitFork = createLucideIcon("GitFork", __iconNode$j);
-const __iconNode$i = [
+const GitFork = createLucideIcon("GitFork", __iconNode$k);
+const __iconNode$j = [
   ["line", { x1: "4", x2: "20", y1: "9", y2: "9", key: "4lhtct" }],
   ["line", { x1: "4", x2: "20", y1: "15", y2: "15", key: "vyu0kd" }],
   ["line", { x1: "10", x2: "8", y1: "3", y2: "21", key: "1ggp8o" }],
   ["line", { x1: "16", x2: "14", y1: "3", y2: "21", key: "weycgp" }]
 ];
-const Hash = createLucideIcon("Hash", __iconNode$i);
-const __iconNode$h = [
+const Hash = createLucideIcon("Hash", __iconNode$j);
+const __iconNode$i = [
   ["path", { d: "M10 8h.01", key: "1r9ogq" }],
   ["path", { d: "M12 12h.01", key: "1mp3jc" }],
   ["path", { d: "M14 8h.01", key: "1primd" }],
@@ -17488,8 +17488,8 @@ const __iconNode$h = [
   ["path", { d: "M8 12h.01", key: "czm47f" }],
   ["rect", { width: "20", height: "16", x: "2", y: "4", rx: "2", key: "18n3k1" }]
 ];
-const Keyboard = createLucideIcon("Keyboard", __iconNode$h);
-const __iconNode$g = [
+const Keyboard = createLucideIcon("Keyboard", __iconNode$i);
+const __iconNode$h = [
   [
     "path",
     {
@@ -17512,15 +17512,15 @@ const __iconNode$g = [
     }
   ]
 ];
-const Layers = createLucideIcon("Layers", __iconNode$g);
-const __iconNode$f = [
+const Layers = createLucideIcon("Layers", __iconNode$h);
+const __iconNode$g = [
   ["path", { d: "m16 6 4 14", key: "ji33uf" }],
   ["path", { d: "M12 6v14", key: "1n7gus" }],
   ["path", { d: "M8 8v12", key: "1gg7y9" }],
   ["path", { d: "M4 4v16", key: "6qkkli" }]
 ];
-const Library = createLucideIcon("Library", __iconNode$f);
-const __iconNode$e = [
+const Library = createLucideIcon("Library", __iconNode$g);
+const __iconNode$f = [
   ["path", { d: "M3 12h.01", key: "nlz23k" }],
   ["path", { d: "M3 18h.01", key: "1tta3j" }],
   ["path", { d: "M3 6h.01", key: "1rqtza" }],
@@ -17528,26 +17528,26 @@ const __iconNode$e = [
   ["path", { d: "M8 18h13", key: "1lx6n3" }],
   ["path", { d: "M8 6h13", key: "ik3vkj" }]
 ];
-const List = createLucideIcon("List", __iconNode$e);
-const __iconNode$d = [
+const List = createLucideIcon("List", __iconNode$f);
+const __iconNode$e = [
   ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2", key: "afitv7" }],
   ["path", { d: "M9 3v18", key: "fh3hqa" }],
   ["path", { d: "m16 15-3-3 3-3", key: "14y99z" }]
 ];
-const PanelLeftClose = createLucideIcon("PanelLeftClose", __iconNode$d);
-const __iconNode$c = [
+const PanelLeftClose = createLucideIcon("PanelLeftClose", __iconNode$e);
+const __iconNode$d = [
   ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2", key: "afitv7" }],
   ["path", { d: "M9 3v18", key: "fh3hqa" }],
   ["path", { d: "m14 9 3 3-3 3", key: "8010ee" }]
 ];
-const PanelLeftOpen = createLucideIcon("PanelLeftOpen", __iconNode$c);
-const __iconNode$b = [
+const PanelLeftOpen = createLucideIcon("PanelLeftOpen", __iconNode$d);
+const __iconNode$c = [
   ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2", key: "afitv7" }],
   ["path", { d: "M3 9h18", key: "1pudct" }],
   ["path", { d: "M9 21V9", key: "1oto5p" }]
 ];
-const PanelsTopLeft = createLucideIcon("PanelsTopLeft", __iconNode$b);
-const __iconNode$a = [
+const PanelsTopLeft = createLucideIcon("PanelsTopLeft", __iconNode$c);
+const __iconNode$b = [
   ["path", { d: "M13.234 20.252 21 12.3", key: "1cbrk9" }],
   [
     "path",
@@ -17557,8 +17557,8 @@ const __iconNode$a = [
     }
   ]
 ];
-const Paperclip = createLucideIcon("Paperclip", __iconNode$a);
-const __iconNode$9 = [
+const Paperclip = createLucideIcon("Paperclip", __iconNode$b);
+const __iconNode$a = [
   ["path", { d: "M12 20h9", key: "t2du7b" }],
   [
     "path",
@@ -17568,8 +17568,8 @@ const __iconNode$9 = [
     }
   ]
 ];
-const PenLine = createLucideIcon("PenLine", __iconNode$9);
-const __iconNode$8 = [
+const PenLine = createLucideIcon("PenLine", __iconNode$a);
+const __iconNode$9 = [
   [
     "path",
     {
@@ -17579,7 +17579,12 @@ const __iconNode$8 = [
   ],
   ["path", { d: "m15 5 4 4", key: "1mk7zo" }]
 ];
-const Pencil = createLucideIcon("Pencil", __iconNode$8);
+const Pencil = createLucideIcon("Pencil", __iconNode$9);
+const __iconNode$8 = [
+  ["path", { d: "M5 12h14", key: "1ays0h" }],
+  ["path", { d: "M12 5v14", key: "s699le" }]
+];
+const Plus = createLucideIcon("Plus", __iconNode$8);
 const __iconNode$7 = [
   ["path", { d: "M2 3h20", key: "91anmk" }],
   ["path", { d: "M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3", key: "2k9sn8" }],
@@ -21580,10 +21585,205 @@ function formatDate$2(dateStr) {
   if (!dateStr) return "";
   return dateStr.slice(0, 10);
 }
-function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagClick }) {
+function TagSelector({ userId, selectedTagIds, onChange }) {
+  const [tags, setTags] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [open, setOpen] = reactExports.useState(false);
+  const [newName, setNewName] = reactExports.useState("");
+  const [creating, setCreating] = reactExports.useState(false);
+  const [error2, setError] = reactExports.useState("");
+  const [panelPos, setPanelPos] = reactExports.useState({});
+  const triggerRef = reactExports.useRef(null);
+  const panelRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (!open) return;
+    const h2 = (e) => {
+      const t = e.target;
+      if (panelRef.current && !panelRef.current.contains(t) && triggerRef.current && !triggerRef.current.contains(t)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", h2);
+    return () => document.removeEventListener("mousedown", h2);
+  }, [open]);
+  const loadTags = reactExports.useCallback(async () => {
+    try {
+      const res = await window.api.tagList(userId);
+      setTags(res?.data || []);
+    } catch {
+      setTags([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+  reactExports.useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+  const toggle = (tagId) => {
+    if (selectedTagIds.includes(tagId)) {
+      onChange(selectedTagIds.filter((id2) => id2 !== tagId));
+    } else {
+      onChange([...selectedTagIds, tagId]);
+    }
+  };
+  const createAndAdd = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    setError("");
+    try {
+      const data = await window.api.tagCreate({ userId, name: newName.trim() });
+      const resp = data;
+      if (resp.success && resp.data) {
+        setTags((prev) => [...prev, resp.data]);
+        onChange([...selectedTagIds, resp.data?.id]);
+        setNewName("");
+      } else {
+        setError(resp.error || "创建失败");
+      }
+    } catch {
+      setError("创建失败");
+    } finally {
+      setCreating(false);
+    }
+  };
+  const selectedTags = tags.filter((t) => selectedTagIds.includes(t.id));
+  reactExports.useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const calc = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const panelH = 340;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow >= panelH || spaceBelow >= spaceAbove) {
+        setPanelPos({ position: "fixed", left: rect.left, top: rect.bottom + 4 });
+      } else {
+        setPanelPos({ position: "fixed", left: rect.left, bottom: window.innerHeight - rect.top + 4 });
+      }
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    window.addEventListener("scroll", calc, { passive: true });
+    return () => {
+      window.removeEventListener("resize", calc);
+      window.removeEventListener("scroll", calc);
+    };
+  }, [open]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] font-medium", style: { color: "var(--text-secondary)" }, children: "标签:" }),
+      selectedTags.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          onClick: () => toggle(t.id),
+          className: "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] font-medium transition-colors",
+          style: { background: "var(--accent-blue)", color: "var(--text-on-accent)" },
+          children: [
+            t.name,
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-0.5 opacity-70", children: "×" })
+          ]
+        },
+        t.id
+      )),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          ref: triggerRef,
+          type: "button",
+          onClick: () => setOpen(!open),
+          className: "inline-flex items-center rounded-[4px] border px-2 py-1 text-[12px] transition-colors",
+          style: {
+            borderColor: "var(--border-default)",
+            color: "var(--text-secondary)",
+            background: open ? "var(--bg-tertiary)" : "transparent"
+          },
+          children: open ? "收起" : "+ 标签"
+        }
+      )
+    ] }),
+    open && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        ref: panelRef,
+        className: "z-50 w-72 rounded-[6px] border p-3 shadow-lg",
+        style: {
+          ...panelPos,
+          maxHeight: "min(340px, calc(100vh - 24px))",
+          overflowY: "auto",
+          background: "var(--bg-secondary)",
+          borderColor: "var(--border-default)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 flex gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                type: "text",
+                value: newName,
+                onChange: (e) => setNewName(e.target.value),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter") createAndAdd();
+                  if (e.key === "Escape") setOpen(false);
+                },
+                placeholder: "新建标签...",
+                className: "input-dark flex-1 !py-1 !text-[12px]"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: createAndAdd,
+                disabled: creating || !newName.trim(),
+                className: "rounded-[4px] px-2 py-1 text-[12px] font-medium disabled:opacity-30",
+                style: { background: "var(--accent-blue)", color: "var(--text-on-accent)" },
+                children: "创建"
+              }
+            )
+          ] }),
+          error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2 text-[11px]", style: { color: "var(--accent-red)" }, children: error2 }),
+          loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
+            const sel = selectedTagIds.includes(t.id);
+            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                onClick: () => toggle(t.id),
+                className: `flex w-full items-center justify-between rounded-[4px] px-2 py-1.5 text-left text-[13px] transition-colors ${sel ? "font-medium" : ""}`,
+                style: {
+                  background: sel ? "var(--bg-tertiary)" : "transparent",
+                  color: sel ? "var(--accent-blue)" : "var(--text-primary)"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t.name }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "rounded-[3px] px-1.5 py-0.5 text-[11px]",
+                      style: {
+                        background: sel ? "var(--accent-blue)" : "var(--bg-primary)",
+                        color: sel ? "var(--text-on-accent)" : "var(--text-secondary)"
+                      },
+                      children: t.count ?? 0
+                    }
+                  )
+                ]
+              },
+              t.id
+            );
+          }) })
+        ]
+      }
+    )
+  ] });
+}
+function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagClick, userId, onTagsChanged }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = reactExports.useState(false);
+  const [showTagSelector, setShowTagSelector] = reactExports.useState(false);
   const menuRef = reactExports.useRef(null);
+  const tagSelRef = reactExports.useRef(null);
   const progressKey = `blog-progress-${blog.id}`;
   const savedProgress = sessionStorage.getItem(progressKey);
   const hasProgress = savedProgress !== null;
@@ -21595,10 +21795,11 @@ function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagCli
   reactExports.useEffect(() => {
     function handleClick2(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (tagSelRef.current && !tagSelRef.current.contains(e.target)) setShowTagSelector(false);
     }
-    if (menuOpen) document.addEventListener("mousedown", handleClick2);
+    if (menuOpen || showTagSelector) document.addEventListener("mousedown", handleClick2);
     return () => document.removeEventListener("mousedown", handleClick2);
-  }, [menuOpen]);
+  }, [menuOpen, showTagSelector]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "article",
     {
@@ -21690,24 +21891,75 @@ function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagCli
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatDate$2(blog.createdAt) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-1", children: "·" }),
           blog.tags && blog.tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-            blog.tags.slice(0, 3).map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            (blog.tags.length > 5 ? blog.tags.slice(0, 5) : blog.tags).map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "span",
               {
-                className: "inline-block rounded-[3px] px-1.5 py-0.5 mr-1 cursor-pointer hover:opacity-80",
+                className: "inline-flex items-center rounded-[3px] px-1.5 py-0.5 mr-1 cursor-pointer hover:opacity-80 group/tag",
                 style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
                 onClick: (e) => {
                   e.stopPropagation();
                   onTagClick?.(t.id, t.name);
                 },
-                children: t.name
+                children: [
+                  t.name,
+                  userId && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    X,
+                    {
+                      size: 10,
+                      className: "ml-0.5 opacity-0 group-hover/tag:opacity-100 hover:text-[var(--accent-red)]",
+                      onClick: async (e) => {
+                        e.stopPropagation();
+                        const newTagIds = blog.tags.filter((tg) => tg.id !== t.id).map((tg) => tg.id);
+                        await window.api.tagSetBlog({ blogId: blog.id, tagIds: newTagIds });
+                        onTagsChanged?.();
+                      }
+                    }
+                  )
+                ]
               },
               t.id
             )),
-            blog.tags.length > 3 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px]", style: { color: "var(--text-muted)" }, children: [
-              "+",
-              blog.tags.length - 3
-            ] }),
+            blog.tags.length > 5 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "span",
+              {
+                className: "text-[11px] mr-1",
+                style: { color: "var(--text-muted)" },
+                title: blog.tags.slice(5).map((t) => t.name).join(", "),
+                children: [
+                  "+",
+                  blog.tags.length - 5
+                ]
+              }
+            ),
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-1", children: "·" })
+          ] }),
+          userId && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "relative inline-flex items-center mr-1", ref: tagSelRef, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                "aria-label": "添加标签",
+                className: "inline-flex items-center rounded-[3px] px-1 py-0 cursor-pointer hover:opacity-80 opacity-0 group-hover:opacity-100",
+                style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setShowTagSelector(!showTagSelector);
+                },
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { size: 12 })
+              }
+            ),
+            showTagSelector && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute left-0 top-full mt-1 z-50", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              TagSelector,
+              {
+                userId,
+                selectedTagIds: blog.tags?.map((t) => t.id) || [],
+                onChange: async (ids) => {
+                  await window.api.tagSetBlog({ blogId: blog.id, tagIds: ids });
+                  setShowTagSelector(false);
+                  onTagsChanged?.();
+                }
+              }
+            ) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
             readingMin,
@@ -22322,12 +22574,14 @@ function BlogListPage() {
           BlogCard,
           {
             blog,
+            userId: user.id,
             onEdit: (id2) => navigate(`/blog/${id2}/edit`),
             onDelete: (id2) => handleDelete2(id2),
             onExportPdf: (id2) => window.api.blogExportPdf({ userId: user.id, blogId: id2 }),
             onAddToSeries: (id2) => {
             },
-            onTagClick: (tagId, tagName) => dispatch2({ type: "SET_TAG_FILTER", payload: { id: tagId, name: tagName } })
+            onTagClick: (tagId, tagName) => dispatch2({ type: "SET_TAG_FILTER", payload: { id: tagId, name: tagName } }),
+            onTagsChanged: () => loadBlogs()
           },
           blog.id
         )) }),
@@ -29521,199 +29775,6 @@ function ReferencePicker({ userId, sourceType, sourceId, readOnly }) {
             ]
           }
         )
-      }
-    )
-  ] });
-}
-function TagSelector({ userId, selectedTagIds, onChange }) {
-  const [tags, setTags] = reactExports.useState([]);
-  const [loading, setLoading] = reactExports.useState(true);
-  const [open, setOpen] = reactExports.useState(false);
-  const [newName, setNewName] = reactExports.useState("");
-  const [creating, setCreating] = reactExports.useState(false);
-  const [error2, setError] = reactExports.useState("");
-  const [panelPos, setPanelPos] = reactExports.useState({});
-  const triggerRef = reactExports.useRef(null);
-  const panelRef = reactExports.useRef(null);
-  reactExports.useEffect(() => {
-    if (!open) return;
-    const h2 = (e) => {
-      const t = e.target;
-      if (panelRef.current && !panelRef.current.contains(t) && triggerRef.current && !triggerRef.current.contains(t)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", h2);
-    return () => document.removeEventListener("mousedown", h2);
-  }, [open]);
-  const loadTags = reactExports.useCallback(async () => {
-    try {
-      const res = await window.api.tagList(userId);
-      setTags(res?.data || []);
-    } catch {
-      setTags([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-  reactExports.useEffect(() => {
-    loadTags();
-  }, [loadTags]);
-  const toggle = (tagId) => {
-    if (selectedTagIds.includes(tagId)) {
-      onChange(selectedTagIds.filter((id2) => id2 !== tagId));
-    } else {
-      onChange([...selectedTagIds, tagId]);
-    }
-  };
-  const createAndAdd = async () => {
-    if (!newName.trim()) return;
-    setCreating(true);
-    setError("");
-    try {
-      const data = await window.api.tagCreate({ userId, name: newName.trim() });
-      const resp = data;
-      if (resp.success && resp.data) {
-        setTags((prev) => [...prev, resp.data]);
-        onChange([...selectedTagIds, resp.data?.id]);
-        setNewName("");
-      } else {
-        setError(resp.error || "创建失败");
-      }
-    } catch {
-      setError("创建失败");
-    } finally {
-      setCreating(false);
-    }
-  };
-  const selectedTags = tags.filter((t) => selectedTagIds.includes(t.id));
-  reactExports.useEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const calc = () => {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const panelH = 340;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      if (spaceBelow >= panelH || spaceBelow >= spaceAbove) {
-        setPanelPos({ position: "fixed", left: rect.left, top: rect.bottom + 4 });
-      } else {
-        setPanelPos({ position: "fixed", left: rect.left, bottom: window.innerHeight - rect.top + 4 });
-      }
-    };
-    calc();
-    window.addEventListener("resize", calc);
-    window.addEventListener("scroll", calc, { passive: true });
-    return () => {
-      window.removeEventListener("resize", calc);
-      window.removeEventListener("scroll", calc);
-    };
-  }, [open]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] font-medium", style: { color: "var(--text-secondary)" }, children: "标签:" }),
-      selectedTags.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "button",
-        {
-          type: "button",
-          onClick: () => toggle(t.id),
-          className: "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] font-medium transition-colors",
-          style: { background: "var(--accent-blue)", color: "var(--text-on-accent)" },
-          children: [
-            t.name,
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-0.5 opacity-70", children: "×" })
-          ]
-        },
-        t.id
-      )),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          ref: triggerRef,
-          type: "button",
-          onClick: () => setOpen(!open),
-          className: "inline-flex items-center rounded-[4px] border px-2 py-1 text-[12px] transition-colors",
-          style: {
-            borderColor: "var(--border-default)",
-            color: "var(--text-secondary)",
-            background: open ? "var(--bg-tertiary)" : "transparent"
-          },
-          children: open ? "收起" : "+ 标签"
-        }
-      )
-    ] }),
-    open && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        ref: panelRef,
-        className: "z-50 w-72 rounded-[6px] border p-3 shadow-lg",
-        style: {
-          ...panelPos,
-          maxHeight: "min(340px, calc(100vh - 24px))",
-          overflowY: "auto",
-          background: "var(--bg-secondary)",
-          borderColor: "var(--border-default)"
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 flex gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "input",
-              {
-                type: "text",
-                value: newName,
-                onChange: (e) => setNewName(e.target.value),
-                onKeyDown: (e) => {
-                  if (e.key === "Enter") createAndAdd();
-                  if (e.key === "Escape") setOpen(false);
-                },
-                placeholder: "新建标签...",
-                className: "input-dark flex-1 !py-1 !text-[12px]"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: createAndAdd,
-                disabled: creating || !newName.trim(),
-                className: "rounded-[4px] px-2 py-1 text-[12px] font-medium disabled:opacity-30",
-                style: { background: "var(--accent-blue)", color: "var(--text-on-accent)" },
-                children: "创建"
-              }
-            )
-          ] }),
-          error2 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-2 text-[11px]", style: { color: "var(--accent-red)" }, children: error2 }),
-          loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "加载中..." }) : tags.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-center text-[12px]", style: { color: "var(--text-secondary)" }, children: "暂无标签，创建一个吧" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-60 overflow-y-auto space-y-0.5", children: tags.map((t) => {
-            const sel = selectedTagIds.includes(t.id);
-            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "button",
-              {
-                type: "button",
-                onClick: () => toggle(t.id),
-                className: `flex w-full items-center justify-between rounded-[4px] px-2 py-1.5 text-left text-[13px] transition-colors ${sel ? "font-medium" : ""}`,
-                style: {
-                  background: sel ? "var(--bg-tertiary)" : "transparent",
-                  color: sel ? "var(--accent-blue)" : "var(--text-primary)"
-                },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t.name }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "span",
-                    {
-                      className: "rounded-[3px] px-1.5 py-0.5 text-[11px]",
-                      style: {
-                        background: sel ? "var(--accent-blue)" : "var(--bg-primary)",
-                        color: sel ? "var(--text-on-accent)" : "var(--text-secondary)"
-                      },
-                      children: t.count ?? 0
-                    }
-                  )
-                ]
-              },
-              t.id
-            );
-          }) })
-        ]
       }
     )
   ] });
@@ -56613,8 +56674,7 @@ const SLASH_COMMANDS = [
     icon: "🖼",
     keywords: ["image", "图片", "img", "插图"],
     execute: (ed) => {
-      const url = prompt("输入图片 URL:");
-      if (url) ed.chain().focus().setImage({ src: url }).run();
+      ed.chain().focus().setImage({ src: "" }).run();
     }
   },
   {
@@ -57304,7 +57364,7 @@ function editorReducer(state, action) {
       return state;
   }
 }
-function BlogEditorPage$1({ variant }) {
+function BlogEditorPage$1({ variant, onSaved }) {
   const { id: id2 } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -57560,6 +57620,7 @@ ${sel || state.content.slice(0, 3e3)}`
         } else {
           dispatch2({ type: "SET_DIRTY", payload: false });
           setRestoreDraft(null);
+          onSaved?.();
           const blogId = Number(id2);
           searchSimilarDocs(blogId, "blog", 5).catch(() => {
           });
@@ -58036,7 +58097,7 @@ ${sel || state.content.slice(0, 3e3)}`
             type: "button",
             onClick: async () => {
               await handleSave();
-              navigate(`/blog/${id2}`, { replace: true });
+              onSaved?.();
             },
             className: "rounded-[4px] px-3 py-1.5 text-[13px] font-medium hover:opacity-90",
             style: { background: "var(--accent-blue)", color: "#fff" },
@@ -58047,7 +58108,7 @@ ${sel || state.content.slice(0, 3e3)}`
           "button",
           {
             type: "button",
-            onClick: () => navigate(`/blog/${id2}`, { replace: true }),
+            onClick: () => onSaved?.(),
             className: "rounded-[4px] px-3 py-1.5 text-[13px] hover:opacity-80",
             style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" },
             children: "取消"
@@ -110775,6 +110836,7 @@ function BlogPreviewPage() {
   const { settings: aiSettings, effectiveModel, effectiveBaseUrl } = useAiSettings();
   const [aiCtxMenu, setAiCtxMenu] = reactExports.useState(null);
   const articleElRef = reactExports.useRef(null);
+  const scrollYRef = reactExports.useRef(0);
   const [hoverPrev, setHoverPrev] = reactExports.useState(null);
   const hoverTimerRef = reactExports.useRef(null);
   reactExports.useEffect(() => {
@@ -110850,19 +110912,21 @@ function BlogPreviewPage() {
   const contentRef = reactExports.useRef(null);
   const contextPanel = useContextPanel();
   reactExports.useEffect(() => {
-    if (id2 && user)
-      window.api.blogGet(Number(id2)).then((r2) => {
-        if (r2.success && r2.data) {
-          setBlog(r2.data);
-          recordRecentBlog(r2.data.id, r2.data.title);
-          useQuickNavStore.getState().push(r2.data.id, r2.data.title);
-          window.scrollTo(0, 0);
-        }
+    if (!isEditMode) {
+      if (id2 && user) {
+        window.api.blogGet(Number(id2)).then((r2) => {
+          if (r2.success && r2.data) {
+            setBlog(r2.data);
+            recordRecentBlog(r2.data.id, r2.data.title);
+            useQuickNavStore.getState().push(r2.data.id, r2.data.title);
+            window.scrollTo(0, 0);
+          }
+          setLoading(false);
+        }).catch(() => setLoading(false));
+      } else if (!id2 && user) {
+        setBlog(null);
         setLoading(false);
-      }).catch(() => setLoading(false));
-    else if (!id2 && user) {
-      setBlog(null);
-      setLoading(false);
+      }
     }
   }, [id2, user, isEditMode]);
   reactExports.useEffect(() => {
@@ -111089,7 +111153,7 @@ function BlogPreviewPage() {
   if (!blog && id2)
     return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-64 items-center justify-center text-[14px]", style: { color: "var(--accent-red)" }, children: "博客不存在" });
   if (isEditMode || !id2) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col h-full", children: [
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col", style: { minHeight: "60vh" }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2 flex items-center gap-3", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "button",
@@ -111109,7 +111173,12 @@ function BlogPreviewPage() {
           blog?.title || "新建博客"
         ] })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", style: { animation: "fadeIn 0.3s ease" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载编辑器..." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, { variant: "frameless" }) }) })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1", style: { animation: "fadeIn 0.3s ease" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px]", style: { color: "var(--text-secondary)" }, children: "加载编辑器..." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(BlogEditorPage, { variant: "frameless", onSaved: () => {
+        setSearchParams({}, { replace: true });
+        requestAnimationFrame(() => {
+          window.scrollTo(0, scrollYRef.current);
+        });
+      } }) }) })
     ] });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -111236,7 +111305,10 @@ function BlogPreviewPage() {
         {
           blogId: blog.id,
           headings: parseTocHeadings(blog.content, blog.format),
-          onEdit: () => setSearchParams({ mode: "edit" }, { replace: true }),
+          onEdit: () => {
+            scrollYRef.current = window.scrollY;
+            setSearchParams({ mode: "edit" }, { replace: true });
+          },
           onBack: () => navigate("/blog")
         }
       ),
@@ -111621,7 +111693,7 @@ function formatSize(bytes) {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
-function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTagClick }) {
+function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTagClick, onEditTags, onRemoveTag }) {
   const [menuOpen, setMenuOpen] = reactExports.useState(false);
   const menuRef = reactExports.useRef(null);
   const ext = (file.filename || "").split(".").pop()?.toLowerCase() || "";
@@ -111673,19 +111745,48 @@ function KBCard({ file, onOpen, onRename, onDelete, onShowInFolder, onTagClick }
           /* @__PURE__ */ jsxRuntimeExports.jsx(InfoRow, { label: "创建", value: file.createdAt?.slice(0, 10) || "" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(InfoRow, { label: "修改", value: file.updatedAt?.slice(0, 10) || "" })
         ] }),
-        file.tags && file.tags.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1", children: file.tags.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "span",
-          {
-            className: "inline-block rounded-[3px] px-1.5 py-0.5 text-[11px] cursor-pointer hover:opacity-80",
-            style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
-            onClick: (e) => {
-              e.stopPropagation();
-              onTagClick?.(t.id);
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-1 items-center", children: [
+          file.tags && file.tags.length > 0 && file.tags.map((t) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "span",
+            {
+              className: "note-actions inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[11px] cursor-pointer hover:opacity-80 group/kbtag",
+              style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
+              onClick: (e) => {
+                e.stopPropagation();
+                onTagClick?.(t.id);
+              },
+              children: [
+                t.name,
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  X,
+                  {
+                    size: 10,
+                    className: "note-actions ml-0.5 opacity-0 group-hover/kbtag:opacity-100 hover:text-[var(--accent-red)]",
+                    onClick: async (e) => {
+                      e.stopPropagation();
+                      onRemoveTag?.(file.id, t.id);
+                    }
+                  }
+                )
+              ]
             },
-            children: t.name
-          },
-          t.id
-        )) })
+            t.id
+          )),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              "aria-label": "添加标签",
+              className: "note-actions inline-flex items-center rounded-[3px] px-1 py-0 text-[11px] cursor-pointer hover:opacity-80 opacity-0 group-hover:opacity-100",
+              style: { background: "var(--bg-primary)", color: "var(--text-secondary)" },
+              onClick: (e) => {
+                e.stopPropagation();
+                onEditTags?.(file);
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { size: 12 })
+            }
+          )
+        ] })
       ]
     }
   );
@@ -111789,6 +111890,8 @@ function KnowledgeListPage() {
   const [searchParams] = useSearchParams();
   const [toastMsg, setToastMsg] = reactExports.useState(null);
   const [conflictDialog, setConflictDialog] = reactExports.useState(null);
+  const [renameId, setRenameId] = reactExports.useState(null);
+  const [renameInput, setRenameInput] = reactExports.useState("");
   const loadKbFolders = reactExports.useCallback(async () => {
     if (!user) return;
     const r2 = await window.api.folderTree({ userId: user.id, type: "knowledge" });
@@ -112190,13 +112293,14 @@ function KnowledgeListPage() {
                 KBCard,
                 {
                   file: f,
-                  onOpen: (file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id }),
-                  onRename: async (file) => {
-                    const name = prompt("新文件名:", file.filename);
-                    if (name?.trim()) {
-                      await window.api.kbRename({ userId: user.id, fileId: file.id, newFilename: name.trim() });
-                      loadFiles();
-                    }
+                  onOpen: async (file) => {
+                    const r2 = await window.api.kbOpenExternal({ fileId: file.id, userId: user.id });
+                    if (!r2.success) setToastMsg(r2.error || "打开失败");
+                    if (r2.success) setToastMsg(null);
+                  },
+                  onRename: (file) => {
+                    setRenameId(file.id);
+                    setRenameInput(file.filename);
                   },
                   onDelete: async (file) => {
                     if (!confirm("移至回收站？")) return;
@@ -112204,13 +112308,38 @@ function KnowledgeListPage() {
                     loadFiles();
                   },
                   onShowInFolder: (file) => window.api.kbOpenExternal({ fileId: file.id, userId: user.id, showInFolder: true }),
-                  onTagClick: (tagId) => dispatch2({ type: "SET_TAG_FILTER", id: tagId, name: "" })
+                  onTagClick: (tagId) => dispatch2({ type: "SET_TAG_FILTER", id: tagId, name: "" }),
+                  onEditTags: (file) => {
+                    dispatch2({ type: "START_EDIT_TAGS", fileId: file.id, tagIds: file.tags?.map((t) => t.id) || [] });
+                  },
+                  onRemoveTag: async (fileId, tagId) => {
+                    const file = files.find((f2) => f2.id === fileId);
+                    if (!file?.tags) return;
+                    const newTagIds = file.tags.filter((t) => t.id !== tagId).map((t) => t.id);
+                    await window.api.tagSetFile({ fileId, tagIds: newTagIds });
+                    loadFiles();
+                  }
                 },
                 f.id
               )),
               files.length === 0 && !loading && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "col-span-full text-center py-12 rounded-[8px] border border-dashed", style: { borderColor: "var(--border-default)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px]", style: { color: "var(--text-muted)" }, children: "暂无文件" }) })
             ] })
           ] }),
+          editingTagsFileId !== null && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.3)" }, onClick: () => dispatch2({ type: "STOP_EDIT_TAGS" }), children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[8px] border p-4 shadow-xl", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, onClick: (e) => e.stopPropagation(), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[13px] font-semibold mb-2", style: { color: "var(--text-primary)" }, children: "编辑标签" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              TagSelector,
+              {
+                userId: user.id,
+                selectedTagIds: editingTagIds,
+                onChange: async (ids) => {
+                  await window.api.tagSetFile({ fileId: editingTagsFileId, tagIds: ids });
+                  dispatch2({ type: "STOP_EDIT_TAGS" });
+                  loadFiles();
+                }
+              }
+            )
+          ] }) }),
           total > pagination.limit && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex items-center justify-center gap-1", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
@@ -112262,6 +112391,47 @@ function KnowledgeListPage() {
               }
             )
           ] }),
+          renameId !== null && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.3)" }, onClick: () => setRenameId(null), children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[8px] border p-5 shadow-xl min-w-[320px]", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, onClick: (e) => e.stopPropagation(), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] font-semibold mb-3", style: { color: "var(--text-primary)" }, children: "重命名文件" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                type: "text",
+                value: renameInput,
+                onChange: (e) => setRenameInput(e.target.value),
+                onKeyDown: async (e) => {
+                  if (e.key === "Enter" && renameInput.trim()) {
+                    await window.api.kbRename({ userId: user.id, fileId: renameId, newFilename: renameInput.trim() });
+                    setRenameId(null);
+                    setRenameInput("");
+                    loadFiles();
+                  }
+                  if (e.key === "Escape") {
+                    setRenameId(null);
+                    setRenameInput("");
+                  }
+                },
+                className: "w-full rounded-[4px] border px-3 py-1.5 text-[13px] outline-none mb-3",
+                style: { background: "var(--bg-primary)", borderColor: "var(--border-default)", color: "var(--text-primary)" },
+                placeholder: "输入新文件名...",
+                autoFocus: true
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2 justify-end", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => {
+                setRenameId(null);
+                setRenameInput("");
+              }, className: "rounded-[4px] px-3 py-1.5 text-[13px] hover:opacity-80", style: { background: "var(--bg-tertiary)", color: "var(--text-secondary)" }, children: "取消" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: async () => {
+                if (renameInput.trim()) {
+                  await window.api.kbRename({ userId: user.id, fileId: renameId, newFilename: renameInput.trim() });
+                  setRenameId(null);
+                  setRenameInput("");
+                  loadFiles();
+                }
+              }, className: "rounded-[4px] px-3 py-1.5 text-[13px] font-medium hover:opacity-90", style: { background: "var(--accent-blue)", color: "#fff" }, children: "确定" })
+            ] })
+          ] }) }),
           conflictDialog && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.3)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[8px] border p-6 shadow-xl min-w-[360px]", style: { background: "var(--bg-secondary)", borderColor: "var(--border-default)" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[14px] font-semibold mb-1", style: { color: "var(--text-primary)" }, children: "文件冲突" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[12px] mb-4", style: { color: "var(--text-secondary)" }, children: conflictDialog.names }),
@@ -113392,20 +113562,12 @@ function SettingsPage() {
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-[14px] font-semibold", style: { color: "var(--text-primary)" }, children: "AI 接入" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mb-3 mt-1 text-[13px]", style: { color: "var(--text-secondary)" }, children: "MCP Server 已就绪。Claude Code / VS Code 可通过以下方式连接：" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[4px] px-3 py-2", style: { background: "var(--bg-primary)" }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", style: { color: "var(--text-primary)" }, children: "stdio 模式" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-[11px]", style: { color: "var(--accent-blue)" }, children: "npm run mcp" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2", children: "— Claude Code / VS Code 本地直连" })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[4px] px-3 py-2", style: { background: "var(--bg-primary)" }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", style: { color: "var(--text-primary)" }, children: "HTTP 模式" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-[11px]", style: { color: "var(--accent-blue)" }, children: "POST http://localhost:3456/api/mcp/message" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2", children: "— 远程 AI 接入 (JWT 认证)" })
-              ] })
-            ] })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 text-[12px]", style: { color: "var(--text-secondary)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-[4px] px-3 py-2", style: { background: "var(--bg-primary)" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", style: { color: "var(--text-primary)" }, children: "stdio 模式" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "text-[11px]", style: { color: "var(--accent-blue)" }, children: "npm run mcp" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-2", children: "— Claude Code / VS Code 本地直连" })
+            ] }) })
           ]
         }
       ),
@@ -113751,82 +113913,19 @@ const TagManagePage$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.def
   TagManagePage,
   tagManageReducer
 }, Symbol.toStringTag, { value: "Module" }));
-const indexMd = "# 欢迎来到精炼书房\n\nLocal Blog KB 是你的离线优先个人知识中枢。所有数据存储在你自己的电脑上，零云端依赖。\n\n## 核心理念\n\n- **写作**: Markdown 博客编辑器，支持 [[双向链接]]、![[内容嵌入]]、Callout 块。memos 风格卡片 Feed + 无限滚动\n- **收纳**: 知识库卡片画布（Pogget 风格），点击即开，零预览页。拖入即导入\n- **思考**: 白板（YouTrack 风格）自由放置 6 种卡片，连线组织知识网。双向同步\n- **AI 助手**: 内置 RAG 问答，基于你的知识库内容回答\n- **国风主题**: 8 套主题（墨砚/茶竹/夜灯/宣纸/青瓷 + 系统/亮色/暗色），350ms 全局过渡\n\n[→ 打开今日中枢](/)  [→ 写一篇博客](/blog/new)\n\n## 快速入门\n\n1. **写博客**: 点击侧边栏「博客」→「新建」，或用 `Ctrl+N`\n2. **导入知识**: 拖文件到知识库页面 → 卡片网格出现（Pogget 风格：不搬运文件，直接呈现）\n3. **建立链接**: 在博客中输入 `[[` 触发 wikilink 建议\n4. **便签**: `Alt+Space` 呼出快捷便签（花笺风格透明窗口），📋 查看剪贴板历史\n5. **白板**: 在「思考」→「白板」中自由排列想法卡片，连线标注关联/依赖/引用\n\n## 全局快捷键\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+N` | 新建博客 |\n| `Ctrl+O` | 快速切换 (标题搜索) |\n| `Ctrl+K` | 全局搜索 |\n| `Ctrl+S` | 保存 |\n| `Ctrl+B` | 折叠侧边栏 |\n| `Ctrl+J` | AI 指令面板 |\n| `Alt+Space` | 快捷便签 (透明窗口) |\n| `Ctrl+1-8` | 切换标签页 |\n";
-const blogMd = "# 博客\n\n博客是 Local Blog KB 的核心写作模块。支持 Markdown 和 HTML 两种格式。博客列表为卡片 Feed（memos 风格）：不等高卡片、空白分隔、纯无限滚动（无分页器）。\n\n[→ 浏览博客](/blog)  [→ 新建博客](/blog/new)\n\n## 博客卡片\n\n每篇博客在列表中显示为一张卡片：\n\n- **标题**: 视觉锚点 (text-lg font-semibold)\n- **元信息**: 日期 + 阅读时间 + 格式标签（退后，小字号 muted）\n- **摘要**: 行内截断 3 行预览 (line-clamp-3)\n- **标签 + 引用数**: 底部 footer，hover 显示操作按钮\n- **无限滚动**: 滚动到底自动加载下一页（无分页器）\n\n## 博客编辑器\n\n点击「写博客」进入编辑器。编辑器提供：\n\n- **无框编辑模式**: border:none / bg:transparent / padding:0（300ms fadeIn 过渡）\n- **Markdown 渲染**: 实时预览，支持 markdown-it 完整语法\n- **Wikilink**: 输入 `[[` 触发建议，链接到其他博客或知识库文件\n- **Transclusion**: 使用 `![[标题]]` 嵌入其他内容\n- **Callout 块**: 使用 `/` 斜杠命令插入 info/success/warning/danger 提示块\n- **AI 辅助**: 选中文本右键 → AI 续写/摘要/润色/翻译，或按 `Ctrl+J`\n- **右侧预览 Tab**: ContextPanel 编辑态自动注入「预览」Tab，500ms 防抖 + 完整管道（md → wikilink → transclusion → DOMPurify）\n\n[→ 试试: 新建一篇博客，输入 [[ 体验 wikilink](/blog/new)\n\n## Wikilink [[双向链接]]\n\n输入 `[[` 后，系统会自动搜索你的知识库，推荐匹配的博客、知识文件和便签。选择后创建双向引用链接。\n\n- **直接链接**: 已解析的 wikilink 渲染为蓝色可点击链接 → 跳转到目标\n- **搜索链接**: 未解析的渲染为搜索链接 → 搜索匹配内容\n- **反向链接**: ContextPanel「链接」Tab 显示谁引用了当前博客\n\n[→ 试试: 打开一篇博客，看右侧 ContextPanel 的链接](/blog)\n\n## Transclusion ![[内容嵌入]]\n\n使用 `![[标题]]` 将另一篇内容嵌入当前博客：\n\n- `![[博客B]]` → 嵌入博客 B 的全文\n- `![[知识文件]]` → 嵌入知识文件描述\n- `![[便签标题]]` → 嵌入便签全文\n\n嵌入块样式: 左边框 accent-blue + 灰色背景 + 右上角来源链接。全部经 DOMPurify 净化。\n\n[→ 试试: 在博客中写 ![[你的另一篇博客标题]]](/blog/new)\n\n## 代码块\n\n代码块自动 highlight.js 语法高亮 + 语言标签 (左上角) + 复制按钮 (hover 右上角)。\n\n## 系列\n\n将相关博客组织为系列，形成有序阅读列表。系列卡片显示前 4 篇标题预览。系列详情使用 BlogCard + ①②③ 序号 + 底部导航条 + 阅读进度跟踪。\n\n[→ 查看系列](/series)\n\n";
-const knowledgeMd = "# 知识库\n\n知识库是你的文件收纳中心（Pogget 风格）。卡片即文件，点击即开，零预览页。\n\n[→ 打开知识库](/knowledge)\n\n## 文件导入\n\n- **拖入导入**: 将文件从桌面拖到知识库页面，自动导入（检测同名文件冲突，三选：替换/保留两者/跳过）[→ 试试](/knowledge)\n- **按钮导入**: 点击页面顶部「导入文件」按钮选择文件\n- **浏览器剪藏**: 使用 Chrome 扩展将网页内容保存到知识库\n- **大文件警告**: >50MB 文件拖入时 toast 提示\n\n支持的格式: Markdown (.md), 纯文本 (.txt), PDF, DOCX, XLSX, PPTX, CSV, 代码文件, 图片\n\n## 卡片画布\n\n知识库默认卡片视图（顶部按钮切换卡片/列表）：\n\n- **卡片视图**: 卡片网格，Lucide 图标 + 3px 左侧色条 + 标题 + 大小 + 日期\n- **列表视图**: 传统表格，支持排序和批量操作\n\n[→ 试试: 打开知识库](/knowledge)\n\n## 点击即开\n\n点击任意文件卡片 → **中央栏原地打开**（不跳路由，无预览页）：\n\n- **文本文件** (.md, .txt, .csv): Tiptap 无框编辑器 (md) 或 textarea (txt)\n- **PDF**: 内嵌 webview 预览\n- **其他**: iframe 预览\n- **返回按钮** → 回到卡片网格\n- 右侧 ContextPanel 显示：文件信息/预览/被博客引用列表/embedding 相似文件推荐\n\n[→ 打开知识库试试](/knowledge)\n\n## 文件类型图标 (Lucide)\n\n| 类型 | 颜色 | 图标 |\n|------|------|------|\n| .md | 蓝色 | FileCode |\n| .txt | 灰色 | FileText |\n| .csv | 绿色 | FileSpreadsheet |\n| .docx | 蓝色 | FileText |\n| .xlsx | 绿色 | FileSpreadsheet |\n| .pptx | 蓝色 | Presentation |\n| .pdf | 红色 | File |\n| 图片 | 蓝色 | FileImage |\n| SVG | 蓝色 | FileImage |\n| 其他 | 灰色 | File |\n\n## 拖入白板\n\nKB 卡片可拖动到白板 → 创建知识库链接节点。卡片 `draggable` + 白板 `onDrop` 自动创建。\n";
-const notesMd = "# 便签\n\n便签是快速记录工具。支持便签列表和快捷便签 (Alt+Space) 两种模式。\n\n[→ 打开便签](/notes)\n\n## 快捷便签 (Alt+Space)\n\n按 `Alt+Space` 弹出快捷便签窗口（420×320, 屏幕居中, 置顶, 透明窗口）：\n\n- 写内容 → **Ctrl+Enter** 保存为便签，自动清空\n- **Esc** 隐藏窗口，自动保存草稿（跨重启恢复）\n- **📌 固定**: 保存为 pinned 便签，保持窗口\n- **📋 剪贴板**: 底部按钮弹出剪贴板历史 popover，点击粘贴\n\n透明窗口设计（花笺风格）：`transparent:true` + `backgroundColor:#00000000`，便签浮于桌面。\n\n[→ 试试: 按 Alt+Space]\n\n## 便签列表\n\n侧边栏「便签」进入列表页。支持：\n\n- **快速输入**: 上方输入框即时保存 [→ 试试](/notes)\n- **置顶**: 重要便签 pin 到顶部\n- **便签类型**: note (普通) / todo (待办) / schedule (日程) / daily (每日) / pinned (固定)\n\n## 剪贴板监听\n\n设置页可开启剪贴板监听（默认关闭）：\n\n- 每 500ms 轮询系统剪贴板\n- 捕获文本 + HTML 内容（自动提取纯文本摘要）\n- MD5 去重\n- 隐私遮蔽：手机号/身份证/邮箱自动打码\n- 最多保留 50 条\n- 设置表持久化（跨重启保留）\n\n## 每日便签\n\n今日中枢的「今日便签」区域会自动创建/加载当天的 daily note。日历上蓝色圆点标记有每日便签的日期，点击日期切换。\n\n[→ 打开今日中枢](/)\n\n## 日程\n\n在便签列表或日历中创建 schedule 类型的便签，设置日期和时间。日历上绿色圆点标记有日程的日期。\n";
+const indexMd = "# 欢迎来到精炼书房\n\nLocal Blog KB 是你的离线优先个人知识中枢。所有数据存储在你自己的电脑上，零云端依赖。\n\n## 核心理念\n\n- **写作**: Markdown 博客编辑器，支持 [[双向链接]]、![[内容嵌入]]、Callout 块。memos 风格卡片 Feed + 无限滚动\n- **收纳**: 知识库卡片画布，点击系统程序打开文件（不内嵌预览），拖入即导入，文件夹侧栏 + 排序搜索\n- **思考**: 白板（YouTrack 风格）自由放置 6 种卡片，连线组织知识网。双向同步\n- **AI 助手**: 内置 RAG 问答，基于你的知识库内容回答\n- **国风主题**: 8 套主题（墨砚/茶竹/夜灯/宣纸/青瓷 + 系统/亮色/暗色），350ms 全局过渡\n\n[→ 打开今日中枢](/)  [→ 写一篇博客](/blog/new)\n\n## 快速入门\n\n1. **写博客**: 点击侧边栏「博客」→「新建」，或用 `Ctrl+N`\n2. **导入知识**: 拖文件到知识库页面 → 卡片网格出现（Pogget 风格：不搬运文件，直接呈现）\n3. **建立链接**: 在博客中输入 `[[` 触发 wikilink 建议\n4. **便签**: 在「便签」页面自由拖放方形卡片，双击画布创建新便签，粘贴图片到便签中\n5. **白板**: 在「思考」→「白板」中自由排列想法卡片，连线标注关联/依赖/引用\n\n## 全局快捷键\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+N` | 新建博客 |\n| `Ctrl+O` | 快速切换 (标题搜索) |\n| `Ctrl+K` | 全局搜索 |\n| `Ctrl+S` | 保存 |\n| `Ctrl+B` | 折叠侧边栏 |\n| `Ctrl+J` | AI 指令面板 |\n| `?` | 显示快捷键帮助 |\n";
+const blogMd = '# 博客\n\n博客是 Local Blog KB 的核心写作模块。支持 Markdown 和 HTML 两种格式。\n\n[→ 浏览博客](/blog)  [→ 新建博客](/blog/new)\n\n## BlogCard 卡片列表\n\n每篇博客在列表中显示为一张卡片 (memos 风格)：\n\n- **卡片容器**: rounded-[8px] border，hover 时边框变 accent-blue\n- **左侧进度条**: 有阅读进度 (>5% 且 <95%) 时，卡片左边缘 3px accent-blue 标记\n- **标题**: 14px font-medium，点击进入阅读页\n- **元信息行**: 日期 · 标签 (可点击筛选) · 阅读 N 分钟\n- **内容截取**: stripMarkdown 去除所有格式标记，前 200 字符，line-clamp-3\n- **hover 操作菜单**: 右上角 [···] → 编辑/删除/导出 PDF/添加到系列\n- **tag 编辑**: 每个 tag pill 有 × 移除按钮，末尾 + 按钮弹出 TagSelector\n- **无限滚动**: IntersectionObserver 自动加载下一页\n\n## 浮动目录 FloatingMenu\n\n进入博客阅读页后，右侧显示半透明浮动菜单：\n\n- **定位**: position: fixed 在正文右侧，默认 opacity:0.25，hover 完全可见\n- **回到顶部** (↑): 平滑滚动\n- **到底部** (↓): 平滑滚动\n- **编辑** (✎): 进入 frameless 原地编辑器，光标定位到当前可见段落\n- **返回列表** (←): 保存阅读进度到 sessionStorage，返回博客列表\n- **目录**: 解析 h2/h3/h4，IntersectionObserver 高亮当前可见标题\n- **视口 < 900px**: 自动隐藏\n\n## 原地编辑器 (Frameless)\n\n从 FloatingMenu 或阅读页底部进入原地编辑模式：\n\n- **minHeight: 60vh**: 编辑器占 60% 视口高度，避免页面跳变\n- **进入编辑前保存滚动位置**: 退出编辑后恢复\n- **Ctrl+S 保存**: 右上角 Toast "✓ 已保存 HH:MM:SS"，绿底白字，2s 自动消失\n- **Ctrl+J**: AI 指令面板\n- **系列选择器**: inline select + "+ 新建" 输入框（非 prompt()）\n- **退出编辑**: 自动保存 → 返回阅读模式 → 恢复滚动位置\n- **取消**: 放弃未保存更改 → 返回阅读模式\n\n[→ 试试: 新建一篇博客，输入 [[ 体验 wikilink](/blog/new)\n\n## Wikilink [[双向链接]]\n\n输入 `[[` 后，系统会自动搜索你的知识库，推荐匹配的博客、知识文件和便签。选择后创建双向引用链接。\n\n- **直接链接**: 已解析的 wikilink 渲染为蓝色可点击链接 → 跳转到目标\n- **搜索链接**: 未解析的渲染为搜索链接 → 搜索匹配内容\n- **反向链接**: ContextPanel「链接」Tab 显示谁引用了当前博客\n\n[→ 试试: 打开一篇博客，看右侧 ContextPanel 的链接](/blog)\n\n## Transclusion ![[内容嵌入]]\n\n使用 `![[标题]]` 将另一篇内容嵌入当前博客：\n\n- `![[博客B]]` → 嵌入博客 B 的全文\n- `![[知识文件]]` → 嵌入知识文件描述\n- `![[便签标题]]` → 嵌入便签全文\n\n嵌入块样式: 左边框 accent-blue + 灰色背景 + 右上角来源链接。全部经 DOMPurify 净化。\n\n[→ 试试: 在博客中写 ![[你的另一篇博客标题]]](/blog/new)\n\n## 斜杠命令 / Slash Command\n\n编辑器中输入 `/` 触发命令面板：\n\n- **标题 1-4**: h1/h2/h3/h4\n- **列表**: 无序/有序/任务列表\n- **引用块/代码块/分隔线**\n- **图片**: 插入空图片占位符（点击图片替换 URL）\n- **表格**: 3×3 表格\n- **Callout 块**: info/success/warning/danger 提示框\n\n## 代码块\n\n代码块自动语法高亮 + 语言标签 (左上角) + 复制按钮 (hover 右上角)。\n\n## 系列\n\n将相关博客组织为系列，形成有序阅读列表。系列详情使用 BlogCard + ①②③ 序号 + 底部导航条 + 阅读进度跟踪。\n\n[→ 查看系列](/series)\n\n## MD 文件命名\n\n新建/导入的博客文件以博客标题命名（如 `测试文章.md`），替代不可辨识的 uid 文件。标题变更时自动重命名。特殊字符净化 (`< > : " / \\ | ? *` → `_`)，冲突自动追加 -1/-2。\n';
+const knowledgeMd = "# 知识库\n\n知识库是你的素材收纳中心。每个文件一张卡片，点击即用系统默认程序打开——不内嵌预览。\n\n[→ 打开知识库](/knowledge)\n\n## KBCard 素材卡片\n\n每张卡片包含：\n\n- **文件图标**: 📎 Paperclip 图标\n- **文件名**: 14px font-medium，truncate 截断\n- **元信息**: 文件大小 (自动单位 KB/MB/GB)、类型、创建日期、修改日期\n- **标签行**: tag pill + × 移除按钮 + + 添加按钮\n- **右键菜单**: 重命名/删除/在文件管理器中显示\n\n## 文件导入\n\n- **拖入导入**: 将文件从桌面拖到知识库页面，自动导入（检测同名文件冲突，三选：替换/保留两者/跳过）\n- **按钮导入**: 点击页面顶部「导入文件」按钮选择文件（支持 docx/doc/xlsx/xls/pptx/ppt/pdf/txt/md/png/jpg/jpeg/gif/webp/svg）\n- **大文件警告**: >50MB 文件拖入时 toast 提示\n\n## 点击即开\n\n点击任意文件卡片 → 使用系统默认程序 (shell.openPath) 打开文件：\n\n- .docx → Word\n- .xlsx → Excel\n- .pdf → PDF 阅读器\n- .png/.jpg → 图片查看器\n- 等等\n\n**不是 webview 预览，不是内嵌编辑器。** 错误时 toast 显示具体失败原因。\n\n## 文件夹侧栏\n\n左侧可展开文件夹树，点击文件夹进行筛选。面包屑导航显示当前路径，支持层级跳转。\n\n## 搜索 + 排序 + 筛选\n\n- **搜索框**: 实时搜索文件名\n- **类型筛选**: 下拉选择 Word/Excel/PDF/文本/图片\n- **排序**: 按日期/名称/大小/类型\n- **标签筛选**: 点击卡片标签自动切换到该标签筛选视图\n\n## 批量操作\n\n点击「批量」按钮进入批量模式：勾选/全选/删除所选。\n\n## 文件类型图标\n\n| 类型 | 颜色 | 图标 |\n|------|------|------|\n| .md | 蓝色 | FileCode |\n| .txt | 灰色 | FileText |\n| .csv | 绿色 | FileSpreadsheet |\n| .docx | 蓝色 | FileText |\n| .xlsx | 绿色 | FileSpreadsheet |\n| .pptx | 蓝色 | Presentation |\n| .pdf | 红色 | File |\n| 图片 | 蓝色 | FileImage |\n| SVG | 蓝色 | FileImage |\n| 其他 | 灰色 | File |\n";
+const notesMd = '# 便签\n\n便签是快速记录工具。采用自由拖放的方形卡片设计。\n\n[→ 打开便签](/notes)\n\n## NoteCard 便签卡片\n\n每张便签是一张 180×180px 方形卡片：\n\n- **6 种便签纸底色**: 米白/浅黄/浅蓝/浅绿/浅粉/浅紫，基于 `id % 6` 确定性分配（同 ID 永远同色，跨 session 稳定）\n- **圆角 4px**（便签是方的，不是圆的）\n- **阴影**: 0 1px 3px，hover 加深 + zIndex 提升\n- **内容**: line-clamp-4，13px\n- **底部**: 创建时间 11px\n\n**操作按钮**（右上角，hover 出现）:\n- **复制** (📋): 复制全文到系统剪贴板\n- **编辑** (✎): 卡片原地展开 textarea，Ctrl+Enter 保存，Escape 取消\n- **全文** (👁): 弹出 modal 显示完整内容\n\n## 自由拖放\n\n- react-draggable 控制位置，`position: absolute` 在画布上自由摆放\n- 拖拽后位置自动保存到 localStorage `lbkb_note_positions`\n- 刷新页面后位置保持不变\n- 双击画布空白区域 → 在双击位置创建新便签\n- 拖拽中 z-index 提升，松开即持久化\n\n## 创建便签\n\n- **新建按钮**: 页面顶部 "+" 按钮\n- **双击空白**: 在画布上任意位置双击创建\n- **inline 输入**: textarea + Enter 保存 / Escape 取消（替代 prompt()）\n\n## 剪贴板区\n\n便签页顶部剪贴板区域：\n\n- **自动收集**: 开启剪贴板监听后，每 2 秒轮询系统剪贴板\n- **横向滚动卡片**: 120×80px 小卡片，显示截取文本或图片缩略图\n- **点击创建**: 点击剪贴板条目 → 自动创建新便签，内容 = 剪贴内容\n- **清空全部**: 一键清除历史\n\n## 图片粘贴 + 拖入\n\n- **Ctrl+V 粘贴图片**: 便签编辑框内粘贴图片 → 保存到 workspace/notes-images/{uuid}.png\n- **拖入图片**: 从文件管理器拖入图片到便签画布 → 自动创建新便签并嵌入图片\n- **级联删除**: 删除便签时自动清理关联的图片文件\n\n## 便签类型\n\n便签支持多种类型：note (普通) / todo (待办) / schedule (日程)。待办便签可在今日页日历中勾选完成。\n';
 const whiteboardMd = '# 白板\n\n白板是"精炼书房"的**中央桌面**——无限画布上自由放置想法、任务、参考卡片，用连线组织你的知识网。\n\n[→ 打开白板](/whiteboards)\n\n## 核心概念\n\n白板 = **无限画布** + **卡片** + **连线**。你可以在画布上任意放置、拖拽、组织你的知识资产。\n\n## 画布交互\n\n- **无限画布**: 可缩放、平移，无边界限制\n- **点阵背景**: 辅助对齐\n- **小地图**: 右下角缩略图，快速定位\n- **控件**: 缩放按钮 + 适应视图\n\n## 卡片类型 (6 种)\n\n| 类型 | 图标 | 说明 | 双击行为 |\n|------|------|------|----------|\n| 💡 想法 | 彩色边框 | 记录灵感，可转化为博客或便签 | 编辑标题 (quickInput 弹窗) |\n| ✅ 任务 | checkbox + 状态 | todo → in_progress → done 三态流转 | 点击切换状态 |\n| 📝 文本 | 简洁文本 | 画布上的标题/标签，用于分区 | 编辑文本 |\n| 📄 博客链接 | FileEdit 图标 | 博客卡片链接，双击可编辑标题（同步更新博客） | 导航到博客 |\n| 📂 KB 链接 | Library 图标 | 知识库文件链接，可从 KB 页拖入 | 导航到知识库 |\n| 🔖 书签链接 | Bookmark 图标 | 书签卡片链接 | 导航到书签 |\n\n[→ 试试: 打开白板，点 +想法 创建第一张卡片](/whiteboards)\n\n## 核心操作\n\n### 创建卡片\n- 工具栏 `+ 想法` / `+ 任务` / `+ 文本` / `+ 博客` / `+ KB` / `+ 书签`\n- 空白处双击 → 创建想法卡片\n- 从知识库拖入文件卡片 → 自动创建 KB 链接卡片\n\n### 连线\n- 从卡片边缘拖出连线到另一张卡片 → 弹出 3 选 1 浮层\n- 连线类型: 关联 / 依赖 / 引用\n- 删除连线: 选中后 Delete\n\n### 右键菜单\n- 右键卡片 → 转为任务 / 转为博客 / 转为便签\n\n### 移动与定位\n- 拖拽卡片到任意位置，位置自动保存\n- 缩放画布: 鼠标滚轮\n- 平移画布: 拖拽空白区域\n\n## 双向同步\n\n白板上的链接卡片与原始内容双向同步：\n- 博客标题改了 → 白板卡片自动刷新（EVT_BLOG_REFRESH 事件驱动）\n- KB 更新 → 白板卡片自动刷新（EVT_KB_REFRESH 事件驱动）\n- 双击博客链接卡片编辑标题 → 源博客标题同步更新\n\n## 使用场景\n\n### 项目规划\n想法卡片 + 任务卡片 = 项目看板。用连线标注依赖关系。\n\n### 知识梳理\n把相关博客、知识文件卡片放到白板上，用连线标注引用关系 → 知识图谱。比 d3-force 更自由。\n\n[→ 试试: 在白板上规划一个项目](/whiteboards)\n\n### 写作大纲\n文本卡片分层排列 → 每张卡片代表一个章节 → 展开为博客系列。\n\n### 会议记录\n会议中快速创建想法卡片 → 会后转化为正式文档。\n';
 const aiMd = '# AI 助手\n\nLocal Blog KB 内置 AI 对话和编辑器辅助功能。需要先在设置中配置 LLM。\n\n[→ 配置 AI](/settings)\n\n## 配置 AI\n\n1. 设置 → AI 对话 → 开启 [→ 去设置](/settings)\n2. 选择服务商 (OpenAI / Anthropic / DeepSeek / Ollama)\n3. 填写 API Key（仅存本地，永不上传）\n4. 可选自定义模型和 API 地址\n\n支持的厂商:\n\n- **OpenAI**: gpt-4o, gpt-4-turbo 等 — 通用最强\n- **Anthropic**: claude-sonnet-4-6 等 — 长文理解\n- **DeepSeek**: deepseek-chat — 性价比\n- **Ollama**: 本地运行，完全离线，零成本\n\n## AI 对话 (RAG)\n\n点击顶部 🤖 图标打开对话面板。AI 会检索你的知识库内容，基于相关文档回答。\n\n[→ 试试: 点顶部 🤖 图标，问"总结我最近的内容"]\n\n试试这些问题:\n- "总结我最近写的博客"\n- "Docker 相关的知识文件有哪些"\n- "帮我回顾一下某博客的要点"\n\n## 编辑器 AI\n\n在博客编辑器中使用 AI 辅助写作:\n\n- **工具栏**: 点击 ✦ AI 按钮 → 选择续写/摘要/润色/翻译 [→ 试试](/blog/new)\n- **右键菜单**: 选中文本 → 右键 → AI 操作\n- **快捷键**: `Ctrl+J` 打开 AI 菜单\n\nAI 会自动获取选中的文本或全文内容进行处理。\n\n## 自动标签\n\n保存博客后，AI 自动建议 3-5 个标签（需在设置中开启 AI）。建议以 toast 弹窗展示。\n\n[→ 写一篇博客试试](/blog/new)\n';
-const searchMd = '# 搜索\n\nLocal Blog KB 提供全文搜索和语义搜索两种引擎。\n\n## 全局搜索 (Ctrl+K)\n\n按 `Ctrl+K` 打开全局搜索面板 [→ 试试: 按 Ctrl+K]:\n\n- **关键词搜索**: 搜索博客标题和知识库文件名\n- **搜索操作符**: 支持 `tag:`, `type:`, `after:`, `before:` 过滤\n- **类型过滤**: `type:blog` 只搜博客, `type:knowledge` 只搜知识库\n\n例句:\n- `Docker` → 搜索所有内容\n- `tag:部署` → 搜索标签为"部署"的内容\n- `type:blog after:2026-01-01` → 搜索 2026 年起的博客\n\n## 保存的查询\n\n搜索结果底部有「保存此查询」按钮。保存后，HomePage 会显示已保存查询的快捷标签。\n\n[→ 试试: 搜索后保存一个查询，回到首页看看](/)\n\n## 语义搜索\n\n当 embedding 模型加载后（首次使用 ~120MB 下载），搜索还会包含语义相似度评分。向量相似度和关键词匹配混合排序。\n\n## CJK 中文搜索\n\n中文/日文/韩文搜索使用三层次索引:\n- **Unigram** (单字, 权重 0.25)\n- **Bigram** (双字, 权重 0.5)\n- **Word** (整词, 权重 1.0)\n\n单字搜索也能找到多字词结果。MySQL 模式使用 FULLTEXT + ngram parser。\n';
-const calendarMd = `# 日历
-
-日历集成在今日中枢页面，采用 **Obsidian Calendar 插件风格**——圆点标记 + 点击跳转。
-
-[→ 打开今日中枢](/)
-
-## 视觉设计
-
-### 双圆点系统
-
-每个日期格右下角用小圆点标记有无内容：
-
-- **蓝色圆点** (6px, --accent-blue): 这一天有每日便签 (daily note)
-- **绿色圆点** (6px, --accent-green): 这一天有日程 (schedule)
-- **两个圆点并排**: 既有每日便签又有日程
-- **无圆点**: 这一天没有记录
-
-一目了然看到哪些日子写了笔记。没有数字角标——圆点更安静。
-
-[→ 试试: 在今日便签写点东西，切到日历看看蓝点](/)
-
-### ISO 周数
-
-日历每行左侧显示 ISO 周数 (W21, W22...)，小字 text-muted。方便按周回顾。
-
-## 导航交互
-
-### 月份切换
-
-- **← → 按钮**: 切换上/下个月
-- **月份标签**: 点击"2026 年 5 月" → 弹出 12 格月份快速选择
-- **今天按钮**: 一键跳回当前月份（右上角）
-
-### 日期交互
-
-- **今天高亮**: 蓝色加粗字体 + bg-tertiary 背景
-- **选中日期**: accent-blue 边框高亮
-- **点击日期**: 加载/创建该日的每日便签（下方「今日便签」区同步切换）
-
-## 每日便签与日程
-
-### 每日便签 (daily note)
-
-在「今日便签」区记录当天的想法。点击日历上任意日期 → 自动切换到那天的便签内容。日历上蓝色圆点 = 该日有便签。
-
-[→ 写今天的便签](/)
-
-### 日程 (schedule)
-
-创建 schedule 类型的便签并设置日期时间。日历上绿色圆点 = 该日有日程。点击日期 → 下方显示当天日程列表。
-
-日程创建入口在「待办」区域（memoType='schedule'）。
-
-## 与 Obsidian Calendar 的对比
-
-| 特性 | Obsidian | Local Blog KB |
-|------|----------|---------------|
-| 每日便签标记 | ● 圆点 | ● 蓝色圆点 |
-| 日程标记 | 无内置 | ● 绿色圆点 |
-| ISO 周数 | ✅ | ✅ |
-| 月份选择器 | 无 | ✅ 12 格快速选择 |
-| 点击日期行为 | 打开 daily note | 加载/创建 daily note |
-| 日程弹窗 | 无 | 已移除（改为内联展示） |
-`;
+const searchMd = '# 搜索\n\nLocal Blog KB 提供全文搜索和语义搜索两种引擎。\n\n## 全局搜索 (Ctrl+K)\n\n按 `Ctrl+K` 打开全局搜索面板 [→ 试试: 按 Ctrl+K]:\n\n- **关键词搜索**: 搜索博客标题和知识库文件名\n- **搜索操作符**: 支持 `tag:`, `type:`, `after:`, `before:` 过滤\n- **类型过滤**: `type:blog` 只搜博客, `type:knowledge` 只搜知识库\n\n例句:\n- `Docker` → 搜索所有内容\n- `tag:部署` → 搜索标签为"部署"的内容\n- `type:blog after:2026-01-01` → 搜索 2026 年起的博客\n\n## 保存的查询\n\n搜索结果底部有「保存此查询」按钮。保存后，HomePage 会显示已保存查询的快捷标签。\n\n[→ 试试: 搜索后保存一个查询，回到首页看看](/)\n\n## 语义搜索\n\n当 embedding 模型加载后（首次使用 ~120MB 下载），搜索还会包含语义相似度评分。向量相似度和关键词匹配混合排序。\n\n## CJK 中文搜索\n\n中文/日文/韩文搜索使用三层次索引:\n- **Unigram** (单字, 权重 0.25)\n- **Bigram** (双字, 权重 0.5)\n- **Word** (整词, 权重 1.0)\n\n单字搜索也能找到多字词结果。\n';
+const calendarMd = '# 日历\n\n日历集成在今日中枢页面，采用 **Obsidian Calendar 插件风格**——圆点标记 + 点击跳转。\n\n[→ 打开今日中枢](/)\n\n## 视觉设计\n\n### 三圆点系统\n\n每个日期格下方用小圆点标记有无内容：\n\n- **蓝色圆点** (6px, --accent-blue): 这一天有便签 (note)\n- **橙色圆点** (6px, #e08b4a): 这一天有待办 (todo)\n- **绿色圆点** (6px, --accent-green): 这一天有日程 (schedule)\n- **多个圆点并排**: 同时有多种内容\n- **无圆点**: 这一天没有记录\n\n一目了然看到哪些日子写了笔记。三种圆点颜色区分内容类型。没有数字角标——圆点更安静。\n\n[→ 试试: 在今日便签写点东西，切到日历看看蓝点](/)\n\n### ISO 周数\n\n日历每行左侧显示 ISO 周数 (W21, W22...)，小字 text-muted。方便按周回顾。\n\n## 导航交互\n\n### 月份切换\n\n- **← → 按钮**: 切换上/下个月\n- **月份标签**: 点击"2026 年 5 月" → 弹出 12 格月份快速选择\n- **今天按钮**: 一键跳回当前月份（右上角）\n\n### 日期交互\n\n- **今天高亮**: 蓝色加粗字体 + bg-tertiary 背景\n- **选中日期**: accent-blue 边框高亮\n- **点击日期**: 右侧详情面板显示该日待办 (可勾选) + 便签列表 + 日程列表\n\n## 今日详情面板\n\n点击日期后，右侧面板显示该日详情：\n\n### 待办\n在面板顶部添加待办项，存储为 `memoType: \'todo\'` 关联到选中日期。勾选完成 → 文本划线变灰。有未完成待办的日期 → 橙色 ●。\n\n### 便签与日程\n该日便签和日程列表。空日期显示"当日无记录"。\n\n## 与 Obsidian Calendar 的对比\n\n\n| 特性 | Obsidian | Local Blog KB |\n|------|----------|---------------|\n| 每日便签标记 | ● 圆点 | ● 蓝色圆点 |\n| 待办标记 | 无内置 | ● 橙色圆点 |\n| 日程标记 | 无 | ● 绿色圆点 |\n| ISO 周数 | ✅ | ✅ |\n| 月份选择器 | 无 | ✅ 12 格快速选择 |\n| 点击日期行为 | 打开 daily note | 显示当日详情面板 (待办+便签+日程) |\n\n';
 const bookmarksMd = "# 书签\n\n收藏常用的博客和知识库文件，快速访问。\n\n[→ 打开收藏](/bookmarks)\n\n## 添加书签\n\n在**博客预览页**或**知识库**中，点击标题旁的 Bookmark 图标：\n\n- 空心 Bookmark → 点击 → 实心绿色 = 已收藏\n- 再次点击 → 取消收藏\n\n[→ 去一篇博客试试](/blog)\n\n## 书签列表\n\n侧边栏「收纳」→「收藏」进入书签页面。按收藏时间倒序排列：\n\n- 每条显示类型图标（博客/知识库）+ 标题 + 收藏日期\n- hover 显示删除按钮\n- 点击 → 跳转到原内容\n\n## 使用场景\n\n- **参考资料**: 收藏常用的部署文档、配置模板\n- **写作灵感**: 收藏想引用的博客和知识片段\n- **快速访问**: 替代浏览历史，更精准\n\n[→ 打开收藏](/bookmarks)\n";
 const timelineMd = "# 时间轴\n\n按时间浏览你的知识生长过程——博客和知识库文件按创建时间倒序排列。\n\n[→ 打开时间轴](/timeline)\n\n## 时间轴视图\n\n侧边栏「思考」→「时间轴」进入：\n\n- **垂直时间轴**: 左侧竖线 + 右侧内容卡片\n- **月份分组**: 按月分隔，每月有圆形标记\n- **类型过滤**: 全部 / 博客 / 知识库 三个按钮\n- **混合排列**: 博客和知识文件按时间混合展示\n\n## 卡片信息\n\n每张卡片显示：\n\n- 类型图标（博客蓝色 / 知识库绿色）+ 类型标签\n- 标题\n- 创建日期\n\n点击卡片 → 跳转到博客详情或知识库页面。\n\n## 使用场景\n\n- **回顾**: 看看上个月写了什么、导入了什么\n- **发现**: 找到遗忘的旧内容\n- **时间线**: 了解知识积累的过程\n\n[→ 打开时间轴](/timeline)\n";
-const tabsMd = "# 标签页系统\n\n多文档并开，不打断写作流。标签页让你同时打开多个博客/知识库/页面。\n\n## TabBar\n\n顶部搜索栏下方是标签栏：\n\n- **自动捕获**: 点击侧边栏任意入口，自动打开对应标签\n- **最多 8 个**: 超出自动关闭最早的标签\n- **关闭标签**: hover 显示 × 按钮（今日标签不可关闭）\n- **当前标签**: accent-blue 下划线高亮\n\n## 快捷键\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+1` ~ `Ctrl+8` | 切换到第 N 个标签 |\n| 点击标签 | 切换到该标签 |\n\n## 持久化\n\n标签状态自动保存到 localStorage。下次启动应用时，自动恢复上次打开的标签。\n\n## 使用场景\n\n- **写作时参考**: 左边开博客编辑，右边开参考资料\n- **多任务**: 同时管理知识库 + 便签 + 设置\n- **快速切换**: Ctrl+1-8 秒切\n\n[→ 试试同时打开多个页面](/)\n";
-const settingsMd = '# 设置\n\n应用的配置中心。侧边栏底部「设置」进入。\n\n[→ 打开设置](/settings)\n\n## 主题\n\n8 套主题可选：\n\n- **跟随系统**: 自动切换墨砚/宣纸\n- **亮色**: 传统亮色模式\n- **暗色**: 传统暗色模式\n- **墨砚** (默认暗色): 端砚灰底 + 赭石铜赤 — 沉稳中性\n- **茶竹**: 深烘茶棕底 + 干竹灰绿 — 有生命力的暗色\n- **夜灯**: 暖炭底 + 旧黄铜 — 稳重沉静\n- **宣纸** (默认亮色): 生宣冷白底 + 靛蓝 — 清爽有精神\n- **青瓷**: 瓷胎白底 + 青釉玉色 — 唯一冷调亮色\n\n全局 350ms 主题切换过渡。\n\n## 背景图片\n\n选择图片作为全局背景（花笺风格半透明覆盖层）：\n\n- 选择 PNG/JPG/WebP 图片文件\n- 不透明度滑块（0.85-0.98）\n- `#root::before` 伪元素实现\n- 加载失败自动回退纯色 + toast\n- 仅本地存储，不上传\n\n## 剪贴板监听\n\n控制剪贴板自动记录（默认关闭）：\n\n- 开启后每 500ms 轮询系统剪贴板\n- 自动记录文本和 HTML 内容\n- 手机号/身份证/邮箱自动打码\n- 快捷便签底部 📋 按钮查看历史\n\n## AI 对话\n\n配置 LLM 以启用 AI 助手：\n\n- 选择服务商（OpenAI / Anthropic / DeepSeek / Ollama）\n- 填写 API Key（仅存本地，不上传）\n- 可选自定义模型和 API 地址\n\n[→ AI 使用指南](/guide) 然后点击「AI 助手」\n\n## 数据导出\n\n点击「导出 Markdown」按钮：\n\n- 所有博客导出为 .md 文件（YAML frontmatter + 正文）\n- wikilink `[[...]]` 自动降级为 `[标题](文件名.md)`\n- 知识库文件原样复制到 Export/knowledge/\n- 生成 index.md 目录\n\n输出位置: `workspace/Export/`\n\n## 更新管理\n\n检查更新 / 下载 / 安装 — 全链路手动可控。当前版本 + 进度条（idle/checking/available/downloading/downloaded）。\n\n## 备份\n\n创建和恢复数据库备份。定期备份保护数据安全。\n\n## 快捷键参考\n\n查看所有快捷键。详见 [快捷键速查](/guide) → 快捷键章节。\n\n## 启动选项\n\n- **开机自启动**: Windows 启动时自动运行\n- **开始菜单快捷方式**: 搜索 "Idiot" 可找到应用\n';
-const shortcutsMd = '# 快捷键\n\n## 全局\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+N` | 新建博客 |\n| `Ctrl+O` | 快速切换 (标题搜索) |\n| `Ctrl+K` | 全局搜索 |\n| `Ctrl+B` | 折叠/展开侧边栏 |\n| `Alt+Space` | 快捷便签 |\n\n## 编辑器\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+S` | 保存 |\n| `Ctrl+J` | AI 指令面板 |\n| `Ctrl+Shift+1~4` | 插入 Callout (info/success/warning/danger) |\n| `Ctrl+\\\\` | 分屏 MD 预览 |\n\n## 标签页\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+1-8` | 切换到第 N 个标签页 |\n\n## 搜索\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Escape` | 关闭搜索/对话框 |\n| `Enter` | 打开选中结果 |\n| `↑↓` | 导航搜索结果 |\n\n## 日历\n\n| 操作 | 功能 |\n|------|------|\n| `← →` | 切换月份 (按钮) |\n| 点击月份标签 | 12 格快速选择 |\n| 点击"今天" | 跳回当前月份 |\n';
+const tabsMd = "# 标签页系统\n\n多文档并开，不打断写作流。标签页让你同时打开多个博客/知识库/页面。\n\n## TabBar\n\n顶部搜索栏下方是标签栏：\n\n- **自动捕获**: 点击侧边栏任意入口，自动打开对应标签\n- **最多 8 个**: 超出自动关闭最早的标签\n- **关闭标签**: hover 显示 × 按钮（今日标签不可关闭）\n- **当前标签**: accent-blue 下划线高亮\n\n## 持久化\n\n标签状态自动保存到 localStorage。下次启动应用时，自动恢复上次打开的标签。\n\n## 使用场景\n\n- **写作时参考**: 左边开博客编辑，右边开参考资料\n- **多任务**: 同时管理知识库 + 便签 + 设置\n\n[→ 试试同时打开多个页面](/)\n";
+const settingsMd = '# 设置\n\n应用的配置中心。侧边栏底部「设置」进入。\n\n[→ 打开设置](/settings)\n\n## 主题\n\n8 套主题可选：\n\n- **跟随系统**: 自动切换墨砚/宣纸\n- **亮色**: 传统亮色模式\n- **暗色**: 传统暗色模式\n- **墨砚** (默认暗色): 端砚灰底 + 赭石铜赤 — 沉稳中性\n- **茶竹**: 深烘茶棕底 + 干竹灰绿 — 有生命力的暗色\n- **夜灯**: 暖炭底 + 旧黄铜 — 稳重沉静\n- **宣纸** (默认亮色): 生宣冷白底 + 靛蓝 — 清爽有精神\n- **青瓷**: 瓷胎白底 + 青釉玉色 — 唯一冷调亮色\n\n全局 350ms 主题切换过渡。\n\n## 背景图片\n\n选择图片作为全局背景（花笺风格半透明覆盖层）：\n\n- 选择 PNG/JPG/WebP 图片文件\n- 不透明度滑块（0.85-0.98）\n- `#root::before` 伪元素实现\n- 加载失败自动回退纯色 + toast\n- 仅本地存储，不上传\n- 文件路径穿越防护（realpath + symlink 检测 + 50MB 上限）\n\n## 剪贴板监听\n\n控制剪贴板自动记录（默认关闭）：\n\n- 开启后每 500ms 轮询系统剪贴板\n- 自动记录文本和 HTML 内容\n- 手机号/身份证/邮箱自动打码\n- 便签页顶部剪贴板区查看历史\n\n## AI 对话\n\n配置 LLM 以启用 AI 助手：\n\n- 选择服务商（OpenAI / Anthropic / DeepSeek / Ollama）\n- 填写 API Key（仅存本地，不上传）\n- 可选自定义模型和 API 地址\n\n[→ AI 使用指南](/guide) 然后点击「AI 助手」\n\n## MCP Server\n\nMCP Server 通过 stdio 模式连接 Claude Code / VS Code：\n\n- **stdio 模式**: `npm run mcp` — Claude Code / VS Code 本地直连\n\n## 数据导出\n\n点击「导出 Markdown」按钮：\n\n- 所有博客导出为 .md 文件（YAML frontmatter + 正文）\n- wikilink `[[...]]` 自动降级为 `[标题](文件名.md)`\n- 知识库文件原样复制到 Export/knowledge/\n- 生成 index.md 目录\n\n输出位置: `workspace/Export/`\n\n## 更新管理\n\n检查更新 / 下载 / 安装 — 全链路手动可控。当前版本 + 进度条（idle/checking/available/downloading/downloaded）。\n\n## 备份\n\n创建和恢复数据库备份。定期备份保护数据安全。\n\n## 快捷键参考\n\n查看所有快捷键。详见 [快捷键速查](/guide) → 快捷键章节。\n\n## 启动选项\n\n- **开机自启动**: Windows 启动时自动运行\n- **开始菜单快捷方式**: 搜索 "Idiot" 可找到应用\n';
+const shortcutsMd = '# 快捷键\n\n## 全局\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+N` | 新建博客 |\n| `Ctrl+O` | 快速切换 (标题搜索) |\n| `Ctrl+K` | 全局搜索 |\n| `Ctrl+B` | 折叠/展开侧边栏 |\n\n## 编辑器\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Ctrl+S` | 保存 |\n| `Ctrl+J` | AI 指令面板 |\n| `Ctrl+Shift+1~4` | 插入 Callout (info/success/warning/danger) |\n| `Ctrl+\\\\` | 分屏 MD 预览 |\n\n## 搜索\n\n| 快捷键 | 功能 |\n|--------|------|\n| `Escape` | 关闭搜索/对话框 |\n| `Enter` | 打开选中结果 |\n| `↑↓` | 导航搜索结果 |\n\n## 日历\n\n| 操作 | 功能 |\n|------|------|\n| `← →` | 切换月份 (按钮) |\n| 点击月份标签 | 12 格快速选择 |\n| 点击"今天" | 跳回当前月份 |\n';
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const TOC = [
   { id: "index", label: "欢迎与快速入门", icon: BookOpen, content: indexMd },
@@ -114976,13 +115075,10 @@ Draggable.defaultProps = {
 };
 var cjs_default = Draggable;
 const NOTE_COLORS = ["#f5f0e8", "#f7efc7", "#dce6f0", "#dce8da", "#f5dfe5", "#e8dff2"];
-function randomNoteColor() {
-  return NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)];
-}
 function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style: style2, onDragStart, onDragEnd }) {
   const [editing, setEditing] = reactExports.useState(false);
   const [editText, setEditText] = reactExports.useState(note.content);
-  const bg = note.color || randomNoteColor();
+  const bg = NOTE_COLORS[(note.id % 6 + 6) % 6];
   reactExports.useEffect(() => {
     if (editing) setEditText(note.content);
   }, [editing, note.content]);
@@ -115006,12 +115102,10 @@ function NoteCard({ note, onCopy, onEdit, onDelete, onView, onImagePaste, style:
       },
       onMouseEnter: (e) => {
         e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-        e.currentTarget.style.transform = "translateY(-2px)";
         e.currentTarget.style.zIndex = "10";
       },
       onMouseLeave: (e) => {
         e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
-        e.currentTarget.style.transform = "";
         e.currentTarget.style.zIndex = "";
       },
       children: [
@@ -115344,7 +115438,10 @@ function NoteListPage() {
           return /* @__PURE__ */ jsxRuntimeExports.jsx(
             cjs_default,
             {
-              defaultPosition: pos,
+              position: pos,
+              onDrag: (_e, data) => {
+                setPositions((prev) => ({ ...prev, [note.id]: { x: data.x, y: data.y } }));
+              },
               onStop: (e, data) => handleDragStop(note.id, e, data),
               bounds: "parent",
               cancel: ".note-actions",

@@ -309,6 +309,7 @@ Step 10 ship          → Pre-Flight → 打包 → 推送
 - **系统计数优先**：删 3 个轻量系统 > 删 1 个重量系统。裁决时优先选"让系统数量下降更多"的选项
 - **不接受"删大的换小的"**：删 ContextPanel 换 3 个 dropdown 不叫 collapse。要求净删除
 - **Observation 期内 Constitution violation 立即修复** (T2406 R344/R345)：隐藏状态机在观测期持续写入 → 观测数据被污染 → 不等 Stage B
+- **二轮反馈循环** (Rebuild 确立)：Boss 亲自使用 → 发现真问题 → 写精确 spec → pre-audit → 裁决 → implement → audit → accept → 打包。这不是返工，是设计闭环
 
 ---
 
@@ -332,6 +333,8 @@ Step 10 ship          → Pre-Flight → 打包 → 推送
 | **接受"删了入口就好，实现留着没事"** | 物理文件完整保留 = 一行 import 可复活 = 复杂度未下降 |
 | **保留"以后可能需要"的代码** | 高风险信号 — 任何删除时犹豫的理由都是错的 |
 | **亲自走完完整 implementation 链路** | QuickNav 教训 — spec 边界清晰时 Developer 完全能独立完成。Boss 写代码侵蚀去人格化治理 |
+| **接受"看起来差不多"的交付** | Rebuild 教训 — Boss 实际使用后发现 8 个问题（R361-R368），spec 验收全部通过但用户体验不达预期。**Spec 验收 ≠ 使用验收**。Boss 必须亲自打开应用使用每项功能 |
+| **跳过二轮修复** | Rebuild 确立的"观察反馈循环"——一轮验收通过 → Boss 实际使用 → 二轮反馈 → spec → pre-audit → implement → audit → accept。这是正常的，不是 Developer 失败 |
 
 ---
 
@@ -343,11 +346,15 @@ Step 10 ship          → Pre-Flight → 打包 → 推送
 **产品**: 离线桌面知识中枢 — 博客撰写 / 知识库管理 / 网页收藏
 **设计**: "精炼书房" — 五套国风主题 + 卡片化 + 空白分隔 + rgba 半透明边框 + Lucide SVG
 
-**项目状态**: Phase 1-22 ✅ · Phase 23 ✅ · Phase 24 📋 T2406 Stage A Observation
-- IPC 139 · Service 18 · IPC files 19 · DB 12 表 · 前端路由 18 条
+**项目状态**: Phase 1-22 ✅ · Phase 23 ✅ · Phase 24 (T2406 终止) · **Rebuild ✅ (2026-06-04)**
+- 博客卡片化 / 便签拖放 / 日历大图主导 / 知识库素材化 / 标签卡片网格 / FloatingMenu / Ctrl+S Toast / MD 标题命名 / 图片粘贴
+- IPC 139 · Service 18 · DB 12 表 · 前端路由 18 条
 - 测试 87/87 (12 files) · tsc 零错误 · build ✅
-- `noUncheckedIndexedAccess` 永久启用 · renderer `: any`=15 `as any`=25 (延 T2405 清零)
-- 当前开放: 🔴0 🟠0 🟡6 🟢8 · P0+P1 首次清零 (2026-05-28)
+- `noUncheckedIndexedAccess` 永久启用
+- 当前开放: 🔴0 🟠0 🟡0 🟢0 (Rebuild 二轮修复后全零)
+- 工作文件: **rebuild.md** (优先级高于 todo.md)。Phase 24 观察期终止，ContextPanel 保留，QuickNav 保留
+- 新组件: BlogCard / FloatingMenu / NoteCard (react-draggable) / KBCard / Toast / 便签剪贴板图片粘贴
+- 新增依赖: react-draggable 4.6.0
 
 **已知缺口**: 国际化 i18n (否决 D18=C)；E2E 加密 (否决 D89)；PDF 批注/OCR (延 Phase 25+)；实时协作 (单机定位，不做)
 

@@ -391,12 +391,6 @@ export function SettingsPage() {
               <code className="text-[11px]" style={{ color: 'var(--accent-blue)' }}>npm run mcp</code>
               <span className="ml-2">— Claude Code / VS Code 本地直连</span>
             </div>
-            <div className="rounded-[4px] px-3 py-2" style={{ background: 'var(--bg-primary)' }}>
-              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>HTTP 模式</span>
-              <br />
-              <code className="text-[11px]" style={{ color: 'var(--accent-blue)' }}>POST http://localhost:3456/api/mcp/message</code>
-              <span className="ml-2">— 远程 AI 接入 (JWT 认证)</span>
-            </div>
           </div>
         </section>
 

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Pencil, Trash2, FileText, Layers } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, FileText, Layers, Plus, X } from 'lucide-react';
 import { estimateReadingTime } from '../../lib/toc-parser';
 import { stripMarkdown, formatDate } from '../../lib/markdown-utils';
+import { TagSelector } from '../common/TagSelector';
 import type { BlogWithTags } from '../../../shared/types';
 
 interface Props {
@@ -12,12 +13,16 @@ interface Props {
   onExportPdf?: (id: number) => void;
   onAddToSeries?: (id: number) => void;
   onTagClick?: (tagId: number, tagName: string) => void;
+  userId?: number;
+  onTagsChanged?: () => void;
 }
 
-export function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagClick }: Props) {
+export function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, onTagClick, userId, onTagsChanged }: Props) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const tagSelRef = useRef<HTMLDivElement>(null);
   const progressKey = `blog-progress-${blog.id}`;
   const savedProgress = sessionStorage.getItem(progressKey);
   const hasProgress = savedProgress !== null;
@@ -31,10 +36,11 @@ export function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, o
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (tagSelRef.current && !tagSelRef.current.contains(e.target as Node)) setShowTagSelector(false);
     }
-    if (menuOpen) document.addEventListener('mousedown', handleClick);
+    if (menuOpen || showTagSelector) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [menuOpen]);
+  }, [menuOpen, showTagSelector]);
 
   return (
     <article
@@ -106,21 +112,53 @@ export function BlogCard({ blog, onEdit, onDelete, onExportPdf, onAddToSeries, o
         <span className="mx-1">·</span>
         {blog.tags && blog.tags.length > 0 && (
           <>
-            {blog.tags.slice(0, 3).map((t: any) => (
+            {(blog.tags.length > 5 ? blog.tags.slice(0, 5) : blog.tags).map((t: any) => (
               <span
                 key={t.id}
-                className="inline-block rounded-[3px] px-1.5 py-0.5 mr-1 cursor-pointer hover:opacity-80"
+                className="inline-flex items-center rounded-[3px] px-1.5 py-0.5 mr-1 cursor-pointer hover:opacity-80 group/tag"
                 style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}
                 onClick={(e) => { e.stopPropagation(); onTagClick?.(t.id, t.name); }}
               >
                 {t.name}
+                {userId && (
+                  <X size={10} className="ml-0.5 opacity-0 group-hover/tag:opacity-100 hover:text-[var(--accent-red)]"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const newTagIds = blog.tags!.filter((tg: any) => tg.id !== t.id).map((tg: any) => tg.id);
+                      await window.api.tagSetBlog({ blogId: blog.id, tagIds: newTagIds });
+                      onTagsChanged?.();
+                    }} />
+                )}
               </span>
             ))}
-            {blog.tags.length > 3 && (
-              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>+{blog.tags.length - 3}</span>
+            {blog.tags.length > 5 && (
+              <span className="text-[11px] mr-1" style={{ color: 'var(--text-muted)' }}
+                title={blog.tags.slice(5).map((t: any) => t.name).join(', ')}>+{blog.tags.length - 5}</span>
             )}
             <span className="mx-1">·</span>
           </>
+        )}
+        {userId && (
+          <span className="relative inline-flex items-center mr-1" ref={tagSelRef}>
+            <button type="button" aria-label="添加标签" className="inline-flex items-center rounded-[3px] px-1 py-0 cursor-pointer hover:opacity-80 opacity-0 group-hover:opacity-100"
+              style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}
+              onClick={(e) => { e.stopPropagation(); setShowTagSelector(!showTagSelector); }}>
+              <Plus size={12} />
+            </button>
+            {showTagSelector && (
+              <div className="absolute left-0 top-full mt-1 z-50" onClick={(e) => e.stopPropagation()}>
+                <TagSelector
+                  userId={userId}
+                  selectedTagIds={blog.tags?.map((t: any) => t.id) || []}
+                  onChange={async (ids) => {
+                    await window.api.tagSetBlog({ blogId: blog.id, tagIds: ids });
+                    setShowTagSelector(false);
+                    onTagsChanged?.();
+                  }}
+                />
+              </div>
+            )}
+          </span>
         )}
         <span>{readingMin} 分钟阅读</span>
         {refCount > 0 && (

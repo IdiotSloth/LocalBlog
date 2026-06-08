@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ipcMain, type WebContents } from 'electron';
+import { ipcMain, shell, type WebContents } from 'electron';
 import { nowTimestamp } from '../../shared/datetime';
 import { IPC } from '../../shared/ipc-channels';
 import { dbGet, dbRun } from '../db';
@@ -104,7 +104,8 @@ export function registerKnowledgeHandlers(): void {
     try {
       const f = await KnowledgeService.getFile(data.fileId, data.userId);
       if (!f) return { success: false, error: '文件不存在' };
-      await PreviewService.openExternal(f.filePath);
+      const errMsg = await shell.openPath(f.filePath);
+      if (errMsg) return { success: false, error: errMsg };
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

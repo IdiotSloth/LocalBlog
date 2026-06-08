@@ -78,3 +78,8 @@ Auditor 审查 → R-编号工单 → Developer 修复 → 更新状态。这是
 - **机械闭合 (T2406 R352 确立)**: 修复完成 ≠ 状态更新。必须 grep 验证目标 pattern → 0（活跃代码），build 通过，test 通过。不允许 "代码已改，延后到 Stage B 验证"——验证必须与修复同批次完成
 - **Unilateral persistence 修复方向（R352 追加）**: Auditor 报告"只写不读"（write path alive, read path dead）→ 修复方向是**删除写入路径**而非"补上读路径"。补读路径 = 让死系统复活。删除写入路径 = 真正消灭 persistence side effect。只写不读的数据永远不应被写入
 - **角色边界（2026-05-28 追加）**: Boss 裁决 → Developer 执行 → Auditor 验证。三层独立性不可突破。Auditor 只写 redo.md 工单，不直接修改代码。即使修复显而易见（如删除死代码），也由 Developer 执行。R352 教训——Auditor 直接 patch 代码突破了角色边界，产出正确但流程错误
+- **数据链完整性验证（Rebuild R356/R362 追加）**: Auditor 报告 "UI 有但数据不生效" → 先检查完整数据链: TypeScript interface → mapper → SQL → IPC handler → UI 调用。R356: 系列选择器 UI 存在但 `blogCreate` 不传 `seriesId`。R362: `mapBlogRow` 不映射 `content` → `SELECT *` 包含但 TypeScript 类型没有。修复时逐层验证，不只是改 UI 代码
+- **prompt() 禁令（Rebuild R355 追加）**: Electron `contextIsolation: true` 下 `prompt()` 返回 `null`，静默失败。grep `prompt(` src/renderer/ → 必须是 0。所有用户输入场景用 inline input + state + Enter/Escape
+- **UI 代码正确 ≠ 功能正确（Rebuild R362/R363 追加）**: BlogCard 的标签渲染和阅读时间代码都存在且正确，但 `mapBlogRow` 缺 `content` 映射 → 输入数据为空。Auditor 报告 "X 功能不工作" 时，先 `console.log` 确认 renderer 收到的数据对象包含目标字段，再改 UI
+- **Spec 优先级标签不可忽略（Rebuild R357 追加）**: 开工前扫描 spec 中 "最高优先级"/"P0" 标记 → 确认对应代码文件有实现。不可出现 "标注为最高优先级但零实现" 的情况
+- **reducer 解构完整性（Rebuild R367 追加）**: Auditor 报告 `ReferenceError: X is not defined` → 检查 `const { ... } = state` 是否遗漏 JSX 中引用的字段。修复完 grep 确认所有 `value={xyz}` 中的 `xyz` 在解构或 useState 中声明

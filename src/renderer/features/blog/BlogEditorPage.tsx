@@ -146,7 +146,7 @@ export { editorReducer }; // exported for testing
 
 // ── Component ──
 
-export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'frameless' }) {
+export function BlogEditorPage({ variant, onSaved }: { variant?: 'full' | 'inline' | 'frameless'; onSaved?: () => void }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -431,6 +431,7 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
         } else {
           dispatch({ type: 'SET_DIRTY', payload: false });
           setRestoreDraft(null);
+          onSaved?.();
           // R284+R285: Trigger passive discovery + auto-tag after update
           const blogId = Number(id);
           searchSimilarDocs(blogId, 'blog', 5).catch(() => {});
@@ -870,7 +871,7 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
               type="button"
               onClick={async () => {
                 await handleSave();
-                navigate(`/blog/${id}`, { replace: true });
+                onSaved?.();
               }}
               className="rounded-[4px] px-3 py-1.5 text-[13px] font-medium hover:opacity-90"
               style={{ background: 'var(--accent-blue)', color: '#fff' }}
@@ -879,7 +880,7 @@ export function BlogEditorPage({ variant }: { variant?: 'full' | 'inline' | 'fra
             </button>
             <button
               type="button"
-              onClick={() => navigate(`/blog/${id}`, { replace: true })}
+              onClick={() => onSaved?.()}
               className="rounded-[4px] px-3 py-1.5 text-[13px] hover:opacity-80"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
             >

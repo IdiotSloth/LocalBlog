@@ -1,7 +1,7 @@
 # AGENTS.md — Local Blog KB
 
 > 面向 AI Agent 的工程上下文文档。供 Claude Code 等 AI 工具读取。
-> 最后更新：2026-05-21 | Phase 24 📋
+> 最后更新：2026-06-08 | Rebuild ✅ · 三轮 ✅ · prompt() 全仓库清零
 
 ---
 
@@ -61,7 +61,7 @@
 
 ## 数据库约束
 
-### 表结构 (12 张表)
+### 表结构 (17 张表)
 
 ```
 users ─┬─► blogs ─┬─► blog_tags ◄── tags
@@ -72,7 +72,9 @@ users ─┬─► blogs ─┬─► blog_tags ◄── tags
        ├─► sessions
        ├─► folders
        ├─► notes (memo_type: note|schedule|todo|daily)
-       └─► tags
+       ├─► bookmarks
+       ├─► whiteboards ─► whiteboard_nodes ─► whiteboard_edges
+       └─► settings
 ```
 
 ### 数据库 API 约束
@@ -292,7 +294,7 @@ Step 10 Boss 发布 (ship)               → Pre-Flight → 打包 → 验证 �
 ### 构建与部署
 14. **便携版 ASAR 28 bytes = 空 JSON = 崩溃** — 手动更新 ASAR 时验证每一步，不用 `2>/dev/null`
 15. **`build/icon.ico` 必须 < 50KB** — PNG→ICO 膨胀 >50KB 导致 Windows 标题栏图标裁切
-16. **`prompt()`/`alert()`/`confirm()` 在 Electron renderer 中被静默拦截** — 用 React 自定义 modal 替代。编码自检: `grep "prompt(\|alert(\|confirm(" src/renderer/` → 0
+16. **`prompt()`/`alert()`/`confirm()` 在 Electron renderer 中被静默拦截** — 用 React 自定义 modal 替代。编码自检: `grep "prompt(\|alert(\|confirm(" src/renderer/` → 0。**反复出现**: R325/R326/R334/R355/R375/R376 均为此模式 — Developer 写代码时默认 `prompt()` 可用，但 Electron `contextIsolation: true` 下返回 null。自查前必须 grep。**三轮 (2026-06-08) 已实现全仓库 prompt() 清零。**
 
 ### 环境
 17. **`Intl.Segmenter` 仅限浏览器** — 主进程 (Node.js) 不可用。搜索索引构建/查询全在 Renderer Worker
@@ -302,22 +304,34 @@ Step 10 Boss 发布 (ship)               → Pre-Flight → 打包 → 验证 �
 
 ---
 
-## 当前状态 (2026-05-21)
+## 当前状态 (2026-06-08)
 
 - **Phase 1-22**: ✅ 全部完成
-  - Phase 22 13/13: 知识活化 — HomePage 重构 / Obsidian 日历 / Blog↔KB 打通 / 被动发现 / AI 集成 / Transclusion / 标签页 / Bookmarks / Saved Search / 时间轴 / 更新管理 / 剪贴板 / 快捷便签
-  - Phase 21 12/12: 编辑器进化 + 知识连接 + 内容中枢
-- **当前活跃**: 
-  - Phase 23 📋 "精炼书房" (7 项 ~48h): 五套国风 / 博客卡片化 / 原地编辑 / 便签改造 / KB 重塑 / 导航重塑 / 白板
-  - Phase 24 📋 "羽化" (5 项 ~52h): 废弃 MySQL/Web Server / 清除 D3 / sqlite-wasm / The Orb 桌宠 / 遗留修复
-- **审查修复**: 累计 ~339 个工单 (R01-R339), ~126 个决策点 (D01-D126)。D120-D126 Boss 已裁决。
-- **当前待修复**: 🔴0 🟠1 (R338 bgImage 路径穿越 → T2405) 🟡1 (R339 KB 冲突 → T2405) 🟢Phase 23 spec gap → Phase 24+
+- **Phase 23**: ✅ "精炼书房" — 五套国风 / 博客卡片化 / 原地编辑 / 便签改造 / KB 重塑 / 导航重塑 / 白板
+- **Phase 24**: ⏭ T2406 Collapse 终止。ContextPanel 回滚保留。Stage B 取消。QuickNav 保留。
+- **Rebuild**: ✅ "全应用重建" (2026-06-04) — 推翻重建级
+  - 博客: BlogCard 卡片列表 / FloatingMenu 浮动菜单 / 原地编辑器 / Ctrl+S Toast / MD 标题命名 / 系列选择器恢复
+  - 便签: NoteCard (react-draggable 自由拖放) / 6 色纸底 / 剪贴板图片粘贴 / 级联删图
+  - 今日页: 日历大图 (420px+) / 待办并入日历 / 三色圆点 (蓝便签/橙待办/绿日程)
+  - 知识库: KBCard 素材卡片 / shell.openPath 系统打开 / 排序搜索
+  - 标签: 卡片网格 + 左侧色条
+  - 左侧栏: "Idiot" 文案 / 底部 24px 上移
+- **Rebuild 三轮**: ✅ "精修" (2026-06-08) — 轻量修复轮
+  - BlogCard tag 全部显示 + ×/＋ TagSelector 编辑 (复用已有 tag:set-blog IPC)
+  - 编辑器滚动位置保持 (scrollYRef) + Ctrl+S 返回阅读 (onSaved 回调)
+  - NoteCard 确定性颜色 (id%6) + Draggable 受控 position + 移除 transform 冲突
+  - KBCard tag ×/＋ 编辑 (复用已有 tag:set-file IPC) + shell.openPath 返回值检查
+  - SlashCommand + KB 重命名 prompt() → inline UI (全仓库 prompt() 清零)
+  - 13 个 guide .md 更新至 Rebuild 后 + SettingsPage HTTP MCP 移除
+- **审查修复**: 累计 ~376 个工单 (R01-R376), ~147 个决策点 (D01-D147)
+- **当前待修复**: 🔴0 🟠0 🟡0 🟢0 (三轮验收后全零)
 - **构建基线**: ✅ 测试 87/87 pass (12 files) | tsc 零错误 | build ✅
-- **类型安全**: `noUncheckedIndexedAccess` 永久启用。renderer `: any`=15 `as any`=25 (延 T2405 清零)
-- **架构数字**: IPC 139 · Service 18 · IPC files 19 · Server routes 13 (废弃中) · DB 12 表 · 前端路由 18 条
-- **已知缺口**: 国际化 i18n (否决 D18=C)；PDF 批注/OCR (延 Phase 25+)；E2E 加密 (否决 D89)
-- **Phase 24 后**: **2 周使用期** (Boss 亲自体验无 ContextPanel 的产品, 记录信息缺失, 决定 Phase 25 Entity Engine 具体范围)
-- **Phase 25 约束**: 只统一在 UI 行为层已自然收敛的对象, 不做"为统一而统一"的过早抽象
+- **类型安全**: `noUncheckedIndexedAccess` 永久启用
+- **架构数字**: IPC 139 · Service 18 · DB 17 表 · 前端路由 19 条 · 新依赖 react-draggable 4.6.0
+- **工作文件**: rebuild.md (优先级高于 todo.md)
+- **已知缺口**: 国际化 i18n (否决 D18=C)；E2E 加密 (否决 D89)；PDF 批注/OCR (延后)
+- **新组件**: BlogCard / FloatingMenu / NoteCard / KBCard / Toast / 便签剪贴板
+- **服务器**: Express Web Server + MySQL 已移除 (Phase 24 完成)
 
 ---
 
@@ -333,7 +347,7 @@ Step 10 Boss 发布 (ship)               → Pre-Flight → 打包 → 验证 �
 ### 第二层 — 告知 (Inform)
 
 必读文件 (按优先级):
-- **P0**: `AGENTS.md` (本文档) | `src/shared/types.ts` | `src/shared/ipc-channels.ts`
+- **P0**: `AGENTS.md` (本文档) | `rebuild.md` (当前工作文件) | `src/shared/types.ts` | `src/shared/ipc-channels.ts`
 - **P1**: `src/shared/constants.ts` | `todo.md` | `redo.md` | `STYLE.md` | `prompts/*.md` | `docs/workflow.md`
 - **P2**: `docs/phase-archive.md` | `docs/history-audit.md` | `docs/development-guide.md` | `package.json` | `src/main/db/schema.ts`
 - **P3**: `README.md`

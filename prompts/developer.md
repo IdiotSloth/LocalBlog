@@ -547,3 +547,21 @@ Electron 41 + React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + Zustand 5
 141. **unilateral persistence = 最高风险模式** — 只写不读、只积累不消费、只增长不清理的持久化路径是 Constitution violation。一旦 write path 存在但 read path 已死（如 orphan callback ref），是死代码但仍在污染 persistence boundary。识别标准：grep setItem/getItem → setItem 引用 > getItem 引用 → 警告。
 
 142. **corpse still breathing ≠ dead code** — 传统 dead code = 零引用、零执行。Corpse breathing = UI 已死、read path 已断、但 write path 仍在活跃执行（如 sessionStorage.setItem 每帧/每次 mount 触发）。检测方法：grep write path → grep read path → write 存在且 read 死 → Constitution violation，立即修复。
+
+### Rebuild Phase: 重建教训 (2026-06-04)
+
+143. **`prompt()` 在 Electron renderer 被静默拦截** — `contextIsolation: true` 下 `window.prompt()` 返回 `null`，不弹窗、不报错。新建便签/重命名/任何需要用户输入的场景，用 inline input + state + Enter/Escape 键盘处理。禁止在 renderer 代码中使用 `prompt()`/`alert()`/`confirm()`。自检: `grep "prompt(\|alert(\|confirm(" src/renderer/` → 0。
+
+144. **数据链完整性 = UI 字段 → Handler → IPC → Service → SQL → Mapper → Type** — R356 教训：系列选择器 UI 已写好、IPC `blogSeriesSet` 存在，但 `blogCreate`/`blogUpdate` 不传 `seriesId` → 选择无效。R362 教训：`mapBlogRow` 不映射 `content` 字段 → `SELECT b.*` 包含 content 但 TypeScript 类型没有 → 阅读时间永远为 1。新增任何字段时，逐层验证：① TypeScript interface 有该字段 ② mapper 函数映射了该字段 ③ SQL SELECT 包含该列 ④ IPC handler 接受并传递 ⑤ UI 调用时传入。
+
+145. **UI 代码正确 ≠ 功能正确** — R362+R363 教训：BlogCard 标签渲染代码存在、阅读时间计算逻辑正确，但数据层 `mapBlogRow` 缺 `content` 映射 → 输入数据为空 → 功能不工作。验证路径：先用 `console.log` 或 DevTools 确认 renderer 收到的数据对象包含目标字段，再排查 UI 代码。
+
+146. **Spec 中标"最高优先级"的功能不可零实现** — R357 教训：rebuild.md §4.3 标注"便签页最高优先级功能"（剪贴板图片粘贴），但首次实现时完全遗漏。开工前先扫一遍 spec 中的优先级标签，P0 标记的功能必须有对应的文件/代码/IPC 链路存在。
+
+147. **新路由要检查下游组件的 null 安全** — R365 教训：`/blog/new` 路由改为 `BlogPreviewPage` 后，`id` 为 `undefined`，但组件内 `blog.title`、`blog.content` 等直接访问 null 对象 → 白屏崩溃。新增路由或改变路由目标时，检查组件中所有 `obj.prop` 访问是否对 `null`/`undefined` 安全。
+
+148. **fixed 定位 + 动态内容 = 需要 overflow 分区** — R364 教训：FloatingMenu 的 5 个按钮 + 目录项共用一个容器，长博客目录项多 → 按钮被推出视口。固定定位的元素中，固定内容区（按钮）用 `flex-shrink: 0`，动态内容区（目录）用 `overflow-y: auto` + `max-height`。二者在同一 flex column 中分区。
+
+149. **reducer state 解构必须包含 JSX 中使用的所有字段** — R367 教训：`KnowledgeListPage` 从 reducer state 解构时遗漏 `sortBy`，JSX 中 `<select value={sortBy}>` 引用未声明变量 → `ReferenceError`。TypeScript 在某些模式（解构 + 隐式 any）下不报警。自检: `grep "value={[a-z]" component.tsx` → 确认每个引用的变量都在解构或 useState 中声明。
+
+150. **`mapXxxRow` 必须覆盖 `SELECT *` 的所有列** — R362 根因：`mapBlogRow` 映射了 12 个字段但遗漏了 `content`（blogs 表有 16 列）。每次修改 `mapXxxRow` 后，对照 schema.ts 确认：DB 列数 ≤ mapper 字段数。差值 = 丢失的数据。

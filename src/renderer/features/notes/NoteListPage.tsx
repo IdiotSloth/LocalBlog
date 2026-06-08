@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Draggable, { type DraggableData, type DraggableEvent } from 'react-draggable';
 import type { Note } from '../../../shared/types';
 import { useToast } from '../../components/common/Toast';
-import { NoteCard, randomNoteColor } from '../../components/notes/NoteCard';
+import { NoteCard } from '../../components/notes/NoteCard';
 import { useAuthStore } from '../../stores/auth-store';
 import { Clipboard, Trash2 } from 'lucide-react';
 
@@ -301,7 +301,10 @@ export function NoteListPage() {
             return (
               <Draggable
                 key={note.id}
-                defaultPosition={pos}
+                position={pos}
+                onDrag={(_e, data) => {
+                  setPositions(prev => ({ ...prev, [note.id]: { x: data.x, y: data.y } }));
+                }}
                 onStop={(e, data) => handleDragStop(note.id, e, data)}
                 bounds="parent"
                 cancel=".note-actions"
